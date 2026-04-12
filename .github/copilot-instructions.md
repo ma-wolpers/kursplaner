@@ -19,6 +19,7 @@ Pflichtregeln:
 4. Architektur-Doku pflegen
 - Bei Architektur-Schnitten `docs/ARCHITEKTUR_KERN.md` aktualisieren.
 - `docs/ARCHITEKTUR_UMSETZUNGSPLAN.md` nur mit offener Arbeit fuehren.
+- Bei Feature- und Architektur-Aenderungen immer `docs/DEVELOPMENT_LOG.md` im selben Zyklus aktualisieren.
 
 5. Guardrails sind bindend
 - `tools/ci/check_ai_guardrails.py` muss lokal und in CI bestehen.

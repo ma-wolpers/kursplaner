@@ -187,6 +187,11 @@ Pflichtfeld im Stunden-YAML: `Stundentyp` mit einem der Werte `Unterricht`, `LZK
 Verbindliche Dokumentation und Aenderungs-Checkliste:
 
 - `docs/EINHEITENDATEIEN_SCHEMA_GOVERNANCE.md`
+- `docs/ARCHITEKTUR_KERN.md` (stabiler Ist-Zustand der Architektur)
+- `docs/ARCHITEKTUR_UMSETZUNGSPLAN.md` (nur offene Architekturarbeit)
+- `docs/DEVELOPMENT_LOG.md` (Verlauf von Feature-/Architekturaenderungen)
+- `CHANGELOG.md` (oeffentliche, nutzerorientierte Aenderungen)
+- `docs/COPILOT_WORKFLOW.md` (Prompt- und Review-Standard fuer Copilot)
 
 Single Source of Truth im Code:
 

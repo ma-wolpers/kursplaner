@@ -915,11 +915,17 @@ Für jede Architektur-relevante Änderung gilt:
 
 1. Codeänderung und Dokuänderung sind ein gemeinsames Deliverable.
 2. Bei Änderungen am Zuschnitt/Flow/Schichtverhalten muss im selben Arbeitszyklus mindestens aktualisiert werden:
-	- `docs/ARCHITEKTUR_UMSETZUNGSPLAN.md` (Ist-Stand, Phase, Restarbeit),
+	- `docs/DEVELOPMENT_LOG.md` (durchgeführte Änderung, Datum, Scope),
 	- `docs/ARCHITEKTUR_KERN.md` (nur wenn Regeln/Leitplanken geändert oder präzisiert wurden).
 3. Ein PR/Arbeitsstand ohne passenden Doku-Stand gilt architektonisch als nicht done.
 4. Doku-Änderungen müssen den Zustand prüfbar machen (Datum, betroffener Baustein, kurzer Status).
 5. **Immer-Update-Regel:** Änderungen am Architekturzuschnitt werden nie gesammelt „später" dokumentiert, sondern sofort im gleichen Arbeitszyklus.
+
+Dokumentrollen (verbindlich):
+
+- `docs/ARCHITEKTUR_KERN.md`: stabiler Ist-Zustand und dauerhafte Architekturregeln.
+- `docs/ARCHITEKTUR_UMSETZUNGSPLAN.md`: nur offene Arbeit, keine Historie.
+- `docs/DEVELOPMENT_LOG.md`: Verlauf und abgeschlossene Feature-/Architektur-Aenderungen.
 
 ## 27) Standard für Format-/Serialisierungslogik (bindend)
 

@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GUARDRAIL_RELEVANT_PATHS = {
     "AGENTS.md",
     ".github/copilot-instructions.md",
+    "docs/DEVELOPMENT_LOG.md",
     "docs/ARCHITEKTUR_KERN.md",
     "docs/ARCHITEKTUR_UMSETZUNGSPLAN.md",
     "kursplaner/adapters/gui/main_window.py",
@@ -237,6 +238,28 @@ def _check_required_docstrings(errors: list[str]) -> None:
                 errors.append(f"{rel_path}:{node.lineno} function '{node.name}' missing docstring")
 
 
+def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
+    """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
+    normalized = {path.replace("\\", "/") for path in staged}
+    if not normalized:
+        return
+
+    log_touched = "docs/DEVELOPMENT_LOG.md" in normalized
+
+    requires_log = any(
+        path.startswith("kursplaner/core/")
+        or path.startswith("kursplaner/adapters/")
+        or path.startswith("kursplaner/infrastructure/")
+        or path == "docs/ARCHITEKTUR_KERN.md"
+        for path in normalized
+    )
+
+    if requires_log and not log_touched:
+        errors.append(
+            "docs/DEVELOPMENT_LOG.md missing update: relevant feature/architecture changes require a same-cycle log entry"
+        )
+
+
 def main() -> int:
     """Führt robuste Guardrail-Checks aus und gibt einen CI-kompatiblen Exitcode zurück."""
     repo_root = _repo_root()
@@ -254,6 +277,7 @@ def main() -> int:
     _check_main_window_intent_delegation(errors)
     _check_lesson_index_observability(errors)
     _check_required_docstrings(errors)
+    _check_development_log_updated(staged, errors)
 
     # Doku must keep architecture orientation + open-work-only plan wording.
     arch_core = _read("docs/ARCHITEKTUR_KERN.md")

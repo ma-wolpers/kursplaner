@@ -20,6 +20,7 @@ Verbindliche Regeln:
 3. Doku-Pflicht
 - Bei Architektur-Schnitten muss `docs/ARCHITEKTUR_KERN.md` angepasst werden.
 - `docs/ARCHITEKTUR_UMSETZUNGSPLAN.md` enthaelt nur offene Arbeit.
+- Feature- und Architektur-Aenderungen muessen im selben Zyklus in `docs/DEVELOPMENT_LOG.md` protokolliert werden.
 
 4. Automatische Gates
 - Lokaler Hook und CI pruefen die Guardrails ueber `tools/ci/check_ai_guardrails.py`.
