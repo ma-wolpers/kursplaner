@@ -1,0 +1,230 @@
+[
+  {
+    "key_sequence": "<Control-n>",
+    "display_shortcut": "Strg+N",
+    "action_label": "Neue Einheit",
+    "intent": "toolbar.new",
+    "mnemonic": "N = Neu",
+    "didactic_hint": "N ist der Startbuchstabe von Neu und in vielen Programmen ein Standard."
+  },
+  {
+    "key_sequence": "<Control-r>",
+    "display_shortcut": "Strg+R",
+    "action_label": "Übersicht neu laden",
+    "intent": "toolbar.refresh",
+    "mnemonic": "R = Reload",
+    "didactic_hint": "R hilft als Merkanker für Auffrischen oder Neu laden."
+  },
+  {
+    "key_sequence": "<Control-p>",
+    "display_shortcut": "Strg+P",
+    "action_label": "Exportieren als...",
+    "intent": "toolbar.export_as",
+    "from_shortcut": true,
+    "mnemonic": "P = Print",
+    "didactic_hint": "P passt als Merkanker für Drucken/Export und bleibt ohne Shift-Kombination."
+  },
+  {
+    "key_sequence": "<Control-z>",
+    "display_shortcut": "Strg+Z",
+    "action_label": "Rückgängig (Plan)",
+    "intent": "toolbar.undo",
+    "mnemonic": "Z = Zurück",
+    "didactic_hint": "Gilt für Planaktionen; in Textfeldern bleibt das lokale Text-Undo aktiv."
+  },
+  {
+    "key_sequence": "<Control-y>",
+    "display_shortcut": "Strg+Y",
+    "action_label": "Wiederholen (Plan)",
+    "intent": "toolbar.redo",
+    "mnemonic": "Y = Wieder herstellen",
+    "didactic_hint": "Gilt für Planaktionen; in Textfeldern bleibt das lokale Text-Redo aktiv."
+  },
+  {
+    "key_sequence": "<Control-e>",
+    "display_shortcut": "Strg+E",
+    "action_label": "Bis Ferien erweitern",
+    "intent": "toolbar.extend_to_vacation",
+    "from_shortcut": true,
+    "mnemonic": "E = Erweitern",
+    "didactic_hint": "E markiert den Schritt, den Plan über den aktuellen Stand hinaus zu verlängern."
+  },
+  {
+    "key_sequence": "<Control-u>",
+    "display_shortcut": "Strg+U",
+    "action_label": "Als Unterricht markieren",
+    "intent": "toolbar.plan",
+    "from_shortcut": true,
+    "mnemonic": "U = Unterricht",
+    "didactic_hint": "U passt direkt zum Modus Unterricht und ist daher leicht abrufbar."
+  },
+  {
+    "key_sequence": "<Control-q>",
+    "display_shortcut": "Strg+Q",
+    "action_label": "Als Ausfall markieren",
+    "intent": "toolbar.ausfall",
+    "from_shortcut": true,
+    "mnemonic": "Q = Querstrich im Ablauf",
+    "didactic_hint": "Q kann als gedanklicher Bruch im regulären Verlauf erinnert werden."
+  },
+  {
+    "key_sequence": "<Control-o>",
+    "display_shortcut": "Strg+O",
+    "action_label": "Als Hospitation markieren",
+    "intent": "toolbar.hospitation",
+    "from_shortcut": true,
+    "mnemonic": "O = hOspitation",
+    "didactic_hint": "Der markante Buchstabe O in Hospitation dient als schnelle Eselsbrücke."
+  },
+  {
+    "key_sequence": "<Control-k>",
+    "display_shortcut": "Strg+K",
+    "action_label": "Als LZK markieren / LZK-KH exportieren",
+    "intent": "toolbar.lzk",
+    "from_shortcut": true,
+    "mnemonic": "K = LeistungsKontrolle",
+    "didactic_hint": "K steht für den Kernbegriff Kontrolle in Leistungskontrolle."
+  },
+  {
+    "key_sequence": "<Control-g>",
+    "display_shortcut": "Strg+G",
+    "action_label": "Markdown verknüpfen",
+    "intent": "toolbar.find",
+    "from_shortcut": true,
+    "mnemonic": "G = Gehe zu Datei",
+    "didactic_hint": "G erinnert an Gehe-zu-Aktionen und passt zum Suchen/Verknüpfen."
+  },
+  {
+    "key_sequence": "<Control-j>",
+    "display_shortcut": "Strg+J",
+    "action_label": "Einheit umbenennen",
+    "intent": "toolbar.rename",
+    "from_shortcut": true,
+    "mnemonic": "J = Justieren",
+    "didactic_hint": "J dient als kollisionsfreier Merkanker für Umbenennen und bleibt eine reine Strg-Kombination."
+  },
+  {
+    "key_sequence": "<Control-Shift-U>",
+    "display_shortcut": "Strg+Shift+U",
+    "action_label": "UB-Übersicht anzeigen",
+    "intent": "detail.show_ub_achievements",
+    "mnemonic": "U = Unterrichtsbesuch",
+    "didactic_hint": "Das zusätzliche Shift trennt die Übersicht von der reinen Unterrichtsmarkierung."
+  },
+  {
+    "key_sequence": "<Control-Delete>",
+    "display_shortcut": "Strg+Entf",
+    "action_label": "Einheit leeren (Spaltenauswahl)",
+    "intent": "toolbar.clear",
+    "from_shortcut": true,
+    "mnemonic": "Entf = entfernen",
+    "didactic_hint": "Wirkt nur im Spaltenauswahlmodus und nicht in Textfeldern."
+  },
+  {
+    "key_sequence": "<Control-t>",
+    "display_shortcut": "Strg+T",
+    "action_label": "Einheit aufsplitten",
+    "intent": "toolbar.split",
+    "from_shortcut": true,
+    "mnemonic": "T = Teilen",
+    "didactic_hint": "T verweist auf Teilen und unterstützt das Merken des Split-Schritts."
+  },
+  {
+    "key_sequence": "<Control-m>",
+    "display_shortcut": "Strg+M",
+    "action_label": "Einheiten zusammenführen",
+    "intent": "toolbar.merge",
+    "from_shortcut": true,
+    "mnemonic": "M = Merge",
+    "didactic_hint": "M passt als klarer Startbuchstabe für Zusammenführen."
+  },
+  {
+    "key_sequence": "<Control-b>",
+    "display_shortcut": "Strg+B",
+    "action_label": "Kontextaktion: UB markieren / Ausfall zurücknehmen",
+    "intent": "detail.toggle_resume_or_ub",
+    "from_shortcut": true,
+    "mnemonic": "B = Beides",
+    "didactic_hint": "B ruft die passende Kontextaktion auf: bei Ausfall zurück, sonst UB markieren."
+  },
+  {
+    "key_sequence": "<Control-Left>",
+    "display_shortcut": "Strg+Links",
+    "action_label": "Spalte nach links verschieben",
+    "intent": "toolbar.move_columns",
+    "from_shortcut": true,
+    "payload": {
+      "direction": -1
+    },
+    "mnemonic": "Links = nach links",
+    "didactic_hint": "Die Pfeilrichtung entspricht exakt der Verschieberichtung."
+  },
+  {
+    "key_sequence": "<Control-Right>",
+    "display_shortcut": "Strg+Rechts",
+    "action_label": "Spalte nach rechts verschieben",
+    "intent": "toolbar.move_columns",
+    "from_shortcut": true,
+    "payload": {
+      "direction": 1
+    },
+    "mnemonic": "Rechts = nach rechts",
+    "didactic_hint": "Die Pfeilrichtung entspricht exakt der Verschieberichtung."
+  },
+  {
+    "key_sequence": "<Control-c>",
+    "display_shortcut": "Strg+C",
+    "action_label": "Kopieren (Spalte/Zelle)",
+    "intent": "shortcut.copy",
+    "mnemonic": "C = Copy",
+    "didactic_hint": "Wirkt in der Spaltenauswahl auf die ganze Einheit und in der Zellauswahl auf die ganze Zelle; in Textfeldern bleibt normales Kopieren aktiv."
+  },
+  {
+    "key_sequence": "<Control-x>",
+    "display_shortcut": "Strg+X",
+    "action_label": "Ausschneiden (Zellauswahl)",
+    "intent": "shortcut.cut",
+    "mnemonic": "X = Cut",
+    "didactic_hint": "Wirkt nur in der Zellauswahl: kopiert die ganze Zelle in die Zwischenablage und leert sie danach; in Textfeldern bleibt normales Ausschneiden aktiv."
+  },
+  {
+    "key_sequence": "<Control-v>",
+    "display_shortcut": "Strg+V",
+    "action_label": "Einfügen (Spalte/Zelle)",
+    "intent": "shortcut.paste",
+    "mnemonic": "V = Einfügen",
+    "didactic_hint": "Wirkt in der Spaltenauswahl auf die ganze Einheit und in der Zellauswahl als komplettes Ersetzen der markierten Zelle; in Textfeldern bleibt normales Einfügen aktiv."
+  },
+  {
+    "key_sequence": "<Control-Down>",
+    "display_shortcut": "Strg+Runter",
+    "action_label": "Aktuelle Zeile aufklappen (Zellauswahl)",
+    "intent": "shortcut.expand_selected_row",
+    "mnemonic": "Runter = aufklappen",
+    "didactic_hint": "Wirkt nur im Zellenmarkiermodus auf die aktuell markierte Zeile; in Textfeldern bleibt das lokale Verhalten aktiv."
+  },
+  {
+    "key_sequence": "<Control-Up>",
+    "display_shortcut": "Strg+Hoch",
+    "action_label": "Aktuelle Zeile zuklappen (Zellauswahl)",
+    "intent": "shortcut.collapse_selected_row",
+    "mnemonic": "Hoch = zuklappen",
+    "didactic_hint": "Wirkt nur im Zellenmarkiermodus auf die aktuell markierte Zeile; in Textfeldern bleibt das lokale Verhalten aktiv."
+  },
+  {
+    "key_sequence": "<Control-h>",
+    "display_shortcut": "Strg+H",
+    "action_label": "Shortcut-Übersicht öffnen",
+    "intent": "detail.show_shortcut_overview",
+    "mnemonic": "H = Hilfe",
+    "didactic_hint": "H macht die Übersicht als Hilfefunktion leicht merkbar."
+  },
+  {
+    "key_sequence": "<Control-l>",
+    "display_shortcut": "Strg+L",
+    "action_label": "Spaltenarten anzeigen/verstecken",
+    "intent": "detail.open_column_visibility_settings",
+    "mnemonic": "L = Layout",
+    "didactic_hint": "L passt als Merkanker für die Layout-Ansicht der Spaltenarten."
+  }
+]

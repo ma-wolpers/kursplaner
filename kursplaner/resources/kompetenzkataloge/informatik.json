@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "profile_id": "inf-sek1",
+      "profile_label": "Informatik Sek I (5-10)",
+      "subject_code": "INF",
+      "grade_min": 5,
+      "grade_max": 10,
+      "process_sections": [
+        {
+          "title": "Strukturieren und Modellieren",
+          "competencies": [
+            "P 1.1 zerlegen Problemstellungen in geeignete Teilprobleme",
+            "P 1.2 beschreiben und strukturieren Handlungsabläufe",
+            "P 1.3 strukturieren Daten im Kontext einer gegebenen Problemstellung",
+            "P 1.4 analysieren und beurteilen ein Modell nach vorgegebenen Kriterien",
+            "P 1.5 entwickeln Modelle und stellen diese dar"
+          ]
+        },
+        {
+          "title": "Implementieren",
+          "competencies": [
+            "P 2.1 verwenden bei der Implementierung geeignete Entwicklungsumgebungen",
+            "P 2.2 setzen ihre Problemlösungen in ausführbare Prozesse um",
+            "P 2.3 reflektieren ihre Vorgehensweise bei der Implementierung",
+            "P 2.4 untersuchen gegebene Implementierungen"
+          ]
+        },
+        {
+          "title": "Kommunizieren und Darstellen",
+          "competencies": [
+            "P 3.1 kommunizieren unter Verwendung der Fachsprache über informatische Inhalte und stellen diese sachgerecht dar",
+            "P 3.2 stellen ihre Lösungsansätze und Lösungen mithilfe etablierter Diagrammtypen und Darstellungsformen dar",
+            "P 3.3 dokumentieren Ablauf und Ergebnisse ihrer Arbeit",
+            "P 3.4 präsentieren ihre Ergebnisse mithilfe geeigneter (Software-)Werkzeuge"
+          ]
+        },
+        {
+          "title": "Begründen und Bewerten",
+          "competencies": [
+            "P 4.1 überprüfen, ob ein vorliegendes Verfahren ein Problem löst",
+            "P 4.2 vergleichen unterschiedliche Lösungsansätze und nennen Vor- und Nachteile",
+            "P 4.3 begründen Zusammenhänge im Kontext der Informatik",
+            "P 4.4 bewerten die Bedeutung eines Informatiksystems für das Individuum und die Gesellschaft"
+          ]
+        },
+        {
+          "title": "Informatiksysteme als Werkzeuge nutzen",
+          "competencies": [
+            "P 5.1 setzen bei der Problemlösung unterstützende Hard- und Softwarewerkzeuge ein",
+            "P 5.2 wählen geeignete Werkzeuge unter Berücksichtigung ihrer Vor- und Nachteile zur Problemlösung aus",
+            "P 5.3 übertragen ihr grundlegendes Wissen über Informatiksysteme auf die Nutzung ihnen fremder Werkzeuge",
+            "P 5.4 wenden für die Recherche, Kommunikation und Kooperation geeignete Werkzeuge an"
+          ]
+        }
+      ],
+      "content_sections": [
+        {
+          "title": "Informationen und ihre Darstellung",
+          "competencies": [
+            "I 1.1 zwischen Informationen und ihrer Repräsentation durch Daten unterscheiden",
+            "I 1.2 geeignete Dateiformate je nach Anwendung, Qualität und Dateigröße auswählen",
+            "I 1.3 Daten mithilfe geeigneter Werkzeuge organisieren und strukturieren",
+            "I 1.4 geeignete Darstellungsformen für Daten im Kontext einer konkreten Problemstellung auswählen"
+          ]
+        },
+        {
+          "title": "Algorithmen",
+          "competencies": [
+            "I 2.1 einen gegebenen Algorithmus interpretieren und ausführen",
+            "I 2.2 Algorithmen entwerfen und geeignet darstellen",
+            "I 2.3 die Korrektheit eines Algorithmus systematisch testen"
+          ]
+        },
+        {
+          "title": "Informatiksysteme",
+          "competencies": [
+            "I 3.1 die Funktionsweise von Informatiksystemen und ihren Komponenten beschreiben",
+            "I 3.2 Informatiksysteme konstruieren",
+            "I 3.3 die Struktur von vernetzten Systemen beschreiben",
+            "I 3.4 sich die Funktionsweise ausgewählter Informatiksysteme erschließen"
+          ]
+        },
+        {
+          "title": "Informatik und Gesellschaft",
+          "competencies": [
+            "I 4.1 die Auswirkungen des Einsatzes von Informatiksystemen auf die Gesellschaft beschreiben",
+            "I 4.2 die Interessen, die bei der Ausgestaltung von Informatiksystemen eine Rolle spielen, benennen",
+            "I 4.3 die Chancen und Risiken vernetzter Systeme benennen",
+            "I 4.4 wesentliche Aspekte des Datenschutzes erläutern",
+            "I 4.5 die Grundzüge des Urheberrechts benennen"
+          ]
+        }
+      ]
+    },
+    {
+      "profile_id": "inf-sek2",
+      "profile_label": "Informatik Sek II (11-13)",
+      "subject_code": "INF",
+      "grade_min": 11,
+      "grade_max": 13,
+      "process_sections": [
+        {
+          "title": "Strukturieren und Modellieren",
+          "competencies": [
+            "PK1.1 beschreiben und strukturieren Handlungsabläufe.",
+            "PK1.2 zerlegen Problemstellungen in geeignete Teilprobleme.",
+            "PK1.3 verwenden gegebene Modelle bei der Problemlösung.",
+            "PK1.4 analysieren und beurteilen Modelle nach vorgegebenen oder selbst gewählten Kriterien.",
+            "PK1.5 entwickeln Modelle für eine Problemstellung und stellen diese dar."
+          ]
+        },
+        {
+          "title": "Algorithmisieren und Implementieren",
+          "competencies": [
+            "PK2.1 entwerfen Algorithmen und stellen diese in standardisierter Form dar.",
+            "PK2.2 setzen ihre Problemlösungen in ausführbare Prozesse um.",
+            "PK2.3 analysieren, erläutern und vergleichen Problemlösungen und deren Implementierung.",
+            "PK2.4 reflektieren ihr Vorgehen bei der Problemlösung und Implementierung."
+          ]
+        },
+        {
+          "title": "Kooperieren und Kommunizieren",
+          "competencies": [
+            "PK3.1 kommunizieren unter Verwendung der Fachsprache über informatische Inhalte und stellen diese sachgerecht dar.",
+            "PK3.2 dokumentieren ihre Lösungsansätze und Lösungen mithilfe geeigneter Darstellungsformen.",
+            "PK3.3 begründen Zusammenhänge im Kontext der Informatik.",
+            "PK3.4 organisieren, dokumentieren und reflektieren die gemeinsame Arbeit im Team."
+          ]
+        },
+        {
+          "title": "Kreatives Schaffen und Problemlösen",
+          "competencies": [
+            "PK4.1 erweitern gegebene Programme, Algorithmen und Modelle um eigene zusätzliche Funktionalitäten.",
+            "PK4.2 finden und erläutern Problemstellungen, die mit Hilfe informatischer Kompetenzen gelöst werden können.",
+            "PK4.3 geben unterschiedliche Lösungswege für ein selbst gestelltes oder gegebenes Problem an und entscheiden sich begründet für einen Weg.",
+            "PK4.4 erfinden Produkte oder Verfahren, indem sie informatische Konzepte, Strategien und Methoden in eigenständigen Wegen kombinieren."
+          ]
+        }
+      ],
+      "content_sections": [
+        {
+          "title": "Daten und ihre Strukturierung",
+          "competencies": [
+            "IK1.1 eine für die Problemstellung geeignete Codierung auswählen.",
+            "IK1.2 Prinzipien eines Variablenkonzepts verwenden.",
+            "IK1.3 Daten mithilfe geeigneter Datenstrukturen organisieren.",
+            "IK1.4 Daten unter Verwendung des objektorientierten Modells speichern und verarbeiten.",
+            "IK1.5 Daten mithilfe des relationalen Modells strukturieren."
+          ]
+        },
+        {
+          "title": "Operationen auf Daten und Algorithmen",
+          "competencies": [
+            "IK2.1 die algorithmischen Grundbausteine bei der Entwicklung eines Algorithmus verwenden.",
+            "IK2.2 grundlegende algorithmische Vorgehensweisen im Rahmen eigener Problemlösungen verwenden.",
+            "IK2.3 Algorithmen zur Transformation von Codierungen entwickeln und verwenden.",
+            "IK2.4 eine Abfragesprache zum Filtern von Informationen verwenden."
+          ]
+        },
+        {
+          "title": "Informatiksysteme und ihre zugrundeliegenden Modelle",
+          "competencies": [
+            "IK3.1 die Funktionsweise von Informatiksystemen mithilfe von Maschinenmodellen erläutern.",
+            "IK3.2 Teile von Informatiksystemen rekonstruieren und entwerfen.",
+            "IK3.3 den Aufbau vernetzter Systeme analysieren und rekonstruieren.",
+            "IK3.4 formale Sprachen für die Kommunikation mit und zwischen Informatiksystemen verwenden und entwerfen."
+          ]
+        },
+        {
+          "title": "Möglichkeiten und Grenzen informatischer Verfahren und Systeme",
+          "competencies": [
+            "IK4.1 die Chancen und Risiken des Einsatzes von Informatiksystemen auf die Gesellschaft und auf das Individuum reflektieren.",
+            "IK4.2 wesentliche Aspekte des Datenschutzes diskutieren.",
+            "IK4.3 Grenzen des Problemlösens mit Informatiksystemen untersuchen und beurteilen."
+          ]
+        }
+      ]
+    }
+  ]
+}

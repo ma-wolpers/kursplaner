@@ -1,0 +1,24 @@
+name: Check Infra Imports
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    branches: ["main", "master", "develop"]
+
+jobs:
+  forbid-infra-imports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Run infra import check
+        run: |
+          python tools/ci/check_infra_imports.py
+
+      - name: Run AI guardrail check
+        run: |
+          python tools/ci/check_ai_guardrails.py

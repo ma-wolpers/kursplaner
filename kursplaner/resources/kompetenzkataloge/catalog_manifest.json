@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "profile_id": "inf-sek1",
+      "profile_label": "Informatik Sek I (5-10)",
+      "subject_code": "INF",
+      "grade_min": 5,
+      "grade_max": 10,
+      "file": "informatik.json"
+    },
+    {
+      "profile_id": "inf-sek2",
+      "profile_label": "Informatik Sek II (11-13)",
+      "subject_code": "INF",
+      "grade_min": 11,
+      "grade_max": 13,
+      "file": "informatik.json"
+    }
+  ]
+}

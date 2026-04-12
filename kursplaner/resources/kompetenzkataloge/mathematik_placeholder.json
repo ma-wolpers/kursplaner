@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "profile_id": "mathe-placeholder",
+  "profile_label": "Mathematik (geplant)",
+  "subject_code": "MAT",
+  "grade_min": 1,
+  "grade_max": 13,
+  "process_competencies": [],
+  "content_competencies": []
+}

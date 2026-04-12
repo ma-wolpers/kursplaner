@@ -1,0 +1,59 @@
+﻿name: Quality Checks
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    branches: ["main", "master", "develop"]
+
+jobs:
+  lint-type-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -r requirements.txt
+
+      - name: Run ruff
+        run: |
+          ruff check \
+            tools/ci/check_ai_guardrails.py \
+            kursplaner/core/ports/repositories.py \
+            kursplaner/core/usecases/rebuild_lesson_index_usecase.py \
+            kursplaner/core/usecases/invalidate_lesson_index_usecase.py \
+            kursplaner/infrastructure/repositories/lesson_index_repository.py \
+            kursplaner/adapters/gui/main_window.py \
+            kursplaner/adapters/gui/screen_builder.py \
+            kursplaner/adapters/gui/action_controller.py \
+            kursplaner/adapters/gui/grid_renderer.py \
+            tests
+
+      - name: Run mypy
+        run: |
+          mypy \
+            kursplaner/core/ports/repositories.py \
+            kursplaner/core/usecases/rebuild_lesson_index_usecase.py \
+            kursplaner/core/usecases/invalidate_lesson_index_usecase.py \
+            kursplaner/infrastructure/repositories/lesson_index_repository.py
+
+      - name: Run pytest
+        run: pytest -q
+
+      - name: Run AI guardrail check
+        run: python tools/ci/check_ai_guardrails.py
+
+      - name: Run Einheiten schema consistency check
+        shell: pwsh
+        run: |
+          ./tools/ci/check_einheiten_schema_consistency.ps1
+
