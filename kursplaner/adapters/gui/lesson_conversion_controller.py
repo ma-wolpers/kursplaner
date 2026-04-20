@@ -380,13 +380,10 @@ class MainWindowLessonConversionController:
             return
 
         next_no = self.app._next_lzk_number()
-        fach = self.app._parse_subject_token()
-        gruppe = self.app._parse_group_token()
-        halbjahr = self.app._parse_halfyear_token()
 
         day = self.app.day_columns[selected_index]
         row_index = self.app._to_int(day.get("row_index", 0), 0)
-        title = f"LZK {fach} {gruppe} {halbjahr} {next_no}"
+        title = self.convert_to_lzk.build_lzk_title(self.app.current_table, next_no)
         current_content = str(day.get("inhalt", "")).strip()
         existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
         default_hours = int(str(day.get("stunden", "")).strip()) if str(day.get("stunden", "")).strip().isdigit() else 2

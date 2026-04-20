@@ -44,6 +44,7 @@ class RowDisplayModeUseCase:
     AUSFALL_ROWS: tuple[RowDef, ...] = (("Vertretungsmaterial", "Welches Vertretungsmaterial"),)
 
     HOSPITATION_ROWS: tuple[RowDef, ...] = (
+        ("Stundenthema", "Welches Stundenthema"),
         ("Beobachtungsschwerpunkte", "Welche Beobachtungsschwerpunkte"),
         ("Ressourcen", "Welche Ressourcen"),
         ("Baustellen", "Welche Baustellen"),

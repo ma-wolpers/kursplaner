@@ -19,3 +19,12 @@ def test_unterricht_mode_places_teilziele_after_stundenziel_and_treats_as_list()
     assert "Teilziele" in keys
     assert keys.index("Teilziele") == keys.index("Stundenziel") + 1
     assert "Teilziele" in usecase.list_like_fields()
+
+
+def test_hospitation_mode_contains_stundenthema_row():
+    usecase = RowDisplayModeUseCase()
+
+    row_defs = usecase.row_defs_for_mode(usecase.MODE_HOSPITATION)
+    keys = [field for field, _ in row_defs]
+
+    assert "Stundenthema" in keys

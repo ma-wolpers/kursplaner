@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.course_subject import short_subject_for_course_subject
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import PlanRepository
@@ -162,7 +163,8 @@ class ConvertToLzkUseCase:
     @staticmethod
     def build_lzk_title(table: PlanTableData, next_no: int) -> str:
         """Erzeugt den fachlichen LZK-Titel aus Planmetadaten und laufender Nummer."""
-        subject = sanitize_hour_title(str(table.metadata.get("Kursfach", "Fach"))) or "Fach"
+        course_subject = str(table.metadata.get("Kursfach", "")).strip()
+        subject = short_subject_for_course_subject(course_subject)
 
         group = strip_wiki_link(str(table.metadata.get("Lerngruppe", "gruppe")))
         group = sanitize_hour_title(group) or "gruppe"

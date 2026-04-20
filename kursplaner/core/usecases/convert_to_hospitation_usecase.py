@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.content_markers import build_hospitation_marker
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
@@ -61,9 +60,6 @@ class ConvertToHospitationUseCase:
         allow_plan_save: bool,
     ) -> ConvertToHospitationWriteResult:
         """Führt den vollständigen Hospitations-Write-Flow aus."""
-        group_name = self._group_name(table)
-        marker = build_hospitation_marker(group_name=group_name, note_text=focus_text)
-
         link = self.lesson_transfer.resolve_existing_link(table, row_index)
         if not (isinstance(link, Path) and link.exists() and link.is_file()):
             if not allow_create_link:
@@ -71,7 +67,7 @@ class ConvertToHospitationUseCase:
                     proceed=False,
                     error_message="Hospitations-Stunden-Datei wurde nicht angelegt.",
                 )
-            topic = f"Hospitation {group_name}"
+            topic = "Hospitation"
             link = self.lesson_commands.create_regular_lesson_link(table, row_index, topic, max(1, int(default_hours)))
 
         if not isinstance(link, Path):
@@ -81,7 +77,7 @@ class ConvertToHospitationUseCase:
             )
 
         idx_inhalt = self._header_index(table, "inhalt")
-        table.rows[row_index][idx_inhalt] = f"{marker} {build_wiki_link(link.stem)}"
+        table.rows[row_index][idx_inhalt] = build_wiki_link(link.stem)
 
         if not allow_yaml_save:
             return ConvertToHospitationWriteResult(
@@ -96,7 +92,7 @@ class ConvertToHospitationUseCase:
             lesson.data = data
 
         if not str(data.get("Stundenthema", "")).strip():
-            data["Stundenthema"] = f"Hospitation {group_name}"
+            data["Stundenthema"] = "Hospitation"
         data["Stundentyp"] = "Hospitation"
         data["Beobachtungsschwerpunkte"] = str(focus_text or "").strip()
         data.setdefault("Ressourcen", [])
