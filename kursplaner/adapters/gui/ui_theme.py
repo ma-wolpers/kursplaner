@@ -983,6 +983,56 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None):
         darkcolor=theme["bg_surface"],
         arrowcolor=theme["fg_primary"],
     )
+    scroll_bg = theme.get("panel_strong", theme.get("bg_panel", theme["bg_surface"]))
+    scroll_active_bg = theme.get("accent_soft", theme.get("bg_panel", theme["bg_surface"]))
+    scroll_trough = theme.get("bg_surface", theme.get("bg_panel", theme["bg_main"]))
+
+    style.configure(
+        "TScrollbar",
+        troughcolor=scroll_trough,
+        background=scroll_bg,
+        arrowcolor=theme["fg_primary"],
+        bordercolor=button_border,
+        lightcolor=button_border,
+        darkcolor=button_border,
+        gripcount=0,
+    )
+    style.map(
+        "TScrollbar",
+        background=[("active", scroll_active_bg), ("pressed", scroll_active_bg)],
+        arrowcolor=[("disabled", disabled_fg)],
+    )
+    style.configure(
+        "Horizontal.TScrollbar",
+        troughcolor=scroll_trough,
+        background=scroll_bg,
+        arrowcolor=theme["fg_primary"],
+        bordercolor=button_border,
+        lightcolor=button_border,
+        darkcolor=button_border,
+        gripcount=0,
+    )
+    style.map(
+        "Horizontal.TScrollbar",
+        background=[("active", scroll_active_bg), ("pressed", scroll_active_bg)],
+        arrowcolor=[("disabled", disabled_fg)],
+    )
+    style.configure(
+        "Vertical.TScrollbar",
+        troughcolor=scroll_trough,
+        background=scroll_bg,
+        arrowcolor=theme["fg_primary"],
+        bordercolor=button_border,
+        lightcolor=button_border,
+        darkcolor=button_border,
+        gripcount=0,
+    )
+    style.map(
+        "Vertical.TScrollbar",
+        background=[("active", scroll_active_bg), ("pressed", scroll_active_bg)],
+        arrowcolor=[("disabled", disabled_fg)],
+    )
+
     style.configure(
         "Treeview",
         background=theme["bg_surface"],

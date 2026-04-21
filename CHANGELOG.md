@@ -13,6 +13,7 @@ The format is based on Keep a Changelog.
 - Der Hospitationsmodus zeigt `Stundenthema` aus der YAML-Datei in der Detailansicht analog zu Unterrichtseinheiten.
 - Documentation governance now separates stable architecture reference from development history.
 - Repo Path Guardrails wurden repariert; der CI-Check fuer persistierte JSON-Pfade laeuft wieder stabil mit einem vorhandenen Pruefskript.
+- Scrollbars wurden visuell modernisiert und folgen jetzt konsistent den aktiven Theme-Farben (inklusive horizontaler und vertikaler Varianten).
 
 ### Added
 - Public communication workflow via changelog, PR template, and release-ready structure.

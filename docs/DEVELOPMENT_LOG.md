@@ -15,6 +15,7 @@ Regel:
 - Guardrail-Regeln erweitert um verpflichtendes Development-Log-Update fuer relevante Aenderungen.
 - Repo-Path-Guardrails repariert: CI verwendet jetzt wieder ein vorhandenes Pruefskript (`tools/repo_ci/check_no_absolute_paths.py`) fuer absolute JSON-Pfade.
 - AI-Guardrails erweitert, damit Workflow-/Script-Drift fuer Repo-Path-Checks frueh erkannt und lokal blockiert wird.
+- ttk-Themekonfiguration erweitert: `TScrollbar`, `Horizontal.TScrollbar` und `Vertical.TScrollbar` werden zentral modern gestylt, damit Scrollbereiche in allen GUI-Teilen konsistent zur Theme-Sprache passen.
 
 ### Added
 - `CHANGELOG.md` fuer oeffentliche, nutzerorientierte Kommunikation.
