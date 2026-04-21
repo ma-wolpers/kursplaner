@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GUARDRAIL_RELEVANT_PATHS = {
     "AGENTS.md",
     ".github/copilot-instructions.md",
+    ".github/workflows/repo-path-guardrails.yml",
     "docs/DEVELOPMENT_LOG.md",
     "docs/ARCHITEKTUR_KERN.md",
     "docs/ARCHITEKTUR_UMSETZUNGSPLAN.md",
@@ -18,6 +19,7 @@ GUARDRAIL_RELEVANT_PATHS = {
     "kursplaner/core/usecases/daily_course_log_usecase.py",
     "kursplaner/infrastructure/repositories/lesson_index_repository.py",
     "tools/ci/check_ai_guardrails.py",
+    "tools/repo_ci/check_no_absolute_paths.py",
 }
 
 DOCSTRING_REQUIRED_PATHS = {
@@ -273,6 +275,8 @@ def main() -> int:
     # Guardrail files must exist.
     _read("AGENTS.md")
     _read(".github/copilot-instructions.md")
+    _read(".github/workflows/repo-path-guardrails.yml")
+    _read("tools/repo_ci/check_no_absolute_paths.py")
 
     _check_main_window_intent_delegation(errors)
     _check_lesson_index_observability(errors)
@@ -335,6 +339,14 @@ def main() -> int:
         plan_doc,
         "nur offene Punkte",
         "ARCHITEKTUR_UMSETZUNGSPLAN.md",
+        errors,
+    )
+
+    repo_path_workflow = _read(".github/workflows/repo-path-guardrails.yml")
+    _require_substring(
+        repo_path_workflow,
+        "python tools/repo_ci/check_no_absolute_paths.py",
+        "repo-path-guardrails.yml",
         errors,
     )
 

@@ -12,6 +12,7 @@ The format is based on Keep a Changelog.
 - Neue LZK-Dateititel nutzen das Fachkuerzel im Format `Lerngruppe MM-DD LZK Fachkuerzel HJ NR`.
 - Der Hospitationsmodus zeigt `Stundenthema` aus der YAML-Datei in der Detailansicht analog zu Unterrichtseinheiten.
 - Documentation governance now separates stable architecture reference from development history.
+- Repo Path Guardrails wurden repariert; der CI-Check fuer persistierte JSON-Pfade laeuft wieder stabil mit einem vorhandenen Pruefskript.
 
 ### Added
 - Public communication workflow via changelog, PR template, and release-ready structure.

@@ -13,6 +13,8 @@ Regel:
 - Hospitations-Detailmodus erweitert: `Stundenthema` ist jetzt im Hospitationsmodus sichtbar, analog zur Themenanzeige bei Unterrichtseinheiten.
 - Dokumentrollen formal getrennt: Architektur-Referenz (`docs/ARCHITEKTUR_KERN.md`) vs offene Arbeit (`docs/ARCHITEKTUR_UMSETZUNGSPLAN.md`) vs Verlauf (`docs/DEVELOPMENT_LOG.md`).
 - Guardrail-Regeln erweitert um verpflichtendes Development-Log-Update fuer relevante Aenderungen.
+- Repo-Path-Guardrails repariert: CI verwendet jetzt wieder ein vorhandenes Pruefskript (`tools/repo_ci/check_no_absolute_paths.py`) fuer absolute JSON-Pfade.
+- AI-Guardrails erweitert, damit Workflow-/Script-Drift fuer Repo-Path-Checks frueh erkannt und lokal blockiert wird.
 
 ### Added
 - `CHANGELOG.md` fuer oeffentliche, nutzerorientierte Kommunikation.
