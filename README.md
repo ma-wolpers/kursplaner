@@ -2,6 +2,16 @@
 
 ## Überblick
 
+## Vor der ersten Nutzung (Pflicht)
+
+Im Ordner `kursplaner` einmal ausfuehren:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
 Der Kurs-Manager hat zwei Hauptbereiche:
 
 1. **Manager-Hauptfenster**: Übersicht aller Kurspläne
