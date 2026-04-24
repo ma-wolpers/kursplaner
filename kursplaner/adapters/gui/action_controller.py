@@ -726,10 +726,26 @@ class MainWindowActionController:
         return True
 
     @staticmethod
-    def _bind_notebook_arrow_navigation(notebook: ttk.Notebook) -> None:
-        """Aktiviert zyklischen Tabwechsel per linker/rechter Pfeiltaste."""
+    def _bind_notebook_arrow_navigation(notebook: ttk.Notebook, *, scope: tk.Misc | None = None) -> None:
+        """Aktiviert zyklischen Tabwechsel per linker/rechter Pfeiltaste im angegebenen Scope."""
+
+        def _is_editable_widget(widget: tk.Misc | None) -> bool:
+            if widget is None:
+                return False
+            editable_widget_types = (tk.Entry, tk.Text, tk.Spinbox, ttk.Entry, ttk.Combobox)
+            return isinstance(widget, editable_widget_types)
+
+        def _is_focus_inside_notebook() -> bool:
+            focused = notebook.focus_get()
+            if focused is None:
+                return False
+            if _is_editable_widget(focused):
+                return False
+            return str(focused).startswith(str(notebook))
 
         def _move_tab(direction: int):
+            if not _is_focus_inside_notebook():
+                return None
             tabs = list(notebook.tabs())
             if not tabs:
                 return "break"
@@ -742,8 +758,9 @@ class MainWindowActionController:
             notebook.select(tabs[next_index])
             return "break"
 
-        notebook.bind("<Left>", lambda _event: _move_tab(-1), add="+")
-        notebook.bind("<Right>", lambda _event: _move_tab(1), add="+")
+        bind_target = scope or notebook
+        bind_target.bind("<Left>", lambda _event: _move_tab(-1), add="+")
+        bind_target.bind("<Right>", lambda _event: _move_tab(1), add="+")
 
     def toggle_resume_or_mark_ub(self):
         """Führt kontextsensitiv Ausfall-Rücknahme oder UB-Markierung aus."""
@@ -794,7 +811,7 @@ class MainWindowActionController:
 
         notebook = ttk.Notebook(root)
         notebook.pack(fill="both", expand=True)
-        self._bind_notebook_arrow_navigation(notebook)
+        self._bind_notebook_arrow_navigation(notebook, scope=dialog)
 
         tab_achievements = ttk.Frame(notebook, padding=10)
         tab_plan = ttk.Frame(notebook, padding=10)
