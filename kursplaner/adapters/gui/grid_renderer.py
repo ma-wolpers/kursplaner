@@ -136,6 +136,15 @@ class GridRenderer:
             theme["fg_primary"],
         )
 
+    def _ub_border_color(self, day_index: int) -> str:
+        """Liefert die Rahmenfarbe für als UB markierte Spalten."""
+        theme = get_theme(self.app.theme_var.get())
+        if 0 <= day_index < len(self.app.day_columns):
+            day = self.app.day_columns[day_index]
+            if bool(day.get("is_ub", False)):
+                return str(theme.get("column_ub_border", theme.get("accent", "#4A90E2")))
+        return str(theme.get("border", theme.get("panel_strong", theme["bg_main"])))
+
     @staticmethod
     def _format_header_date(raw_date: str) -> str:
         """Formatiert Datumswerte als `Mi 18.02.`; bei Parsing-Fehlern bleibt der Originalwert."""
@@ -322,9 +331,10 @@ class GridRenderer:
                 relief="solid",
             )
             return
-        neutral = str(theme.get("border", theme.get("panel_strong", theme["bg_main"])))
+        neutral = self._ub_border_color(day_index)
+        border_width = 2 if 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub")) else 1
         widget.configure(
-            borderwidth=1,
+            borderwidth=border_width,
             highlightthickness=1,
             highlightbackground=neutral,
             highlightcolor=neutral,
@@ -519,7 +529,10 @@ class GridRenderer:
                 padx=6,
                 pady=6,
                 relief="solid",
-                borderwidth=1,
+                borderwidth=2 if bool(self.app.day_columns[day_index].get("is_ub", False)) else 1,
+                highlightthickness=1,
+                highlightbackground=self._ub_border_color(day_index),
+                highlightcolor=self._ub_border_color(day_index),
             )
             header.grid(row=0, column=grid_col, sticky="nsew")
             header.bind(
@@ -658,7 +671,16 @@ class GridRenderer:
         if label is None:
             return
         text, bg, fg = self._header_visual_state(day_index)
-        label.configure(text=text, bg=bg, fg=fg)
+        is_ub = 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub", False))
+        label.configure(
+            text=text,
+            bg=bg,
+            fg=fg,
+            borderwidth=2 if is_ub else 1,
+            highlightthickness=1,
+            highlightbackground=self._ub_border_color(day_index),
+            highlightcolor=self._ub_border_color(day_index),
+        )
 
     def update_cell(self, field_key: str, day_index: int, *, sync_row_style: bool = True):
         """Aktualisiert eine einzelne Grid-Zelle im bestehenden Widget-Baum."""

@@ -200,7 +200,7 @@ class MainWindowOverviewController:
                 "",
                 "end",
                 iid=iid,
-                values=(name, lesson.next_topic, str(lesson.remaining_hours), lesson.next_lzk),
+                values=(name, lesson.next_topic, str(lesson.remaining_hours), lesson.next_lzk, lesson.next_ub),
                 tags=tags,
             )
 

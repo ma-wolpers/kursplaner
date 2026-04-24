@@ -71,6 +71,7 @@ class LessonOverviewItem:
     next_topic: str = "—"
     remaining_hours: int = 0
     next_lzk: str = "—"
+    next_ub: str = ""
     load_error: str | None = None
 
 

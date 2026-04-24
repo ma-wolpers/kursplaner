@@ -46,6 +46,7 @@ from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
 from kursplaner.core.usecases.plan_regular_lesson_usecase import PlanRegularLessonUseCase
 from kursplaner.core.usecases.query_ub_achievements_usecase import QueryUbAchievementsUseCase
+from kursplaner.core.usecases.query_ub_plan_usecase import QueryUbPlanUseCase
 from kursplaner.core.usecases.rebuild_lesson_index_usecase import RebuildLessonIndexUseCase
 from kursplaner.core.usecases.rebuild_plan_index_usecase import RebuildPlanIndexUseCase
 from kursplaner.core.usecases.rebuild_subject_source_index_usecase import RebuildSubjectSourceIndexUseCase
@@ -156,6 +157,7 @@ class GuiDependencies:
     remove_unit_ub_link_usecase: RemoveUnitUbLinkUseCase
     reconcile_ub_overview_usecase: ReconcileUbOverviewUseCase
     query_ub_achievements_usecase: QueryUbAchievementsUseCase
+    query_ub_plan_usecase: QueryUbPlanUseCase
     load_last_ub_insights_usecase: LoadLastUbInsightsUseCase
 
 
@@ -176,7 +178,11 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     ub_repo = FileSystemUbRepository()
     kompetenzkatalog_repo = FileSystemKompetenzkatalogRepository()
 
-    plan_overview_query = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=lesson_index_repo)
+    plan_overview_query = PlanOverviewQueryUseCase(
+        lesson_repo=lesson_repo,
+        lesson_index_repo=lesson_index_repo,
+        ub_repo=ub_repo,
+    )
     list_lessons_usecase = ListLessonsUseCase(plan_repo=plan_repo, plan_overview_query=plan_overview_query)
     load_plan_detail_usecase = LoadPlanDetailUseCase(plan_repo=plan_repo, lesson_repo=lesson_repo, ub_repo=ub_repo)
     plan_commands = PlanCommandsUseCase(lesson_repo=lesson_repo)
@@ -342,6 +348,10 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
+    query_ub_plan_usecase = QueryUbPlanUseCase(
+        ub_repo=ub_repo,
+        plan_repo=plan_repo,
+    )
     load_last_ub_insights_usecase = LoadLastUbInsightsUseCase(
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
@@ -402,6 +412,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         remove_unit_ub_link_usecase=remove_unit_ub_link_usecase,
         reconcile_ub_overview_usecase=reconcile_ub_overview_usecase,
         query_ub_achievements_usecase=query_ub_achievements_usecase,
+        query_ub_plan_usecase=query_ub_plan_usecase,
         load_last_ub_insights_usecase=load_last_ub_insights_usecase,
     )
 

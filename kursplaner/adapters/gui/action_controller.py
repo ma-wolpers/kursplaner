@@ -27,6 +27,12 @@ from kursplaner.adapters.gui.ui_theme import get_theme
 from kursplaner.core.config.path_store import CALENDAR_DIR_KEY, resolve_path_value
 from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
 from kursplaner.core.domain.models import StartRequest, StartResult
+from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_YAML_KEY_BEOBACHTUNG,
+    UB_YAML_KEY_BEREICH,
+    UB_YAML_KEY_LANGENTWURF,
+)
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlowWriteRequest
 
 
@@ -76,6 +82,7 @@ class MainWindowActionController:
         self._mark_unit_as_ub_uc = deps.mark_unit_as_ub_usecase
         self._remove_unit_ub_link_uc = deps.remove_unit_ub_link_usecase
         self._query_ub_achievements_uc = deps.query_ub_achievements_usecase
+        self._query_ub_plan_uc = deps.query_ub_plan_usecase
         self._load_last_ub_insights_uc = deps.load_last_ub_insights_usecase
 
     @staticmethod
@@ -378,7 +385,7 @@ class MainWindowActionController:
         self.app.overview_controller.clear_plan_table(title)
 
     def mark_selected_as_ub(self):
-        """Markiert eine Einheit als UB oder entfernt eine bestehende UB-Verknüpfung."""
+        """Markiert oder bearbeitet einen UB für die ausgewählte Einheit."""
         context = self._single_selection_context()
         if context is None or self.app.current_table is None:
             return
@@ -391,50 +398,34 @@ class MainWindowActionController:
 
         workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
 
-        if ub_link:
-            delete_ub_markdown = messagebox.askyesno(
-                "Unterrichtsbesuch-Datei löschen",
-                "Soll die verknüpfte UB-Datei ebenfalls gelöscht werden?\n"
-                "(Nein entfernt nur die Verknüpfung in der Einheit.)",
-                parent=self.app,
+        default_kinds = ("Pädagogik",)
+        default_langentwurf = False
+        default_beobachtung = ""
+        allow_delete = False
+        if ub_link and isinstance(lesson_yaml, dict):
+            default_kinds, default_langentwurf, default_beobachtung = self._ub_dialog_defaults_for_day(
+                workspace_root=workspace_root,
+                lesson_yaml=lesson_yaml,
             )
+            allow_delete = True
 
-            try:
-                result = self._run_tracked_write(
-                    label="Unterrichtsbesuch-Verknüpfung entfernen",
-                    action=lambda: self._remove_unit_ub_link_uc.execute(
-                        workspace_root=workspace_root,
-                        table=self.app.current_table,
-                        row_index=row_index,
-                        delete_ub_markdown=delete_ub_markdown,
-                    ),
-                    extra_after_from_result=lambda item: [
-                        path
-                        for path in (
-                            getattr(item, "lesson_path", None),
-                            getattr(item, "ub_path", None),
-                            getattr(item, "overview_path", None),
-                        )
-                        if isinstance(path, pathlib.Path)
-                    ],
-                )
-            except Exception as exc:
-                messagebox.showerror("Unterrichtsbesuch", str(exc), parent=self.app)
-                return
-
-            if not result.proceed:
-                messagebox.showerror(
-                    "Unterrichtsbesuch",
-                    result.error_message or "UB-Verknüpfung konnte nicht entfernt werden.",
-                    parent=self.app,
-                )
-                return
-
-            self._refresh_after_write(selected_index=selected_index)
+        dialog_result = ask_mark_unit_as_ub(
+            self.app,
+            theme_key=self.app.theme_var.get(),
+            initial_ub_kinds=default_kinds,
+            initial_langentwurf=default_langentwurf,
+            initial_beobachtungsschwerpunkt=default_beobachtung,
+            allow_delete=allow_delete,
+        )
+        if dialog_result is None:
             return
 
-        dialog_result = ask_mark_unit_as_ub(self.app, theme_key=self.app.theme_var.get())
-        if dialog_result is None:
+        if dialog_result.delete_requested:
+            self._remove_selected_ub_link(
+                selected_index=selected_index,
+                row_index=row_index,
+                workspace_root=workspace_root,
+            )
             return
 
         try:
@@ -631,6 +622,129 @@ class MainWindowActionController:
         self.open_settings_window()
         return None
 
+    def _unterricht_base_dir_for_ub_view(self) -> pathlib.Path | None:
+        """Liefert den konfigurierten Unterrichtsordner für kursübergreifende UB-Abfragen."""
+        if self.app.current_table is not None:
+            return self.app.current_table.markdown_path.parent
+
+        base_dir_text = str(self.app.base_dir_var.get()).strip()
+        if base_dir_text:
+            path = resolve_path_value(base_dir_text)
+            if path.exists() and path.is_dir():
+                return path
+        return None
+
+    @staticmethod
+    def _bool_value(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        return str(value or "").strip().lower() in {"true", "1", "ja", "yes"}
+
+    def _ub_dialog_defaults_for_day(
+        self,
+        *,
+        workspace_root: pathlib.Path,
+        lesson_yaml: dict[str, object],
+    ) -> tuple[tuple[str, ...], bool, str]:
+        """Leitet UB-Dialog-Defaults aus bestehender UB-Verknüpfung ab."""
+        ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
+        if not ub_link:
+            return ("Pädagogik",), False, ""
+
+        ub_root = self.app.gui_dependencies.load_plan_detail_usecase.ub_repo
+        if ub_root is None:
+            return ("Pädagogik",), False, ""
+        ub_path = ub_root.ensure_ub_root(workspace_root) / f"{ub_link}.md"
+        if not ub_path.exists() or not ub_path.is_file():
+            return ("Pädagogik",), False, ""
+
+        try:
+            ub_yaml, _ = ub_root.load_ub_markdown(ub_path)
+        except Exception:
+            return ("Pädagogik",), False, ""
+
+        domains_value = ub_yaml.get(UB_YAML_KEY_BEREICH, [])
+        domains = []
+        if isinstance(domains_value, list):
+            domains = [str(item).strip() for item in domains_value if str(item).strip()]
+        elif str(domains_value).strip():
+            domains = [str(domains_value).strip()]
+
+        kinds: list[str] = []
+        if "Pädagogik" in domains:
+            kinds.append("Pädagogik")
+        if any(domain != "Pädagogik" for domain in domains):
+            kinds.append("Fach")
+        if not kinds:
+            kinds = ["Pädagogik"]
+
+        langentwurf = self._bool_value(ub_yaml.get(UB_YAML_KEY_LANGENTWURF, False))
+        beobachtung = str(ub_yaml.get(UB_YAML_KEY_BEOBACHTUNG, "")).strip()
+        return tuple(kinds), langentwurf, beobachtung
+
+    def _remove_selected_ub_link(self, *, selected_index: int, row_index: int, workspace_root: pathlib.Path) -> bool:
+        """Entfernt die UB-Verknüpfung nach expliziter Nutzeraktion."""
+        delete_ub_markdown = messagebox.askyesno(
+            "Unterrichtsbesuch-Datei löschen",
+            "Soll die verknüpfte UB-Datei ebenfalls gelöscht werden?\n"
+            "(Nein entfernt nur die Verknüpfung in der Einheit.)",
+            parent=self.app,
+        )
+
+        try:
+            result = self._run_tracked_write(
+                label="Unterrichtsbesuch-Verknüpfung entfernen",
+                action=lambda: self._remove_unit_ub_link_uc.execute(
+                    workspace_root=workspace_root,
+                    table=self.app.current_table,
+                    row_index=row_index,
+                    delete_ub_markdown=delete_ub_markdown,
+                ),
+                extra_after_from_result=lambda item: [
+                    path
+                    for path in (
+                        getattr(item, "lesson_path", None),
+                        getattr(item, "ub_path", None),
+                        getattr(item, "overview_path", None),
+                    )
+                    if isinstance(path, pathlib.Path)
+                ],
+            )
+        except Exception as exc:
+            messagebox.showerror("Unterrichtsbesuch", str(exc), parent=self.app)
+            return False
+
+        if not result.proceed:
+            messagebox.showerror(
+                "Unterrichtsbesuch",
+                result.error_message or "UB-Verknüpfung konnte nicht entfernt werden.",
+                parent=self.app,
+            )
+            return False
+
+        self._refresh_after_write(selected_index=selected_index)
+        return True
+
+    @staticmethod
+    def _bind_notebook_arrow_navigation(notebook: ttk.Notebook) -> None:
+        """Aktiviert zyklischen Tabwechsel per linker/rechter Pfeiltaste."""
+
+        def _move_tab(direction: int):
+            tabs = list(notebook.tabs())
+            if not tabs:
+                return "break"
+            current = notebook.select()
+            if current not in tabs:
+                notebook.select(tabs[0])
+                return "break"
+            current_index = tabs.index(current)
+            next_index = (current_index + direction) % len(tabs)
+            notebook.select(tabs[next_index])
+            return "break"
+
+        notebook.bind("<Left>", lambda _event: _move_tab(-1), add="+")
+        notebook.bind("<Right>", lambda _event: _move_tab(1), add="+")
+
     def toggle_resume_or_mark_ub(self):
         """Führt kontextsensitiv Ausfall-Rücknahme oder UB-Markierung aus."""
         context = self._single_selection_context()
@@ -643,13 +757,21 @@ class MainWindowActionController:
         self.mark_selected_as_ub()
 
     def show_ub_achievements_view(self):
-        """Öffnet die UB-Ansicht mit Fortschrittsringen und letzten Entwicklungsimpulsen."""
+        """Öffnet die UB-Ansicht mit Tabs für Achievements, UB-Plan und Impulse."""
         workspace_root = self._workspace_root_for_ub_view()
         if workspace_root is None:
+            return
+        unterricht_base_dir = self._unterricht_base_dir_for_ub_view()
+        if unterricht_base_dir is None:
+            messagebox.showerror("UB-Ansicht", "Kein gültiger Unterrichtsordner gefunden.", parent=self.app)
             return
 
         try:
             achievements = self._query_ub_achievements_uc.execute(workspace_root=workspace_root)
+            ub_plan = self._query_ub_plan_uc.execute(
+                workspace_root=workspace_root,
+                unterricht_base_dir=unterricht_base_dir,
+            )
             insights = self._load_last_ub_insights_uc.execute(
                 workspace_root=workspace_root,
                 subject_name=self._active_subject_name(),
@@ -670,13 +792,24 @@ class MainWindowActionController:
         root = ttk.Frame(dialog.content, padding=12)
         root.pack(fill="both", expand=True)
 
+        notebook = ttk.Notebook(root)
+        notebook.pack(fill="both", expand=True)
+        self._bind_notebook_arrow_navigation(notebook)
+
+        tab_achievements = ttk.Frame(notebook, padding=10)
+        tab_plan = ttk.Frame(notebook, padding=10)
+        tab_insights = ttk.Frame(notebook, padding=10)
+        notebook.add(tab_achievements, text="Achievements")
+        notebook.add(tab_plan, text="UB-Plan")
+        notebook.add(tab_insights, text="Entwicklungsimpulse")
+
         ttk.Label(
-            root,
+            tab_achievements,
             text="Kursübergreifender UB-Fortschritt (gesamt)",
             font=("Segoe UI", 12, "bold"),
         ).pack(anchor="w", pady=(0, 8))
 
-        rings_wrap = ttk.Frame(root)
+        rings_wrap = ttk.Frame(tab_achievements)
         rings_wrap.pack(fill="x")
 
         for idx, item in enumerate(achievements.items):
@@ -694,8 +827,44 @@ class MainWindowActionController:
             )
             ring.grid(row=idx // 4, column=idx % 4, padx=8, pady=8, sticky="n")
 
-        insights_frame = ttk.LabelFrame(root, text="Letzte Entwicklungsimpulse", padding=10)
-        insights_frame.pack(fill="both", expand=True, pady=(10, 0))
+        upcoming_frame = ttk.LabelFrame(tab_plan, text="Kommende UBs", padding=8)
+        upcoming_frame.pack(fill="both", expand=True, pady=(0, 8))
+        past_frame = ttk.LabelFrame(tab_plan, text="Absolvierte UBs", padding=8)
+        past_frame.pack(fill="both", expand=True)
+
+        plan_columns = ("datum", "faecher", "plus", "kurs")
+
+        def _build_plan_tree(parent: ttk.Frame) -> ttk.Treeview:
+            tree = ttk.Treeview(parent, columns=plan_columns, show="headings", height=8)
+            tree.heading("datum", text="Datum")
+            tree.heading("faecher", text="Fächer")
+            tree.heading("plus", text="+")
+            tree.heading("kurs", text="Kurs")
+            tree.column("datum", width=100, anchor="center")
+            tree.column("faecher", width=280, anchor="w")
+            tree.column("plus", width=50, anchor="center")
+            tree.column("kurs", width=260, anchor="w")
+            y_scroll = ttk.Scrollbar(parent, orient="vertical", command=tree.yview)
+            tree.configure(yscrollcommand=y_scroll.set)
+            tree.pack(side="left", fill="both", expand=True)
+            y_scroll.pack(side="right", fill="y")
+            return tree
+
+        upcoming_tree = _build_plan_tree(upcoming_frame)
+        past_tree = _build_plan_tree(past_frame)
+
+        for row in ub_plan.upcoming_rows:
+            upcoming_tree.insert("", "end", values=(row.datum, row.faecher, row.plus, row.kurs))
+        for row in ub_plan.past_rows:
+            past_tree.insert("", "end", values=(row.datum, row.faecher, row.plus, row.kurs))
+
+        if not ub_plan.upcoming_rows:
+            upcoming_tree.insert("", "end", values=("-", "-", "", "-"))
+        if not ub_plan.past_rows:
+            past_tree.insert("", "end", values=("-", "-", "", "-"))
+
+        insights_frame = ttk.LabelFrame(tab_insights, text="Letzte Entwicklungsimpulse", padding=10)
+        insights_frame.pack(fill="both", expand=True)
 
         def _format_list(items: list[str]) -> str:
             cleaned = [str(entry).strip() for entry in items if str(entry).strip()]
@@ -720,6 +889,7 @@ class MainWindowActionController:
             ttk.Label(section, text=title, font=("Segoe UI", 10, "bold")).pack(anchor="w")
             ttk.Label(section, text=_format_list(values), justify="left", wraplength=880).pack(anchor="w")
 
+        notebook.focus_set()
         dialog.grab_set()
 
     def rebuild_lesson_index(self):

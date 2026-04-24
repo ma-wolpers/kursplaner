@@ -6,6 +6,15 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+### Changed
+- Kursuebersicht erweitert um die Spalte `Naechster UB`: zeigt den naechsten geplanten Unterrichtsbesuch je Kurs im Kurzformat `D.M. Initialen+` (bleibt leer, wenn kein zukuenftiger UB vorhanden ist).
+- Einheitenansicht verbessert: komplette UB-Einheiten werden jetzt mit einer theme-abhaengigen Umrandung hervorgehoben.
+- UB-Button-Verhalten angepasst: erneuter Klick auf eine bereits als UB markierte Einheit oeffnet den UB-Dialog zur Bearbeitung (statt sofortigem Entfernen); UB-Loeschen ist als explizite Dialogaktion verfuegbar.
+- UB-Ansicht modernisiert: drei Tabs (`Achievements`, `UB-Plan`, `Entwicklungsimpulse`) mit einfachem Wechsel per Mausklick und Pfeiltasten.
+
+### Added
+- Neuer Tab `UB-Plan` mit getrennten Listen fuer kommende und absolvierte UBs inklusive Spalten `Datum`, `Faecher`, `+` (Langentwurf), `Kurs`.
+
 ## [0.1.2] - 2026-04-22
 
 ### Changed

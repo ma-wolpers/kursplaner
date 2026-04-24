@@ -9,6 +9,9 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- UB-Fokus in der GUI ausgebaut: Kursuebersicht zeigt jetzt `Naechster UB` im Format `D.M. Initialen+` (leer ohne zukuenftigen UB), Einheiten mit UB erhalten eine theme-abhaengige Vollspalten-Umrandung.
+- UB-Interaktion umgestellt: erneuter Klick auf UB oeffnet den UB-Dialog zur Bearbeitung (mit Vorbelegung) statt sofortigem Entfernen; Loeschen erfolgt jetzt explizit ueber eigene Dialogaktion.
+- UB-Ansicht als Tab-UI neu strukturiert: `Achievements`, `UB-Plan` (kommende/absolvierte Listen mit Spalten `Datum`, `Faecher`, `+`, `Kurs`) und `Entwicklungsimpulse`; Tabwechsel per Maus und Pfeiltasten.
 - HO/LZK-Erzeugung vereinheitlicht: neue Hospitationen speichern in der Kurstabelle nur noch den Markdown-Link, HO-Dateithemen werden ohne doppelte Lerngruppen-Nennung gesetzt, und LZK-Titel werden mit Fachkuerzel statt Vollfach erzeugt.
 - Hospitations-Detailmodus erweitert: `Stundenthema` ist jetzt im Hospitationsmodus sichtbar, analog zur Themenanzeige bei Unterrichtseinheiten.
 - Dokumentrollen formal getrennt: Architektur-Referenz (`docs/ARCHITEKTUR_KERN.md`) vs offene Arbeit (`docs/ARCHITEKTUR_UMSETZUNGSPLAN.md`) vs Verlauf (`docs/DEVELOPMENT_LOG.md`).

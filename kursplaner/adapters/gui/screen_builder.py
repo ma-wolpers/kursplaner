@@ -113,7 +113,7 @@ class ScreenBuilder:
         self.app.course_panel = left
         self.app.detail_panel = right
 
-        overview_columns = ("name", "next_topic", "remaining_hours", "next_lzk")
+        overview_columns = ("name", "next_topic", "remaining_hours", "next_lzk", "next_ub")
         tree_frame = ttk.Frame(left)
         tree_frame.pack(fill="both", expand=True)
 
@@ -122,10 +122,12 @@ class ScreenBuilder:
         self.app.lesson_tree.heading("next_topic", text="Nächstes Thema")
         self.app.lesson_tree.heading("remaining_hours", text="Reststunden")
         self.app.lesson_tree.heading("next_lzk", text="Nächste LZK")
+        self.app.lesson_tree.heading("next_ub", text="Nächster UB")
         self.app.lesson_tree.column("name", width=220, anchor="w")
         self.app.lesson_tree.column("next_topic", width=280, anchor="w")
         self.app.lesson_tree.column("remaining_hours", width=90, anchor="center")
         self.app.lesson_tree.column("next_lzk", width=110, anchor="center")
+        self.app.lesson_tree.column("next_ub", width=130, anchor="center")
 
         tree_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.app.lesson_tree.yview)
         self.app.lesson_tree.configure(yscrollcommand=tree_scroll.set)

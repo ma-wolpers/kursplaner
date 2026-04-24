@@ -159,8 +159,8 @@ class QueryUbAchievementsUseCase:
                 category="half",
                 title="Pädagogik",
                 current=paed_total,
-                target=4,
-                tooltip="4 von 8 pädagogischen Besuchen.",
+                target=5,
+                tooltip="5 von 9 pädagogischen Besuchen.",
             )
         )
         items.append(
@@ -170,8 +170,8 @@ class QueryUbAchievementsUseCase:
                 category="full",
                 title="Pädagogik",
                 current=paed_total,
-                target=8,
-                tooltip="8 von 8 pädagogischen Besuchen.",
+                target=9,
+                tooltip="9 von 9 pädagogischen Besuchen.",
             )
         )
 

@@ -246,6 +246,7 @@ class LoadPlanDetailUseCase:
                     "is_hospitation": is_hospitation,
                     "is_unterricht": is_unterricht,
                     "is_lzk": is_lzk,
+                    "is_ub": bool(str(yaml_data.get("Unterrichtsbesuch", "")).strip()),
                     "is_valid_unterricht_file": valid_unterricht_link,
                     "yaml": yaml_data,
                     "Stundentyp": lesson_type,

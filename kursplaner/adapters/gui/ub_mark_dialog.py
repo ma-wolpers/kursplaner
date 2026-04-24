@@ -14,25 +14,40 @@ class UbMarkDialogResult:
     ub_kinds: tuple[str, ...]
     langentwurf: bool
     beobachtungsschwerpunkt: str
+    delete_requested: bool = False
 
 
 class UbMarkDialog(ScrollablePopupWindow):
     """Popup zur Erfassung der UB-Grunddaten für eine Unterrichtseinheit."""
 
-    def __init__(self, master, *, theme_key: str | None = None):
+    def __init__(
+        self,
+        master,
+        *,
+        theme_key: str | None = None,
+        initial_ub_kinds: tuple[str, ...] = ("Pädagogik",),
+        initial_langentwurf: bool = False,
+        initial_beobachtungsschwerpunkt: str = "",
+        allow_delete: bool = False,
+    ):
         super().__init__(
             master,
-            title="Unterrichtsbesuch markieren",
+            title="Unterrichtsbesuch bearbeiten" if allow_delete else "Unterrichtsbesuch markieren",
             geometry="620x380",
             minsize=(540, 320),
             theme_key=theme_key,
         )
         self.result: UbMarkDialogResult | None = None
+        self._allow_delete = bool(allow_delete)
 
-        self.kind_paedagogik = tk.BooleanVar(value=True)
-        self.kind_fach = tk.BooleanVar(value=False)
-        self.langentwurf_var = tk.BooleanVar(value=False)
-        self.beobachtung_var = tk.StringVar(value="")
+        normalized_kinds = {str(item).strip() for item in initial_ub_kinds if str(item).strip()}
+        if not normalized_kinds:
+            normalized_kinds = {"Pädagogik"}
+
+        self.kind_paedagogik = tk.BooleanVar(value=("Pädagogik" in normalized_kinds))
+        self.kind_fach = tk.BooleanVar(value=("Fach" in normalized_kinds))
+        self.langentwurf_var = tk.BooleanVar(value=bool(initial_langentwurf))
+        self.beobachtung_var = tk.StringVar(value=str(initial_beobachtungsschwerpunkt or "").strip())
         self._initial_state = self._current_state()
 
         self._build_ui()
@@ -66,6 +81,8 @@ class UbMarkDialog(ScrollablePopupWindow):
         button_row.pack(fill="x", pady=(6, 0))
         ttk.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right")
         ttk.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right", padx=(0, 8))
+        if self._allow_delete:
+            ttk.Button(button_row, text="UB löschen", command=self._delete).pack(side="left")
 
         self.after_idle(focus_entry.focus_set)
 
@@ -107,12 +124,47 @@ class UbMarkDialog(ScrollablePopupWindow):
             ub_kinds=tuple(kinds),
             langentwurf=bool(self.langentwurf_var.get()),
             beobachtungsschwerpunkt=self.beobachtung_var.get().strip(),
+            delete_requested=False,
+        )
+        self.destroy()
+
+    def _delete(self) -> None:
+        """Bestätigt die explizite Löschaktion für eine bestehende UB-Verknüpfung."""
+        if not self._allow_delete:
+            return
+        confirmed = messagebox.askyesno(
+            "Unterrichtsbesuch löschen",
+            "Soll der Unterrichtsbesuch entfernt werden?",
+            parent=self,
+        )
+        if not confirmed:
+            return
+        self.result = UbMarkDialogResult(
+            ub_kinds=tuple(),
+            langentwurf=False,
+            beobachtungsschwerpunkt="",
+            delete_requested=True,
         )
         self.destroy()
 
 
-def ask_mark_unit_as_ub(master, *, theme_key: str | None = None) -> UbMarkDialogResult | None:
+def ask_mark_unit_as_ub(
+    master,
+    *,
+    theme_key: str | None = None,
+    initial_ub_kinds: tuple[str, ...] = ("Pädagogik",),
+    initial_langentwurf: bool = False,
+    initial_beobachtungsschwerpunkt: str = "",
+    allow_delete: bool = False,
+) -> UbMarkDialogResult | None:
     """Öffnet den UB-Dialog modal und liefert die Auswahl oder ``None``."""
-    dialog = UbMarkDialog(master, theme_key=theme_key)
+    dialog = UbMarkDialog(
+        master,
+        theme_key=theme_key,
+        initial_ub_kinds=initial_ub_kinds,
+        initial_langentwurf=initial_langentwurf,
+        initial_beobachtungsschwerpunkt=initial_beobachtungsschwerpunkt,
+        allow_delete=allow_delete,
+    )
     dialog.wait_window()
     return dialog.result
