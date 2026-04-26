@@ -649,7 +649,11 @@ class ScreenBuilder:
     def _on_ctrl_enter(self, _event):
         """Meldet Strg+Enter als expliziten Edit-Commit-Intent."""
         if ScrollablePopupWindow.has_active_popup():
-            return "break"
+            return None
+        selection_level = getattr(getattr(self.app, "ui_state", None), "selection_level", "")
+        column_level = getattr(getattr(self.app, "ui_state", None), "SELECTION_LEVEL_COLUMN", "column")
+        if selection_level == column_level:
+            return self._emit_intent(UiIntent.SHORTCUT_COMMIT_COLUMN, event=_event)
         return self._emit_intent(UiIntent.SHORTCUT_COMMIT_EDIT, event=_event)
 
     def show_course_overview(self):

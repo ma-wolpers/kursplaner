@@ -60,14 +60,17 @@ class _LessonConversionSpy:
     def __init__(self):
         self.calls: list[str] = []
 
-    def convert_selected_to_unterricht(self):
+    def convert_selected_to_unterricht(self, **_kwargs):
         self.calls.append("convert_selected_to_unterricht")
 
-    def convert_selected_to_ausfall(self):
+    def convert_selected_to_ausfall(self, **_kwargs):
         self.calls.append("convert_selected_to_ausfall")
 
-    def convert_selected_to_lzk(self):
+    def convert_selected_to_lzk(self, **_kwargs):
         self.calls.append("convert_selected_to_lzk")
+
+    def convert_selected_to_hospitation(self, **_kwargs):
+        self.calls.append("convert_selected_to_hospitation")
 
 
 class _ColumnReorderSpy:
@@ -597,6 +600,62 @@ def test_ctrl_enter_is_ignored_outside_edit_mode():
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_EDIT)
 
     assert result is None
+
+
+def test_ctrl_enter_column_shortcut_routes_to_unterricht_for_regular_column():
+    app = _build_dummy_app()
+    app.is_detail_view = True
+    app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
+    app.focus_get = lambda: None
+    app.day_columns = [{"is_cancel": False, "is_hospitation": False, "is_lzk": False}]
+    app._get_single_selected_or_warn = lambda: 0
+
+    result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
+
+    assert result == "break"
+    assert app.lesson_conversion_controller.calls == ["convert_selected_to_unterricht"]
+
+
+def test_ctrl_enter_column_shortcut_routes_to_ausfall_for_cancel_column():
+    app = _build_dummy_app()
+    app.is_detail_view = True
+    app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
+    app.focus_get = lambda: None
+    app.day_columns = [{"is_cancel": True, "is_hospitation": False, "is_lzk": False}]
+    app._get_single_selected_or_warn = lambda: 0
+
+    result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
+
+    assert result == "break"
+    assert app.lesson_conversion_controller.calls == ["convert_selected_to_ausfall"]
+
+
+def test_ctrl_enter_column_shortcut_routes_to_hospitation():
+    app = _build_dummy_app()
+    app.is_detail_view = True
+    app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
+    app.focus_get = lambda: None
+    app.day_columns = [{"is_cancel": False, "is_hospitation": True, "is_lzk": False}]
+    app._get_single_selected_or_warn = lambda: 0
+
+    result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
+
+    assert result == "break"
+    assert app.lesson_conversion_controller.calls == ["convert_selected_to_hospitation"]
+
+
+def test_ctrl_enter_column_shortcut_routes_to_lzk():
+    app = _build_dummy_app()
+    app.is_detail_view = True
+    app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
+    app.focus_get = lambda: None
+    app.day_columns = [{"is_cancel": False, "is_hospitation": False, "is_lzk": True}]
+    app._get_single_selected_or_warn = lambda: 0
+
+    result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
+
+    assert result == "break"
+    assert app.lesson_conversion_controller.calls == ["convert_selected_to_lzk"]
 
 
 def test_shortcut_undo_is_ignored_inside_text_widget(monkeypatch):

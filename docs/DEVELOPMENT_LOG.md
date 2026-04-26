@@ -9,6 +9,11 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Strg+Enter fuer Spaltenmodus ausgebaut: im Spaltenauswahlmodus oeffnet jetzt ein typabhaengiger Bestaetigungsdialog (Unterricht, LZK, Ausfall, Hospitation) statt des reinen Edit-Commits.
+- Unterricht-Dialog bei Strg+Enter nutzt denselben Builder wie bei neuer Planung, aber mit Voll-Prefill aus bestehender Stunde (YAML + Inhalte/Methodik-Abschnitte aus Markdown), sodass bestehende Spaltenwerte direkt bearbeitbar sind.
+- Ausfall/Hospitation auf bestehendem Dialogmuster belassen und um Vorbelegung erweitert (Ausfallgrund aus Markertext, Beobachtungsschwerpunkt aus YAML).
+- Neues separates LZK-MVP-Fenster fuer Strg+Enter hinzugefuegt; optionaler Titel-Override, anschliessend bestehender LZK-Write-Flow.
+- Escape-Verhalten in Popup-Basisklasse verfeinert: Esc schliesst nur sofort bei Popup-Fokus; bei Fokus in editierbaren Eingabefeldern wird zunaechst auf Popup-Ebene fokussiert.
 - UB-Fokus in der GUI ausgebaut: Kursuebersicht zeigt jetzt `Naechster UB` im Format `D.M. Initialen+` (leer ohne zukuenftigen UB), Einheiten mit UB erhalten eine theme-abhaengige Vollspalten-Umrandung.
 - UB-Interaktion umgestellt: erneuter Klick auf UB oeffnet den UB-Dialog zur Bearbeitung (mit Vorbelegung) statt sofortigem Entfernen; Loeschen erfolgt jetzt explizit ueber eigene Dialogaktion.
 - UB-Ansicht als Tab-UI neu strukturiert: `Achievements`, `UB-Plan` (kommende/absolvierte Listen mit Spalten `Datum`, `Faecher`, `+`, `Kurs`) und `Entwicklungsimpulse`; Tabwechsel per Maus und Pfeiltasten.

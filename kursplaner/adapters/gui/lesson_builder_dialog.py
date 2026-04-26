@@ -48,6 +48,10 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         stundenziel_hint: str = "",
         inhalte_hint: str = "",
         methodik_hint: str = "",
+        kompetenzen_initial: list[str] | None = None,
+        stundenziel_initial: str = "",
+        inhalte_initial: list[str] | None = None,
+        methodik_initial: list[str] | None = None,
         ub_sections: list[tuple[str, list[str]]] | None = None,
         ub_error_hint: str = "",
         theme_key: str | None = None,
@@ -74,8 +78,8 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self.ub_sections = [(str(title), list(values)) for title, values in (ub_sections or [])]
         self.ub_error_hint = str(ub_error_hint or "").strip()
 
-        self.inhalte_selected: list[str] = []
-        self.methodik_selected: list[str] = []
+        self.inhalte_selected: list[str] = list(inhalte_initial or [])
+        self.methodik_selected: list[str] = list(methodik_initial or [])
         self._tooltips: list[HoverTooltip] = []
 
         self._build_ui(date_label)
@@ -86,11 +90,15 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             is_heading=self._is_heading,
         )
         self._bind_global_overlay_close()
+        self.bind("<Control-Return>", self._on_ctrl_enter_accept)
+        self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
         self._apply_theme()
 
         self.title_field.set(title_initial)
         self.topic_field.set(topic_initial)
         self.oberthema_field.set(oberthema_initial)
+        self.kompetenzen_field.set(" | ".join(kompetenzen_initial or []))
+        self.stundenziel_field.set(stundenziel_initial)
 
     def _apply_theme(self):
         """Wendet das übergebene Theme auf das Dialogfenster an."""
@@ -253,8 +261,14 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         text.bind("<Down>", self._overlay_move_down)
         text.bind("<Up>", self._overlay_move_up)
         text.bind("<Return>", self._overlay_select_from_field)
+        text.bind("<Control-Return>", self._on_ctrl_enter_accept)
+        text.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
         if enable_filter_refresh:
             text.bind("<KeyRelease>", lambda _e: self._refresh_open_overlay(field_name))
+
+    def _on_ctrl_enter_accept(self, _event=None):
+        self._accept()
+        return "break"
 
     def _bind_tab_navigation(self, fields: list[WrappedTextField]):
         self._tab_order = [field.text for field in fields]
@@ -463,6 +477,10 @@ def ask_lesson_builder(
     stundenziel_hint: str = "",
     inhalte_hint: str = "",
     methodik_hint: str = "",
+    kompetenzen_initial: list[str] | None = None,
+    stundenziel_initial: str = "",
+    inhalte_initial: list[str] | None = None,
+    methodik_initial: list[str] | None = None,
     ub_sections: list[tuple[str, list[str]]] | None = None,
     ub_error_hint: str = "",
     theme_key: str | None = None,
@@ -482,6 +500,10 @@ def ask_lesson_builder(
         stundenziel_hint=stundenziel_hint,
         inhalte_hint=inhalte_hint,
         methodik_hint=methodik_hint,
+        kompetenzen_initial=kompetenzen_initial,
+        stundenziel_initial=stundenziel_initial,
+        inhalte_initial=inhalte_initial,
+        methodik_initial=methodik_initial,
         ub_sections=ub_sections,
         ub_error_hint=ub_error_hint,
         theme_key=theme_key,

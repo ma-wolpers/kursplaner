@@ -230,6 +230,8 @@ class MainWindowUiIntentController:
             return self.intent_detail_right_all()
         if intent == UiIntent.SHORTCUT_ESCAPE:
             return self.intent_escape()
+        if intent == UiIntent.SHORTCUT_COMMIT_COLUMN:
+            return self.intent_commit_column()
         if intent == UiIntent.SHORTCUT_COMMIT_EDIT:
             return self.intent_commit_edit()
         if intent == UiIntent.SHORTCUT_EXPAND_SELECTED_ROW:
@@ -435,6 +437,36 @@ class MainWindowUiIntentController:
             return None
         if not self._leave_edit_mode_to_cell(set_grid_focus=True):
             return "break"
+        return "break"
+
+    def intent_commit_column(self):
+        if not bool(getattr(self.app, "is_detail_view", False)):
+            return None
+        if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
+            return None
+        if self._is_editable_widget(self.app.focus_get()):
+            return None
+
+        selected_index = self.app._get_single_selected_or_warn()
+        if selected_index is None:
+            return None
+
+        day_columns = list(getattr(self.app, "day_columns", []))
+        if selected_index < 0 or selected_index >= len(day_columns):
+            return None
+
+        day = day_columns[selected_index]
+        if bool(day.get("is_cancel", False)):
+            self.app.lesson_conversion_controller.convert_selected_to_ausfall(from_column_shortcut=True)
+            return "break"
+        if bool(day.get("is_hospitation", False)):
+            self.app.lesson_conversion_controller.convert_selected_to_hospitation(from_column_shortcut=True)
+            return "break"
+        if bool(day.get("is_lzk", False)):
+            self.app.lesson_conversion_controller.convert_selected_to_lzk(from_column_shortcut=True)
+            return "break"
+
+        self.app.lesson_conversion_controller.convert_selected_to_unterricht(from_column_shortcut=True)
         return "break"
 
     def intent_grid_enter(self):

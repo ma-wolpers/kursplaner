@@ -37,15 +37,39 @@ class PathFieldDefinition:
 
 
 def _resolve_workspace_path(raw: str | Path) -> Path:
-    path = Path(raw).expanduser()
+    raw_text = str(raw).strip()
+    if raw_text.startswith("__abs__/"):
+        parts = [part for part in raw_text.split("/") if part]
+        if len(parts) >= 2:
+            drive = parts[1]
+            tail_parts = parts[2:]
+            if len(drive) == 1 and drive.isalpha():
+                if tail_parts:
+                    return Path(f"{drive.upper()}:/", *tail_parts).expanduser().resolve()
+                return Path(f"{drive.upper()}:/").expanduser().resolve()
+
+    path = Path(raw_text).expanduser()
     if not path.is_absolute():
         path = WORKSPACE_ROOT / path
     return path.resolve()
 
 
 def _to_workspace_relative(path: Path) -> str:
-    relative = Path(relpath(path, WORKSPACE_ROOT))
-    return relative.as_posix()
+    try:
+        relative = Path(relpath(path, WORKSPACE_ROOT))
+        return relative.as_posix()
+    except ValueError:
+        drive = path.drive.rstrip(":").lower()
+        tail_parts = list(path.parts)
+        if path.drive:
+            tail_parts = tail_parts[1:]
+        if tail_parts and tail_parts[0] in {"\\", "/"}:
+            tail_parts = tail_parts[1:]
+        if len(drive) == 1 and drive.isalpha():
+            if tail_parts:
+                return f"__abs__/{drive}/" + "/".join(tail_parts)
+            return f"__abs__/{drive}"
+        return path.as_posix().lstrip("/")
 
 
 def normalize_path_value(raw: str) -> str:

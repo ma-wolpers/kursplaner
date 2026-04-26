@@ -77,7 +77,7 @@ class ScrollablePopupWindow(tk.Toplevel):
         popup = cls.active_popup()
         if popup is None:
             return False
-        popup._request_close()
+        popup._handle_escape_request()
         return True
 
     def _activate_modal_focus(self) -> None:
@@ -143,10 +143,27 @@ class ScrollablePopupWindow(tk.Toplevel):
         self.destroy()
         return "break"
 
+    @staticmethod
+    def _is_editable_widget(widget) -> bool:
+        if widget is None:
+            return False
+        editable_widget_types = (tk.Entry, tk.Text, tk.Spinbox, ttk.Entry, ttk.Combobox)
+        return isinstance(widget, editable_widget_types)
+
+    def _handle_escape_request(self) -> str:
+        focused = self.focus_get()
+        if self._is_descendant_of_popup(focused) and ScrollablePopupWindow._is_editable_widget(focused):
+            try:
+                self.focus_force()
+            except tk.TclError:
+                return "break"
+            return "break"
+        return self._request_close()
+
     def _on_escape_close(self, _event=None):
         if self.active_popup() is not self:
             return "break"
-        return self._request_close()
+        return self._handle_escape_request()
 
     def _on_window_close(self):
         self._request_close()

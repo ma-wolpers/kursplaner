@@ -73,6 +73,7 @@ class UiIntent:
     SHORTCUT_DETAIL_RIGHT_ALL = "shortcut.detail_right_all"
     SHORTCUT_ESCAPE = "shortcut.escape"
     SHORTCUT_COMMIT_EDIT = "shortcut.commit_edit"
+    SHORTCUT_COMMIT_COLUMN = "shortcut.commit_column"
     SHORTCUT_EXPAND_SELECTED_ROW = "shortcut.expand_selected_row"
     SHORTCUT_COLLAPSE_SELECTED_ROW = "shortcut.collapse_selected_row"
     SHORTCUT_CUT = "shortcut.cut"

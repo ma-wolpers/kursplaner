@@ -6,6 +6,7 @@ import re
 from tkinter import filedialog, messagebox, simpledialog
 
 from kursplaner.adapters.gui.lesson_builder_dialog import ask_lesson_builder
+from kursplaner.adapters.gui.lzk_column_dialog import ask_lzk_column_dialog
 from kursplaner.core.config.path_store import BAUKASTEN_DIR_KEY, FACHDIDAKTIK_DIR_KEY, FACHINHALTE_DIR_KEY
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
@@ -228,7 +229,98 @@ class MainWindowLessonConversionController:
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
 
-    def convert_selected_to_ausfall(self):
+    @staticmethod
+    def _coerce_string_list(raw_value) -> list[str]:
+        if isinstance(raw_value, list):
+            return [str(item).strip() for item in raw_value if str(item).strip()]
+        if isinstance(raw_value, tuple):
+            return [str(item).strip() for item in raw_value if str(item).strip()]
+        if isinstance(raw_value, str):
+            return [item.strip() for item in raw_value.split("|") if item.strip()]
+        return []
+
+    @staticmethod
+    def _extract_markdown_section_refs(lesson_path: pathlib.Path, heading: str) -> list[str]:
+        if not (isinstance(lesson_path, pathlib.Path) and lesson_path.exists() and lesson_path.is_file()):
+            return []
+        try:
+            raw_text = lesson_path.read_text(encoding="utf-8")
+        except OSError:
+            return []
+
+        section_re = re.compile(
+            rf"(?ms)^##\s+{re.escape(heading)}\s*$\n(.*?)(?=^##\s+|\Z)",
+        )
+        match = section_re.search(raw_text)
+        if match is None:
+            return []
+
+        refs: list[str] = []
+        for raw_line in match.group(1).splitlines():
+            stripped = raw_line.strip()
+            if not stripped.startswith("-"):
+                continue
+            item = stripped[1:].strip()
+            link_match = re.search(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", item)
+            if link_match:
+                value = (link_match.group(2) or link_match.group(1) or "").strip()
+            else:
+                value = item.strip()
+            if value:
+                refs.append(value)
+        return refs
+
+    @staticmethod
+    def _prefill_ausfall_reason_from_content(content: str) -> str:
+        cleaned = re.sub(r"\[\[[^\]]+\]\]", "", str(content or "")).strip()
+        if not cleaned:
+            return ""
+        lowered = cleaned.lower()
+        if lowered == "x":
+            return ""
+        if lowered.startswith("x "):
+            return cleaned[2:].strip(" :\t")
+        if lowered.startswith("ausfall"):
+            return cleaned[len("ausfall") :].strip(" :\t")
+        return cleaned
+
+    def _unterricht_prefill_values(self, *, day: dict[str, object], row_index: int) -> dict[str, object]:
+        current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
+        title_initial = current_topic or "Unterrichtseinheit"
+        topic_initial = current_topic or "Unterrichtseinheit"
+        oberthema_initial = self.last_oberthema_before_row(row_index)
+        stundenziel_initial = ""
+        kompetenzen_initial: list[str] = []
+        inhalte_initial: list[str] = []
+        methodik_initial: list[str] = []
+
+        existing_link = self.plan_regular_lesson.resolve_existing_link(self.app.current_table, row_index)
+        if isinstance(existing_link, pathlib.Path) and existing_link.exists() and existing_link.is_file():
+            title_initial = existing_link.stem
+            try:
+                lesson = self.lesson_commands.lesson_repo.load_lesson_yaml(existing_link)
+                yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
+            except Exception:
+                yaml_data = {}
+
+            topic_initial = str(yaml_data.get("Stundenthema", "")).strip() or topic_initial
+            oberthema_initial = str(yaml_data.get("Oberthema", "")).strip() or oberthema_initial
+            stundenziel_initial = str(yaml_data.get("Stundenziel", "")).strip()
+            kompetenzen_initial = self._coerce_string_list(yaml_data.get("Kompetenzen", []))
+            inhalte_initial = self._extract_markdown_section_refs(existing_link, "Inhalte")
+            methodik_initial = self._extract_markdown_section_refs(existing_link, "Methodik")
+
+        return {
+            "title_initial": title_initial,
+            "topic_initial": topic_initial,
+            "oberthema_initial": oberthema_initial,
+            "stundenziel_initial": stundenziel_initial,
+            "kompetenzen_initial": kompetenzen_initial,
+            "inhalte_initial": inhalte_initial,
+            "methodik_initial": methodik_initial,
+        }
+
+    def convert_selected_to_ausfall(self, *, from_column_shortcut: bool = False):
         if self.app.current_table is None:
             return
         selected_index = self.app._get_single_selected_or_warn()
@@ -250,7 +342,15 @@ class MainWindowLessonConversionController:
                 except Exception:
                     pass
 
-        reason = simpledialog.askstring("Fällt aus", "Grund für den Ausfall:", parent=self.app)
+        initial_reason = ""
+        if from_column_shortcut:
+            initial_reason = self._prefill_ausfall_reason_from_content(day.get("inhalt", ""))
+        reason = simpledialog.askstring(
+            "Fällt aus",
+            "Grund für den Ausfall:",
+            initialvalue=initial_reason,
+            parent=self.app,
+        )
         if reason is None:
             return
 
@@ -261,7 +361,7 @@ class MainWindowLessonConversionController:
         )
         self._refresh_after_write(selected_index=selected_index)
 
-    def convert_selected_to_unterricht(self):
+    def convert_selected_to_unterricht(self, *, from_column_shortcut: bool = False):
         if self.app.current_table is None:
             return
         selected_index = self.app._get_single_selected_or_warn()
@@ -282,7 +382,16 @@ class MainWindowLessonConversionController:
         methodik_refs: list[str] = []
 
         existing_link = self.plan_regular_lesson.resolve_existing_link(self.app.current_table, row_index)
-        should_open_builder = not self.plan_regular_lesson.has_existing_link(existing_link)
+        should_open_builder = from_column_shortcut or not self.plan_regular_lesson.has_existing_link(existing_link)
+
+        prefill_values = self._unterricht_prefill_values(day=day, row_index=row_index)
+        title = str(prefill_values["title_initial"])
+        topic = str(prefill_values["topic_initial"])
+        oberthema_input = str(prefill_values["oberthema_initial"])
+        stundenziel_input = str(prefill_values["stundenziel_initial"])
+        kompetenzen_refs = list(prefill_values["kompetenzen_initial"])
+        inhalte_refs = list(prefill_values["inhalte_initial"])
+        methodik_refs = list(prefill_values["methodik_initial"])
 
         if should_open_builder:
             kompetenzen_options, stundenziel_options, kompetenzen_hint = self.resolve_kompetenz_options()
@@ -293,7 +402,7 @@ class MainWindowLessonConversionController:
                 date_label=str(day.get("datum", "")).strip(),
                 title_initial=title,
                 topic_initial=topic,
-                oberthema_initial=self.last_oberthema_before_row(row_index),
+                oberthema_initial=oberthema_input,
                 kompetenzen_options=kompetenzen_options,
                 stundenziel_options=stundenziel_options,
                 inhalte_options=inhalte_options,
@@ -302,6 +411,10 @@ class MainWindowLessonConversionController:
                 stundenziel_hint=kompetenzen_hint,
                 inhalte_hint=inhalte_hint,
                 methodik_hint=methodik_hint,
+                kompetenzen_initial=kompetenzen_refs,
+                stundenziel_initial=stundenziel_input,
+                inhalte_initial=inhalte_refs,
+                methodik_initial=methodik_refs,
                 ub_sections=ub_sections,
                 ub_error_hint=self._last_ub_sections_error_hint,
                 theme_key=self.app.theme_var.get(),
@@ -372,7 +485,7 @@ class MainWindowLessonConversionController:
 
         self._refresh_after_write(selected_index=selected_index)
 
-    def convert_selected_to_lzk(self):
+    def convert_selected_to_lzk(self, *, from_column_shortcut: bool = False):
         if self.app.current_table is None:
             return
         selected_index = self.app._get_single_selected_or_warn()
@@ -387,6 +500,18 @@ class MainWindowLessonConversionController:
         current_content = str(day.get("inhalt", "")).strip()
         existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
         default_hours = int(str(day.get("stunden", "")).strip()) if str(day.get("stunden", "")).strip().isdigit() else 2
+
+        if from_column_shortcut:
+            dialog_result = ask_lzk_column_dialog(
+                self.app,
+                date_label=str(day.get("datum", "")).strip(),
+                suggested_title=title,
+                theme_key=self.app.theme_var.get(),
+            )
+            if dialog_result is None:
+                return
+            if dialog_result.title_override:
+                title = dialog_result.title_override
 
         decision = "move"
         allow_delete = False
@@ -441,7 +566,7 @@ class MainWindowLessonConversionController:
 
         self._refresh_after_write(selected_index=selected_index)
 
-    def convert_selected_to_hospitation(self):
+    def convert_selected_to_hospitation(self, *, from_column_shortcut: bool = False):
         if self.app.current_table is None:
             return
         selected_index = self.app._get_single_selected_or_warn()
@@ -451,9 +576,21 @@ class MainWindowLessonConversionController:
         day = self.app.day_columns[selected_index]
         row_index = self.app._to_int(day.get("row_index", 0), 0)
         default_hours = int(str(day.get("stunden", "")).strip()) if str(day.get("stunden", "")).strip().isdigit() else 2
+        focus_initial = ""
+        if from_column_shortcut:
+            existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
+            if isinstance(existing_link, pathlib.Path) and existing_link.exists() and existing_link.is_file():
+                try:
+                    lesson = self.lesson_commands.lesson_repo.load_lesson_yaml(existing_link)
+                    yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
+                    focus_initial = str(yaml_data.get("Beobachtungsschwerpunkte", "")).strip()
+                except Exception:
+                    focus_initial = ""
+
         focus_text = simpledialog.askstring(
             "Als Hospitation",
             "Beobachtungsschwerpunkt (optional):",
+            initialvalue=focus_initial,
             parent=self.app,
         )
         if focus_text is None:
