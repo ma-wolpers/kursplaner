@@ -49,6 +49,9 @@ class PasteWriteResult:
     shadow_link: Path | None = None
     ub_path: Path | None = None
     overview_path: Path | None = None
+    deleted_target_path: Path | None = None
+    deleted_target_ub_path: Path | None = None
+    deleted_target_overview_path: Path | None = None
     error_message: str | None = None
 
 
@@ -150,6 +153,31 @@ class PasteLessonUseCase:
         overview_markdown = build_ub_overview_markdown(self.ub_repo, workspace_root)
         overview_path = self.ub_repo.save_ub_overview(workspace_root, overview_markdown)
         return target_ub_path, overview_path
+
+    def _cleanup_deleted_target_with_ub(
+        self,
+        *,
+        table: PlanTableData,
+        lesson_path: Path,
+    ) -> tuple[Path | None, Path | None]:
+        """Löscht bei Ziel-Delete optional die verknüpfte UB-Datei und synchronisiert die Übersicht."""
+        if not lesson_path.exists() or not lesson_path.is_file():
+            return None, None
+
+        lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
+        lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
+        ub_stem = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+        if not ub_stem:
+            return None, None
+
+        workspace_root = self._workspace_root_from_markdown(table.markdown_path)
+        ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{ub_stem}.md"
+        if ub_path.exists() and ub_path.is_file():
+            self.ub_repo.delete_ub_markdown(ub_path)
+
+        overview_markdown = build_ub_overview_markdown(self.ub_repo, workspace_root)
+        overview_path = self.ub_repo.save_ub_overview(workspace_root, overview_markdown)
+        return ub_path, overview_path
 
     @staticmethod
     def validate_source(copied: Path) -> None:
@@ -297,6 +325,10 @@ class PasteLessonUseCase:
                 error_message=resolution.error_message,
             )
 
+        deleted_target_path: Path | None = None
+        deleted_target_ub_path: Path | None = None
+        deleted_target_overview_path: Path | None = None
+
         if isinstance(resolution.delete_link, Path):
             if not allow_delete:
                 return PasteWriteResult(
@@ -304,6 +336,11 @@ class PasteLessonUseCase:
                     shadow_link=resolution.shadow_link,
                     error_message="Löschen wurde nicht bestätigt. Keine Änderung durchgeführt.",
                 )
+            deleted_target_path = resolution.delete_link
+            deleted_target_ub_path, deleted_target_overview_path = self._cleanup_deleted_target_with_ub(
+                table=table,
+                lesson_path=resolution.delete_link,
+            )
             self.lesson_transfer.delete_lesson_file(resolution.delete_link)
 
         created, ub_path, overview_path = self.apply_paste(
@@ -322,4 +359,7 @@ class PasteLessonUseCase:
             shadow_link=resolution.shadow_link,
             ub_path=ub_path,
             overview_path=overview_path,
+            deleted_target_path=deleted_target_path,
+            deleted_target_ub_path=deleted_target_ub_path,
+            deleted_target_overview_path=deleted_target_overview_path,
         )

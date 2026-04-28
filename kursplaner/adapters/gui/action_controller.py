@@ -1436,6 +1436,9 @@ class MainWindowActionController:
                     getattr(item, "created_path", None),
                     getattr(item, "ub_path", None),
                     getattr(item, "overview_path", None),
+                    getattr(item, "deleted_target_path", None),
+                    getattr(item, "deleted_target_ub_path", None),
+                    getattr(item, "deleted_target_overview_path", None),
                 )
                 if isinstance(path, pathlib.Path)
             ],

@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- Beim Einfuegen mit Konfliktoption `Loeschen` wird die ersetzte Zieleinheit jetzt inklusive verknuepfter UB-Datei sauber aufgeraeumt; die UB-Uebersicht wird dabei direkt mit aktualisiert.
 - `Strg+X` im Spaltenmodus schneidet jetzt die verlinkte Einheit fachlich aus (statt nur Zelltext) und markiert sie fuer Verschieben.
 - Ausschneiden+Einfügen verschiebt eine Einheit mit UB jetzt als Move-Flow: alte Verknuepfung/Dateien werden aufgeraeumt, der UB wird auf das Ziel aktualisiert statt als zweiter UB stehen zu bleiben.
 - Loeschen einer Einheit im Feld `Inhalt` entfernt jetzt die verknuepfte Einheiten-Datei statt nur den Tabelleninhalt; wenn ein Unterrichtsbesuch verknuepft ist, wird im Dialog zusaetzlich abgefragt, ob die UB-Datei mitgeloescht werden soll.

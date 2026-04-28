@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Paste-Konfliktfall `delete` bereinigt jetzt auch UB-Artefakte der ersetzten Zieleinheit: verknuepfte UB-Datei wird entfernt und UB-Uebersicht im selben Writeflow aktualisiert; alle betroffenen Pfade sind fuer Undo/Redo im Ergebnismodell markiert.
+- Guardrail-Absicherung durch dedizierte Tests erweitert: Negativfall (direkter `apply_value`-Deletepfad) und Positivfall (getrackter Writeflow) sind als Unit-Tests fuer die AST-Guardrail-Regel abgedeckt.
 - Spaltenmodus `Strg+X` ist jetzt als echter Einheit-Cut verdrahtet: statt Zelltext-Cut wird eine verlinkte Einheit zum Verschieben vorgemerkt.
 - Cut+Paste fuer Einheiten mit UB als Move-Flow umgesetzt: beim Einfuegen wird die Ziel-Einheit geschrieben, danach die Quell-Einheit samt alter UB-Datei aufgeraeumt; Ergebnis ist eine verschobene Einheit mit UB-Update statt Duplikat.
 - Einheits-Loeschen fuer Unterricht mit UB auf transaktionalen Writeflow umgestellt: Einheit-Datei wird beim Loeschen entfernt, optional verknuepfte UB-Datei mitgeloescht, UB-Uebersicht im selben Zyklus synchronisiert.
