@@ -83,6 +83,8 @@ class ScrollablePopupWindow(tk.Toplevel):
     def _activate_modal_focus(self) -> None:
         if not self.winfo_exists():
             return
+        if ScrollablePopupWindow.active_popup() is not self:
+            return
         try:
             self.lift()
             focused = self.focus_get()

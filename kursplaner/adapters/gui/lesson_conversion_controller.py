@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox, simpledialog
 
 from kursplaner.adapters.gui.lesson_builder_dialog import ask_lesson_builder
 from kursplaner.adapters.gui.lzk_column_dialog import ask_lzk_column_dialog
+from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
 from kursplaner.core.config.path_store import BAUKASTEN_DIR_KEY, FACHDIDAKTIK_DIR_KEY, FACHINHALTE_DIR_KEY
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
@@ -394,6 +395,7 @@ class MainWindowLessonConversionController:
         methodik_refs = list(prefill_values["methodik_initial"])
 
         if should_open_builder:
+            lesson_builder_field_settings = load_lesson_builder_field_settings()
             kompetenzen_options, stundenziel_options, kompetenzen_hint = self.resolve_kompetenz_options()
             inhalte_options, methodik_options, inhalte_hint, methodik_hint = self.resolve_subject_sources()
             ub_sections = self._lesson_builder_ub_sections()
@@ -417,6 +419,8 @@ class MainWindowLessonConversionController:
                 methodik_initial=methodik_refs,
                 ub_sections=ub_sections,
                 ub_error_hint=self._last_ub_sections_error_hint,
+                show_kompetenzen_field=lesson_builder_field_settings.show_kompetenzen,
+                show_stundenziel_field=lesson_builder_field_settings.show_stundenziel,
                 theme_key=self.app.theme_var.get(),
             )
             if builder is None:

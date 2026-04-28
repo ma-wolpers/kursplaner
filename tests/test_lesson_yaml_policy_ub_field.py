@@ -1,4 +1,4 @@
-from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml
+from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml, infer_stundentyp
 
 
 def test_unterricht_defaults_include_unterrichtsbesuch_field():
@@ -71,3 +71,14 @@ def test_lzk_preserves_oberthema_value():
         }
     )
     assert normalized["Oberthema"] == "Informationen und Daten"
+
+
+def test_infer_stundentyp_does_not_use_topic_keyword_heuristic_for_lzk():
+    lesson_type = infer_stundentyp(
+        {
+            "Stundenthema": "Vorbereitung LZK im Team",
+            "Dauer": "2",
+        }
+    )
+
+    assert lesson_type == "Unterricht"

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import is_ausfall_marker, normalize_marker_text
+from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
@@ -48,12 +49,6 @@ class PlanOverviewQueryUseCase:
         self.lesson_repo = lesson_repo
         self.lesson_index_repo = lesson_index_repo
         self.ub_repo = ub_repo
-
-    @staticmethod
-    def _keyword_match(text: str, keywords: list[str]) -> bool:
-        """Prüft case-insensitiv, ob eines der Schlüsselwörter enthalten ist."""
-        lowered = text.lower()
-        return any(keyword.lower() in lowered for keyword in keywords)
 
     @staticmethod
     def _parse_date(value: str) -> date | None:
@@ -165,7 +160,14 @@ class PlanOverviewQueryUseCase:
             lessons_by_row = {}
             for row_idx, meta in lessons_meta.items():
                 lessons_by_row[row_idx] = type(
-                    "MetaLike", (), {"data": {"Stundenthema": meta.get("Stundenthema", "")}}
+                    "MetaLike",
+                    (),
+                    {
+                        "data": {
+                            "Stundenthema": meta.get("Stundenthema", ""),
+                            "Stundentyp": meta.get("Stundentyp", ""),
+                        }
+                    },
                 )()
         else:
             lessons_by_row = self.lesson_repo.load_lessons_for_rows(table, candidate_rows)
@@ -182,13 +184,11 @@ class PlanOverviewQueryUseCase:
             lesson_for_ub = lessons_for_ub.get(row_index)
 
             if lesson is not None:
-                lesson_topic = str(lesson.data.get("Stundenthema", "")).strip()
+                lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
+                lesson_topic = str(lesson_data.get("Stundenthema", "")).strip()
                 if next_theme == "—" and lesson_topic:
                     next_theme = lesson_topic
-                if next_lzk == "—" and lesson_topic and "lzk" in lesson_topic.lower():
-                    next_lzk = row_date_text
-            else:
-                if next_lzk == "—" and marker_text and "lzk" in marker_text.lower():
+                if next_lzk == "—" and infer_stundentyp(lesson_data) == "LZK":
                     next_lzk = row_date_text
 
             lesson_data = lesson_for_ub.data if lesson_for_ub is not None else {}

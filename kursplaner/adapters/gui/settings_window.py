@@ -4,6 +4,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.core.config.ui_preferences_store import LessonBuilderFieldSettings
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
 
 
@@ -20,6 +21,8 @@ class SettingsWindow(ScrollablePopupWindow):
         on_saved=None,
         ub_past_cutoff_time: time | None = None,
         on_ub_past_cutoff_saved=None,
+        lesson_builder_field_settings: LessonBuilderFieldSettings | None = None,
+        on_lesson_builder_fields_saved=None,
         theme_key: str | None = None,
         path_settings_usecase: PathSettingsUseCase | None = None,
     ):
@@ -34,6 +37,7 @@ class SettingsWindow(ScrollablePopupWindow):
 
         self.on_saved = on_saved
         self.on_ub_past_cutoff_saved = on_ub_past_cutoff_saved
+        self.on_lesson_builder_fields_saved = on_lesson_builder_fields_saved
         if path_settings_usecase is None:
             raise RuntimeError("PathSettingsUseCase fehlt in SettingsWindow-Verdrahtung.")
         self.path_settings_usecase = path_settings_usecase
@@ -41,6 +45,9 @@ class SettingsWindow(ScrollablePopupWindow):
         cutoff = ub_past_cutoff_time or time(hour=15, minute=0)
         self.ub_cutoff_hour_var = tk.StringVar(value=f"{int(cutoff.hour):02d}")
         self.ub_cutoff_minute_var = tk.StringVar(value=f"{int(cutoff.minute):02d}")
+        builder_fields = lesson_builder_field_settings or LessonBuilderFieldSettings()
+        self.show_kompetenzen_var = tk.BooleanVar(value=bool(builder_fields.show_kompetenzen))
+        self.show_stundenziel_var = tk.BooleanVar(value=bool(builder_fields.show_stundenziel))
 
         self.path_vars: dict[str, tk.StringVar] = {
             field.key: tk.StringVar(value=path_values.get(field.key, ""))
@@ -118,6 +125,19 @@ class SettingsWindow(ScrollablePopupWindow):
         )
         ttk.Label(ub_rules, text="(24h-Format)").grid(row=1, column=3, sticky="w", padx=(8, 0), pady=(0, 10))
 
+        lesson_builder_rules = ttk.LabelFrame(root, text="Einheit planen: optionale Felder")
+        lesson_builder_rules.pack(fill="x", expand=False, pady=(10, 0))
+        ttk.Checkbutton(
+            lesson_builder_rules,
+            text="Kompetenzen anzeigen",
+            variable=self.show_kompetenzen_var,
+        ).pack(anchor="w", padx=10, pady=(10, 4))
+        ttk.Checkbutton(
+            lesson_builder_rules,
+            text="Stundenziel anzeigen",
+            variable=self.show_stundenziel_var,
+        ).pack(anchor="w", padx=10, pady=(0, 10))
+
         buttons = ttk.Frame(root)
         buttons.pack(fill="x", pady=(10, 0))
         ttk.Button(buttons, text="Speichern", command=self._save).pack(side="left")
@@ -180,4 +200,11 @@ class SettingsWindow(ScrollablePopupWindow):
             self.on_saved(saved)
         if self.on_ub_past_cutoff_saved:
             self.on_ub_past_cutoff_saved(self._current_ub_cutoff_time())
+        if self.on_lesson_builder_fields_saved:
+            self.on_lesson_builder_fields_saved(
+                LessonBuilderFieldSettings(
+                    show_kompetenzen=bool(self.show_kompetenzen_var.get()),
+                    show_stundenziel=bool(self.show_stundenziel_var.get()),
+                )
+            )
         self.destroy()

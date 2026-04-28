@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository
 
@@ -10,12 +11,6 @@ class LessonContextQueryUseCase:
     def __init__(self, lesson_repo: LessonRepository):
         """Initialisiert den Query-Use-Case mit dem benötigten Lesson-Read-Port."""
         self.lesson_repo = lesson_repo
-
-    @staticmethod
-    def _keyword_match(text: str, keywords: list[str]) -> bool:
-        """Prüft case-insensitiv auf das Vorkommen fachlicher Schlüsselwörter."""
-        lowered = text.lower()
-        return any(keyword.lower() in lowered for keyword in keywords)
 
     @staticmethod
     def selected_row_hours(table: PlanTableData | None, row_index: int) -> int:
@@ -37,22 +32,18 @@ class LessonContextQueryUseCase:
     def next_lzk_number(self, table: PlanTableData) -> int:
         """Bestimmt die nächste freie laufende LZK-Nummer in der Planung.
 
-        Erkennt vorhandene LZKs sowohl über Tabellenmarker als auch über
-        `Stundenthema` in verlinkten Stunden.
+        Erkennt vorhandene LZKs ausschließlich über den YAML-Stundentyp
+        verlinkter Stunden-Dateien.
         """
         count = 0
         lessons_by_row = self.lesson_repo.load_lessons_for_all_rows(table)
 
-        for row_index, row in enumerate(table.rows):
-            content = row[2] if len(row) > 2 else ""
-            if self._keyword_match(content, ["lzk"]):
-                count += 1
-                continue
+        for row_index, _row in enumerate(table.rows):
             lesson = lessons_by_row.get(row_index)
             if lesson is None:
                 continue
-            topic = str(lesson.data.get("Stundenthema", ""))
-            if self._keyword_match(topic, ["lzk"]):
+            lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
+            if infer_stundentyp(lesson_data) == "LZK":
                 count += 1
         return count + 1
 

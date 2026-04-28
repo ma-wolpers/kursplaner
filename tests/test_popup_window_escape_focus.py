@@ -50,3 +50,40 @@ def test_escape_with_popup_focus_closes_popup(monkeypatch):
     assert result == "break"
     assert popup.focus_force_calls == 0
     assert popup.request_close_calls == 1
+
+
+def test_activate_modal_focus_ignores_non_active_popup(monkeypatch):
+    class _FocusPopup:
+        def __init__(self):
+            self.lift_calls = 0
+            self.focus_force_calls = 0
+
+        def winfo_exists(self):
+            return True
+
+        def lift(self):
+            self.lift_calls += 1
+
+        def focus_get(self):
+            return None
+
+        def _is_descendant_of_popup(self, _widget):
+            return False
+
+        def focus_force(self):
+            self.focus_force_calls += 1
+
+        def grab_current(self):
+            return None
+
+        def grab_set(self):
+            return None
+
+    popup = _FocusPopup()
+
+    monkeypatch.setattr(ScrollablePopupWindow, "active_popup", classmethod(lambda cls: object()))
+
+    ScrollablePopupWindow._activate_modal_focus(popup)
+
+    assert popup.lift_calls == 0
+    assert popup.focus_force_calls == 0

@@ -100,3 +100,53 @@ def test_plan_overview_exposes_next_ub_display(tmp_path):
 
     _theme, _remaining, _next_lzk, next_ub = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
     assert next_ub == "18.5. MP+"
+
+
+def test_plan_overview_next_lzk_uses_stundentyp_not_topic_keyword(tmp_path):
+    root = tmp_path / "Unterricht"
+    (root / "FachX" / "Einheiten").mkdir(parents=True)
+
+    lesson_regular = root / "FachX" / "Einheiten" / "stunde-regular.md"
+    lesson_regular.write_text(
+        "---\n"
+        "Stundentyp: Unterricht\n"
+        "Dauer: 2\n"
+        "Stundenthema: Vorbereitung LZK in Partnerarbeit\n"
+        "---\n",
+        encoding="utf-8",
+    )
+
+    lesson_lzk = root / "FachX" / "Einheiten" / "stunde-lzk.md"
+    lesson_lzk.write_text(
+        "---\n"
+        "Stundentyp: LZK\n"
+        "Dauer: 2\n"
+        "Stundenthema: Leistungskontrolle Kapitel 1\n"
+        "---\n",
+        encoding="utf-8",
+    )
+
+    repo = FileSystemLessonIndexRepository()
+    repo.rebuild_index(root)
+    lesson_repo = FileSystemLessonRepository()
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo)
+
+    future_1 = (date.today() + timedelta(days=1)).strftime("%d-%m-%y")
+    future_2 = (date.today() + timedelta(days=2)).strftime("%d-%m-%y")
+    table = PlanTableData(
+        markdown_path=root / "FachX" / "plan.md",
+        headers=["datum", "stunden", "inhalt"],
+        rows=[
+            [future_1, "2", "[[Einheiten/stunde-regular]]"],
+            [future_2, "2", "[[Einheiten/stunde-lzk]]"],
+        ],
+        start_line=0,
+        end_line=0,
+        source_lines=[],
+        had_trailing_newline=False,
+        metadata={},
+    )
+
+    _theme, _remaining, next_lzk, _next_ub = usecase.summarize_plan(table)
+
+    assert next_lzk == future_2

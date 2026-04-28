@@ -14,6 +14,12 @@ Regel:
 - Ausfall/Hospitation auf bestehendem Dialogmuster belassen und um Vorbelegung erweitert (Ausfallgrund aus Markertext, Beobachtungsschwerpunkt aus YAML).
 - Neues separates LZK-MVP-Fenster fuer Strg+Enter hinzugefuegt; optionaler Titel-Override, anschliessend bestehender LZK-Write-Flow.
 - Escape-Verhalten in Popup-Basisklasse verfeinert: Esc schliesst nur sofort bei Popup-Fokus; bei Fokus in editierbaren Eingabefeldern wird zunaechst auf Popup-Ebene fokussiert.
+- Popup-Modalfokus gehaertet: `_activate_modal_focus` bricht jetzt ab, wenn das Fenster nicht das aktive Top-Popup ist, um Fokus-Rueckspruenge in verschachtelten Popup-Flows zu vermeiden.
+- UI-Persistenz erweitert: neue Preferences `lesson_builder_fields.show_kompetenzen` und `lesson_builder_fields.show_stundenziel` steuern die Sichtbarkeit optionaler Builder-Felder.
+- Settings-Dialog um Feldsichtbarkeit fuer `Einheit planen` erweitert; Speicherung erfolgt zentral ueber `ui_preferences_store`.
+- Lesson-Builder flexibilisiert: `Kompetenzen`/`Stundenziel` koennen ausgeblendet werden; `Stundenziel` ist nicht mehr als Pflichtauswahl erzwungen.
+- LZK-Erkennung im Kern entheuristisiert: Detail-Projection, Daily-Log, Plan-Overview und LZK-Nummerierung nutzen jetzt YAML-`Stundentyp` statt String-Treffer auf Titel/Inhalt.
+- Lesson-Index-Metadaten fuer Overview erweitert um `Stundentyp`, damit indexbasierte Abfragen ohne Topic-Heuristik auskommen.
 - UB-Fokus in der GUI ausgebaut: Kursuebersicht zeigt jetzt `Naechster UB` im Format `D.M. Initialen+` (leer ohne zukuenftigen UB), Einheiten mit UB erhalten eine theme-abhaengige Vollspalten-Umrandung.
 - UB-Interaktion umgestellt: erneuter Klick auf UB oeffnet den UB-Dialog zur Bearbeitung (mit Vorbelegung) statt sofortigem Entfernen; Loeschen erfolgt jetzt explizit ueber eigene Dialogaktion.
 - UB-Ansicht als Tab-UI neu strukturiert: `Achievements`, `UB-Plan` (kommende/absolvierte Listen mit Spalten `Datum`, `Faecher`, `+`, `Kurs`) und `Entwicklungsimpulse`; Tabwechsel per Maus und Pfeiltasten.

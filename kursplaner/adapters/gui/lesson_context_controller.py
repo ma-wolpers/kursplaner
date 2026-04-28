@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 
 from kursplaner.core.domain.content_markers import normalize_marker_text
+from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
 from kursplaner.core.domain.plan_table import sanitize_hour_title
 from kursplaner.core.domain.wiki_links import strip_wiki_link
@@ -240,17 +241,10 @@ class MainWindowLessonContextController:
         if not (0 <= row_index < len(self.app.current_table.rows)):
             return False
 
-        row = self.app.current_table.rows[row_index]
-        content = row[2] if len(row) > 2 else ""
-        if self.keyword_match(content, ["lzk"]):
-            return True
-
         link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
         if isinstance(link, pathlib.Path) and link.exists():
             yaml_data = self.lesson_transfer.load_lesson_yaml_data(link)
-            topic = str(yaml_data.get("Stundenthema", ""))
-            if self.keyword_match(topic, ["lzk"]):
-                return True
+            return infer_stundentyp(yaml_data) == "LZK"
 
         return False
 

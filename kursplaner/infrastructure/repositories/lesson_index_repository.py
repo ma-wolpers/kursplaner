@@ -108,6 +108,7 @@ class FileSystemLessonIndexRepository:
             if entry:
                 result[row_index] = {
                     "Stundenthema": entry.data.get("Stundenthema", ""),
+                    "Stundentyp": entry.data.get("Stundentyp", ""),
                     "Oberthema": entry.data.get("Oberthema", ""),
                     "path": entry.path,
                     "mtime_ns": entry.mtime_ns,

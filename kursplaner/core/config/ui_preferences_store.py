@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from datetime import time
 from pathlib import Path
 
@@ -8,6 +9,15 @@ from kursplaner.core.usecases.column_visibility_projection_usecase import Column
 _THEME_KEY = "theme"
 _COLUMN_VISIBILITY_KEY = "column_visibility"
 _UB_PAST_CUTOFF_KEY = "ub_past_cutoff_time"
+_LESSON_BUILDER_FIELDS_KEY = "lesson_builder_fields"
+
+
+@dataclass(frozen=True)
+class LessonBuilderFieldSettings:
+    """Konfiguriert sichtbare optionale Felder im Lesson-Builder-Dialog."""
+
+    show_kompetenzen: bool = True
+    show_stundenziel: bool = True
 
 
 def _preferences_file() -> Path:
@@ -119,4 +129,28 @@ def save_ub_past_cutoff_time(value: time) -> None:
     """Persistiert die UB-Vergangenheitsgrenze als HH:MM-String."""
     payload = _load_payload()
     payload[_UB_PAST_CUTOFF_KEY] = f"{int(value.hour):02d}:{int(value.minute):02d}"
+    _save_payload(payload)
+
+
+def load_lesson_builder_field_settings() -> LessonBuilderFieldSettings:
+    """Lädt Sichtbarkeit optionaler Felder im Lesson-Builder."""
+    payload = _load_payload()
+    raw = payload.get(_LESSON_BUILDER_FIELDS_KEY)
+    if not isinstance(raw, dict):
+        return LessonBuilderFieldSettings()
+
+    defaults = LessonBuilderFieldSettings()
+    return LessonBuilderFieldSettings(
+        show_kompetenzen=bool(raw.get("show_kompetenzen", defaults.show_kompetenzen)),
+        show_stundenziel=bool(raw.get("show_stundenziel", defaults.show_stundenziel)),
+    )
+
+
+def save_lesson_builder_field_settings(settings: LessonBuilderFieldSettings) -> None:
+    """Persistiert Sichtbarkeit optionaler Felder im Lesson-Builder."""
+    payload = _load_payload()
+    payload[_LESSON_BUILDER_FIELDS_KEY] = {
+        "show_kompetenzen": bool(settings.show_kompetenzen),
+        "show_stundenziel": bool(settings.show_stundenziel),
+    }
     _save_payload(payload)

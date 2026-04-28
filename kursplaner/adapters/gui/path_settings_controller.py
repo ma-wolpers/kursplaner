@@ -6,7 +6,10 @@ from tkinter import filedialog
 
 from kursplaner.adapters.gui.settings_window import SettingsWindow
 from kursplaner.core.config.ui_preferences_store import (
+    LessonBuilderFieldSettings,
+    load_lesson_builder_field_settings,
     load_ub_past_cutoff_time,
+    save_lesson_builder_field_settings,
     save_ub_past_cutoff_time,
 )
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
@@ -58,6 +61,8 @@ class MainWindowPathSettingsController:
             on_saved=lambda values: self.on_paths_saved(values),
             ub_past_cutoff_time=load_ub_past_cutoff_time(),
             on_ub_past_cutoff_saved=self.on_ub_past_cutoff_saved,
+            lesson_builder_field_settings=load_lesson_builder_field_settings(),
+            on_lesson_builder_fields_saved=self.on_lesson_builder_fields_saved,
             theme_key=self.app.theme_var.get(),
             path_settings_usecase=self.path_settings_usecase,
         )
@@ -67,6 +72,11 @@ class MainWindowPathSettingsController:
     def on_ub_past_cutoff_saved(cutoff: time) -> None:
         """Persistiert die konfigurierbare Uhrzeit für UB-Vergangenheitszählung."""
         save_ub_past_cutoff_time(cutoff)
+
+    @staticmethod
+    def on_lesson_builder_fields_saved(settings: LessonBuilderFieldSettings) -> None:
+        """Persistiert Sichtbarkeit optionaler Felder im Lesson-Builder."""
+        save_lesson_builder_field_settings(settings)
 
     def on_paths_saved(self, values: dict[str, str]):
         """Übernimmt gespeicherte Pfade und lädt die Übersicht neu."""

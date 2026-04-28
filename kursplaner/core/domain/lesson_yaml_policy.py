@@ -71,10 +71,9 @@ def infer_stundentyp(data: dict[str, object]) -> LessonType:
         except RuntimeError:
             pass
 
-    topic = str(data.get("Stundenthema", "")).strip().lower()
-    if any(key in data for key in ("Beobachtungsschwerpunkte", "Ressourcen", "Baustellen")) or "hospitation" in topic:
+    if any(key in data for key in ("Beobachtungsschwerpunkte", "Ressourcen", "Baustellen")):
         return "Hospitation"
-    if any(key in data for key in ("Kompetenzhorizont", "Inhaltsübersicht")) or "lzk" in topic:
+    if any(key in data for key in ("Kompetenzhorizont", "Inhaltsübersicht")):
         return "LZK"
     if "Vertretungsmaterial" in data:
         return "Ausfall"

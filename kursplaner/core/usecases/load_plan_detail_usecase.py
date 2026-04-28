@@ -80,12 +80,6 @@ class LoadPlanDetailUseCase:
         return resolved.parent
 
     @staticmethod
-    def _keyword_match(text: str, keywords: list[str]) -> bool:
-        """Prüft case-insensitiv, ob eines der Keywords in Text enthalten ist."""
-        lowered = text.lower()
-        return any(keyword.lower() in lowered for keyword in keywords)
-
-    @staticmethod
     def _contains_markdown_link(text: str) -> bool:
         """Erkennt grob Obsidian-Linksyntax `[[...]]` im Inhaltstext."""
         stripped = text.strip()
@@ -220,10 +214,7 @@ class LoadPlanDetailUseCase:
                     yaml_data["Professionalisierungsschritte"] = steps
                     yaml_data["Nutzbare Ressourcen"] = resources
 
-            topic = str(yaml_data.get("Stundenthema", "")).strip()
-            is_lzk = (
-                lesson_type == "LZK" or self._keyword_match(marker_text, ["lzk"]) or self._keyword_match(topic, ["lzk"])
-            )
+            is_lzk = lesson_type == "LZK"
             header_content = marker_text or ""
             is_link_header = bool(has_link_ref)
 

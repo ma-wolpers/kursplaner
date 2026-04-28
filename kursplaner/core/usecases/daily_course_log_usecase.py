@@ -116,8 +116,6 @@ class DailyCourseLogUseCase:
             return "ausfall"
         if is_hospitation_marker(marker_text, group_name):
             return "hospitation"
-        if "lzk" in marker_text.lower():
-            return "lzk"
         return "unterricht"
 
     @classmethod

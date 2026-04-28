@@ -80,3 +80,27 @@ def test_load_ub_past_cutoff_time_falls_back_for_invalid_payload(tmp_path, monke
     loaded = ui_preferences_store.load_ub_past_cutoff_time()
 
     assert loaded == time(hour=15, minute=0)
+
+
+def test_save_and_load_lesson_builder_field_settings_roundtrip(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    expected = ui_preferences_store.LessonBuilderFieldSettings(
+        show_kompetenzen=False,
+        show_stundenziel=True,
+    )
+    ui_preferences_store.save_lesson_builder_field_settings(expected)
+    loaded = ui_preferences_store.load_lesson_builder_field_settings()
+
+    assert loaded == expected
+
+
+def test_load_lesson_builder_field_settings_defaults_for_invalid_payload(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    target.write_text(json.dumps({"lesson_builder_fields": "invalid"}), encoding="utf-8")
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    loaded = ui_preferences_store.load_lesson_builder_field_settings()
+
+    assert loaded == ui_preferences_store.LessonBuilderFieldSettings()

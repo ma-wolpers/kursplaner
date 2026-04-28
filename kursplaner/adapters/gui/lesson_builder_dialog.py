@@ -54,6 +54,8 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         methodik_initial: list[str] | None = None,
         ub_sections: list[tuple[str, list[str]]] | None = None,
         ub_error_hint: str = "",
+        show_kompetenzen_field: bool = True,
+        show_stundenziel_field: bool = True,
         theme_key: str | None = None,
     ):
         """Initialisiert den Dialog zum kuratierten Zusammenstellen einer Einheit."""
@@ -77,6 +79,8 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self.methodik_hint = methodik_hint.strip()
         self.ub_sections = [(str(title), list(values)) for title, values in (ub_sections or [])]
         self.ub_error_hint = str(ub_error_hint or "").strip()
+        self.show_kompetenzen_field = bool(show_kompetenzen_field)
+        self.show_stundenziel_field = bool(show_stundenziel_field)
 
         self.inhalte_selected: list[str] = list(inhalte_initial or [])
         self.methodik_selected: list[str] = list(methodik_initial or [])
@@ -97,8 +101,10 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self.title_field.set(title_initial)
         self.topic_field.set(topic_initial)
         self.oberthema_field.set(oberthema_initial)
-        self.kompetenzen_field.set(" | ".join(kompetenzen_initial or []))
-        self.stundenziel_field.set(stundenziel_initial)
+        if self.kompetenzen_field is not None:
+            self.kompetenzen_field.set(" | ".join(kompetenzen_initial or []))
+        if self.stundenziel_field is not None:
+            self.stundenziel_field.set(stundenziel_initial)
 
     def _apply_theme(self):
         """Wendet das übergebene Theme auf das Dialogfenster an."""
@@ -137,52 +143,66 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self._tooltips.append(HoverTooltip(oberthema_label, LESSON_BUILDER_HELP["oberthema"]))
         self._tooltips.append(HoverTooltip(self.oberthema_field.text, LESSON_BUILDER_HELP["oberthema"]))
 
-        kompetenzen_label = ttk.Label(basics, text="Kompetenzen")
-        kompetenzen_label.grid(row=4, column=0, sticky="w", padx=(10, 8), pady=4)
-        self.kompetenzen_field = WrappedTextField(basics, height=3)
-        self.kompetenzen_field.grid(row=4, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
-        self._bind_overlay_field(self.kompetenzen_field, "kompetenzen")
-        self._tooltips.append(HoverTooltip(kompetenzen_label, LESSON_BUILDER_HELP["kompetenzen"]))
-        self._tooltips.append(HoverTooltip(self.kompetenzen_field.text, LESSON_BUILDER_HELP["kompetenzen"]))
-        ttk.Label(basics, text=self.kompetenzen_hint, wraplength=760, justify="left").grid(
-            row=5, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
-        )
+        row = 4
+        if self.show_kompetenzen_field:
+            kompetenzen_label = ttk.Label(basics, text="Kompetenzen")
+            kompetenzen_label.grid(row=row, column=0, sticky="w", padx=(10, 8), pady=4)
+            self.kompetenzen_field = WrappedTextField(basics, height=3)
+            self.kompetenzen_field.grid(row=row, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
+            self._bind_overlay_field(self.kompetenzen_field, "kompetenzen")
+            self._tooltips.append(HoverTooltip(kompetenzen_label, LESSON_BUILDER_HELP["kompetenzen"]))
+            self._tooltips.append(HoverTooltip(self.kompetenzen_field.text, LESSON_BUILDER_HELP["kompetenzen"]))
+            row += 1
+            ttk.Label(basics, text=self.kompetenzen_hint, wraplength=760, justify="left").grid(
+                row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
+            )
+            row += 1
+        else:
+            self.kompetenzen_field = None
 
-        stundenziel_label = ttk.Label(basics, text="Stundenziel")
-        stundenziel_label.grid(row=6, column=0, sticky="w", padx=(10, 8), pady=4)
-        self.stundenziel_field = WrappedTextField(basics, height=3)
-        self.stundenziel_field.grid(row=6, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
-        self._bind_overlay_field(self.stundenziel_field, "stundenziel")
-        self._tooltips.append(HoverTooltip(stundenziel_label, LESSON_BUILDER_HELP["stundenziel"]))
-        self._tooltips.append(HoverTooltip(self.stundenziel_field.text, LESSON_BUILDER_HELP["stundenziel"]))
-        ttk.Label(basics, text=self.stundenziel_hint, wraplength=760, justify="left").grid(
-            row=7, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
-        )
+        if self.show_stundenziel_field:
+            stundenziel_label = ttk.Label(basics, text="Stundenziel")
+            stundenziel_label.grid(row=row, column=0, sticky="w", padx=(10, 8), pady=4)
+            self.stundenziel_field = WrappedTextField(basics, height=3)
+            self.stundenziel_field.grid(row=row, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
+            self._bind_overlay_field(self.stundenziel_field, "stundenziel")
+            self._tooltips.append(HoverTooltip(stundenziel_label, LESSON_BUILDER_HELP["stundenziel"]))
+            self._tooltips.append(HoverTooltip(self.stundenziel_field.text, LESSON_BUILDER_HELP["stundenziel"]))
+            row += 1
+            ttk.Label(basics, text=self.stundenziel_hint, wraplength=760, justify="left").grid(
+                row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
+            )
+            row += 1
+        else:
+            self.stundenziel_field = None
 
         inhalte_label = ttk.Label(basics, text="Inhalte")
-        inhalte_label.grid(row=8, column=0, sticky="nw", padx=(10, 8), pady=4)
+        inhalte_label.grid(row=row, column=0, sticky="nw", padx=(10, 8), pady=4)
         self.inhalte_query_field = WrappedTextField(basics, height=2)
-        self.inhalte_query_field.grid(row=8, column=1, sticky="ew", padx=(0, 10), pady=4)
+        self.inhalte_query_field.grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=4)
         self._bind_overlay_field(self.inhalte_query_field, "inhalte", enable_filter_refresh=True)
         self._tooltips.append(HoverTooltip(inhalte_label, LESSON_BUILDER_HELP["inhalte"]))
         self._tooltips.append(HoverTooltip(self.inhalte_query_field.text, LESSON_BUILDER_HELP["inhalte"]))
         self.inhalte_chip_frame = ttk.Frame(basics)
-        self.inhalte_chip_frame.grid(row=8, column=2, sticky="w", padx=(0, 10), pady=4)
+        self.inhalte_chip_frame.grid(row=row, column=2, sticky="w", padx=(0, 10), pady=4)
+        row += 1
         ttk.Label(basics, text=self.inhalte_hint, wraplength=760, justify="left").grid(
-            row=9, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
+            row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
         )
+        row += 1
 
         methodik_label = ttk.Label(basics, text="Methodik")
-        methodik_label.grid(row=10, column=0, sticky="nw", padx=(10, 8), pady=4)
+        methodik_label.grid(row=row, column=0, sticky="nw", padx=(10, 8), pady=4)
         self.methodik_query_field = WrappedTextField(basics, height=2)
-        self.methodik_query_field.grid(row=10, column=1, sticky="ew", padx=(0, 10), pady=4)
+        self.methodik_query_field.grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=4)
         self._bind_overlay_field(self.methodik_query_field, "methodik", enable_filter_refresh=True)
         self._tooltips.append(HoverTooltip(methodik_label, LESSON_BUILDER_HELP["methodik"]))
         self._tooltips.append(HoverTooltip(self.methodik_query_field.text, LESSON_BUILDER_HELP["methodik"]))
         self.methodik_chip_frame = ttk.Frame(basics)
-        self.methodik_chip_frame.grid(row=10, column=2, sticky="w", padx=(0, 10), pady=4)
+        self.methodik_chip_frame.grid(row=row, column=2, sticky="w", padx=(0, 10), pady=4)
+        row += 1
         ttk.Label(basics, text=self.methodik_hint, wraplength=760, justify="left").grid(
-            row=11, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 10)
+            row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 10)
         )
 
         basics.columnconfigure(1, weight=1)
@@ -191,17 +211,13 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         ub_frame.pack(fill="x", pady=(0, 10))
         self._render_ub_sections(ub_frame)
 
-        self._bind_tab_navigation(
-            [
-                self.title_field,
-                self.topic_field,
-                self.oberthema_field,
-                self.kompetenzen_field,
-                self.stundenziel_field,
-                self.inhalte_query_field,
-                self.methodik_query_field,
-            ]
-        )
+        tab_fields = [self.title_field, self.topic_field, self.oberthema_field]
+        if self.kompetenzen_field is not None:
+            tab_fields.append(self.kompetenzen_field)
+        if self.stundenziel_field is not None:
+            tab_fields.append(self.stundenziel_field)
+        tab_fields.extend([self.inhalte_query_field, self.methodik_query_field])
+        self._bind_tab_navigation(tab_fields)
 
         self._render_inhalte_chips()
         self._render_methodik_chips()
@@ -272,6 +288,9 @@ class LessonBuilderDialog(ScrollablePopupWindow):
 
     def _bind_tab_navigation(self, fields: list[WrappedTextField]):
         self._tab_order = [field.text for field in fields]
+        self.bind("<Tab>", self._on_tab_next, add="+")
+        self.bind("<Shift-Tab>", self._on_tab_prev, add="+")
+        self.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
         for text in self._tab_order:
             text.bind("<Tab>", self._on_tab_next, add="+")
             text.bind("<Shift-Tab>", self._on_tab_prev, add="+")
@@ -289,6 +308,8 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         try:
             current_index = self._tab_order.index(current_widget)
         except ValueError:
+            target_index = 0 if direction > 0 else len(self._tab_order) - 1
+            self._tab_order[target_index].focus_set()
             return "break"
         target_index = current_index + direction
         if 0 <= target_index < len(self._tab_order):
@@ -442,14 +463,13 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             messagebox.showerror("Einheit planen", "Bitte ein Stundenthema eingeben.", parent=self)
             return
 
-        stundenziel = self.stundenziel_field.get()
-        if self.stundenziel_options and not stundenziel:
-            messagebox.showerror("Einheit planen", "Bitte ein Stundenziel auswählen.", parent=self)
-            return
+        stundenziel = self.stundenziel_field.get() if self.stundenziel_field is not None else ""
 
-        kompetenzen_values = [
-            value for value in self._split_multi_values(self.kompetenzen_field.get()) if not self._is_heading(value)
-        ]
+        kompetenzen_values: list[str] = []
+        if self.kompetenzen_field is not None:
+            kompetenzen_values = [
+                value for value in self._split_multi_values(self.kompetenzen_field.get()) if not self._is_heading(value)
+            ]
 
         self.result = LessonBuildResult(
             title=title,
@@ -483,6 +503,8 @@ def ask_lesson_builder(
     methodik_initial: list[str] | None = None,
     ub_sections: list[tuple[str, list[str]]] | None = None,
     ub_error_hint: str = "",
+    show_kompetenzen_field: bool = True,
+    show_stundenziel_field: bool = True,
     theme_key: str | None = None,
 ) -> LessonBuildResult | None:
     """Öffnet den Builder-Dialog modal und gibt das übernommene Ergebnis zurück."""
@@ -506,6 +528,8 @@ def ask_lesson_builder(
         methodik_initial=methodik_initial,
         ub_sections=ub_sections,
         ub_error_hint=ub_error_hint,
+        show_kompetenzen_field=show_kompetenzen_field,
+        show_stundenziel_field=show_stundenziel_field,
         theme_key=theme_key,
     )
     dialog.grab_set()
@@ -615,6 +639,9 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
 
     def _bind_tab_navigation(self, fields: list[WrappedTextField]):
         self._tab_order = [field.text for field in fields]
+        self.bind("<Tab>", self._on_tab_next, add="+")
+        self.bind("<Shift-Tab>", self._on_tab_prev, add="+")
+        self.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
         for text in self._tab_order:
             text.bind("<Tab>", self._on_tab_next, add="+")
             text.bind("<Shift-Tab>", self._on_tab_prev, add="+")
@@ -632,6 +659,8 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
         try:
             current_index = self._tab_order.index(current_widget)
         except ValueError:
+            target_index = 0 if direction > 0 else len(self._tab_order) - 1
+            self._tab_order[target_index].focus_set()
             return "break"
         target_index = current_index + direction
         if 0 <= target_index < len(self._tab_order):
@@ -807,6 +836,9 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
 
     def _bind_tab_navigation(self, fields: list[WrappedTextField]):
         self._tab_order = [field.text for field in fields]
+        self.bind("<Tab>", self._on_tab_next, add="+")
+        self.bind("<Shift-Tab>", self._on_tab_prev, add="+")
+        self.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
         for text in self._tab_order:
             text.bind("<Tab>", self._on_tab_next, add="+")
             text.bind("<Shift-Tab>", self._on_tab_prev, add="+")
@@ -824,6 +856,8 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
         try:
             current_index = self._tab_order.index(current_widget)
         except ValueError:
+            target_index = 0 if direction > 0 else len(self._tab_order) - 1
+            self._tab_order[target_index].focus_set()
             return "break"
         target_index = current_index + direction
         if 0 <= target_index < len(self._tab_order):
