@@ -227,6 +227,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         plan_repo=plan_repo,
         plan_commands=plan_commands,
         lesson_transfer=lesson_transfer,
+        ub_repo=ub_repo,
     )
     lesson_transfer_flow = LessonTransferFlow(paste_lesson=paste_lesson)
 
@@ -249,6 +250,9 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     clear_selected_lesson = ClearSelectedLessonUseCase(
         plan_repo=plan_repo,
         plan_commands=plan_commands,
+        lesson_repo=lesson_repo,
+        lesson_file_repo=lesson_file_repo,
+        ub_repo=ub_repo,
     )
     split_selected_unit = SplitSelectedUnitUseCase(
         plan_repo=plan_repo,

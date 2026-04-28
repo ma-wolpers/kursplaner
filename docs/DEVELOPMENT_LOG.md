@@ -9,6 +9,12 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Spaltenmodus `Strg+X` ist jetzt als echter Einheit-Cut verdrahtet: statt Zelltext-Cut wird eine verlinkte Einheit zum Verschieben vorgemerkt.
+- Cut+Paste fuer Einheiten mit UB als Move-Flow umgesetzt: beim Einfuegen wird die Ziel-Einheit geschrieben, danach die Quell-Einheit samt alter UB-Datei aufgeraeumt; Ergebnis ist eine verschobene Einheit mit UB-Update statt Duplikat.
+- Einheits-Loeschen fuer Unterricht mit UB auf transaktionalen Writeflow umgestellt: Einheit-Datei wird beim Loeschen entfernt, optional verknuepfte UB-Datei mitgeloescht, UB-Uebersicht im selben Zyklus synchronisiert.
+- Delete-Shortcut im Grid (`Inhalt`) routed jetzt auf denselben Action-Writeflow wie Toolbar-Loeschen statt direktem Zell-Write, damit Undo/Redo alle beteiligten Dateien konsistent rueckspielen kann.
+- Paste-Flow erweitert um Pflichtauswahl bei Quellen mit UB-Verknuepfung: vor Einfuegen muss entschieden werden `UB mitkopieren` / `ohne UB` / `abbrechen`; bei Mitkopieren wird eine neue UB-Datei fuer das Ziel erzeugt und die Uebersicht aktualisiert.
+- AI-Guardrails um AST-Pruefungen fuer Undo-kritische Writeflows erweitert (Delete/Paste muessen getrackt laufen; UB-Kopierdialog im Paste-Flow verpflichtend).
 - Strg+Enter fuer Spaltenmodus ausgebaut: im Spaltenauswahlmodus oeffnet jetzt ein typabhaengiger Bestaetigungsdialog (Unterricht, LZK, Ausfall, Hospitation) statt des reinen Edit-Commits.
 - Unterricht-Dialog bei Strg+Enter nutzt denselben Builder wie bei neuer Planung, aber mit Voll-Prefill aus bestehender Stunde (YAML + Inhalte/Methodik-Abschnitte aus Markdown), sodass bestehende Spaltenwerte direkt bearbeitbar sind.
 - Ausfall/Hospitation auf bestehendem Dialogmuster belassen und um Vorbelegung erweitert (Ausfallgrund aus Markertext, Beobachtungsschwerpunkt aus YAML).

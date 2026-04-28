@@ -22,6 +22,7 @@ class LessonTransferFlowWriteRequest:
     target_path: Path
     content: str
     source_stem: str
+    ub_copy_mode: str = "none"
 
 
 class LessonTransferFlow:
@@ -57,4 +58,5 @@ class LessonTransferFlow:
             target_path=request.target_path,
             content=request.content,
             source_stem=request.source_stem,
+            ub_copy_mode=request.ub_copy_mode,
         )

@@ -90,7 +90,14 @@ class LessonTransferUseCase:
         stem_base = sanitize_hour_title(preferred_stem) or "Stunde"
         return self.lesson_file_repo.unique_markdown_path(target_dir, stem_base)
 
-    def write_pasted_lesson(self, target_path: Path, content: str, source_stem: str) -> Path:
+    def write_pasted_lesson(
+        self,
+        target_path: Path,
+        content: str,
+        source_stem: str,
+        *,
+        clear_ub_link: bool = True,
+    ) -> Path:
         """Schreibt eingefügte Stundeninhalte und synchronisiert ggf. das Stundenthema."""
         self.lesson_file_repo.write_file_content(target_path, content)
 
@@ -98,7 +105,7 @@ class LessonTransferUseCase:
         lesson_data = pasted_lesson.data if isinstance(pasted_lesson.data, dict) else {}
         should_save_yaml = False
 
-        if str(lesson_data.get("Unterrichtsbesuch", "")).strip():
+        if clear_ub_link and str(lesson_data.get("Unterrichtsbesuch", "")).strip():
             lesson_data["Unterrichtsbesuch"] = ""
             should_save_yaml = True
 

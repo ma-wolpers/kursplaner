@@ -7,6 +7,11 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- `Strg+X` im Spaltenmodus schneidet jetzt die verlinkte Einheit fachlich aus (statt nur Zelltext) und markiert sie fuer Verschieben.
+- Ausschneiden+Einfügen verschiebt eine Einheit mit UB jetzt als Move-Flow: alte Verknuepfung/Dateien werden aufgeraeumt, der UB wird auf das Ziel aktualisiert statt als zweiter UB stehen zu bleiben.
+- Loeschen einer Einheit im Feld `Inhalt` entfernt jetzt die verknuepfte Einheiten-Datei statt nur den Tabelleninhalt; wenn ein Unterrichtsbesuch verknuepft ist, wird im Dialog zusaetzlich abgefragt, ob die UB-Datei mitgeloescht werden soll.
+- Undo/Redo nach Einheits-Loeschen wurde auf Mehrdatei-Tracking gehaertet: Plan, Einheiten-Datei, optionale UB-Datei und UB-Uebersicht werden konsistent rueckgespielt.
+- Beim Einfuegen einer kopierten Einheit mit verknuepftem UB erscheint jetzt immer eine Auswahl: `UB mitkopieren`, `ohne UB kopieren` oder `abbrechen`.
 - Strg+Enter im Spaltenmodus ist jetzt typabhaengig: Unterricht, LZK, Ausfall und Hospitation oeffnen jeweils einen passenden Bestaetigungsdialog.
 - Unterricht per Strg+Enter oeffnet denselben Planungsdialog wie beim Neuanlegen, nun mit vorausgefuellten Werten aus der bestehenden Spalte/Stunden-Datei.
 - Ausfall- und Hospitationsdialoge bleiben die bestehenden Dialoge und oeffnen jetzt mit Vorbelegung aus vorhandenen Spalten-/YAML-Werten.

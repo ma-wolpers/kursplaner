@@ -49,6 +49,9 @@ class _ActionControllerSpy:
     def copy_selected_lesson(self):
         self.calls.append("copy_selected_lesson")
 
+    def cut_selected_lesson(self):
+        self.calls.append("cut_selected_lesson")
+
     def paste_copied_lesson(self):
         self.calls.append("paste_copied_lesson")
 
@@ -426,6 +429,35 @@ def test_grid_delete_cell_clears_selected_editable_cell():
     assert editor_controller.apply_calls == [("Stundenthema", 0, "")]
 
 
+def test_grid_delete_cell_routes_content_delete_to_action_controller():
+    action_controller = _ActionControllerSpy()
+    editor_controller = _EditorControllerSpy()
+    ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_CELL)
+    ui_state.set_selected_cell("inhalt", 0)
+    app = SimpleNamespace(
+        action_controller=action_controller,
+        lesson_conversion_controller=_LessonConversionSpy(),
+        column_reorder_controller=_ColumnReorderSpy(),
+        selection_controller=_SelectionControllerSpy(select_first_result=True),
+        editor_controller=editor_controller,
+        row_display_mode_usecase=SimpleNamespace(is_editable=lambda _field_key, _day: True),
+        ui_state=ui_state,
+        day_columns=[{"datum": "2026-03-27"}],
+        _collect_day_columns=lambda: None,
+        _update_grid_column=lambda _day_index: None,
+        _update_selected_lesson_metrics=lambda: None,
+        is_detail_view=True,
+        focus_get=lambda: None,
+        _to_int=KursplanerApp._to_int,
+    )
+
+    result = KursplanerApp._handle_ui_intent(app, UiIntent.GRID_DELETE_CELL)
+
+    assert result == "break"
+    assert action_controller.calls == ["clear_selected_lesson_content"]
+    assert editor_controller.apply_calls == []
+
+
 def test_grid_cell_click_marks_cell_without_entering_edit_on_first_click():
     selection_controller = _SelectionControllerSpy()
     app = SimpleNamespace(
@@ -763,6 +795,19 @@ def test_shortcut_copy_works_in_column_selection_mode():
     assert app.action_controller.calls == ["copy_selected_lesson"]
 
 
+def test_shortcut_cut_works_in_column_selection_mode():
+    app = _build_dummy_app()
+    app.is_detail_view = True
+    app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
+    app.focus_get = lambda: None
+
+    event = SimpleNamespace(widget=object(), state=0)
+    result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_CUT, event=event)
+
+    assert result == "break"
+    assert app.action_controller.calls == ["cut_selected_lesson"]
+
+
 def test_shortcut_copy_in_cell_selection_copies_selected_cell_content():
     app = _build_dummy_app()
     app.is_detail_view = True
@@ -900,7 +945,7 @@ def test_shortcut_cut_in_cell_selection_copies_and_clears_selected_cell():
     assert editor_controller.apply_calls == [("Stundenthema", 0, "")]
 
 
-def test_shortcut_cut_is_ignored_in_column_selection_mode():
+def test_shortcut_cut_routes_in_column_selection_mode():
     app = _build_dummy_app()
     app.is_detail_view = True
     app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
@@ -909,7 +954,8 @@ def test_shortcut_cut_is_ignored_in_column_selection_mode():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_CUT, event=event)
 
-    assert result is None
+    assert result == "break"
+    assert app.action_controller.calls == ["cut_selected_lesson"]
 
 
 def test_grid_delete_is_ignored_when_event_originates_from_text_widget(monkeypatch):

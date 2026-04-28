@@ -725,6 +725,30 @@ class MainWindowActionController:
         self._refresh_after_write(selected_index=selected_index)
         return True
 
+    def _ask_paste_ub_copy_mode(self, source_lesson_path: pathlib.Path) -> str | None:
+        """Fragt bei Quellen mit UB-Verknüpfung, wie beim Einfügen verfahren werden soll."""
+        try:
+            source_data = self._lesson_transfer.load_lesson_yaml_data(source_lesson_path)
+        except Exception:
+            return "none"
+
+        ub_link = strip_wiki_link(str(source_data.get("Unterrichtsbesuch", "")).strip())
+        if not ub_link:
+            return "none"
+
+        choice = messagebox.askyesnocancel(
+            "Unterrichtsbesuch mitkopieren?",
+            "Die kopierte Einheit ist mit einem Unterrichtsbesuch verknüpft.\n\n"
+            "Ja: UB mitkopieren (neue UB für das Zieldatum)\n"
+            "Nein: Einheit ohne UB einfügen\n"
+            "Abbrechen: Vorgang abbrechen",
+            parent=self.app,
+            default="no",
+        )
+        if choice is None:
+            return None
+        return "copy" if choice else "none"
+
     @staticmethod
     def _bind_notebook_arrow_navigation(notebook: ttk.Notebook, *, scope: tk.Misc | None = None) -> None:
         """Aktiviert zyklischen Tabwechsel per linker/rechter Pfeiltaste im angegebenen Scope."""
@@ -1154,8 +1178,34 @@ class MainWindowActionController:
             )
             return
         self.app.clipboard_lesson_path = link.resolve()
+        self.app.clipboard_lesson_cut_context = None
         self.update_action_controls()
         messagebox.showinfo("Kopieren", f"Einheit kopiert:\n{self.app.clipboard_lesson_path.name}", parent=self.app)
+
+    def cut_selected_lesson(self):
+        """Markiert die verlinkte Stunden-Datei der Auswahl für Ausschneiden+Einfügen."""
+        context = self._single_selection_context()
+        if context is None or self.app.current_table is None:
+            return
+        _, row_index, _ = context
+        link = self._lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
+        if not isinstance(link, pathlib.Path) or not link.exists() or not link.is_file():
+            messagebox.showinfo(
+                "Ausschneiden", "Für die ausgewählte Spalte existiert keine verlinkte Einheit.", parent=self.app
+            )
+            return
+
+        self.app.clipboard_lesson_path = link.resolve()
+        self.app.clipboard_lesson_cut_context = {
+            "source_table_path": self.app.current_table.markdown_path.resolve(),
+            "source_lesson_path": link.resolve(),
+        }
+        self.update_action_controls()
+        messagebox.showinfo(
+            "Ausschneiden",
+            f"Einheit zum Verschieben vorgemerkt:\n{self.app.clipboard_lesson_path.name}",
+            parent=self.app,
+        )
 
     def export_selected_topic_as_pdf_action(self):
         """Exportiert die aktuelle Sequenz als Sequenzplan oder Kompetenzhorizont."""
@@ -1273,6 +1323,19 @@ class MainWindowActionController:
             messagebox.showinfo("Einfügen", "Keine kopierte Einheit vorhanden.", parent=self.app)
             return
 
+        cut_context = getattr(self.app, "clipboard_lesson_cut_context", None)
+        table_path = self.app.current_table.markdown_path.resolve()
+        copied_resolved = copied.resolve()
+        is_cut_move = bool(
+            isinstance(cut_context, dict)
+            and isinstance(cut_context.get("source_table_path"), pathlib.Path)
+            and isinstance(cut_context.get("source_lesson_path"), pathlib.Path)
+            and cut_context.get("source_table_path") == table_path
+            and cut_context.get("source_lesson_path") == copied_resolved
+        )
+        if isinstance(cut_context, dict) and not is_cut_move:
+            self.app.clipboard_lesson_cut_context = None
+
         try:
             self._lesson_transfer_flow.validate_source(copied)
             content = self._lesson_transfer_flow.read_source_content(copied)
@@ -1280,6 +1343,25 @@ class MainWindowActionController:
         except Exception as exc:
             messagebox.showerror("Einfügen", str(exc), parent=self.app)
             return
+
+        ub_copy_mode = "copy" if is_cut_move else self._ask_paste_ub_copy_mode(copied)
+        if ub_copy_mode is None:
+            return
+
+        cut_extra_paths: list[pathlib.Path] = []
+        if is_cut_move:
+            cut_extra_paths.append(copied_resolved)
+            try:
+                source_data = self._lesson_transfer.load_lesson_yaml_data(copied_resolved)
+            except Exception:
+                source_data = {}
+
+            ub_stem = strip_wiki_link(str(source_data.get("Unterrichtsbesuch", "")).strip())
+            ub_repo = self.app.gui_dependencies.load_plan_detail_usecase.ub_repo
+            if ub_stem and ub_repo is not None:
+                workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
+                cut_extra_paths.append(ub_repo.ensure_ub_root(workspace_root) / f"{ub_stem}.md")
+                cut_extra_paths.append(ub_repo.ub_overview_path(workspace_root))
 
         decision = "move"
         allow_delete = False
@@ -1309,9 +1391,8 @@ class MainWindowActionController:
                 else:
                     return
 
-        result = self._run_tracked_write(
-            label="Einheit einfügen",
-            action=lambda: self._lesson_transfer_flow.execute_write(
+        def _execute_write():
+            write_result = self._lesson_transfer_flow.execute_write(
                 LessonTransferFlowWriteRequest(
                     table=self.app.current_table,
                     row_index=row_index,
@@ -1320,17 +1401,52 @@ class MainWindowActionController:
                     target_path=plan.target_path,
                     content=content,
                     source_stem=copied.stem,
+                    ub_copy_mode=ub_copy_mode,
                 )
-            ),
-            extra_after=[plan.target_path],
-            extra_after_from_result=lambda item: [item.created_path]
-            if isinstance(getattr(item, "created_path", None), pathlib.Path)
-            else [],
+            )
+
+            if not write_result.proceed or not is_cut_move:
+                return write_result
+
+            workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
+            for source_row_index in range(len(self.app.current_table.rows)):
+                source_link = self._lesson_transfer.resolve_existing_link(self.app.current_table, source_row_index)
+                if not (isinstance(source_link, pathlib.Path) and source_link.resolve() == copied_resolved):
+                    continue
+
+                self._clear_selected_lesson_uc.execute(
+                    self.app.current_table,
+                    source_row_index,
+                    workspace_root=workspace_root,
+                    delete_lesson_markdown=True,
+                    delete_ub_markdown=True,
+                )
+                break
+
+            return write_result
+
+        result = self._run_tracked_write(
+            label="Einheit einfügen",
+            action=_execute_write,
+            extra_before=cut_extra_paths,
+            extra_after=[plan.target_path, *cut_extra_paths],
+            extra_after_from_result=lambda item: [
+                path
+                for path in (
+                    getattr(item, "created_path", None),
+                    getattr(item, "ub_path", None),
+                    getattr(item, "overview_path", None),
+                )
+                if isinstance(path, pathlib.Path)
+            ],
         )
 
         if not result.proceed:
             messagebox.showerror("Einfügen", result.error_message or "Einfügen fehlgeschlagen.", parent=self.app)
             return
+
+        if is_cut_move:
+            self.app.clipboard_lesson_cut_context = None
 
         self._refresh_after_write(selected_index=selected_index)
         if isinstance(result.shadow_link, pathlib.Path):
@@ -1339,6 +1455,8 @@ class MainWindowActionController:
                 f"Bestehende Einheit als Schatteneinheit behalten:\n{result.shadow_link.name}",
                 parent=self.app,
             )
+        if is_cut_move:
+            messagebox.showinfo("Einfügen", "Einheit inklusive UB wurde verschoben.", parent=self.app)
 
     def link_markdown_for_selected(self):
         """Verknüpft eine vorhandene Markdown-Datei mit der ausgewählten Planzeile."""
@@ -1410,34 +1528,79 @@ class MainWindowActionController:
         self._refresh_after_write(selected_index=selected_index)
 
     def clear_selected_lesson_content(self):
-        """Leert die ausgewählte Planzeile (Inhalt) und behält ggf. Schattenlink bei."""
+        """Löscht die ausgewählte Einheit transaktional inkl. optionalem UB-Cleanup."""
         context = self._single_selection_context()
         if context is None or self.app.current_table is None:
             return
-        selected_index, row_index, _ = context
+        selected_index, row_index, day = context
+
+        workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
+        lesson_yaml = day.get("yaml") if isinstance(day, dict) else {}
+        ub_link = ""
+        if isinstance(lesson_yaml, dict):
+            ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
 
         confirmed = messagebox.askyesno(
             "Einheit löschen",
-            "Soll der Inhalt der ausgewählten Einheit wirklich geleert werden?",
+            "Soll die ausgewählte Einheit inklusive verlinkter Stunden-Datei gelöscht werden?",
             parent=self.app,
         )
         if not confirmed:
             return
 
+        delete_ub_markdown = False
+        if ub_link:
+            default_kinds, default_langentwurf, default_beobachtung = self._ub_dialog_defaults_for_day(
+                workspace_root=workspace_root,
+                lesson_yaml=lesson_yaml if isinstance(lesson_yaml, dict) else {},
+            )
+            detail_lines = [
+                f"Verknüpfter UB: {ub_link}",
+                f"Bereich/Fach: {', '.join(default_kinds) if default_kinds else '-'}",
+                f"Langentwurf: {'Ja' if default_langentwurf else 'Nein'}",
+            ]
+            if default_beobachtung:
+                detail_lines.append(f"Beobachtungsschwerpunkt: {default_beobachtung}")
+
+            ub_choice = messagebox.askyesnocancel(
+                "Unterrichtsbesuch löschen",
+                "Die Einheit enthält einen verknüpften Unterrichtsbesuch.\n\n"
+                + "\n".join(detail_lines)
+                + "\n\nJa: UB-Datei mitlöschen\nNein: UB-Datei behalten\nAbbrechen: Vorgang abbrechen",
+                parent=self.app,
+                default="yes",
+            )
+            if ub_choice is None:
+                return
+            delete_ub_markdown = bool(ub_choice)
+
         try:
             result = self._run_tracked_write(
-                label="Einheit leeren",
-                action=lambda: self._clear_selected_lesson_uc.execute(self.app.current_table, row_index),
-                extra_after_from_result=lambda item: [item.shadow_link]
-                if isinstance(getattr(item, "shadow_link", None), pathlib.Path)
-                else [],
+                label="Einheit löschen",
+                action=lambda: self._clear_selected_lesson_uc.execute(
+                    self.app.current_table,
+                    row_index,
+                    workspace_root=workspace_root,
+                    delete_lesson_markdown=True,
+                    delete_ub_markdown=delete_ub_markdown,
+                ),
+                extra_after_from_result=lambda item: [
+                    path
+                    for path in (
+                        getattr(item, "lesson_path", None),
+                        getattr(item, "ub_path", None),
+                        getattr(item, "overview_path", None),
+                        getattr(item, "shadow_link", None),
+                    )
+                    if isinstance(path, pathlib.Path)
+                ],
             )
         except Exception as exc:
             messagebox.showerror("Einheit löschen", str(exc), parent=self.app)
             return
 
         self._refresh_after_write(selected_index=selected_index)
-        if isinstance(result.shadow_link, pathlib.Path):
+        if isinstance(result.shadow_link, pathlib.Path) and not bool(getattr(result, "lesson_path", None)):
             messagebox.showinfo(
                 "Einheit löschen",
                 f"Verlinkte Datei bleibt als Schatteneinheit erhalten:\n{result.shadow_link.name}",

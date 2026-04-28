@@ -604,13 +604,10 @@ class MainWindowUiIntentController:
         day = self.app.day_columns[day_index]
         if not self.app.row_display_mode_usecase.is_editable(field_key, day):
             return None
-        self.app.editor_controller.apply_value(field_key, day_index, "")
-        self.app._collect_day_columns()
-        self.app._update_grid_column(day_index)
-        self.app._update_selected_lesson_metrics()
-        self.app.action_controller.update_action_controls()
-        self.app.selection_controller.set_selected_cell(field_key, day_index, ensure_visible=True)
-        return "break"
+        if str(field_key).strip().lower() == "inhalt":
+            self.app.action_controller.clear_selected_lesson_content()
+            return "break"
+        return self._set_selected_cell_value("")
 
     def intent_grid_home(self, event=None):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -672,6 +669,9 @@ class MainWindowUiIntentController:
         if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
             if operation == "copy":
                 self.app.action_controller.copy_selected_lesson()
+                return "break"
+            if operation == "cut":
+                self.app.action_controller.cut_selected_lesson()
                 return "break"
             if operation == "paste":
                 self.app.action_controller.paste_copied_lesson()

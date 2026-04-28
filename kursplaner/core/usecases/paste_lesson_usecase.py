@@ -3,10 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_YAML_KEY_EINHEIT,
+    build_ub_stem,
+)
+from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
+from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
+from kursplaner.core.usecases.ub_markdown_sections import parse_list_section, parse_reflection
+from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
 
 
 @dataclass(frozen=True)
@@ -40,6 +47,8 @@ class PasteWriteResult:
     proceed: bool
     created_path: Path | None = None
     shadow_link: Path | None = None
+    ub_path: Path | None = None
+    overview_path: Path | None = None
     error_message: str | None = None
 
 
@@ -55,6 +64,7 @@ class PasteLessonUseCase:
         plan_repo: PlanRepository,
         plan_commands: PlanCommandsUseCase,
         lesson_transfer: LessonTransferUseCase,
+        ub_repo: UbRepository,
     ):
         """Initialisiert den Einfügeablauf für kopierte Stunden.
 
@@ -68,6 +78,78 @@ class PasteLessonUseCase:
         self.plan_repo = plan_repo
         self.plan_commands = plan_commands
         self.lesson_transfer = lesson_transfer
+        self.ub_repo = ub_repo
+
+    @staticmethod
+    def _workspace_root_from_markdown(path: Path) -> Path:
+        """Leitet den Workspace-Stamm robust aus einem Projektpfad ab."""
+        resolved = path.expanduser().resolve()
+        for parent in (resolved, *resolved.parents):
+            if parent.name == "7thCloud":
+                return parent
+        return resolved.anchor and Path(resolved.anchor) or resolved.parent
+
+    @staticmethod
+    def _unit_title_from_lesson_stem(lesson_path: Path) -> str:
+        """Leitet den inhaltlichen Einheitstitel aus dem Dateistamm ab."""
+        stem = str(lesson_path.stem).strip()
+        if not stem:
+            return ""
+        parts = stem.split(" ", 2)
+        if len(parts) >= 3:
+            return parts[2].strip()
+        return stem
+
+    def _copy_linked_ub_for_created_lesson(
+        self,
+        *,
+        table: PlanTableData,
+        row_index: int,
+        created_path: Path,
+    ) -> tuple[Path | None, Path | None]:
+        """Kopiert eine verknüpfte UB-Datei auf neues Datum/Einheit und aktualisiert die Verknüpfung."""
+        lesson = self.lesson_repo.load_lesson_yaml(created_path)
+        lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
+        source_ub_stem = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+        if not source_ub_stem:
+            return None, None
+
+        workspace_root = self._workspace_root_from_markdown(table.markdown_path)
+        source_ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{source_ub_stem}.md"
+        if not source_ub_path.exists() or not source_ub_path.is_file():
+            lesson_data["Unterrichtsbesuch"] = ""
+            lesson.data = lesson_data
+            self.lesson_repo.save_lesson_yaml(lesson)
+            return None, None
+
+        ub_yaml, ub_body = self.ub_repo.load_ub_markdown(source_ub_path)
+        date_idx = {name.lower(): idx for idx, name in enumerate(table.headers)}.get("datum")
+        date_text = ""
+        if isinstance(date_idx, int) and date_idx < len(table.rows[row_index]):
+            date_text = str(table.rows[row_index][date_idx]).strip()
+
+        unit_title = self._unit_title_from_lesson_stem(created_path)
+        desired_stem = build_ub_stem(date_text, unit_title)
+        target_ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_stem)
+
+        ub_yaml = dict(ub_yaml)
+        ub_yaml[UB_YAML_KEY_EINHEIT] = build_wiki_link(created_path.stem)
+
+        self.ub_repo.save_ub_markdown(
+            target_ub_path,
+            ub_yaml,
+            reflection_text=parse_reflection(ub_body),
+            professional_steps=parse_list_section(ub_body, "Professionalisierungsschritte"),
+            usable_resources=parse_list_section(ub_body, "Nutzbare Ressourcen"),
+        )
+
+        lesson_data["Unterrichtsbesuch"] = build_wiki_link(target_ub_path.stem)
+        lesson.data = lesson_data
+        self.lesson_repo.save_lesson_yaml(lesson)
+
+        overview_markdown = build_ub_overview_markdown(self.ub_repo, workspace_root)
+        overview_path = self.ub_repo.save_ub_overview(workspace_root, overview_markdown)
+        return target_ub_path, overview_path
 
     @staticmethod
     def validate_source(copied: Path) -> None:
@@ -156,7 +238,8 @@ class PasteLessonUseCase:
         target_path: Path,
         content: str,
         source_stem: str,
-    ) -> Path:
+        ub_copy_mode: str,
+    ) -> tuple[Path, Path | None, Path | None]:
         """Schreibt die kopierte Stunde und verlinkt die Zielzeile auf den neuen Stem.
 
         Args:
@@ -169,13 +252,24 @@ class PasteLessonUseCase:
         Returns:
             Pfad der neu angelegten Stunden-Datei.
         """
+        normalized_ub_mode = (ub_copy_mode or "none").strip().lower()
         created = self.lesson_transfer.write_pasted_lesson(
             target_path=target_path,
             content=content,
             source_stem=source_stem,
+            clear_ub_link=normalized_ub_mode != "copy",
         )
         self.lesson_transfer.relink_row_to_stem(table, row_index, created.stem, preserve_alias=False)
-        return created
+
+        if normalized_ub_mode == "copy":
+            ub_path, overview_path = self._copy_linked_ub_for_created_lesson(
+                table=table,
+                row_index=row_index,
+                created_path=created,
+            )
+            return created, ub_path, overview_path
+
+        return created, None, None
 
     def execute(
         self,
@@ -187,6 +281,7 @@ class PasteLessonUseCase:
         target_path: Path,
         content: str,
         source_stem: str,
+        ub_copy_mode: str = "none",
     ) -> PasteWriteResult:
         """Führt den vollständigen Paste-Write-Flow als eine Transaktion aus."""
         resolution = self.resolve_conflict(
@@ -211,12 +306,13 @@ class PasteLessonUseCase:
                 )
             self.lesson_transfer.delete_lesson_file(resolution.delete_link)
 
-        created = self.apply_paste(
+        created, ub_path, overview_path = self.apply_paste(
             table=table,
             row_index=row_index,
             target_path=target_path,
             content=content,
             source_stem=source_stem,
+            ub_copy_mode=ub_copy_mode,
         )
         self.plan_repo.save_plan_table(table)
 
@@ -224,4 +320,6 @@ class PasteLessonUseCase:
             proceed=True,
             created_path=created,
             shadow_link=resolution.shadow_link,
+            ub_path=ub_path,
+            overview_path=overview_path,
         )

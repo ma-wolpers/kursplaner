@@ -240,6 +240,100 @@ def _check_required_docstrings(errors: list[str]) -> None:
                 errors.append(f"{rel_path}:{node.lineno} function '{node.name}' missing docstring")
 
 
+def _check_undo_writeflow_guardrails(errors: list[str]) -> None:
+    """Validiert Undo-relevante Writeflow-Grenzen für Delete/Paste in GUI-Adaptern."""
+    ui_module = _parse_module("kursplaner/adapters/gui/ui_intent_controller.py", errors)
+    if ui_module is None:
+        return
+
+    ui_class = _class_by_name(ui_module, "MainWindowUiIntentController")
+    if ui_class is None:
+        errors.append("ui_intent_controller.py: missing class MainWindowUiIntentController")
+        return
+
+    delete_method = _method_by_name(ui_class, "intent_grid_delete_cell")
+    if delete_method is None:
+        errors.append("ui_intent_controller.py: missing method intent_grid_delete_cell")
+        return
+
+    for node in ast.walk(delete_method):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "apply_value"):
+            continue
+        owner = func.value
+        if not (isinstance(owner, ast.Attribute) and owner.attr == "editor_controller"):
+            continue
+        app_obj = owner.value
+        if not (isinstance(app_obj, ast.Attribute) and app_obj.attr == "app"):
+            continue
+        if isinstance(app_obj.value, ast.Name) and app_obj.value.id == "self":
+            errors.append(
+                "ui_intent_controller.py: intent_grid_delete_cell must not call "
+                "self.app.editor_controller.apply_value(...) directly"
+            )
+            break
+
+    action_module = _parse_module("kursplaner/adapters/gui/action_controller.py", errors)
+    if action_module is None:
+        return
+
+    action_class = _class_by_name(action_module, "MainWindowActionController")
+    if action_class is None:
+        errors.append("action_controller.py: missing class MainWindowActionController")
+        return
+
+    for method_name in ("clear_selected_lesson_content", "paste_copied_lesson"):
+        method = _method_by_name(action_class, method_name)
+        if method is None:
+            errors.append(f"action_controller.py: missing method {method_name}")
+            continue
+
+        has_tracked_write = any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "_run_tracked_write"
+            for node in ast.walk(method)
+        )
+        if not has_tracked_write:
+            errors.append(f"action_controller.py: {method_name} must call self._run_tracked_write(...)")
+
+    clear_method = _method_by_name(action_class, "clear_selected_lesson_content")
+    if clear_method is not None:
+        has_extra_after_from_result = False
+        for node in ast.walk(clear_method):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "_run_tracked_write"
+            ):
+                continue
+            if any(keyword.arg == "extra_after_from_result" for keyword in node.keywords):
+                has_extra_after_from_result = True
+                break
+
+        if not has_extra_after_from_result:
+            errors.append(
+                "action_controller.py: clear_selected_lesson_content must pass extra_after_from_result to "
+                "self._run_tracked_write(...)"
+            )
+
+    paste_method = _method_by_name(action_class, "paste_copied_lesson")
+    if paste_method is not None:
+        has_ub_choice_call = any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "_ask_paste_ub_copy_mode"
+            for node in ast.walk(paste_method)
+        )
+        if not has_ub_choice_call:
+            errors.append(
+                "action_controller.py: paste_copied_lesson must call "
+                "self._ask_paste_ub_copy_mode(...) for UB copy decisions"
+            )
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -282,6 +376,7 @@ def main() -> int:
     _check_lesson_index_observability(errors)
     _check_required_docstrings(errors)
     _check_development_log_updated(staged, errors)
+    _check_undo_writeflow_guardrails(errors)
 
     # Doku must keep architecture orientation + open-work-only plan wording.
     arch_core = _read("docs/ARCHITEKTUR_KERN.md")
