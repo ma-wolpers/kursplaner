@@ -18,8 +18,14 @@ GUARDRAIL_RELEVANT_PATHS = {
     "kursplaner/core/config/path_store.py",
     "kursplaner/core/usecases/daily_course_log_usecase.py",
     "kursplaner/infrastructure/repositories/lesson_index_repository.py",
+    "kursplaner/adapters/gui/keybinding_registry.py",
+    "kursplaner/adapters/gui/popup_policy.py",
     "tools/ci/check_ai_guardrails.py",
     "tools/repo_ci/check_no_absolute_paths.py",
+}
+PROCESS_GUIDANCE_RULES = {
+    "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
+    "manual_push": "Push erfolgt manuell",
 }
 
 DOCSTRING_REQUIRED_PATHS = {
@@ -356,6 +362,23 @@ def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
         )
 
 
+def _collect_process_guidance_warnings() -> list[str]:
+    """Collect non-blocking warnings for commit/push process guidance drift."""
+    warnings: list[str] = []
+    sources = {
+        "AGENTS.md": _read("AGENTS.md"),
+        ".github/copilot-instructions.md": _read(".github/copilot-instructions.md"),
+        ".github/pull_request_template.md": _read(".github/pull_request_template.md"),
+    }
+
+    for label, needle in PROCESS_GUIDANCE_RULES.items():
+        if not any(needle in text for text in sources.values()):
+            warnings.append(
+                f"process-guidance ({label}) not found in governance docs/templates"
+            )
+    return warnings
+
+
 def main() -> int:
     """Führt robuste Guardrail-Checks aus und gibt einen CI-kompatiblen Exitcode zurück."""
     repo_root = _repo_root()
@@ -370,13 +393,17 @@ def main() -> int:
     _read("AGENTS.md")
     _read(".github/copilot-instructions.md")
     _read(".github/workflows/repo-path-guardrails.yml")
+    _read(".github/pull_request_template.md")
     _read("tools/repo_ci/check_no_absolute_paths.py")
+    _read("kursplaner/adapters/gui/keybinding_registry.py")
+    _read("kursplaner/adapters/gui/popup_policy.py")
 
     _check_main_window_intent_delegation(errors)
     _check_lesson_index_observability(errors)
     _check_required_docstrings(errors)
     _check_development_log_updated(staged, errors)
     _check_undo_writeflow_guardrails(errors)
+    warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.
     arch_core = _read("docs/ARCHITEKTUR_KERN.md")
@@ -450,6 +477,11 @@ def main() -> int:
         for item in errors:
             print(f" - {item}")
         return 2
+
+    if warnings:
+        print("AI guardrail process warnings (non-blocking):")
+        for item in warnings:
+            print(f" - {item}")
 
     print("AI guardrail check passed.")
     return 0

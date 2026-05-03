@@ -101,6 +101,12 @@ Verbindliche Shortcut-Regel für Toolbar-Buttons:
 - Die Zuordnung wird zentral in `kursplaner/resources/shortcuts/shortcut_guide.json` gepflegt (Single Source of Truth).
 - Wenn zwei Toolbar-Aktionen kontextuell strikt disjunkt aber intentional gleich sind, dürfen sie dasselbe Strg-Shortcut teilen.
 
+Verbindliche Zentralisierungsregel fuer UI-Steuerung:
+
+- KeyBindings werden zentral in `kursplaner/adapters/gui/keybinding_registry.py` verwaltet.
+- Pop-up-Verhaltensgrundsaetze werden zentral in `kursplaner/adapters/gui/popup_policy.py` verwaltet.
+- Neue Shortcut-/Popup-Interaktionen werden zuerst dort registriert und danach in konkrete Views verdrahtet.
+
 Verbindliche Sprachregel für sichtbare UI-Texte:
 
 - Sichtbare deutschsprachige GUI-/CLI-Texte verwenden echte Umlaute (`ä`, `ö`, `ü`, `ß`) und keine Ersatzschreibweisen (`ae`, `oe`, `ue`, `ss`), sofern technisch möglich.

@@ -9,6 +9,9 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Zentrale UI-Governance gestartet: `kursplaner/adapters/gui/keybinding_registry.py` und `kursplaner/adapters/gui/popup_policy.py` als gemeinsame API-Basis fuer Shortcut- und Popup-Steuerung eingefuehrt.
+- Guardrails erweitert: AGENTS/Copilot/PR-Template verlangen zentrale Shortcut-/Popup-Registrierung sowie Feature-Commit-Disziplin bei manuellem Push.
+- `tools/ci/check_ai_guardrails.py` prueft die Existenz der neuen Zentralmodule und meldet Commit-/Push-Prozessdrift als non-blocking Warnung.
 - Paste-Konfliktfall `delete` bereinigt jetzt auch UB-Artefakte der ersetzten Zieleinheit: verknuepfte UB-Datei wird entfernt und UB-Uebersicht im selben Writeflow aktualisiert; alle betroffenen Pfade sind fuer Undo/Redo im Ergebnismodell markiert.
 - Guardrail-Absicherung durch dedizierte Tests erweitert: Negativfall (direkter `apply_value`-Deletepfad) und Positivfall (getrackter Writeflow) sind als Unit-Tests fuer die AST-Guardrail-Regel abgedeckt.
 - Spaltenmodus `Strg+X` ist jetzt als echter Einheit-Cut verdrahtet: statt Zelltext-Cut wird eine verlinkte Einheit zum Verschieben vorgemerkt.

@@ -23,3 +23,12 @@ Pflichtregeln:
 
 5. Guardrails sind bindend
 - `tools/ci/check_ai_guardrails.py` muss lokal und in CI bestehen.
+
+6. Zentrale UI-Module
+- KeyBindings zentral in `kursplaner/adapters/gui/keybinding_registry.py` verwalten.
+- Pop-up-Regeln zentral in `kursplaner/adapters/gui/popup_policy.py` verwalten.
+- Neue Shortcut-/Popup-Funktionen zuerst zentral registrieren, dann an Views anbinden.
+
+7. Commit-/Push-Workflow
+- Feature-Aenderungen als eigene Commits strukturieren.
+- Push bleibt manuell; kein automatisches Pushen.
