@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from bw_libs.app_shell import AppShellConfig
 from kursplaner.core.config.ui_preferences_store import load_ub_past_cutoff_time
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlow
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlow
@@ -159,6 +160,10 @@ class GuiDependencies:
     query_ub_achievements_usecase: QueryUbAchievementsUseCase
     query_ub_plan_usecase: QueryUbPlanUseCase
     load_last_ub_insights_usecase: LoadLastUbInsightsUseCase
+    shell_config: AppShellConfig
+
+
+AppDependencies = GuiDependencies
 
 
 def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
@@ -418,6 +423,12 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         query_ub_achievements_usecase=query_ub_achievements_usecase,
         query_ub_plan_usecase=query_ub_plan_usecase,
         load_last_ub_insights_usecase=load_last_ub_insights_usecase,
+        shell_config=AppShellConfig(
+            title="Kurs-Manager",
+            geometry="1360x780",
+            min_width=620,
+            min_height=520,
+        ),
     )
 
 

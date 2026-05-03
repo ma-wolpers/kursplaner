@@ -3,7 +3,8 @@ import tkinter as tk
 import tkinter.font as tkfont
 from datetime import date
 
-from kursplaner.adapters.bootstrap.wiring import build_gui_dependencies
+from bw_libs.app_shell import TkinterAppShell
+from kursplaner.adapters.bootstrap.wiring import AppDependencies, build_gui_dependencies
 from kursplaner.adapters.gui.action_controller import MainWindowActionController
 from kursplaner.adapters.gui.column_reorder_controller import MainWindowColumnReorderController
 from kursplaner.adapters.gui.editor_controller import MainWindowEditorController
@@ -41,15 +42,13 @@ class KursplanerApp(tk.Tk):
     fachliche Entscheidungen liegen in den injizierten Use Cases/Flows.
     """
 
-    def __init__(self):
+    def __init__(self, dependencies: AppDependencies | None = None):
         """Initialisiert Hauptfenster, Controller und UI-Grundzustand."""
         super().__init__()
         apply_window_icon(self)
-        self.title("Kurs-Manager")
-        self.geometry("1360x780")
-        self.minsize(620, 520)
+        self.gui_dependencies = dependencies or build_gui_dependencies()
+        self.app_shell = TkinterAppShell(self, self.gui_dependencies.shell_config)
 
-        self.gui_dependencies = build_gui_dependencies()
         self.path_settings_usecase = self.gui_dependencies.path_settings_usecase
         self.new_lesson_form_usecase = self.gui_dependencies.new_lesson_form_usecase
         self.new_lesson_usecase = self.gui_dependencies.new_lesson_usecase
@@ -523,11 +522,11 @@ class KursplanerApp(tk.Tk):
 def main():
     """Startet die GUI-Anwendung nach interaktivem Pfad-Bootstrap."""
     configure_windows_process_identity()
-    dependencies = build_gui_dependencies()
+    dependencies: AppDependencies = build_gui_dependencies()
     if not ensure_paths_interactive(path_settings_usecase=dependencies.path_settings_usecase):
         return
 
-    app = KursplanerApp()
+    app = KursplanerApp(dependencies=dependencies)
     apply_window_icon(app)
     app.after(60, lambda: bring_window_to_front(app))
     app.after(240, lambda: app.overview_controller.ensure_course_selected(prefer_first=True))

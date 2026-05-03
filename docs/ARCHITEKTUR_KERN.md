@@ -385,6 +385,7 @@ Verbindlicher Zuschnitt mit eindeutiger Zuständigkeit (eine Hauptverantwortung 
 6. **`adapters/bootstrap/` (Composition Root)**
 	- einzige Stelle für Verdrahtung konkreter Repositories + Use Cases.
 	- GUI/CLI-Module erhalten fertig konfigurierte Use Cases injiziert.
+	- liefert fuer die GUI einen einheitlichen `AppDependencies`-Container (inkl. `shell_config`) aus `build_gui_dependencies()`.
 
 Hinweis zum aktuellen Zuschnitt:
 
@@ -843,6 +844,7 @@ Modulzuschnitt (wer ist wofuer zustaendig):
 	- nimmt Intents an und delegiert an spezialisierte Controller/UseCases.
 	- haelt den UI-Zustand zusammen, aber ohne fachliche Regeln auszuweiten.
 	- enthaelt keine redundanten Alt-Forwarder fuer Aktionen, die bereits direkt ueber Intents delegiert werden.
+	- initialisiert das Fensterlayout ueber die zentrale Shell-Konfiguration aus `AppDependencies` (`bw_libs/app_shell.py`).
 
 4. `adapters/gui/action_controller.py`
 	- kapselt allgemeine GUI-Aktionen (Toolbar-/Dialog-Aktionen ohne Fachumwandlung).

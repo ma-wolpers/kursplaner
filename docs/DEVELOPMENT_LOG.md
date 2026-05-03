@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- G3/G4 gestartet: `build_gui_dependencies()` liefert jetzt auch eine zentrale Shell-Konfiguration; `KursplanerApp` verwendet injizierte `AppDependencies` und initialisiert das Hauptfenster ueber `bw_libs/app_shell.py`.
 - G2.3 erweitert: weitere Repository-Write-Pfade nutzen jetzt zentrale Atomic-APIs (`plan_table_file_repository.py`, `plan_repository.py`, `ub_repository.py`, `lesson_file_repository.py`, `subject_source_repository.py`).
 - G2.2 erweitert: `kursplaner/core/config/app_state_store.py` und `kursplaner/core/usecases/daily_course_log_usecase.py` nutzen jetzt die zentrale `atomic_write_json`-API.
 - G2.1 gestartet: Shared-Modul `bw_libs/app_paths.py` eingefuehrt (AppPaths-Discovery sowie atomische JSON/Text-Write-Helfer).
