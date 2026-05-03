@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- G5 abgeschlossen: AppIdentity-Manifest `kursplaner/app_info.py` eingefuehrt und im Composition-Root als `app_info`/`shell_config`-Single-Source fuer Startup-Metadaten verdrahtet.
 - G3/G4 gestartet: `build_gui_dependencies()` liefert jetzt auch eine zentrale Shell-Konfiguration; `KursplanerApp` verwendet injizierte `AppDependencies` und initialisiert das Hauptfenster ueber `bw_libs/app_shell.py`.
 - G2.3 erweitert: weitere Repository-Write-Pfade nutzen jetzt zentrale Atomic-APIs (`plan_table_file_repository.py`, `plan_repository.py`, `ub_repository.py`, `lesson_file_repository.py`, `subject_source_repository.py`).
 - G2.2 erweitert: `kursplaner/core/config/app_state_store.py` und `kursplaner/core/usecases/daily_course_log_usecase.py` nutzen jetzt die zentrale `atomic_write_json`-API.

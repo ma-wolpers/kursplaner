@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- App identity metadata is now centralized in `kursplaner/app_info.py` and injected through `AppDependencies` as the startup metadata source.
 - Main window startup now uses injected `AppDependencies` with a centralized shell configuration, aligning GUI bootstrap and window lifecycle handling across apps.
 - Additional repository persistence paths now use the centralized atomic writer APIs, including plan table/metadata, lesson files, UB files, and subject-source manifest writes.
 - App-state and daily course log JSON persistence now use the centralized atomic writer from `bw_libs/app_paths.py`.

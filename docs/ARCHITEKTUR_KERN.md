@@ -386,6 +386,7 @@ Verbindlicher Zuschnitt mit eindeutiger Zuständigkeit (eine Hauptverantwortung 
 	- einzige Stelle für Verdrahtung konkreter Repositories + Use Cases.
 	- GUI/CLI-Module erhalten fertig konfigurierte Use Cases injiziert.
 	- liefert fuer die GUI einen einheitlichen `AppDependencies`-Container (inkl. `shell_config`) aus `build_gui_dependencies()`.
+	- nutzt `kursplaner/app_info.py` als zentrale Identitaetsquelle fuer Startup-Metadaten (`name`, `version`, `appdata_folder`, `window_title`).
 
 Hinweis zum aktuellen Zuschnitt:
 
