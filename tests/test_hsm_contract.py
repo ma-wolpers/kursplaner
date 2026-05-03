@@ -3,8 +3,8 @@ from bw_libs.ui_contract.hsm import (
     ESCAPE_EXIT_INLINE_EDITOR,
     ESCAPE_POP_PARENT,
     ESCAPE_ROOT_NOOP,
-    HsmIntentSpec,
     HsmContract,
+    HsmIntentSpec,
     TransitionRule,
 )
 
