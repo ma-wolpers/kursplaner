@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- UI-Contracts fuer Keybindings, Popup-Lifecycle und HSM wurden auf das Shared-Paket `bw_libs/ui_contract/` umgestellt; GUI und Tests importieren die Vertraege jetzt zentral statt aus lokalen Duplikatmodulen.
+- Guardrails/Governance wurden auf `bw_libs/ui_contract`-Pfade umgestellt; `bw_libs/` wird bei Changelog-/Development-Log-Relevanz mitgeprueft.
 - `kursplaner/adapters/gui/ui_intent_controller.py` validiert Intents jetzt gegen einen zentralen HSM-Contract vor der Intent-Delegation.
 - Escape-Handling im Intent-Controller folgt jetzt zentraler Prioritaet: aktives Popup schliessen, dann Detail-Child-Zustaende abbauen, danach Rueckkehr in den Parent-State.
 - Runtime-Debug-Popup wurde als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) verdrahtet; der Shortcut-Resolver behandelt nur noch mode-blockierende Popups als Dialog-Prioritaet.

@@ -103,9 +103,9 @@ Verbindliche Shortcut-Regel für Toolbar-Buttons:
 
 Verbindliche Zentralisierungsregel fuer UI-Steuerung:
 
-- KeyBindings werden zentral in `kursplaner/adapters/gui/keybinding_registry.py` verwaltet.
-- Pop-up-Verhaltensgrundsaetze werden zentral in `kursplaner/adapters/gui/popup_policy.py` verwaltet.
-- HSM-Vertragslogik fuer Intent-Katalog, Escape-Prioritaet und Transition-Validierung liegt zentral in `kursplaner/adapters/gui/hsm_contract.py`.
+- KeyBindings werden zentral in `bw_libs/ui_contract/keybinding.py` verwaltet.
+- Pop-up-Verhaltensgrundsaetze werden zentral in `bw_libs/ui_contract/popup.py` verwaltet.
+- HSM-Vertragslogik fuer Intent-Katalog, Escape-Prioritaet und Transition-Validierung liegt zentral in `bw_libs/ui_contract/hsm.py`.
 - Neue Shortcut-/Popup-Interaktionen werden zuerst dort registriert und danach in konkrete Views verdrahtet.
 
 Verbindliche Sprachregel für sichtbare UI-Texte:

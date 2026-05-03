@@ -1,4 +1,4 @@
-# Copilot Instructions (kursplaner)
+﻿# Copilot Instructions (kursplaner)
 
 Arbeite in einfacher, klarer Struktur.
 
@@ -25,8 +25,8 @@ Pflichtregeln:
 - `tools/ci/check_ai_guardrails.py` muss lokal und in CI bestehen.
 
 6. Zentrale UI-Module
-- KeyBindings zentral in `kursplaner/adapters/gui/keybinding_registry.py` verwalten.
-- Pop-up-Regeln zentral in `kursplaner/adapters/gui/popup_policy.py` verwalten.
+- KeyBindings zentral in `bw_libs/ui_contract/keybinding.py` verwalten.
+- Pop-up-Regeln zentral in `bw_libs/ui_contract/popup.py` verwalten.
 - Neue Shortcut-/Popup-Funktionen zuerst zentral registrieren, dann an Views anbinden.
 
 7. Commit-/Push-Workflow

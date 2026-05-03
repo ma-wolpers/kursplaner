@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- Central UI contracts for keybindings, popup policy, and HSM semantics now live in shared `bw_libs/ui_contract` modules to avoid duplicate maintenance.
 - Escape follows a centralized back-navigation priority in detail workflows: first close active popups, then leave child edit/navigation states, then return to the parent overview.
 - UI intents are now validated against a central HSM contract before dispatch, improving shortcut and view-transition consistency.
 - The shortcut runtime debug dialog now opens as a non-blocking parallel popup and no longer forces dialog-mode shortcut resolution for the main window.

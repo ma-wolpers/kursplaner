@@ -1,4 +1,4 @@
-# Agent Guardrails (kursplaner)
+﻿# Agent Guardrails (kursplaner)
 
 Dieses Repository hat verbindliche Leitplanken fuer KI-Programmierer.
 
@@ -27,8 +27,8 @@ Verbindliche Regeln:
 - Ein Verstoß blockiert Commit/PR.
 
 5. Zentrale UI-Steuerung
-- KeyBindings werden zentral in `kursplaner/adapters/gui/keybinding_registry.py` verwaltet.
-- Pop-up-Verhalten wird zentral in `kursplaner/adapters/gui/popup_policy.py` verwaltet.
+- KeyBindings werden zentral in `bw_libs/ui_contract/keybinding.py` verwaltet.
+- Pop-up-Verhalten wird zentral in `bw_libs/ui_contract/popup.py` verwaltet.
 - Neue Shortcuts und neue Pop-ups werden zuerst in diesen Zentralmodulen definiert und erst danach in konkrete Views eingebunden.
 
 6. Feature-Commit und Push-Disziplin

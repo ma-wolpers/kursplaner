@@ -5,7 +5,7 @@ from tkinter import ttk
 
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
-from kursplaner.adapters.gui.keybinding_registry import (
+from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
     UI_MODE_GLOBAL,
@@ -15,7 +15,7 @@ from kursplaner.adapters.gui.keybinding_registry import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
-from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
+from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import (

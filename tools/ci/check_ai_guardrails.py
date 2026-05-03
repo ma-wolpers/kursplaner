@@ -19,8 +19,9 @@ GUARDRAIL_RELEVANT_PATHS = {
     "kursplaner/core/config/path_store.py",
     "kursplaner/core/usecases/daily_course_log_usecase.py",
     "kursplaner/infrastructure/repositories/lesson_index_repository.py",
-    "kursplaner/adapters/gui/keybinding_registry.py",
-    "kursplaner/adapters/gui/popup_policy.py",
+    "bw_libs/ui_contract/keybinding.py",
+    "bw_libs/ui_contract/popup.py",
+    "bw_libs/ui_contract/hsm.py",
     "tools/ci/check_ai_guardrails.py",
     "tools/repo_ci/check_no_absolute_paths.py",
 }
@@ -31,14 +32,16 @@ PROCESS_GUIDANCE_RULES = {
 CHANGELOG_RELEVANT_PREFIXES = (
     "kursplaner/adapters/gui/",
     "kursplaner/core/usecases/",
+    "bw_libs/",
 )
 CHANGELOG_CODEV_RELEVANT_PATHS = {
     "AGENTS.md",
     ".github/copilot-instructions.md",
     ".github/pull_request_template.md",
     "tools/ci/check_ai_guardrails.py",
-    "kursplaner/adapters/gui/keybinding_registry.py",
-    "kursplaner/adapters/gui/popup_policy.py",
+    "bw_libs/ui_contract/keybinding.py",
+    "bw_libs/ui_contract/popup.py",
+    "bw_libs/ui_contract/hsm.py",
 }
 
 DOCSTRING_REQUIRED_PATHS = {
@@ -359,7 +362,7 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
     _require_substring(
         screen_builder,
-        "from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry",
+        "from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry",
         "screen_builder.py",
         errors,
     )
@@ -401,6 +404,7 @@ def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
         path.startswith("kursplaner/core/")
         or path.startswith("kursplaner/adapters/")
         or path.startswith("kursplaner/infrastructure/")
+        or path.startswith("bw_libs/")
         or path == "docs/ARCHITEKTUR_KERN.md"
         for path in normalized
     )
@@ -468,8 +472,9 @@ def main() -> int:
     _read(".github/workflows/repo-path-guardrails.yml")
     _read(".github/pull_request_template.md")
     _read("tools/repo_ci/check_no_absolute_paths.py")
-    _read("kursplaner/adapters/gui/keybinding_registry.py")
-    _read("kursplaner/adapters/gui/popup_policy.py")
+    _read("bw_libs/ui_contract/keybinding.py")
+    _read("bw_libs/ui_contract/popup.py")
+    _read("bw_libs/ui_contract/hsm.py")
 
     _check_main_window_intent_delegation(errors)
     _check_lesson_index_observability(errors)
