@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- `kursplaner/adapters/gui/ui_intent_controller.py` validiert Intents jetzt gegen einen zentralen HSM-Contract vor der Intent-Delegation.
+- Escape-Handling im Intent-Controller folgt jetzt zentraler Prioritaet: aktives Popup schliessen, dann Detail-Child-Zustaende abbauen, danach Rueckkehr in den Parent-State.
 - Runtime-Debug-Popup wurde als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) verdrahtet; der Shortcut-Resolver behandelt nur noch mode-blockierende Popups als Dialog-Prioritaet.
 - Wave-1-Hardening fuer Popup-Lifecycle: `kursplaner/adapters/gui/screen_builder.py` synchronisiert Laufzeit-Popups jetzt ueber `PopupPolicyRegistry` und nutzt die Registry im Runtime-Kontext als primaere Dialogquelle.
 - Runtime-Dispatch konsolidiert: popup-sensitive Shortcut-Pfade pruefen zentral `_has_active_popup()` statt verteilter Einzelabfragen.
@@ -17,6 +19,8 @@ Regel:
 - Wave-1 konkret verdrahtet: globale Shortcuts in `kursplaner/adapters/gui/screen_builder.py` laufen jetzt ueber den zentralen Runtime-Resolver statt direkter Bind-Dispatches.
 
 ### Added
+- HSM-Contract-Modul `kursplaner/adapters/gui/hsm_contract.py` eingefuehrt (Intent-/Payload-Validierung, Transition-Regeln, Escape-Resolver).
+- Neue Tests `tests/test_hsm_contract.py` fuer Intent-Contract, Transition-Gates und Escape-Prioritaetskette.
 - Tests fuer zentrale Runtime-Module: `tests/test_keybinding_runtime_registry.py` (Mode-/Reason-Matrix) und `tests/test_popup_policy_registry.py` (Stack-/Manifest-Lifecycle).
 - Tabellarische Runtime-Debug-Ansicht fuer Shortcuts in der Hauptansicht (Menuepunkt `Ansicht -> Shortcut-Runtime-Debug`, Shortcut `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
 - Guardrails praezisiert: `CHANGELOG.md` wird nun bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) werden nur noch lokal und nicht in CI ausgegeben.

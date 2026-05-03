@@ -4,8 +4,26 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
+from kursplaner.adapters.gui.hsm_contract import (
+    ESCAPE_CLOSE_POPUP,
+    ESCAPE_EXIT_INLINE_EDITOR,
+    ESCAPE_POP_PARENT,
+    build_ui_hsm_contract,
+)
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.ui_intents import UiIntent
+
+
+def _known_ui_intents() -> tuple[str, ...]:
+    """Return all declared UiIntent string values."""
+
+    values: list[str] = []
+    for key, value in UiIntent.__dict__.items():
+        if key.startswith("_"):
+            continue
+        if isinstance(value, str):
+            values.append(value)
+    return tuple(sorted(set(values)))
 
 
 class MainWindowUiIntentController:
@@ -14,9 +32,14 @@ class MainWindowUiIntentController:
     def __init__(self, app):
         """Speichert den App-Adapter als Delegationsziel für Intents."""
         self.app = app
+        self._hsm_contract = build_ui_hsm_contract(intents=_known_ui_intents())
 
     def handle_intent(self, intent: str, **payload):
         """Orchestriert View-Intents zentral und delegiert an passende Controller."""
+        intent_ok, _intent_reason = self._hsm_contract.validate_intent(intent)
+        if not intent_ok:
+            return None
+
         if ScrollablePopupWindow.has_active_popup() and intent != UiIntent.SHORTCUT_ESCAPE:
             return "break"
         if self._should_block_toolbar_shortcut(intent, payload):
@@ -408,7 +431,23 @@ class MainWindowUiIntentController:
         return "break" if moved else None
 
     def intent_escape(self):
+        has_popup = ScrollablePopupWindow.has_active_popup()
         focused = self.app.focus_get()
+        detail_active = bool(getattr(self.app, "is_detail_view", False))
+        has_inline_editor = detail_active or isinstance(focused, tk.Text)
+        has_parent_state = detail_active
+
+        action = self._hsm_contract.resolve_escape_action(
+            has_popup=has_popup,
+            has_inline_editor=has_inline_editor,
+            has_parent_state=has_parent_state,
+        )
+        if action == ESCAPE_CLOSE_POPUP and ScrollablePopupWindow.close_active_popup():
+            return "break"
+
+        if action != ESCAPE_EXIT_INLINE_EDITOR and action != ESCAPE_POP_PARENT:
+            return None
+
         if bool(getattr(self.app, "is_detail_view", False)):
             level = self.app.ui_state.selection_level
             if level == self.app.ui_state.SELECTION_LEVEL_EDIT or isinstance(focused, tk.Text):
