@@ -858,8 +858,12 @@ class ScreenBuilder:
     def _sync_popup_sessions_from_windows(self) -> None:
         """Synchronize tracked popup sessions with currently visible toplevel windows."""
 
+        winfo_children = getattr(self.app, "winfo_children", None)
+        if not callable(winfo_children):
+            return
+
         visible_popup_ids: set[str] = set()
-        for child in self.app.winfo_children():
+        for child in winfo_children():
             if not isinstance(child, tk.Toplevel):
                 continue
             try:
