@@ -3,6 +3,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_text
+
 
 class FileSystemLessonFileRepository:
     """Dateibasierte Stunden-Dateioperationen für das Dateisystem."""
@@ -29,7 +31,7 @@ class FileSystemLessonFileRepository:
     def write_file_content(self, path: Path, content: str) -> None:
         """Schreibt UTF-8-Inhalt in eine Datei und erstellt den Zielordner."""
         self.ensure_directory(path.parent)
-        path.write_text(content, encoding="utf-8")
+        atomic_write_text(path, content, encoding="utf-8")
 
     def rename_file(self, source: Path, target: Path) -> Path:
         """Benennt eine Datei um, sofern Quelle und Ziel nicht identisch sind."""

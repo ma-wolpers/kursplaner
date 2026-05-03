@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.domain.content_markers import (
@@ -230,7 +230,7 @@ class DailyCourseLogUseCase:
 
         payload, course_count, unit_count = self._build_payload(unterricht_dir=unterricht_dir, export_day=day)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write_json(log_path, payload)
 
         return DailyCourseLogResult(
             export_day=day,

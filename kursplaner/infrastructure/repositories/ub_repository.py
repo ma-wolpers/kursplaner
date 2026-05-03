@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_OVERVIEW_FILE_NAME,
     UB_ROOT_RELATIVE_PARTS,
@@ -115,7 +116,7 @@ class FileSystemUbRepository:
 
         frontmatter = self._render_yaml_frontmatter(yaml_data)
         body = "\n".join(body_sections).strip() + "\n"
-        ub_path.write_text(frontmatter + body, encoding="utf-8")
+        atomic_write_text(ub_path, frontmatter + body, encoding="utf-8")
 
     def load_ub_markdown(self, ub_path: Path) -> tuple[dict[str, object], str]:
         """Liest UB-Frontmatter plus restlichen Markdown-Body."""
@@ -145,7 +146,7 @@ class FileSystemUbRepository:
         text = str(markdown or "")
         if text and not text.endswith("\n"):
             text += "\n"
-        path.write_text(text, encoding="utf-8")
+        atomic_write_text(path, text, encoding="utf-8")
         return path
 
     def load_ub_overview(self, workspace_root: Path) -> str:

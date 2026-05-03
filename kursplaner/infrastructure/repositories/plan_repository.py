@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
@@ -205,7 +206,7 @@ class FileSystemPlanRepository:
                     *rendered_rows,
                 ]
             )
-            markdown_path.write_text(prefix + table_text + "\n", encoding="utf-8")
+            atomic_write_text(markdown_path, prefix + table_text + "\n", encoding="utf-8")
             return
 
         table.rows = normalized_rows
@@ -259,4 +260,4 @@ class FileSystemPlanRepository:
 
         frontmatter = "\n".join(lines) + "\n---\n\n"
 
-        markdown_path.write_text(frontmatter + body, encoding="utf-8")
+        atomic_write_text(markdown_path, frontmatter + body, encoding="utf-8")

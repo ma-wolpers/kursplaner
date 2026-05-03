@@ -9,6 +9,11 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- G2.3 erweitert: weitere Repository-Write-Pfade nutzen jetzt zentrale Atomic-APIs (`plan_table_file_repository.py`, `plan_repository.py`, `ub_repository.py`, `lesson_file_repository.py`, `subject_source_repository.py`).
+- G2.2 erweitert: `kursplaner/core/config/app_state_store.py` und `kursplaner/core/usecases/daily_course_log_usecase.py` nutzen jetzt die zentrale `atomic_write_json`-API.
+- G2.1 gestartet: Shared-Modul `bw_libs/app_paths.py` eingefuehrt (AppPaths-Discovery sowie atomische JSON/Text-Write-Helfer).
+- Persistenz-Pilot: `kursplaner/core/config/path_store.py` und `kursplaner/core/config/ui_preferences_store.py` nutzen jetzt die zentrale `atomic_write_json`-API.
+- Guardrails beruecksichtigen `bw_libs/app_paths.py` als relevanten Shared-Pfad.
 - UI-Contracts fuer Keybindings, Popup-Lifecycle und HSM wurden auf das Shared-Paket `bw_libs/ui_contract/` umgestellt; GUI und Tests importieren die Vertraege jetzt zentral statt aus lokalen Duplikatmodulen.
 - Guardrails/Governance wurden auf `bw_libs/ui_contract`-Pfade umgestellt; `bw_libs/` wird bei Changelog-/Development-Log-Relevanz mitgeprueft.
 - `kursplaner/adapters/gui/ui_intent_controller.py` validiert Intents jetzt gegen einen zentralen HSM-Contract vor der Intent-Delegation.

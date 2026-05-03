@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.lesson_directory import (
     managed_lesson_dir_names,
@@ -305,7 +306,7 @@ def save_plan_table(table: PlanTableData):
     output = "\n".join(updated_lines)
     if table.had_trailing_newline:
         output += "\n"
-    table.markdown_path.write_text(output, encoding="utf-8")
+    atomic_write_text(table.markdown_path, output, encoding="utf-8")
 
 
 def get_row_link_path(table: PlanTableData, row_index: int) -> Path | None:
@@ -344,7 +345,7 @@ def save_linked_lesson_yaml(lesson: LessonYamlData):
 
     normalized = canonicalize_lesson_yaml(lesson.data, topic_hint=lesson.lesson_path.stem)
     frontmatter = _render_yaml_frontmatter(normalized)
-    lesson.lesson_path.write_text(frontmatter + body, encoding="utf-8")
+    atomic_write_text(lesson.lesson_path, frontmatter + body, encoding="utf-8")
 
 
 def create_linked_lesson_file(
@@ -426,4 +427,4 @@ def set_lesson_markdown_sections(
 
     frontmatter = _render_yaml_frontmatter(load_linked_lesson_yaml(lesson_path).data)
     output = frontmatter + (composed + "\n" if composed else "")
-    lesson_path.write_text(output, encoding="utf-8")
+    atomic_write_text(lesson_path, output, encoding="utf-8")

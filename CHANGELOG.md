@@ -7,6 +7,9 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- Additional repository persistence paths now use the centralized atomic writer APIs, including plan table/metadata, lesson files, UB files, and subject-source manifest writes.
+- App-state and daily course log JSON persistence now use the centralized atomic writer from `bw_libs/app_paths.py`.
+- Shared app path/atomic-write foundation introduced via `bw_libs/app_paths.py`; path and UI preferences config writes now use the centralized atomic JSON writer.
 - Central UI contracts for keybindings, popup policy, and HSM semantics now live in shared `bw_libs/ui_contract` modules to avoid duplicate maintenance.
 - Escape follows a centralized back-navigation priority in detail workflows: first close active popups, then leave child edit/navigation states, then return to the parent overview.
 - UI intents are now validated against a central HSM contract before dispatch, improving shortcut and view-transition consistency.

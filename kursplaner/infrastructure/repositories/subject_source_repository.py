@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.path_store import (
     BAUKASTEN_DIR_KEY,
     FACHDIDAKTIK_DIR_KEY,
@@ -122,10 +123,7 @@ class FileSystemSubjectSourceRepository:
             "stems": self._stems_from_files(files),
         }
         try:
-            self._manifest_path(folder).write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
+            atomic_write_json(self._manifest_path(folder), payload)
         except Exception:
             return
 

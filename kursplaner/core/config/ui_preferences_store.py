@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import time
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilitySettings
 
@@ -40,8 +41,7 @@ def _load_payload() -> dict[str, object]:
 
 def _save_payload(payload: dict[str, object]) -> None:
     path = _preferences_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(path, payload)
 
 
 def load_theme_key(default_theme: str) -> str:

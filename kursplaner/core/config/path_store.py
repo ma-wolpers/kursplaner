@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from os.path import relpath
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_json
+
 from .settings import (
     DEFAULT_BAUKASTEN_DIR,
     DEFAULT_CALENDAR_DIR,
@@ -247,8 +249,7 @@ def load_path_values() -> dict[str, str]:
 
     if changed:
         settings_path = _workspace_settings_file()
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(json.dumps(values, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_write_json(settings_path, values)
 
     return values
 
@@ -264,8 +265,7 @@ def save_path_values(values: dict[str, str]) -> dict[str, str]:
                 merged[key] = normalized
 
     path = _workspace_settings_file()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(merged, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(path, merged)
 
     return merged
 

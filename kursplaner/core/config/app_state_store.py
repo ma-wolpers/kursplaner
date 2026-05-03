@@ -4,6 +4,7 @@ import json
 from datetime import date
 from pathlib import Path
 
+from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.settings import SCRIPT_DIR
 
 LAST_DAILY_LOG_DATE_KEY = "last_daily_log_date"
@@ -43,8 +44,7 @@ def save_app_state(state: dict[str, str]) -> None:
         if isinstance(key, str) and isinstance(value, str):
             payload[key] = value
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_json(path, payload)
 
 
 def load_last_daily_log_date() -> date | None:
