@@ -15,7 +15,7 @@ from kursplaner.adapters.gui.keybinding_registry import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
-from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, PopupPolicy, PopupPolicyRegistry
+from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import (
@@ -46,6 +46,14 @@ class ScreenBuilder:
         self._runtime_shortcuts = KeybindingRegistry()
         self._popup_registry = PopupPolicyRegistry()
         self._popup_registry.register_policy(PopupPolicy(policy_id="dialog.modal", kind=POPUP_KIND_MODAL))
+        self._popup_registry.register_policy(
+            PopupPolicy(
+                policy_id="dialog.non_blocking",
+                kind=POPUP_KIND_NON_MODAL,
+                trap_focus=False,
+                affects_mode=False,
+            )
+        )
         self._tracked_popup_ids: set[str] = set()
         self.app.shortcut_debug_offline = False
         self.app.shortcut_runtime_debug_window = None
@@ -600,7 +608,7 @@ class ScreenBuilder:
             focused_widget = focus_get()
         text_input_focused = self._is_editable_widget(focused_widget)
         self._sync_popup_sessions_from_windows()
-        dialog_open = self._popup_registry.has_active_popup()
+        dialog_open = self._popup_registry.has_mode_blocking_popup()
         offline = bool(getattr(self.app, "shortcut_debug_offline", False))
 
         if offline:
@@ -720,7 +728,7 @@ class ScreenBuilder:
         window.title("Shortcut Runtime Debug")
         window.geometry("980x520")
         window.minsize(820, 420)
-        self._track_popup_window(window)
+        self._track_popup_window(window, policy_id="dialog.non_blocking")
 
         self.app.shortcut_runtime_debug_context_var = tk.StringVar(master=window, value="")
         self.app.shortcut_runtime_debug_summary_var = tk.StringVar(master=window, value="")
@@ -846,13 +854,13 @@ class ScreenBuilder:
         """Leitet ein View-Ereignis als Intent an die Orchestrierung weiter."""
         return self.app._handle_ui_intent(intent, **payload)
 
-    def _track_popup_window(self, window: tk.Toplevel) -> None:
+    def _track_popup_window(self, window: tk.Toplevel, *, policy_id: str = "dialog.modal") -> None:
         """Register a popup immediately in the popup policy registry."""
 
         popup_id = str(window)
         if popup_id in self._tracked_popup_ids:
             return
-        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id="dialog.modal")
+        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id=policy_id)
         self._tracked_popup_ids.add(popup_id)
 
     def _sync_popup_sessions_from_windows(self) -> None:
@@ -890,7 +898,7 @@ class ScreenBuilder:
         """Return whether any modal popup is currently active."""
 
         self._sync_popup_sessions_from_windows()
-        if self._popup_registry.has_active_popup():
+        if self._popup_registry.has_mode_blocking_popup():
             return True
         return ScrollablePopupWindow.has_active_popup()
 

@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- The shortcut runtime debug dialog now opens as a non-blocking parallel popup and no longer forces dialog-mode shortcut resolution for the main window.
 - Popup-sensitive shortcut routing now uses a centralized popup-policy runtime source, improving consistency for dialog-priority behavior across global/detail interactions.
 - Guardrail checks now validate runtime integration patterns in the UI flow (not only module existence) for centralized shortcut and popup governance.
 - Governance checks now enforce changelog updates for user- or co-developer-relevant changes, and commit/push process hints are now local-only (not printed in CI logs).

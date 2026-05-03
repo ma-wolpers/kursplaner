@@ -359,7 +359,7 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
     _require_substring(
         screen_builder,
-        "from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, PopupPolicy, PopupPolicyRegistry",
+        "from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry",
         "screen_builder.py",
         errors,
     )
@@ -383,7 +383,7 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     )
     _require_substring(
         screen_builder,
-        "self._popup_registry.has_active_popup()",
+        "self._popup_registry.has_mode_blocking_popup()",
         "screen_builder.py",
         errors,
     )

@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Runtime-Debug-Popup wurde als nicht mode-blockierendes Parallel-Popup (`dialog.non_blocking`) verdrahtet; der Shortcut-Resolver behandelt nur noch mode-blockierende Popups als Dialog-Prioritaet.
 - Wave-1-Hardening fuer Popup-Lifecycle: `kursplaner/adapters/gui/screen_builder.py` synchronisiert Laufzeit-Popups jetzt ueber `PopupPolicyRegistry` und nutzt die Registry im Runtime-Kontext als primaere Dialogquelle.
 - Runtime-Dispatch konsolidiert: popup-sensitive Shortcut-Pfade pruefen zentral `_has_active_popup()` statt verteilter Einzelabfragen.
 - Guardrails erweitert: `tools/ci/check_ai_guardrails.py` validiert jetzt zusaetzlich die tatsaechliche Runtime-Integration (`evaluate_runtime`, PopupPolicy-Nutzung) in `screen_builder.py`.
