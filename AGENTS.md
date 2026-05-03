@@ -1,4 +1,4 @@
-# Agent Guardrails (kursplaner)
+﻿# Agent Guardrails (kursplaner)
 
 Dieses Repository hat verbindliche Leitplanken fuer KI-Programmierer.
 
@@ -25,6 +25,15 @@ Verbindliche Regeln:
 4. Automatische Gates
 - Lokaler Hook und CI pruefen die Guardrails ueber `tools/ci/check_ai_guardrails.py`.
 - Ein Verstoß blockiert Commit/PR.
+
+5. Zentrale UI-Steuerung
+- KeyBindings werden zentral in `bw_libs/ui_contract/keybinding.py` verwaltet.
+- Pop-up-Verhalten wird zentral in `bw_libs/ui_contract/popup.py` verwaltet.
+- Neue Shortcuts und neue Pop-ups werden zuerst in diesen Zentralmodulen definiert und erst danach in konkrete Views eingebunden.
+
+6. Feature-Commit und Push-Disziplin
+- Feature-Aenderungen werden in eigenstaendigen Commits gebuendelt.
+- Push erfolgt manuell durch den Nutzer; kein Auto-Push.
 
 Hinweis:
 - Details der Architektur stehen in `docs/ARCHITEKTUR_KERN.md`.

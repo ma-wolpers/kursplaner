@@ -7,6 +7,15 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- Central UI contracts for keybindings, popup policy, and HSM semantics now live in shared `bw_libs/ui_contract` modules to avoid duplicate maintenance.
+- Escape follows a centralized back-navigation priority in detail workflows: first close active popups, then leave child edit/navigation states, then return to the parent overview.
+- UI intents are now validated against a central HSM contract before dispatch, improving shortcut and view-transition consistency.
+- The shortcut runtime debug dialog now opens as a non-blocking parallel popup and no longer forces dialog-mode shortcut resolution for the main window.
+- Popup-sensitive shortcut routing now uses a centralized popup-policy runtime source, improving consistency for dialog-priority behavior across global/detail interactions.
+- Guardrail checks now validate runtime integration patterns in the UI flow (not only module existence) for centralized shortcut and popup governance.
+- Governance checks now enforce changelog updates for user- or co-developer-relevant changes, and commit/push process hints are now local-only (not printed in CI logs).
+- Wave-1 groundwork for unified shortcut runtime resolution: central keybinding registry now exposes a shared runtime context model and evaluate API for mode/offline/text-focus/dialog checks.
+- Global shortcuts are now evaluated through a centralized runtime resolver before execution, so mode/dialog/text-focus/offline context is applied consistently.
 - Beim Einfuegen mit Konfliktoption `Loeschen` wird die ersetzte Zieleinheit jetzt inklusive verknuepfter UB-Datei sauber aufgeraeumt; die UB-Uebersicht wird dabei direkt mit aktualisiert.
 - `Strg+X` im Spaltenmodus schneidet jetzt die verlinkte Einheit fachlich aus (statt nur Zelltext) und markiert sie fuer Verschieben.
 - Ausschneiden+Einfügen verschiebt eine Einheit mit UB jetzt als Move-Flow: alte Verknuepfung/Dateien werden aufgeraeumt, der UB wird auf das Ziel aktualisiert statt als zweiter UB stehen zu bleiben.
@@ -28,6 +37,8 @@ The format is based on Keep a Changelog.
 - UB-Ansicht modernisiert: drei Tabs (`Achievements`, `UB-Plan`, `Entwicklungsimpulse`) mit einfachem Wechsel per Mausklick und Pfeiltasten.
 
 ### Added
+- New shortcut runtime debug dialog (`Ansicht -> Shortcut-Runtime-Debug`, `Strg+Shift+D`) with compact table output and offline simulation toggle (`Strg+Shift+O`).
+- New runtime module tests for keybinding evaluation and popup policy stack behavior.
 - Neuer Tab `UB-Plan` mit getrennten Listen fuer kommende und absolvierte UBs inklusive Spalten `Datum`, `Faecher`, `+` (Langentwurf), `Kurs`.
 
 ## [0.1.2] - 2026-04-22

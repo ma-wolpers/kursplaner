@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 from pathlib import Path
 
@@ -18,8 +19,29 @@ GUARDRAIL_RELEVANT_PATHS = {
     "kursplaner/core/config/path_store.py",
     "kursplaner/core/usecases/daily_course_log_usecase.py",
     "kursplaner/infrastructure/repositories/lesson_index_repository.py",
+    "bw_libs/ui_contract/keybinding.py",
+    "bw_libs/ui_contract/popup.py",
+    "bw_libs/ui_contract/hsm.py",
     "tools/ci/check_ai_guardrails.py",
     "tools/repo_ci/check_no_absolute_paths.py",
+}
+PROCESS_GUIDANCE_RULES = {
+    "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
+    "manual_push": "Push erfolgt manuell",
+}
+CHANGELOG_RELEVANT_PREFIXES = (
+    "kursplaner/adapters/gui/",
+    "kursplaner/core/usecases/",
+    "bw_libs/",
+)
+CHANGELOG_CODEV_RELEVANT_PATHS = {
+    "AGENTS.md",
+    ".github/copilot-instructions.md",
+    ".github/pull_request_template.md",
+    "tools/ci/check_ai_guardrails.py",
+    "bw_libs/ui_contract/keybinding.py",
+    "bw_libs/ui_contract/popup.py",
+    "bw_libs/ui_contract/hsm.py",
 }
 
 DOCSTRING_REQUIRED_PATHS = {
@@ -334,6 +356,42 @@ def _check_undo_writeflow_guardrails(errors: list[str]) -> None:
             )
 
 
+def _check_runtime_shortcut_integration(errors: list[str]) -> None:
+    """Validate ScreenBuilder runtime shortcut and popup policy integration."""
+
+    screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
+    _require_substring(
+        screen_builder,
+        "from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._popup_registry = PopupPolicyRegistry()",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._runtime_shortcuts.evaluate_runtime(",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._sync_popup_sessions_from_windows()",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._popup_registry.has_mode_blocking_popup()",
+        "screen_builder.py",
+        errors,
+    )
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -346,6 +404,7 @@ def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
         path.startswith("kursplaner/core/")
         or path.startswith("kursplaner/adapters/")
         or path.startswith("kursplaner/infrastructure/")
+        or path.startswith("bw_libs/")
         or path == "docs/ARCHITEKTUR_KERN.md"
         for path in normalized
     )
@@ -354,6 +413,47 @@ def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
         errors.append(
             "docs/DEVELOPMENT_LOG.md missing update: relevant feature/architecture changes require a same-cycle log entry"
         )
+
+
+def _check_changelog_updated(staged: set[str], errors: list[str]) -> None:
+    """Require changelog updates for user- or co-developer-relevant changes."""
+    normalized = {path.replace("\\", "/") for path in staged}
+    if not normalized:
+        return
+
+    if "CHANGELOG.md" in normalized:
+        return
+
+    requires_changelog = any(
+        path.startswith(prefix) for path in normalized for prefix in CHANGELOG_RELEVANT_PREFIXES
+    ) or any(path in CHANGELOG_CODEV_RELEVANT_PATHS for path in normalized)
+
+    if requires_changelog:
+        errors.append(
+            "CHANGELOG.md missing update: user- or co-developer-relevant changes require a changelog entry"
+        )
+
+
+def _collect_process_guidance_warnings() -> list[str]:
+    """Collect non-blocking warnings for commit/push process guidance drift."""
+    warnings: list[str] = []
+    sources = {
+        "AGENTS.md": _read("AGENTS.md"),
+        ".github/copilot-instructions.md": _read(".github/copilot-instructions.md"),
+        ".github/pull_request_template.md": _read(".github/pull_request_template.md"),
+    }
+
+    for label, needle in PROCESS_GUIDANCE_RULES.items():
+        if not any(needle in text for text in sources.values()):
+            warnings.append(
+                f"process-guidance ({label}) not found in governance docs/templates"
+            )
+    return warnings
+
+
+def _is_ci_environment() -> bool:
+    """Return whether the check runs in a CI environment."""
+    return bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
 
 def main() -> int:
@@ -370,13 +470,20 @@ def main() -> int:
     _read("AGENTS.md")
     _read(".github/copilot-instructions.md")
     _read(".github/workflows/repo-path-guardrails.yml")
+    _read(".github/pull_request_template.md")
     _read("tools/repo_ci/check_no_absolute_paths.py")
+    _read("bw_libs/ui_contract/keybinding.py")
+    _read("bw_libs/ui_contract/popup.py")
+    _read("bw_libs/ui_contract/hsm.py")
 
     _check_main_window_intent_delegation(errors)
     _check_lesson_index_observability(errors)
     _check_required_docstrings(errors)
     _check_development_log_updated(staged, errors)
+    _check_changelog_updated(staged, errors)
     _check_undo_writeflow_guardrails(errors)
+    _check_runtime_shortcut_integration(errors)
+    warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.
     arch_core = _read("docs/ARCHITEKTUR_KERN.md")
@@ -450,6 +557,11 @@ def main() -> int:
         for item in errors:
             print(f" - {item}")
         return 2
+
+    if warnings and not _is_ci_environment():
+        print("AI guardrail process warnings (non-blocking):")
+        for item in warnings:
+            print(f" - {item}")
 
     print("AI guardrail check passed.")
     return 0
