@@ -15,6 +15,7 @@ from kursplaner.adapters.gui.keybinding_registry import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
+from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, PopupPolicy, PopupPolicyRegistry
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import (
@@ -43,6 +44,9 @@ class ScreenBuilder:
         self.app = app
         self._last_toolbar_wrap_width = -1
         self._runtime_shortcuts = KeybindingRegistry()
+        self._popup_registry = PopupPolicyRegistry()
+        self._popup_registry.register_policy(PopupPolicy(policy_id="dialog.modal", kind=POPUP_KIND_MODAL))
+        self._tracked_popup_ids: set[str] = set()
         self.app.shortcut_debug_offline = False
         self.app.shortcut_runtime_debug_window = None
         self.app.shortcut_runtime_debug_table = None
@@ -595,7 +599,8 @@ class ScreenBuilder:
         if focused_widget is None and callable(focus_get):
             focused_widget = focus_get()
         text_input_focused = self._is_editable_widget(focused_widget)
-        dialog_open = ScrollablePopupWindow.has_active_popup()
+        self._sync_popup_sessions_from_windows()
+        dialog_open = self._popup_registry.has_active_popup()
         offline = bool(getattr(self.app, "shortcut_debug_offline", False))
 
         if offline:
@@ -670,7 +675,7 @@ class ScreenBuilder:
             if not can_execute:
                 return None
 
-            if ScrollablePopupWindow.has_active_popup() and UI_MODE_DIALOG not in effective_definition.modes:
+            if self._has_active_popup() and UI_MODE_DIALOG not in effective_definition.modes:
                 return "break"
             if entry.intent.startswith("toolbar.") and self._is_editable_widget(getattr(event, "widget", None)):
                 return None
@@ -715,6 +720,7 @@ class ScreenBuilder:
         window.title("Shortcut Runtime Debug")
         window.geometry("980x520")
         window.minsize(820, 420)
+        self._track_popup_window(window)
 
         self.app.shortcut_runtime_debug_context_var = tk.StringVar(master=window, value="")
         self.app.shortcut_runtime_debug_summary_var = tk.StringVar(master=window, value="")
@@ -773,6 +779,8 @@ class ScreenBuilder:
 
         window = getattr(self.app, "shortcut_runtime_debug_window", None)
         if window is not None and int(window.winfo_exists()):
+            self._popup_registry.close_popup(str(window))
+            self._tracked_popup_ids.discard(str(window))
             window.destroy()
         self.app.shortcut_runtime_debug_window = None
         self.app.shortcut_runtime_debug_table = None
@@ -838,9 +846,53 @@ class ScreenBuilder:
         """Leitet ein View-Ereignis als Intent an die Orchestrierung weiter."""
         return self.app._handle_ui_intent(intent, **payload)
 
+    def _track_popup_window(self, window: tk.Toplevel) -> None:
+        """Register a popup immediately in the popup policy registry."""
+
+        popup_id = str(window)
+        if popup_id in self._tracked_popup_ids:
+            return
+        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id="dialog.modal")
+        self._tracked_popup_ids.add(popup_id)
+
+    def _sync_popup_sessions_from_windows(self) -> None:
+        """Synchronize tracked popup sessions with currently visible toplevel windows."""
+
+        visible_popup_ids: set[str] = set()
+        for child in self.app.winfo_children():
+            if not isinstance(child, tk.Toplevel):
+                continue
+            try:
+                if not int(child.winfo_exists()):
+                    continue
+                if str(child.state()).lower() == "withdrawn":
+                    continue
+            except Exception:
+                continue
+
+            popup_id = str(child)
+            visible_popup_ids.add(popup_id)
+            if popup_id in self._tracked_popup_ids:
+                continue
+            self._popup_registry.open_popup(popup_id=popup_id, title=str(child.title() or ""), policy_id="dialog.modal")
+            self._tracked_popup_ids.add(popup_id)
+
+        stale_ids = self._tracked_popup_ids - visible_popup_ids
+        for popup_id in tuple(stale_ids):
+            self._popup_registry.close_popup(popup_id)
+            self._tracked_popup_ids.discard(popup_id)
+
+    def _has_active_popup(self) -> bool:
+        """Return whether any modal popup is currently active."""
+
+        self._sync_popup_sessions_from_windows()
+        if self._popup_registry.has_active_popup():
+            return True
+        return ScrollablePopupWindow.has_active_popup()
+
     def _on_global_click_commit_cell(self, event):
         """Meldet globalen Klick als Commit-Intent an den Orchestrator."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.GLOBAL_CLICK_COMMIT_CELL, event=event)
 
@@ -858,31 +910,31 @@ class ScreenBuilder:
 
     def _on_detail_left(self, _event):
         """Meldet Shortcut für Spaltenfokus nach links als Intent."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.SHORTCUT_DETAIL_LEFT, event=_event)
 
     def _on_detail_right(self, _event):
         """Meldet Shortcut für Spaltenfokus nach rechts als Intent."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.SHORTCUT_DETAIL_RIGHT, event=_event)
 
     def _on_detail_left_all(self, _event):
         """Meldet Alt-Links für Spaltennavigation ohne Skip-Regeln."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.SHORTCUT_DETAIL_LEFT_ALL, event=_event)
 
     def _on_detail_right_all(self, _event):
         """Meldet Alt-Rechts für Spaltennavigation ohne Skip-Regeln."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.SHORTCUT_DETAIL_RIGHT_ALL, event=_event)
 
     def _on_grid_nav_up(self, _event):
         """Meldet Pfeil-hoch für Grid-Navigation im Zellauswahlmodus."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         if int(getattr(_event, "state", 0)) & 0x0004:
             return None
@@ -890,7 +942,7 @@ class ScreenBuilder:
 
     def _on_grid_nav_down(self, _event):
         """Meldet Pfeil-runter für Grid-Navigation im Zellauswahlmodus."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         if int(getattr(_event, "state", 0)) & 0x0004:
             return None
@@ -898,13 +950,13 @@ class ScreenBuilder:
 
     def _on_grid_enter(self, _event):
         """Meldet Enter für Übergänge zwischen Spalten-, Zell- und Edit-Modus."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.GRID_ENTER, event=_event)
 
     def _on_home(self, _event):
         """Leitet Home je nach Modus an Kurs- oder Grid-Navigation weiter."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         if self._is_editable_widget(getattr(_event, "widget", None)):
             return None
@@ -914,7 +966,7 @@ class ScreenBuilder:
 
     def _on_end(self, _event):
         """Leitet Ende je nach Modus an Kurs- oder Grid-Navigation weiter."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         if self._is_editable_widget(getattr(_event, "widget", None)):
             return None
@@ -931,20 +983,21 @@ class ScreenBuilder:
 
     def _on_grid_delete(self, _event):
         """Meldet Delete/Backspace für Zellenleeren im Zellauswahlmodus."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return "break"
         return self._emit_intent(UiIntent.GRID_DELETE_CELL, event=_event)
 
     def _on_escape(self, _event):
         """Meldet Esc-Shortcut als Intent an den Orchestrator."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             ScrollablePopupWindow.close_active_popup()
+            self._sync_popup_sessions_from_windows()
             return "break"
         return self._emit_intent(UiIntent.SHORTCUT_ESCAPE, event=_event)
 
     def _on_ctrl_enter(self, _event):
         """Meldet Strg+Enter als expliziten Edit-Commit-Intent."""
-        if ScrollablePopupWindow.has_active_popup():
+        if self._has_active_popup():
             return None
         selection_level = getattr(getattr(self.app, "ui_state", None), "selection_level", "")
         column_level = getattr(getattr(self.app, "ui_state", None), "SELECTION_LEVEL_COLUMN", "column")

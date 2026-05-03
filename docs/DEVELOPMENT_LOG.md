@@ -9,10 +9,14 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Wave-1-Hardening fuer Popup-Lifecycle: `kursplaner/adapters/gui/screen_builder.py` synchronisiert Laufzeit-Popups jetzt ueber `PopupPolicyRegistry` und nutzt die Registry im Runtime-Kontext als primaere Dialogquelle.
+- Runtime-Dispatch konsolidiert: popup-sensitive Shortcut-Pfade pruefen zentral `_has_active_popup()` statt verteilter Einzelabfragen.
+- Guardrails erweitert: `tools/ci/check_ai_guardrails.py` validiert jetzt zusaetzlich die tatsaechliche Runtime-Integration (`evaluate_runtime`, PopupPolicy-Nutzung) in `screen_builder.py`.
 - Wave-1-Start fuer den Hybrid-Resolver: `kursplaner/adapters/gui/keybinding_registry.py` enthaelt jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
 - Wave-1 konkret verdrahtet: globale Shortcuts in `kursplaner/adapters/gui/screen_builder.py` laufen jetzt ueber den zentralen Runtime-Resolver statt direkter Bind-Dispatches.
 
 ### Added
+- Tests fuer zentrale Runtime-Module: `tests/test_keybinding_runtime_registry.py` (Mode-/Reason-Matrix) und `tests/test_popup_policy_registry.py` (Stack-/Manifest-Lifecycle).
 - Tabellarische Runtime-Debug-Ansicht fuer Shortcuts in der Hauptansicht (Menuepunkt `Ansicht -> Shortcut-Runtime-Debug`, Shortcut `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
 - Guardrails praezisiert: `CHANGELOG.md` wird nun bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) werden nur noch lokal und nicht in CI ausgegeben.
 - Zentrale UI-Governance gestartet: `kursplaner/adapters/gui/keybinding_registry.py` und `kursplaner/adapters/gui/popup_policy.py` als gemeinsame API-Basis fuer Shortcut- und Popup-Steuerung eingefuehrt.

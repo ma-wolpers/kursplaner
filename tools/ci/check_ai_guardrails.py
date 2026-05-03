@@ -353,6 +353,42 @@ def _check_undo_writeflow_guardrails(errors: list[str]) -> None:
             )
 
 
+def _check_runtime_shortcut_integration(errors: list[str]) -> None:
+    """Validate ScreenBuilder runtime shortcut and popup policy integration."""
+
+    screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
+    _require_substring(
+        screen_builder,
+        "from kursplaner.adapters.gui.popup_policy import POPUP_KIND_MODAL, PopupPolicy, PopupPolicyRegistry",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._popup_registry = PopupPolicyRegistry()",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._runtime_shortcuts.evaluate_runtime(",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._sync_popup_sessions_from_windows()",
+        "screen_builder.py",
+        errors,
+    )
+    _require_substring(
+        screen_builder,
+        "self._popup_registry.has_active_popup()",
+        "screen_builder.py",
+        errors,
+    )
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -441,6 +477,7 @@ def main() -> int:
     _check_development_log_updated(staged, errors)
     _check_changelog_updated(staged, errors)
     _check_undo_writeflow_guardrails(errors)
+    _check_runtime_shortcut_integration(errors)
     warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.
