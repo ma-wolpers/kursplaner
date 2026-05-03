@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 from pathlib import Path
 
@@ -26,6 +27,18 @@ GUARDRAIL_RELEVANT_PATHS = {
 PROCESS_GUIDANCE_RULES = {
     "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
     "manual_push": "Push erfolgt manuell",
+}
+CHANGELOG_RELEVANT_PREFIXES = (
+    "kursplaner/adapters/gui/",
+    "kursplaner/core/usecases/",
+)
+CHANGELOG_CODEV_RELEVANT_PATHS = {
+    "AGENTS.md",
+    ".github/copilot-instructions.md",
+    ".github/pull_request_template.md",
+    "tools/ci/check_ai_guardrails.py",
+    "kursplaner/adapters/gui/keybinding_registry.py",
+    "kursplaner/adapters/gui/popup_policy.py",
 }
 
 DOCSTRING_REQUIRED_PATHS = {
@@ -362,6 +375,25 @@ def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
         )
 
 
+def _check_changelog_updated(staged: set[str], errors: list[str]) -> None:
+    """Require changelog updates for user- or co-developer-relevant changes."""
+    normalized = {path.replace("\\", "/") for path in staged}
+    if not normalized:
+        return
+
+    if "CHANGELOG.md" in normalized:
+        return
+
+    requires_changelog = any(
+        path.startswith(prefix) for path in normalized for prefix in CHANGELOG_RELEVANT_PREFIXES
+    ) or any(path in CHANGELOG_CODEV_RELEVANT_PATHS for path in normalized)
+
+    if requires_changelog:
+        errors.append(
+            "CHANGELOG.md missing update: user- or co-developer-relevant changes require a changelog entry"
+        )
+
+
 def _collect_process_guidance_warnings() -> list[str]:
     """Collect non-blocking warnings for commit/push process guidance drift."""
     warnings: list[str] = []
@@ -377,6 +409,11 @@ def _collect_process_guidance_warnings() -> list[str]:
                 f"process-guidance ({label}) not found in governance docs/templates"
             )
     return warnings
+
+
+def _is_ci_environment() -> bool:
+    """Return whether the check runs in a CI environment."""
+    return bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
 
 
 def main() -> int:
@@ -402,6 +439,7 @@ def main() -> int:
     _check_lesson_index_observability(errors)
     _check_required_docstrings(errors)
     _check_development_log_updated(staged, errors)
+    _check_changelog_updated(staged, errors)
     _check_undo_writeflow_guardrails(errors)
     warnings = _collect_process_guidance_warnings()
 
@@ -478,7 +516,7 @@ def main() -> int:
             print(f" - {item}")
         return 2
 
-    if warnings:
+    if warnings and not _is_ci_environment():
         print("AI guardrail process warnings (non-blocking):")
         for item in warnings:
             print(f" - {item}")
