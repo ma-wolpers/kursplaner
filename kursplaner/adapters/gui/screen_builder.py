@@ -5,6 +5,16 @@ from tkinter import ttk
 
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.keybinding_registry import (
+    UI_MODE_DIALOG,
+    UI_MODE_EDITOR,
+    UI_MODE_GLOBAL,
+    UI_MODE_OFFLINE,
+    UI_MODE_PREVIEW,
+    KeyBindingDefinition,
+    KeybindingRegistry,
+    KeybindingRuntimeContext,
+)
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import (
@@ -32,6 +42,13 @@ class ScreenBuilder:
         """Initialisiert den Builder mit Zugriff auf den Hauptfenster-Adapter."""
         self.app = app
         self._last_toolbar_wrap_width = -1
+        self._runtime_shortcuts = KeybindingRegistry()
+        self.app.shortcut_debug_offline = False
+        self.app.shortcut_runtime_debug_window = None
+        self.app.shortcut_runtime_debug_table = None
+        self.app.shortcut_runtime_debug_context_var = None
+        self.app.shortcut_runtime_debug_summary_var = None
+        self.app.shortcut_runtime_debug_offline_var = None
 
     def _apply_toolbar_icons(self):
         styler = getattr(self.app, "toolbar_icon_styler", None)
@@ -452,6 +469,11 @@ class ScreenBuilder:
             accelerator="Strg+H",
             command=lambda: self._emit_intent(UiIntent.SHOW_SHORTCUT_OVERVIEW),
         )
+        ansicht.add_command(
+            label="Shortcut-Runtime-Debug anzeigen",
+            accelerator="Strg+Shift+D",
+            command=self._open_shortcut_runtime_debug_dialog,
+        )
         ansicht.add_separator()
         ansicht.add_cascade(label="Theme", menu=theme_menu)
         menu.add_cascade(label="Ansicht", menu=ansicht)
@@ -492,32 +514,163 @@ class ScreenBuilder:
     def _bind_shortcuts(self):
         """Registriert globale Tastaturkürzel für die Hauptansicht."""
         shortcut_entries = load_shortcut_guide_entries()
-        for entry in shortcut_entries:
-            self.app.bind_all(entry.key_sequence, self._build_shortcut_handler(entry))
+        for index, entry in enumerate(shortcut_entries):
+            definition = self._register_runtime_shortcut(
+                binding_id=f"guide.{entry.intent}.{index}",
+                sequence=entry.key_sequence,
+                intent=entry.intent,
+                modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+                allow_when_text_input=False,
+            )
+            self.app.bind_all(entry.key_sequence, self._build_shortcut_handler(entry, definition=definition))
 
-        self.app.bind_all("<F2>", lambda event: self._emit_intent(UiIntent.TOOLBAR_RENAME, from_shortcut=True))
-        self.app.bind_all("<Return>", self._on_grid_enter)
-        self.app.bind_all("<KP_Enter>", self._on_grid_enter)
-        self.app.bind_all("<Up>", self._on_grid_nav_up, add="+")
-        self.app.bind_all("<Down>", self._on_grid_nav_down, add="+")
-        self.app.bind_all("<Left>", self._on_detail_left)
-        self.app.bind_all("<Right>", self._on_detail_right)
-        self.app.bind_all("<Alt-Left>", self._on_detail_left_all)
-        self.app.bind_all("<Alt-Right>", self._on_detail_right_all)
-        self.app.bind_all("<Home>", self._on_home)
-        self.app.bind_all("<End>", self._on_end)
-        self.app.bind_all("<Delete>", self._on_grid_delete)
-        self.app.bind_all("<BackSpace>", self._on_grid_delete)
-        self.app.bind_all("<Control-Return>", self._on_ctrl_enter)
-        self.app.bind_all("<Control-KP_Enter>", self._on_ctrl_enter)
-        self.app.bind_all("<Escape>", self._on_escape)
-        self.app.bind_all("<Button-1>", self._on_global_click_commit_cell, add="+")
+        self._bind_runtime_shortcut(
+            "<F2>",
+            lambda event: self._emit_intent(UiIntent.TOOLBAR_RENAME, from_shortcut=True),
+            binding_id="global.rename",
+            intent=UiIntent.TOOLBAR_RENAME,
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+        )
+        self._bind_runtime_shortcut("<Return>", self._on_grid_enter, binding_id="grid.enter", intent=UiIntent.GRID_ENTER, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<KP_Enter>", self._on_grid_enter, binding_id="grid.enter.numpad", intent=UiIntent.GRID_ENTER, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Up>", self._on_grid_nav_up, binding_id="grid.nav.up", intent=UiIntent.GRID_NAV_UP, modes=(UI_MODE_PREVIEW,), add="+")
+        self._bind_runtime_shortcut("<Down>", self._on_grid_nav_down, binding_id="grid.nav.down", intent=UiIntent.GRID_NAV_DOWN, modes=(UI_MODE_PREVIEW,), add="+")
+        self._bind_runtime_shortcut("<Left>", self._on_detail_left, binding_id="detail.left", intent=UiIntent.SHORTCUT_DETAIL_LEFT, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Right>", self._on_detail_right, binding_id="detail.right", intent=UiIntent.SHORTCUT_DETAIL_RIGHT, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Alt-Left>", self._on_detail_left_all, binding_id="detail.left.all", intent=UiIntent.SHORTCUT_DETAIL_LEFT_ALL, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Alt-Right>", self._on_detail_right_all, binding_id="detail.right.all", intent=UiIntent.SHORTCUT_DETAIL_RIGHT_ALL, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Home>", self._on_home, binding_id="grid.home", intent=UiIntent.GRID_HOME, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<End>", self._on_end, binding_id="grid.end", intent=UiIntent.GRID_END, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Delete>", self._on_grid_delete, binding_id="grid.delete", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<BackSpace>", self._on_grid_delete, binding_id="grid.delete.backspace", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut("<Control-Return>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW,), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Control-KP_Enter>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter-numpad", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW,), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Escape>", self._on_escape, binding_id="global.escape", intent=UiIntent.SHORTCUT_ESCAPE, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Button-1>", self._on_global_click_commit_cell, binding_id="global.click-commit", intent=UiIntent.GLOBAL_CLICK_COMMIT_CELL, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW), add="+")
+        self._bind_runtime_shortcut(
+            "<Control-Shift-d>",
+            lambda _event: self._open_shortcut_runtime_debug_dialog(),
+            binding_id="global.runtime-debug",
+            intent="debug.shortcut.runtime",
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-Shift-o>",
+            lambda _event: self._toggle_shortcut_runtime_offline(),
+            binding_id="global.runtime-offline",
+            intent="debug.shortcut.offline",
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
+            allow_when_text_input=True,
+        )
 
-    def _build_shortcut_handler(self, entry):
+    def _register_runtime_shortcut(
+        self,
+        *,
+        binding_id: str,
+        sequence: str,
+        intent: str,
+        modes: tuple[str, ...],
+        allow_when_text_input: bool,
+        allow_when_offline: bool = True,
+    ) -> KeyBindingDefinition:
+        """Register one runtime shortcut definition in the central resolver."""
+
+        definition = KeyBindingDefinition(
+            binding_id=binding_id,
+            sequence=sequence,
+            intent=intent,
+            modes=modes,
+            allow_when_text_input=allow_when_text_input,
+            allow_when_offline=allow_when_offline,
+        )
+        self._runtime_shortcuts.register(definition)
+        return definition
+
+    def _build_runtime_context(self, event: tk.Event[tk.Misc] | None = None) -> KeybindingRuntimeContext:
+        """Build runtime context for mode-aware shortcut evaluation."""
+
+        focus_get = getattr(self.app, "focus_get", None)
+        focused_widget = getattr(event, "widget", None)
+        if focused_widget is None and callable(focus_get):
+            focused_widget = focus_get()
+        text_input_focused = self._is_editable_widget(focused_widget)
+        dialog_open = ScrollablePopupWindow.has_active_popup()
+        offline = bool(getattr(self.app, "shortcut_debug_offline", False))
+
+        if offline:
+            active_mode = UI_MODE_OFFLINE
+        elif dialog_open:
+            active_mode = UI_MODE_DIALOG
+        elif text_input_focused:
+            active_mode = UI_MODE_EDITOR
+        elif bool(getattr(self.app, "is_detail_view", False)):
+            active_mode = UI_MODE_PREVIEW
+        else:
+            active_mode = UI_MODE_GLOBAL
+
+        return KeybindingRuntimeContext(
+            active_mode=active_mode,
+            offline=offline,
+            text_input_focused=text_input_focused,
+            dialog_open=dialog_open,
+        )
+
+    def _bind_runtime_shortcut(
+        self,
+        sequence: str,
+        handler,
+        *,
+        binding_id: str,
+        intent: str,
+        modes: tuple[str, ...],
+        allow_when_text_input: bool = False,
+        allow_when_offline: bool = True,
+        add: str | None = None,
+    ) -> None:
+        """Bind one shortcut through runtime evaluator before handler execution."""
+
+        definition = self._register_runtime_shortcut(
+            binding_id=binding_id,
+            sequence=sequence,
+            intent=intent,
+            modes=modes,
+            allow_when_text_input=allow_when_text_input,
+            allow_when_offline=allow_when_offline,
+        )
+
+        def _wrapped(event):
+            context = self._build_runtime_context(event)
+            can_execute, _reason = self._runtime_shortcuts.evaluate_runtime(definition, context)
+            if not can_execute:
+                return None
+            return handler(event)
+
+        if add is None:
+            self.app.bind_all(sequence, _wrapped)
+            return
+        self.app.bind_all(sequence, _wrapped, add=add)
+
+    def _build_shortcut_handler(self, entry, *, definition: KeyBindingDefinition | None = None):
         """Erzeugt Event-Handler fuer einen Shortcut-Guide-Eintrag."""
 
+        effective_definition = definition
+        if effective_definition is None:
+            effective_definition = KeyBindingDefinition(
+                binding_id=f"adhoc.{entry.intent}.{entry.key_sequence}",
+                sequence=entry.key_sequence,
+                intent=entry.intent,
+                modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+                allow_when_text_input=True,
+            )
+
         def _handler(event):
-            if ScrollablePopupWindow.has_active_popup():
+            context = self._build_runtime_context(event)
+            can_execute, _reason = self._runtime_shortcuts.evaluate_runtime(effective_definition, context)
+            if not can_execute:
+                return None
+
+            if ScrollablePopupWindow.has_active_popup() and UI_MODE_DIALOG not in effective_definition.modes:
                 return "break"
             if entry.intent.startswith("toolbar.") and self._is_editable_widget(getattr(event, "widget", None)):
                 return None
@@ -537,6 +690,149 @@ class ScreenBuilder:
             return self._emit_intent(entry.intent, **payload)
 
         return _handler
+
+    def _toggle_shortcut_runtime_offline(self) -> None:
+        """Toggle offline simulation for runtime shortcut diagnostics."""
+
+        self.app.shortcut_debug_offline = not bool(getattr(self.app, "shortcut_debug_offline", False))
+        tk_var = getattr(self.app, "shortcut_runtime_debug_offline_var", None)
+        if tk_var is not None:
+            tk_var.set(bool(self.app.shortcut_debug_offline))
+        self._refresh_shortcut_runtime_debug_dialog()
+
+    def _open_shortcut_runtime_debug_dialog(self) -> None:
+        """Open compact tabular runtime shortcut diagnostics dialog."""
+
+        existing = getattr(self.app, "shortcut_runtime_debug_window", None)
+        if existing is not None and int(existing.winfo_exists()):
+            self._refresh_shortcut_runtime_debug_dialog()
+            existing.deiconify()
+            existing.lift()
+            existing.focus_force()
+            return
+
+        window = tk.Toplevel(self.app)
+        window.title("Shortcut Runtime Debug")
+        window.geometry("980x520")
+        window.minsize(820, 420)
+
+        self.app.shortcut_runtime_debug_context_var = tk.StringVar(master=window, value="")
+        self.app.shortcut_runtime_debug_summary_var = tk.StringVar(master=window, value="")
+        self.app.shortcut_runtime_debug_offline_var = tk.BooleanVar(
+            master=window,
+            value=bool(getattr(self.app, "shortcut_debug_offline", False)),
+        )
+
+        toolbar = ttk.Frame(window, padding=(10, 8))
+        toolbar.pack(fill="x")
+        ttk.Label(toolbar, textvariable=self.app.shortcut_runtime_debug_context_var, style="Toolbar.TLabel").pack(
+            side="left",
+            fill="x",
+            expand=True,
+        )
+        ttk.Checkbutton(
+            toolbar,
+            text="Offline simulieren",
+            variable=self.app.shortcut_runtime_debug_offline_var,
+            command=self._on_shortcut_runtime_offline_var_changed,
+        ).pack(side="left", padx=(12, 0))
+        ttk.Button(toolbar, text="Aktualisieren", command=self._refresh_shortcut_runtime_debug_dialog).pack(side="left", padx=(8, 0))
+
+        body = ttk.Frame(window, padding=(10, 0, 10, 8))
+        body.pack(fill="both", expand=True)
+        columns = ("mode", "key", "binding", "status", "reason")
+        table = ttk.Treeview(body, columns=columns, show="headings")
+        table.heading("mode", text="Mode")
+        table.heading("key", text="Key")
+        table.heading("binding", text="Binding")
+        table.heading("status", text="Status")
+        table.heading("reason", text="Reason")
+        table.column("mode", width=100, anchor="center", stretch=False)
+        table.column("key", width=130, anchor="center", stretch=False)
+        table.column("binding", width=300, anchor="w", stretch=True)
+        table.column("status", width=90, anchor="center", stretch=False)
+        table.column("reason", width=180, anchor="w", stretch=True)
+        table.pack(side="left", fill="both", expand=True)
+        y_scroll = ttk.Scrollbar(body, orient="vertical", command=table.yview)
+        y_scroll.pack(side="right", fill="y")
+        table.configure(yscrollcommand=y_scroll.set)
+
+        ttk.Label(window, textvariable=self.app.shortcut_runtime_debug_summary_var, style="Toolbar.TLabel").pack(
+            fill="x",
+            padx=10,
+            pady=(0, 8),
+        )
+
+        self.app.shortcut_runtime_debug_window = window
+        self.app.shortcut_runtime_debug_table = table
+        window.protocol("WM_DELETE_WINDOW", self._close_shortcut_runtime_debug_dialog)
+        self._refresh_shortcut_runtime_debug_dialog()
+
+    def _close_shortcut_runtime_debug_dialog(self) -> None:
+        """Destroy runtime debug dialog and clear references."""
+
+        window = getattr(self.app, "shortcut_runtime_debug_window", None)
+        if window is not None and int(window.winfo_exists()):
+            window.destroy()
+        self.app.shortcut_runtime_debug_window = None
+        self.app.shortcut_runtime_debug_table = None
+        self.app.shortcut_runtime_debug_context_var = None
+        self.app.shortcut_runtime_debug_summary_var = None
+        self.app.shortcut_runtime_debug_offline_var = None
+
+    def _on_shortcut_runtime_offline_var_changed(self) -> None:
+        """Sync offline flag from dialog checkbutton and refresh diagnostics."""
+
+        tk_var = getattr(self.app, "shortcut_runtime_debug_offline_var", None)
+        if tk_var is not None:
+            self.app.shortcut_debug_offline = bool(tk_var.get())
+        self._refresh_shortcut_runtime_debug_dialog()
+
+    def _refresh_shortcut_runtime_debug_dialog(self) -> None:
+        """Refresh rows and summary in runtime shortcut debug dialog."""
+
+        table = getattr(self.app, "shortcut_runtime_debug_table", None)
+        if table is None:
+            return
+
+        context = self._build_runtime_context()
+        context_var = getattr(self.app, "shortcut_runtime_debug_context_var", None)
+        if context_var is not None:
+            context_var.set(
+                f"mode={context.active_mode} | offline={context.offline} | dialog={context.dialog_open} | text-focus={context.text_input_focused}"
+            )
+
+        for item_id in table.get_children(""):
+            table.delete(item_id)
+
+        active_count = 0
+        disabled_count = 0
+        for mode in (UI_MODE_GLOBAL, UI_MODE_EDITOR, UI_MODE_PREVIEW, UI_MODE_DIALOG, UI_MODE_OFFLINE):
+            for definition in self._runtime_shortcuts.all():
+                if mode not in definition.modes and UI_MODE_GLOBAL not in definition.modes:
+                    continue
+                can_execute, reason = self._runtime_shortcuts.evaluate_runtime(
+                    definition,
+                    context,
+                    active_mode_override=mode,
+                )
+                status = "active" if can_execute else "disabled"
+                if can_execute:
+                    active_count += 1
+                else:
+                    disabled_count += 1
+                table.insert(
+                    "",
+                    "end",
+                    values=(mode, definition.sequence, definition.binding_id, status, "" if can_execute else reason),
+                )
+
+        total = active_count + disabled_count
+        summary_var = getattr(self.app, "shortcut_runtime_debug_summary_var", None)
+        if summary_var is not None:
+            summary_var.set(
+                f"Bindings: {total} total | {active_count} active | {disabled_count} disabled"
+            )
 
     def _emit_intent(self, intent: str, **payload):
         """Leitet ein View-Ereignis als Intent an die Orchestrierung weiter."""

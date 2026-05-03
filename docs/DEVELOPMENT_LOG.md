@@ -10,6 +10,10 @@ Regel:
 
 ### Changed
 - Wave-1-Start fuer den Hybrid-Resolver: `kursplaner/adapters/gui/keybinding_registry.py` enthaelt jetzt einen zentralen Runtime-Kontextvertrag (`KeybindingRuntimeContext`) und eine einheitliche `evaluate_runtime`-API fuer mode-/offline-/textfokus-/dialogbasierte Aktivierungspruefung.
+- Wave-1 konkret verdrahtet: globale Shortcuts in `kursplaner/adapters/gui/screen_builder.py` laufen jetzt ueber den zentralen Runtime-Resolver statt direkter Bind-Dispatches.
+
+### Added
+- Tabellarische Runtime-Debug-Ansicht fuer Shortcuts in der Hauptansicht (Menuepunkt `Ansicht -> Shortcut-Runtime-Debug`, Shortcut `Strg+Shift+D`) inkl. Offline-Simulation (`Strg+Shift+O`) und Aktiv/Disabled-Gruenden pro Modus.
 - Guardrails praezisiert: `CHANGELOG.md` wird nun bei nutzer- oder coentwicklerrelevanten Aenderungen erzwungen; Prozesswarnungen (Commit-/Push-Guidance) werden nur noch lokal und nicht in CI ausgegeben.
 - Zentrale UI-Governance gestartet: `kursplaner/adapters/gui/keybinding_registry.py` und `kursplaner/adapters/gui/popup_policy.py` als gemeinsame API-Basis fuer Shortcut- und Popup-Steuerung eingefuehrt.
 - Guardrails erweitert: AGENTS/Copilot/PR-Template verlangen zentrale Shortcut-/Popup-Registrierung sowie Feature-Commit-Disziplin bei manuellem Push.
