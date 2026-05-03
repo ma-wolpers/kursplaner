@@ -8,6 +8,7 @@ The format is based on Keep a Changelog.
 
 ### Changed
 - Governance checks now enforce changelog updates for user- or co-developer-relevant changes, and commit/push process hints are now local-only (not printed in CI logs).
+- Wave-1 groundwork for unified shortcut runtime resolution: central keybinding registry now exposes a shared runtime context model and evaluate API for mode/offline/text-focus/dialog checks.
 - Beim Einfuegen mit Konfliktoption `Loeschen` wird die ersetzte Zieleinheit jetzt inklusive verknuepfter UB-Datei sauber aufgeraeumt; die UB-Uebersicht wird dabei direkt mit aktualisiert.
 - `Strg+X` im Spaltenmodus schneidet jetzt die verlinkte Einheit fachlich aus (statt nur Zelltext) und markiert sie fuer Verschieben.
 - Ausschneiden+Einfügen verschiebt eine Einheit mit UB jetzt als Move-Flow: alte Verknuepfung/Dateien werden aufgeraeumt, der UB wird auf das Ziel aktualisiert statt als zweiter UB stehen zu bleiben.
