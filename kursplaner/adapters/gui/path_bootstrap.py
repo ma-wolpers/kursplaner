@@ -1,4 +1,7 @@
-import tkinter as tk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui
 
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox
 from kursplaner.adapters.gui.window_identity import apply_window_icon
@@ -10,7 +13,7 @@ def ensure_paths_interactive(path_settings_usecase: PathSettingsUseCase) -> bool
     values = path_settings_usecase.load_values()
     changed = False
 
-    root = tk.Tk()
+    root = ui.Tk()
     apply_window_icon(root)
     root.withdraw()
 

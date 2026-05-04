@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/path_bootstrap.py` nutzt jetzt `bw_gui.runtime.ui` fuer den Root-Window-Start statt direktem `tkinter`-Import.
 - Shared-Dialogmigration gestartet: zentrale Bridge `kursplaner/adapters/gui/dialog_services.py` auf `bw_gui.dialogs` eingefuehrt und mehrere Controller (`action_controller.py`, `lesson_conversion_controller.py`, `overview_controller.py`, `path_settings_controller.py`, `editor_controller.py`, `selection_controller.py`, `column_reorder_controller.py`) von direkten `tkinter`-Dialogimports auf Shared-Services umgestellt.
 - Shared-Dialogmigration erweitert: auch `new_lesson_window.py`, `lesson_builder_dialog.py`, `settings_window.py`, `ub_mark_dialog.py`, `popup_window.py` und `path_bootstrap.py` nutzen jetzt die zentrale Dialog-Bridge statt direkter `tkinter`-Dialogimports.
 - Pilotmigration zum gemeinsamen GUI-Core gestartet: `bw-gui` als Git-Submodule eingebunden und `bw_libs/ui_contract/*` via Bridge auf `bw_gui.contracts.*` umgestellt, sodass Keybinding-/Popup-/HSM-Vertraege aus der gemeinsamen Quelle geladen werden.
