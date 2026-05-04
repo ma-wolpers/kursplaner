@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
+
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import apply_window_theme, configure_ttk_theme
 
 
-class ScrollablePopupWindow(tk.Toplevel):
+class ScrollablePopupWindow(ui.Toplevel):
     """Basisklasse fuer Popup-Fenster mit automatisch scrollbarem Inhaltsbereich."""
 
     _open_popups: list["ScrollablePopupWindow"] = []
@@ -29,12 +32,12 @@ class ScrollablePopupWindow(tk.Toplevel):
 
         self.theme_key = theme_key
 
-        container = ttk.Frame(self)
+        container = widgets.Frame(self)
         container.pack(fill="both", expand=True)
 
-        self._canvas = tk.Canvas(container, highlightthickness=0, borderwidth=0)
-        self._v_scroll = ttk.Scrollbar(container, orient="vertical", command=self._canvas.yview)
-        self._h_scroll = ttk.Scrollbar(container, orient="horizontal", command=self._canvas.xview)
+        self._canvas = ui.Canvas(container, highlightthickness=0, borderwidth=0)
+        self._v_scroll = widgets.Scrollbar(container, orient="vertical", command=self._canvas.yview)
+        self._h_scroll = widgets.Scrollbar(container, orient="horizontal", command=self._canvas.xview)
         self._canvas.configure(yscrollcommand=self._v_scroll.set, xscrollcommand=self._h_scroll.set)
 
         self._canvas.grid(row=0, column=0, sticky="nsew")
@@ -43,7 +46,7 @@ class ScrollablePopupWindow(tk.Toplevel):
         container.columnconfigure(0, weight=1)
         container.rowconfigure(0, weight=1)
 
-        self.content = ttk.Frame(self._canvas)
+        self.content = widgets.Frame(self._canvas)
         self._content_window = self._canvas.create_window((0, 0), window=self.content, anchor="nw")
 
         self.content.bind("<Configure>", self._on_content_configure)
@@ -91,15 +94,15 @@ class ScrollablePopupWindow(tk.Toplevel):
             focused = self.focus_get()
             if not self._is_descendant_of_popup(focused):
                 self.focus_force()
-        except tk.TclError:
+        except ui.TclError:
             return
         try:
             if self.grab_current() is None:
                 self.grab_set()
-        except tk.TclError:
+        except ui.TclError:
             return
 
-    def _is_descendant_of_popup(self, widget: tk.Misc | None) -> bool:
+    def _is_descendant_of_popup(self, widget: ui.Misc | None) -> bool:
         if widget is None:
             return False
         current = widget
@@ -108,7 +111,7 @@ class ScrollablePopupWindow(tk.Toplevel):
                 return True
             try:
                 parent_name = current.winfo_parent()
-            except tk.TclError:
+            except ui.TclError:
                 return False
             if not parent_name:
                 return False
@@ -116,7 +119,7 @@ class ScrollablePopupWindow(tk.Toplevel):
                 current = current.nametowidget(parent_name)
             except KeyError:
                 return False
-            except tk.TclError:
+            except ui.TclError:
                 return False
         return False
 
@@ -150,7 +153,7 @@ class ScrollablePopupWindow(tk.Toplevel):
     def _is_editable_widget(widget) -> bool:
         if widget is None:
             return False
-        editable_widget_types = (tk.Entry, tk.Text, tk.Spinbox, ttk.Entry, ttk.Combobox)
+        editable_widget_types = (ui.Entry, ui.Text, ui.Spinbox, widgets.Entry, widgets.Combobox)
         return isinstance(widget, editable_widget_types)
 
     def _handle_escape_request(self) -> str:
@@ -158,7 +161,7 @@ class ScrollablePopupWindow(tk.Toplevel):
         if self._is_descendant_of_popup(focused) and ScrollablePopupWindow._is_editable_widget(focused):
             try:
                 self.focus_force()
-            except tk.TclError:
+            except ui.TclError:
                 return "break"
             return "break"
         return self._request_close()
@@ -197,3 +200,4 @@ class ScrollablePopupWindow(tk.Toplevel):
         apply_window_theme(self, self.theme_key)
         configure_ttk_theme(self, self.theme_key)
         self._canvas.configure(highlightthickness=0)
+
