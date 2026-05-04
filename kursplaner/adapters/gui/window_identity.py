@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import sys
-import tkinter as tk
 from pathlib import Path
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui
 
 APP_USER_MODEL_ID = "7thCloud.Kursplaner.2026.03"
 
 
-def _apply_taskbar_icon_winapi(window: tk.Misc, icon_path: Path) -> None:
+def _apply_taskbar_icon_winapi(window: ui.Misc, icon_path: Path) -> None:
     """Setzt das Fenster-Icon via WinAPI explizit fuer SMALL und BIG."""
     try:
         import ctypes
@@ -106,7 +109,7 @@ def configure_windows_process_identity() -> None:
         return
 
 
-def apply_window_icon(window: tk.Misc) -> None:
+def apply_window_icon(window: ui.Misc) -> None:
     """Wendet das Projekt-Icon auf ein Tk-Fenster an, falls vorhanden."""
     if not sys.platform.startswith("win"):
         return
@@ -117,27 +120,27 @@ def apply_window_icon(window: tk.Misc) -> None:
 
     try:
         window.iconbitmap(str(icon_path))
-    except tk.TclError:
+    except ui.TclError:
         try:
             window.iconbitmap(default=str(icon_path))
-        except tk.TclError:
+        except ui.TclError:
             return
 
     _apply_taskbar_icon_winapi(window, icon_path)
 
 
-def bring_window_to_front(window: tk.Misc) -> None:
+def bring_window_to_front(window: ui.Misc) -> None:
     """Holt ein Tk-Fenster beim Start zuverlässig in den Vordergrund."""
     try:
         window.deiconify()
         window.lift()
         window.focus_force()
-    except tk.TclError:
+    except ui.TclError:
         return
 
     # Kurzer Topmost-Impuls erhöht die Chance, dass Windows den Fokus vergibt.
     try:
         window.attributes("-topmost", True)
         window.after(180, lambda: window.attributes("-topmost", False))
-    except tk.TclError:
+    except ui.TclError:
         return

@@ -8,6 +8,7 @@ The format is based on Keep a Changelog.
 
 ### Changed
 - Interactive startup path-check now creates its root window via shared `bw_gui.runtime.ui` aliases in `path_bootstrap.py` instead of importing `tkinter` directly.
+- Window identity/icon helpers now use shared `bw_gui.runtime.ui` aliases in `window_identity.py` instead of importing `tkinter` directly.
 - Dialog and file picker flows are now routed through shared `bw_gui.dialogs` services across controllers and key popup/startup/settings flows, reducing direct tkinter dialog coupling and aligning modal handling across apps.
 - Pilot integration for the shared GUI core started: Kursplaner now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge), and routes hover tooltips through the shared tooltip widget.
 - Theme configuration now applies a shared baseline from `bw-gui` before Kursplaner-specific style overlays.
