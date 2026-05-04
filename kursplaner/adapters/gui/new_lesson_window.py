@@ -1,6 +1,8 @@
-import tkinter as tk
-from tkinter import ttk
 from typing import TYPE_CHECKING, Callable
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.help_catalog import NEW_LESSON_HELP
@@ -59,16 +61,16 @@ class NewLessonWindow(ScrollablePopupWindow):
 
         self.path_values = self.path_settings_usecase.load_values()
 
-        self.subject_var = tk.StringVar(value="Mathematik")
-        self.group_var = tk.StringVar()
-        self.grade_var = tk.StringVar(value="8")
-        self.period_input_var = tk.StringVar()
-        self.vacation_horizon_var = tk.StringVar(value="1")
-        self.preview_var = tk.StringVar(value="Ordnervorschau: –")
-        self.vacation_preview_var = tk.StringVar(value="Planende (Ferienbeginn): –")
+        self.subject_var = ui.StringVar(value="Mathematik")
+        self.group_var = ui.StringVar()
+        self.grade_var = ui.StringVar(value="8")
+        self.period_input_var = ui.StringVar()
+        self.vacation_horizon_var = ui.StringVar(value="1")
+        self.preview_var = ui.StringVar(value="Ordnervorschau: –")
+        self.vacation_preview_var = ui.StringVar(value="Planende (Ferienbeginn): –")
 
-        self.day_enabled_vars: dict[int, tk.BooleanVar] = {}
-        self.day_hours_vars: dict[int, tk.StringVar] = {}
+        self.day_enabled_vars: dict[int, ui.BooleanVar] = {}
+        self.day_hours_vars: dict[int, ui.StringVar] = {}
         self._tooltips: list[HoverTooltip] = []
         self._focus_attempts = 0
 
@@ -80,87 +82,87 @@ class NewLessonWindow(ScrollablePopupWindow):
 
     def _build_ui(self):
         """Erzeugt Formularfelder für Stammdaten, Tage und Pfade."""
-        root = ttk.Frame(self.content, padding=16)
+        root = widgets.Frame(self.content, padding=16)
         root.pack(fill="both", expand=True)
 
-        basics = ttk.LabelFrame(root, text="Kursdaten")
+        basics = widgets.LabelFrame(root, text="Kursdaten")
         basics.pack(fill="x", pady=(0, 10))
 
-        ttk.Label(basics, text="Kursfach").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=4)
-        ttk.Combobox(
+        widgets.Label(basics, text="Kursfach").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=4)
+        widgets.Combobox(
             basics,
             textvariable=self.subject_var,
             values=["Mathematik", "Informatik", "Darstellendes Spiel"],
             state="readonly",
         ).grid(row=0, column=1, sticky="ew", pady=4)
 
-        ttk.Label(basics, text="Kursgruppe").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=4)
-        ttk.Entry(basics, textvariable=self.group_var).grid(row=1, column=1, sticky="ew", pady=4)
+        widgets.Label(basics, text="Kursgruppe").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=4)
+        widgets.Entry(basics, textvariable=self.group_var).grid(row=1, column=1, sticky="ew", pady=4)
 
-        ttk.Label(basics, text="Stufe (1–13)").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=4)
-        ttk.Spinbox(basics, from_=1, to=13, textvariable=self.grade_var, width=6).grid(
+        widgets.Label(basics, text="Stufe (1–13)").grid(row=2, column=0, sticky="w", padx=(0, 8), pady=4)
+        widgets.Spinbox(basics, from_=1, to=13, textvariable=self.grade_var, width=6).grid(
             row=2, column=1, sticky="w", pady=4
         )
 
-        period_label = ttk.Label(basics, text="Halbjahr ODER Startdatum")
+        period_label = widgets.Label(basics, text="Halbjahr ODER Startdatum")
         period_label.grid(row=3, column=0, sticky="w", padx=(0, 8), pady=4)
-        period_entry = ttk.Entry(basics, textvariable=self.period_input_var)
+        period_entry = widgets.Entry(basics, textvariable=self.period_input_var)
         period_entry.grid(row=3, column=1, sticky="ew", pady=4)
         self._period_entry = period_entry
         self._tooltips.append(HoverTooltip(period_label, NEW_LESSON_HELP["period_input"]))
         self._tooltips.append(HoverTooltip(period_entry, NEW_LESSON_HELP["period_input"]))
 
-        self.vacation_horizon_frame = ttk.Frame(basics)
+        self.vacation_horizon_frame = widgets.Frame(basics)
         self.vacation_horizon_frame.grid(row=4, column=1, sticky="w", pady=(0, 4))
-        vacation_label = ttk.Label(self.vacation_horizon_frame, text="Bei Startdatum planen bis:")
+        vacation_label = widgets.Label(self.vacation_horizon_frame, text="Bei Startdatum planen bis:")
         vacation_label.pack(side="left", padx=(0, 8))
-        ttk.Label(self.vacation_horizon_frame, text="Ferienstart-Niveau:").pack(side="left")
-        horizon_spin = ttk.Spinbox(
+        widgets.Label(self.vacation_horizon_frame, text="Ferienstart-Niveau:").pack(side="left")
+        horizon_spin = widgets.Spinbox(
             self.vacation_horizon_frame, from_=1, to=99, textvariable=self.vacation_horizon_var, width=4
         )
         horizon_spin.pack(side="left", padx=(6, 0))
         self._tooltips.append(HoverTooltip(vacation_label, NEW_LESSON_HELP["vacation_horizon"]))
         self._tooltips.append(HoverTooltip(horizon_spin, NEW_LESSON_HELP["vacation_horizon"]))
 
-        ttk.Label(basics, text="Beispiele: 26-1 oder 2026-02-20").grid(row=5, column=1, sticky="w", pady=(0, 4))
-        ttk.Label(basics, textvariable=self.preview_var).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 2))
-        ttk.Label(basics, textvariable=self.vacation_preview_var).grid(
+        widgets.Label(basics, text="Beispiele: 26-1 oder 2026-02-20").grid(row=5, column=1, sticky="w", pady=(0, 4))
+        widgets.Label(basics, textvariable=self.preview_var).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 2))
+        widgets.Label(basics, textvariable=self.vacation_preview_var).grid(
             row=7, column=0, columnspan=2, sticky="w", pady=(0, 2)
         )
         basics.columnconfigure(1, weight=1)
 
         self._refresh_vacation_horizon_visibility()
 
-        days_frame = ttk.LabelFrame(root, text="Stunden pro Tag (Mo–Fr)")
+        days_frame = widgets.LabelFrame(root, text="Stunden pro Tag (Mo–Fr)")
         days_frame.pack(fill="x", pady=(0, 10))
 
-        row = ttk.Frame(days_frame)
+        row = widgets.Frame(days_frame)
         row.pack(fill="x", padx=6, pady=6)
 
         for short_label, weekday in WEEKDAY_SHORT_OPTIONS:
-            cell = ttk.Frame(row)
+            cell = widgets.Frame(row)
             cell.pack(side="left", padx=(0, 12))
 
-            enabled_var = tk.BooleanVar(value=True)
-            hours_var = tk.StringVar(value="2")
+            enabled_var = ui.BooleanVar(value=True)
+            hours_var = ui.StringVar(value="2")
             self.day_enabled_vars[weekday] = enabled_var
             self.day_hours_vars[weekday] = hours_var
 
-            ttk.Checkbutton(
+            widgets.Checkbutton(
                 cell,
                 text=short_label,
                 variable=enabled_var,
                 command=lambda w=weekday: self._toggle_day_input(w),
             ).pack(side="left")
 
-            spin = ttk.Spinbox(cell, from_=1, to=4, textvariable=hours_var, width=3)
+            spin = widgets.Spinbox(cell, from_=1, to=4, textvariable=hours_var, width=3)
             spin.pack(side="left", padx=(4, 0))
             setattr(self, f"_spin_{weekday}", spin)
 
-        buttons = ttk.Frame(root)
+        buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(8, 0))
-        ttk.Button(buttons, text="Anlegen", command=self._run).pack(side="left")
-        ttk.Button(buttons, text="Schließen", command=self.destroy).pack(side="right")
+        widgets.Button(buttons, text="Anlegen", command=self._run).pack(side="left")
+        widgets.Button(buttons, text="Schließen", command=self.destroy).pack(side="right")
 
     def _apply_theme(self):
         """Wendet das gewählte Theme auf das Fenster und ttk-Styles an."""
@@ -178,10 +180,10 @@ class NewLessonWindow(ScrollablePopupWindow):
                 self.lift()
                 self.focus_set()
                 entry.focus_set()
-                entry.icursor(tk.END)
+                entry.icursor(ui.END)
                 self._focus_attempts = 0
                 return
-        except tk.TclError:
+        except ui.TclError:
             return
 
         # Avoid blocking calls here: retry shortly until the toplevel is viewable.
@@ -317,3 +319,4 @@ class NewLessonWindow(ScrollablePopupWindow):
         if self.on_success:
             self.on_success()
         self.destroy()
+
