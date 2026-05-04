@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import widgets
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import ShortcutGuideEntry
@@ -21,10 +24,10 @@ class ShortcutOverviewDialog(ScrollablePopupWindow):
         self._build_content()
 
     def _build_content(self) -> None:
-        root = ttk.Frame(self.content, padding=12)
+        root = widgets.Frame(self.content, padding=12)
         root.pack(fill="both", expand=True)
 
-        ttk.Label(
+        widgets.Label(
             root,
             text=(
                 "Alle Strg-Shortcuts der Hauptansicht mit Kurzbegründung. "
@@ -33,10 +36,10 @@ class ShortcutOverviewDialog(ScrollablePopupWindow):
         ).pack(fill="x", pady=(0, 8))
 
         columns = ("shortcut", "action", "mnemonic", "didactic_hint")
-        table_frame = ttk.Frame(root)
+        table_frame = widgets.Frame(root)
         table_frame.pack(fill="both", expand=True)
 
-        table = ttk.Treeview(table_frame, columns=columns, show="headings")
+        table = widgets.Treeview(table_frame, columns=columns, show="headings")
         table.heading("shortcut", text="Shortcut")
         table.heading("action", text="Funktion")
         table.heading("mnemonic", text="Merkregel")
@@ -47,7 +50,7 @@ class ShortcutOverviewDialog(ScrollablePopupWindow):
         table.column("mnemonic", width=240, anchor="w", stretch=False)
         table.column("didactic_hint", width=520, anchor="w", stretch=True)
 
-        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=table.yview)
+        y_scroll = widgets.Scrollbar(table_frame, orient="vertical", command=table.yview)
         table.configure(yscrollcommand=y_scroll.set)
 
         table.grid(row=0, column=0, sticky="nsew")
@@ -67,6 +70,6 @@ class ShortcutOverviewDialog(ScrollablePopupWindow):
                 ),
             )
 
-        actions = ttk.Frame(root)
+        actions = widgets.Frame(root)
         actions.pack(fill="x", pady=(10, 0))
-        ttk.Button(actions, text="Schließen", command=self.destroy).pack(side="right")
+        widgets.Button(actions, text="Schließen", command=self.destroy).pack(side="right")
