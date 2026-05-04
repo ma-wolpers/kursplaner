@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import tkinter as tk
 from dataclasses import dataclass
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 
@@ -29,61 +31,61 @@ class ExportSelectionDialog(ScrollablePopupWindow):
         )
         self.result: ExportSelectionResult | None = None
 
-        self.scope_current_sequence_var = tk.BooleanVar(value=True)
-        self.layout_var = tk.StringVar(value="sequence_plan")
-        self.output_format_var = tk.StringVar(value="pdf")
+        self.scope_current_sequence_var = ui.BooleanVar(value=True)
+        self.layout_var = ui.StringVar(value="sequence_plan")
+        self.output_format_var = ui.StringVar(value="pdf")
         self._initial_state = self._current_state()
 
         self._build_ui()
         self.apply_theme()
 
     def _build_ui(self) -> None:
-        container = ttk.Frame(self.content, padding=14)
+        container = widgets.Frame(self.content, padding=14)
         container.pack(fill="both", expand=True)
 
-        scope_frame = ttk.LabelFrame(container, text="Was")
+        scope_frame = widgets.LabelFrame(container, text="Was")
         scope_frame.pack(fill="x", pady=(0, 10))
-        ttk.Checkbutton(
+        widgets.Checkbutton(
             scope_frame,
             text="Aktuelle Sequenz",
             variable=self.scope_current_sequence_var,
             state="disabled",
         ).pack(anchor="w", padx=10, pady=8)
 
-        layout_frame = ttk.LabelFrame(container, text="Wie")
+        layout_frame = widgets.LabelFrame(container, text="Wie")
         layout_frame.pack(fill="x", pady=(0, 10))
-        ttk.Radiobutton(
+        widgets.Radiobutton(
             layout_frame,
             text="Sequenzplan",
             value="sequence_plan",
             variable=self.layout_var,
         ).pack(anchor="w", padx=10, pady=(8, 2))
-        ttk.Radiobutton(
+        widgets.Radiobutton(
             layout_frame,
             text="Kompetenzhorizont",
             value="expected_horizon",
             variable=self.layout_var,
         ).pack(anchor="w", padx=10, pady=(0, 8))
 
-        format_frame = ttk.LabelFrame(container, text="Als was")
+        format_frame = widgets.LabelFrame(container, text="Als was")
         format_frame.pack(fill="x")
-        ttk.Radiobutton(
+        widgets.Radiobutton(
             format_frame,
             text="PDF",
             value="pdf",
             variable=self.output_format_var,
         ).pack(anchor="w", padx=10, pady=(8, 2))
-        ttk.Radiobutton(
+        widgets.Radiobutton(
             format_frame,
             text="Markdown",
             value="markdown",
             variable=self.output_format_var,
         ).pack(anchor="w", padx=10, pady=(0, 8))
 
-        button_row = ttk.Frame(container)
+        button_row = widgets.Frame(container)
         button_row.pack(fill="x", pady=(14, 0))
-        ttk.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right")
-        ttk.Button(button_row, text="Export starten", command=self._accept).pack(side="right", padx=(0, 8))
+        widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right")
+        widgets.Button(button_row, text="Export starten", command=self._accept).pack(side="right", padx=(0, 8))
 
     def _current_state(self) -> tuple[bool, str, str]:
         return (

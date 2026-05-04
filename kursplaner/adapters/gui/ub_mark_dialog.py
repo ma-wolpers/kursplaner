@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import tkinter as tk
 from dataclasses import dataclass
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
@@ -45,45 +47,45 @@ class UbMarkDialog(ScrollablePopupWindow):
         if not normalized_kinds:
             normalized_kinds = {"Pädagogik"}
 
-        self.kind_paedagogik = tk.BooleanVar(value=("Pädagogik" in normalized_kinds))
-        self.kind_fach = tk.BooleanVar(value=("Fach" in normalized_kinds))
-        self.langentwurf_var = tk.BooleanVar(value=bool(initial_langentwurf))
-        self.beobachtung_var = tk.StringVar(value=str(initial_beobachtungsschwerpunkt or "").strip())
+        self.kind_paedagogik = ui.BooleanVar(value=("Pädagogik" in normalized_kinds))
+        self.kind_fach = ui.BooleanVar(value=("Fach" in normalized_kinds))
+        self.langentwurf_var = ui.BooleanVar(value=bool(initial_langentwurf))
+        self.beobachtung_var = ui.StringVar(value=str(initial_beobachtungsschwerpunkt or "").strip())
         self._initial_state = self._current_state()
 
         self._build_ui()
         self.apply_theme()
 
     def _build_ui(self) -> None:
-        container = ttk.Frame(self.content, padding=14)
+        container = widgets.Frame(self.content, padding=14)
         container.pack(fill="both", expand=True)
 
-        ttk.Label(
+        widgets.Label(
             container,
             text="Welche Art von Unterrichtsbesuch ist das?",
         ).pack(anchor="w")
 
-        kind_frame = ttk.Frame(container)
+        kind_frame = widgets.Frame(container)
         kind_frame.pack(fill="x", pady=(4, 10))
-        ttk.Checkbutton(kind_frame, text="Pädagogik", variable=self.kind_paedagogik).pack(anchor="w")
-        ttk.Checkbutton(kind_frame, text="Fach", variable=self.kind_fach).pack(anchor="w")
+        widgets.Checkbutton(kind_frame, text="Pädagogik", variable=self.kind_paedagogik).pack(anchor="w")
+        widgets.Checkbutton(kind_frame, text="Fach", variable=self.kind_fach).pack(anchor="w")
 
-        ttk.Checkbutton(
+        widgets.Checkbutton(
             container,
             text="Langentwurf",
             variable=self.langentwurf_var,
         ).pack(anchor="w", pady=(0, 10))
 
-        ttk.Label(container, text="Beobachtungsschwerpunkt").pack(anchor="w")
-        focus_entry = ttk.Entry(container, textvariable=self.beobachtung_var)
+        widgets.Label(container, text="Beobachtungsschwerpunkt").pack(anchor="w")
+        focus_entry = widgets.Entry(container, textvariable=self.beobachtung_var)
         focus_entry.pack(fill="x", pady=(4, 12))
 
-        button_row = ttk.Frame(container)
+        button_row = widgets.Frame(container)
         button_row.pack(fill="x", pady=(6, 0))
-        ttk.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right")
-        ttk.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right", padx=(0, 8))
+        widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right")
+        widgets.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right", padx=(0, 8))
         if self._allow_delete:
-            ttk.Button(button_row, text="UB löschen", command=self._delete).pack(side="left")
+            widgets.Button(button_row, text="UB löschen", command=self._delete).pack(side="left")
 
         self.after_idle(focus_entry.focus_set)
 
