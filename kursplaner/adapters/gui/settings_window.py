@@ -1,6 +1,8 @@
-import tkinter as tk
 from datetime import time
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox
 
@@ -45,14 +47,14 @@ class SettingsWindow(ScrollablePopupWindow):
         self.path_settings_usecase = path_settings_usecase
 
         cutoff = ub_past_cutoff_time or time(hour=15, minute=0)
-        self.ub_cutoff_hour_var = tk.StringVar(value=f"{int(cutoff.hour):02d}")
-        self.ub_cutoff_minute_var = tk.StringVar(value=f"{int(cutoff.minute):02d}")
+        self.ub_cutoff_hour_var = ui.StringVar(value=f"{int(cutoff.hour):02d}")
+        self.ub_cutoff_minute_var = ui.StringVar(value=f"{int(cutoff.minute):02d}")
         builder_fields = lesson_builder_field_settings or LessonBuilderFieldSettings()
-        self.show_kompetenzen_var = tk.BooleanVar(value=bool(builder_fields.show_kompetenzen))
-        self.show_stundenziel_var = tk.BooleanVar(value=bool(builder_fields.show_stundenziel))
+        self.show_kompetenzen_var = ui.BooleanVar(value=bool(builder_fields.show_kompetenzen))
+        self.show_stundenziel_var = ui.BooleanVar(value=bool(builder_fields.show_stundenziel))
 
-        self.path_vars: dict[str, tk.StringVar] = {
-            field.key: tk.StringVar(value=path_values.get(field.key, ""))
+        self.path_vars: dict[str, ui.StringVar] = {
+            field.key: ui.StringVar(value=path_values.get(field.key, ""))
             for field in self.path_settings_usecase.path_field_definitions()
         }
         self._tooltips: list[HoverTooltip] = []
@@ -66,15 +68,15 @@ class SettingsWindow(ScrollablePopupWindow):
 
     def _build_ui(self):
         """Erzeugt Eingabefelder und Buttons für die Pfadkonfiguration."""
-        root = ttk.Frame(self.content, padding=16)
+        root = widgets.Frame(self.content, padding=16)
         root.pack(fill="both", expand=True)
 
-        paths = ttk.LabelFrame(root, text="Pfad-Einstellungen")
+        paths = widgets.LabelFrame(root, text="Pfad-Einstellungen")
         paths.pack(fill="x", expand=True)
 
         row = 0
         for field in self.path_settings_usecase.path_field_definitions():
-            label = ttk.Label(paths, text=field.label)
+            label = widgets.Label(paths, text=field.label)
             label.grid(
                 row=row,
                 column=0,
@@ -84,7 +86,7 @@ class SettingsWindow(ScrollablePopupWindow):
             )
             self._tooltips.append(HoverTooltip(label, field.help_text))
             row += 1
-            entry = ttk.Entry(paths, textvariable=self.path_vars[field.key])
+            entry = widgets.Entry(paths, textvariable=self.path_vars[field.key])
             entry.grid(
                 row=row,
                 column=0,
@@ -93,7 +95,7 @@ class SettingsWindow(ScrollablePopupWindow):
                 pady=(0, 4),
             )
             self._tooltips.append(HoverTooltip(entry, field.help_text))
-            ttk.Button(paths, text="Auswählen…", command=lambda key=field.key: self._pick_path(key)).grid(
+            widgets.Button(paths, text="Auswählen…", command=lambda key=field.key: self._pick_path(key)).grid(
                 row=row,
                 column=1,
                 padx=10,
@@ -103,47 +105,47 @@ class SettingsWindow(ScrollablePopupWindow):
 
         paths.columnconfigure(0, weight=1)
 
-        ub_rules = ttk.LabelFrame(root, text="UB-Vergangenheitsregel")
+        ub_rules = widgets.LabelFrame(root, text="UB-Vergangenheitsregel")
         ub_rules.pack(fill="x", expand=False, pady=(10, 0))
 
-        ttk.Label(
+        widgets.Label(
             ub_rules,
             text="UBs am aktuellen Datum zählen ab folgender Uhrzeit als Vergangenheit:",
         ).grid(row=0, column=0, columnspan=4, sticky="w", padx=10, pady=(10, 4))
-        ttk.Spinbox(ub_rules, from_=0, to=23, width=4, textvariable=self.ub_cutoff_hour_var).grid(
+        widgets.Spinbox(ub_rules, from_=0, to=23, width=4, textvariable=self.ub_cutoff_hour_var).grid(
             row=1,
             column=0,
             sticky="w",
             padx=(10, 4),
             pady=(0, 10),
         )
-        ttk.Label(ub_rules, text=":").grid(row=1, column=1, sticky="w", pady=(0, 10))
-        ttk.Spinbox(ub_rules, from_=0, to=59, width=4, textvariable=self.ub_cutoff_minute_var).grid(
+        widgets.Label(ub_rules, text=":").grid(row=1, column=1, sticky="w", pady=(0, 10))
+        widgets.Spinbox(ub_rules, from_=0, to=59, width=4, textvariable=self.ub_cutoff_minute_var).grid(
             row=1,
             column=2,
             sticky="w",
             padx=(4, 0),
             pady=(0, 10),
         )
-        ttk.Label(ub_rules, text="(24h-Format)").grid(row=1, column=3, sticky="w", padx=(8, 0), pady=(0, 10))
+        widgets.Label(ub_rules, text="(24h-Format)").grid(row=1, column=3, sticky="w", padx=(8, 0), pady=(0, 10))
 
-        lesson_builder_rules = ttk.LabelFrame(root, text="Einheit planen: optionale Felder")
+        lesson_builder_rules = widgets.LabelFrame(root, text="Einheit planen: optionale Felder")
         lesson_builder_rules.pack(fill="x", expand=False, pady=(10, 0))
-        ttk.Checkbutton(
+        widgets.Checkbutton(
             lesson_builder_rules,
             text="Kompetenzen anzeigen",
             variable=self.show_kompetenzen_var,
         ).pack(anchor="w", padx=10, pady=(10, 4))
-        ttk.Checkbutton(
+        widgets.Checkbutton(
             lesson_builder_rules,
             text="Stundenziel anzeigen",
             variable=self.show_stundenziel_var,
         ).pack(anchor="w", padx=10, pady=(0, 10))
 
-        buttons = ttk.Frame(root)
+        buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(10, 0))
-        ttk.Button(buttons, text="Speichern", command=self._save).pack(side="left")
-        ttk.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
+        widgets.Button(buttons, text="Speichern", command=self._save).pack(side="left")
+        widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
 
     def _current_values(self) -> dict[str, str]:
         return {key: var.get().strip() for key, var in self.path_vars.items()}
@@ -210,3 +212,4 @@ class SettingsWindow(ScrollablePopupWindow):
                 )
             )
         self.destroy()
+
