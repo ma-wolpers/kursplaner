@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 
-class WrappedTextField(ttk.Frame):
+class WrappedTextField(widgets.Frame):
     """Multiline text input with word-wrap for narrow form layouts.
 
     This widget wraps a tk.Text control and provides a compact get/set API,
@@ -13,7 +15,7 @@ class WrappedTextField(ttk.Frame):
 
     def __init__(self, master, *, initial: str = "", height: int = 3):
         super().__init__(master)
-        self.text = tk.Text(self, wrap="word", height=height, undo=True)
+        self.text = ui.Text(self, wrap="word", height=height, undo=True)
         self.text.pack(fill="both", expand=True)
         self.text.bind("<Control-BackSpace>", self._on_ctrl_backspace, add="+")
         self.text.bind("<Control-Delete>", self._on_ctrl_delete, add="+")
