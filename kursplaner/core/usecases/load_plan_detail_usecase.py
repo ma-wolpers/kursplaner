@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.content_markers import (
     is_ausfall_marker,
     is_hospitation_marker,
@@ -73,11 +74,7 @@ class LoadPlanDetailUseCase:
 
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
-        resolved = table.markdown_path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.parent
+        return infer_workspace_root_from_path(table.markdown_path)
 
     @staticmethod
     def _contains_markdown_link(text: str) -> bool:

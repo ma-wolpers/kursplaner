@@ -24,7 +24,11 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
 )
 from kursplaner.adapters.gui.ub_mark_dialog import ask_mark_unit_as_ub
 from kursplaner.adapters.gui.ui_theme import get_theme
-from kursplaner.core.config.path_store import CALENDAR_DIR_KEY, resolve_path_value
+from kursplaner.core.config.path_store import (
+    CALENDAR_DIR_KEY,
+    infer_workspace_root_from_path,
+    resolve_path_value,
+)
 from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
 from kursplaner.core.domain.models import StartRequest, StartResult
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
@@ -88,11 +92,7 @@ class MainWindowActionController:
     @staticmethod
     def _workspace_root_from_path(path: pathlib.Path) -> pathlib.Path:
         """Leitet den Workspace-Stamm robust aus einem Projektpfad ab."""
-        resolved = path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.anchor and pathlib.Path(resolved.anchor) or resolved.parent
+        return infer_workspace_root_from_path(path)
 
     @staticmethod
     def _achievement_icon_dir() -> pathlib.Path:

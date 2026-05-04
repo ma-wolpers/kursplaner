@@ -498,7 +498,7 @@ def main() -> int:
     )
     _require_substring(
         arch_core,
-        "Persistierte Pfadwerte werden **immer relativ zum Workspace-Stamm `7thCloud`** gespeichert.",
+        "Persistierte Pfadwerte werden **immer relativ zum konfigurierten Workspace-Stamm** gespeichert.",
         "ARCHITEKTUR_KERN.md",
         errors,
     )

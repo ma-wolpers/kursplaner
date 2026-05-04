@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from pathlib import Path
 
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.content_markers import is_ausfall_marker, normalize_marker_text
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData
@@ -65,11 +66,7 @@ class PlanOverviewQueryUseCase:
 
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
-        resolved = table.markdown_path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.parent
+        return infer_workspace_root_from_path(table.markdown_path)
 
     @classmethod
     def _format_ub_initials(cls, domains: list[str]) -> str:

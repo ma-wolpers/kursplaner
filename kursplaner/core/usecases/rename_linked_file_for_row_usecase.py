@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.lesson_naming import row_mmdd
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_YAML_KEY_EINHEIT, build_ub_stem
@@ -63,11 +64,7 @@ class RenameLinkedFileForRowUseCase:
 
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
-        resolved = table.markdown_path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.parent
+        return infer_workspace_root_from_path(table.markdown_path)
 
     def _sync_ub_after_lesson_rename(self, *, table: PlanTableData, row_index: int, lesson_path: Path) -> None:
         if self.lesson_repo is None or self.ub_repo is None:

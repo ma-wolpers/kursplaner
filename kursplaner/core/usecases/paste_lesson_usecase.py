@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_EINHEIT,
     build_ub_stem,
@@ -86,11 +87,7 @@ class PasteLessonUseCase:
     @staticmethod
     def _workspace_root_from_markdown(path: Path) -> Path:
         """Leitet den Workspace-Stamm robust aus einem Projektpfad ab."""
-        resolved = path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.anchor and Path(resolved.anchor) or resolved.parent
+        return infer_workspace_root_from_path(path)
 
     @staticmethod
     def _unit_title_from_lesson_stem(lesson_path: Path) -> str:

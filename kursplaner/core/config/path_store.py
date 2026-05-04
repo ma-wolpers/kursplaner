@@ -85,8 +85,26 @@ def resolve_path_value(raw: str) -> Path:
     return _resolve_workspace_path(raw)
 
 
+def infer_workspace_root_from_path(path: Path) -> Path:
+    """Infer workspace root from a file or directory path without folder-name coupling."""
+
+    resolved = path.expanduser().resolve()
+    start = resolved if resolved.is_dir() else resolved.parent
+
+    for candidate in (start, *start.parents):
+        if candidate.name.casefold() == "7thvault":
+            return candidate.parent
+        vault_dir = candidate / "7thVault"
+        if vault_dir.exists() and vault_dir.is_dir():
+            return candidate
+
+    if resolved.anchor:
+        return Path(resolved.anchor)
+    return start
+
+
 def serialize_workspace_relative_path(path: Path) -> str:
-    """Serialisiert Pfade konsistent relativ zum Workspace-Stamm `7thCloud`."""
+    """Serialisiert Pfade konsistent relativ zum konfigurierten Workspace-Stamm."""
     return _to_workspace_relative(path.expanduser().resolve())
 
 

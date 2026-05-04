@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Runtime-Workspace-Root-Aufloesung fuer UB-/Plan-Use-Cases entkoppelt: statt festem Ordnernamen `7thCloud` nutzt die GUI-/Use-Case-Schicht jetzt eine zentrale, generische Root-Inferenz (`infer_workspace_root_from_path`) im Pfadmodul.
 - G5 abgeschlossen: AppIdentity-Manifest `kursplaner/app_info.py` eingefuehrt und im Composition-Root als `app_info`/`shell_config`-Single-Source fuer Startup-Metadaten verdrahtet.
 - G3/G4 gestartet: `build_gui_dependencies()` liefert jetzt auch eine zentrale Shell-Konfiguration; `KursplanerApp` verwendet injizierte `AppDependencies` und initialisiert das Hauptfenster ueber `bw_libs/app_shell.py`.
 - G2.3 erweitert: weitere Repository-Write-Pfade nutzen jetzt zentrale Atomic-APIs (`plan_table_file_repository.py`, `plan_repository.py`, `ub_repository.py`, `lesson_file_repository.py`, `subject_source_repository.py`).

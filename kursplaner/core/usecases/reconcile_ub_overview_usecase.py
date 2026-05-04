@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, UbRepository
@@ -66,11 +67,7 @@ class ReconcileUbOverviewUseCase:
 
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
-        resolved = table.markdown_path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.parent
+        return infer_workspace_root_from_path(table.markdown_path)
 
     def scan(self, table: PlanTableData) -> UbReconcileScanResult:
         """Identifiziert UB-Konflikte für den geladenen Plan."""

@@ -331,7 +331,7 @@ Nicht zum Kern gehören:
 
 ## 13) Pfad-Contract (verbindlich)
 
-Persistierte Pfadwerte werden **immer relativ zum Workspace-Stamm `7thCloud`** gespeichert.
+Persistierte Pfadwerte werden **immer relativ zum konfigurierten Workspace-Stamm** gespeichert.
 
 Verbindliche Regeln:
 

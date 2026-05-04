@@ -7,6 +7,7 @@ from tkinter import filedialog, messagebox, simpledialog
 
 from kursplaner.adapters.gui.lesson_builder_dialog import ask_lesson_builder
 from kursplaner.adapters.gui.lzk_column_dialog import ask_lzk_column_dialog
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
 from kursplaner.core.config.path_store import BAUKASTEN_DIR_KEY, FACHDIDAKTIK_DIR_KEY, FACHINHALTE_DIR_KEY
 from kursplaner.core.domain.course_subject import normalize_course_subject
@@ -42,11 +43,7 @@ class MainWindowLessonConversionController:
     @staticmethod
     def _workspace_root_from_path(path: pathlib.Path) -> pathlib.Path:
         """Leitet den Workspace-Stamm robust aus einem Projektpfad ab."""
-        resolved = path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return pathlib.Path(resolved.anchor) if resolved.anchor else resolved.parent
+        return infer_workspace_root_from_path(path)
 
     def _lesson_builder_ub_sections(self) -> list[tuple[str, list[str]]]:
         """Liefert die zuletzt dokumentierten UB-Impulse für den Builder-Dialog."""

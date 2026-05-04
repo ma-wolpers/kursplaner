@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import LessonFileRepository, LessonRepository, PlanRepository, UbRepository
@@ -42,11 +43,7 @@ class ClearSelectedLessonUseCase:
     @staticmethod
     def _workspace_root_from_markdown(path: Path) -> Path:
         """Leitet den Workspace-Stamm robust aus einem Projektpfad ab."""
-        resolved = path.expanduser().resolve()
-        for parent in (resolved, *resolved.parents):
-            if parent.name == "7thCloud":
-                return parent
-        return resolved.anchor and Path(resolved.anchor) or resolved.parent
+        return infer_workspace_root_from_path(path)
 
     def execute(
         self,
