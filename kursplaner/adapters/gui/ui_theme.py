@@ -3,6 +3,15 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+
+ensure_bw_gui_on_path()
+try:
+    from bw_gui.theming.theme_manager import configure_ttk_theme as configure_shared_ttk_theme
+except ModuleNotFoundError:
+    configure_shared_ttk_theme = None
+
 THEMES = {
     "mono_day": {
         "label": "Mono Day",
@@ -518,6 +527,11 @@ def apply_window_theme(window: tk.Misc, theme_key: str | None = None):
 def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None):
     """Konfiguriert ttk-Styles für Buttons, Labels, Eingaben und Treeview."""
     theme = get_theme(theme_key)
+
+    # Shared baseline first, local styles override where Kursplaner needs custom behavior.
+    if configure_shared_ttk_theme is not None:
+        configure_shared_ttk_theme(root, normalize_theme_key(theme_key))
+
     style = ttk.Style(root)
     try:
         style.theme_use("clam")

@@ -66,3 +66,15 @@ class HoverTooltip:
         self._tip = None
         if HoverTooltip._active_owner is self:
             HoverTooltip._active_owner = None
+
+
+# Pilot bridge: use shared tooltip implementation via stable local import path.
+try:
+    from bw_libs.shared_gui_core import ensure_bw_gui_on_path as _ensure_bw_gui_on_path
+
+    _ensure_bw_gui_on_path()
+
+    from bw_gui.widgets.hover_tooltip import HoverTooltip as HoverTooltip  # type: ignore[assignment]
+except ModuleNotFoundError:
+    # Keep local fallback implementation when shared core is unavailable.
+    pass
