@@ -11,6 +11,7 @@ Regel:
 ### Changed
 - Pilotmigration zum gemeinsamen GUI-Core gestartet: `bw-gui` als Git-Submodule eingebunden und `bw_libs/ui_contract/*` via Bridge auf `bw_gui.contracts.*` umgestellt, sodass Keybinding-/Popup-/HSM-Vertraege aus der gemeinsamen Quelle geladen werden.
 - Erste UI-Flow-Uebernahme aktiv: `kursplaner/adapters/gui/hover_tooltip.py` nutzt jetzt die gemeinsame `bw_gui.widgets.HoverTooltip`-Implementierung, und `ui_theme.py` wendet eine gemeinsame Theme-Baseline vor kursplanerspezifischen Style-Overlays an.
+- Shortcut-Hinweis aus dem Button-Label entfernt: `Zur Kursliste` zeigt kein `(Esc)` mehr; Shortcut-Hinweise bleiben im Hover-Overlay (`_add_help`).
 - Runtime-Workspace-Root-Aufloesung fuer UB-/Plan-Use-Cases entkoppelt: statt festem Ordnernamen `7thCloud` nutzt die GUI-/Use-Case-Schicht jetzt eine zentrale, generische Root-Inferenz (`infer_workspace_root_from_path`) im Pfadmodul.
 - G5 abgeschlossen: AppIdentity-Manifest `kursplaner/app_info.py` eingefuehrt und im Composition-Root als `app_info`/`shell_config`-Single-Source fuer Startup-Metadaten verdrahtet.
 - G3/G4 gestartet: `build_gui_dependencies()` liefert jetzt auch eine zentrale Shell-Konfiguration; `KursplanerApp` verwendet injizierte `AppDependencies` und initialisiert das Hauptfenster ueber `bw_libs/app_shell.py`.

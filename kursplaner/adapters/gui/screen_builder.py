@@ -179,7 +179,7 @@ class ScreenBuilder:
         preview_label.pack(side="left")
         close_button = ttk.Button(
             header,
-            text="Zur Kursliste (Esc)",
+            text="Zur Kursliste",
             command=lambda: self._emit_intent(UiIntent.CLOSE_DETAIL_VIEW),
             style="Action.Utility.TButton",
         )

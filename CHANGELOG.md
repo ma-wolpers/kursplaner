@@ -9,6 +9,7 @@ The format is based on Keep a Changelog.
 ### Changed
 - Pilot integration for the shared GUI core started: Kursplaner now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge), and routes hover tooltips through the shared tooltip widget.
 - Theme configuration now applies a shared baseline from `bw-gui` before Kursplaner-specific style overlays.
+- The `Zur Kursliste` button no longer embeds `(Esc)` in its label; the shortcut hint remains in the hover help.
 - Workspace-root inference for UB/plan workflows is now decoupled from a hardcoded `7thCloud` folder name and resolved via a centralized generic path helper.
 - App identity metadata is now centralized in `kursplaner/app_info.py` and injected through `AppDependencies` as the startup metadata source.
 - Main window startup now uses injected `AppDependencies` with a centralized shell configuration, aligning GUI bootstrap and window lifecycle handling across apps.
