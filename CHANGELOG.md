@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- Dialog and file picker flows are now partially routed through shared `bw_gui.dialogs` services in core GUI controllers, reducing direct tkinter dialog coupling and aligning modal handling across apps.
 - Pilot integration for the shared GUI core started: Kursplaner now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge), and routes hover tooltips through the shared tooltip widget.
 - Theme configuration now applies a shared baseline from `bw-gui` before Kursplaner-specific style overlays.
 - The `Zur Kursliste` button no longer embeds `(Esc)` in its label; the shortcut hint remains in the hover help.

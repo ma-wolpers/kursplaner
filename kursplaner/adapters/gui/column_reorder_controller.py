@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pathlib
-from tkinter import messagebox
+
+from kursplaner.adapters.gui.dialog_services import messagebox
 
 
 class MainWindowColumnReorderController:
@@ -42,8 +43,8 @@ class MainWindowColumnReorderController:
                 "Beim Verschieben werden die UB-Referenzen und datumsbezogenen Verknüpfungen mit angepasst.\n\n"
                 "Soll der Tausch trotzdem durchgeführt werden?",
                 parent=self.app,
-                default=messagebox.NO,
-                icon=messagebox.WARNING,
+                default="no",
+                icon="warning",
             )
         )
 

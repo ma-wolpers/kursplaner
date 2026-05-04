@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
-from tkinter import messagebox
 
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import get_theme
 
 

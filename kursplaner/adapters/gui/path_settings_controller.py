@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pathlib
 from datetime import time
-from tkinter import filedialog
 
+from kursplaner.adapters.gui.dialog_services import filedialog
 from kursplaner.adapters.gui.settings_window import SettingsWindow
 from kursplaner.core.config.ui_preferences_store import (
     LessonBuilderFieldSettings,

@@ -3,10 +3,11 @@ from __future__ import annotations
 import pathlib
 import tkinter as tk
 from datetime import date
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import ttk
 from typing import Callable
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
+from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip

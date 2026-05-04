@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import pathlib
 import re
-from tkinter import filedialog, messagebox, simpledialog
 
+from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.lesson_builder_dialog import ask_lesson_builder
 from kursplaner.adapters.gui.lzk_column_dialog import ask_lzk_column_dialog
 from kursplaner.core.config.path_store import infer_workspace_root_from_path

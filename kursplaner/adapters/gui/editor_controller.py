@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pathlib
-from tkinter import messagebox
 
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,

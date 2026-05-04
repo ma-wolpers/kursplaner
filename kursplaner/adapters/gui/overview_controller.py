@@ -4,8 +4,9 @@ import pathlib
 import re
 import tkinter as tk
 from datetime import date, datetime
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import ttk
 
+from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError
 from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict
 
