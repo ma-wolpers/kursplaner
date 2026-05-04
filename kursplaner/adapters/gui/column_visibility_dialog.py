@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-import tkinter as tk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
+
 from dataclasses import dataclass
-from tkinter import ttk
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilitySettings
@@ -36,19 +39,19 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
         )
         self.result: ColumnVisibilityDialogResult | None = None
 
-        self._hide_vars: dict[str, tk.BooleanVar] = {}
-        self._hint_vars: dict[str, tk.BooleanVar] = {}
-        self._grid_widgets: dict[tuple[int, int], ttk.Checkbutton] = {}
+        self._hide_vars: dict[str, ui.BooleanVar] = {}
+        self._hint_vars: dict[str, ui.BooleanVar] = {}
+        self._grid_widgets: dict[tuple[int, int], widgets.Checkbutton] = {}
 
         self._build_ui(current)
         self.apply_theme()
         self.after_idle(self._focus_first_toggle)
 
     def _build_ui(self, current: ColumnVisibilitySettings) -> None:
-        frame = ttk.Frame(self.content, padding=14)
+        frame = widgets.Frame(self.content, padding=14)
         frame.pack(fill="both", expand=True)
 
-        ttk.Label(
+        widgets.Label(
             frame,
             text=(
                 "Lege fest, welche Spaltenarten angezeigt werden.\n"
@@ -57,27 +60,27 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
             justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
-        grid = ttk.Frame(frame)
+        grid = widgets.Frame(frame)
         grid.pack(fill="x", expand=False)
-        ttk.Label(grid, text="Spaltenart", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w")
-        ttk.Label(grid, text="Verstecken", font=("Segoe UI", 9, "bold")).grid(row=0, column=1, sticky="w", padx=(20, 0))
-        ttk.Label(grid, text="Marker anzeigen", font=("Segoe UI", 9, "bold")).grid(
+        widgets.Label(grid, text="Spaltenart", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w")
+        widgets.Label(grid, text="Verstecken", font=("Segoe UI", 9, "bold")).grid(row=0, column=1, sticky="w", padx=(20, 0))
+        widgets.Label(grid, text="Marker anzeigen", font=("Segoe UI", 9, "bold")).grid(
             row=0, column=2, sticky="w", padx=(20, 0)
         )
 
         for row_index, (label, key) in enumerate(self._KINDS, start=1):
-            hide_var = tk.BooleanVar(value=bool(getattr(current, f"hide_{key}")))
-            hint_var = tk.BooleanVar(value=bool(getattr(current, f"hint_{key}")))
+            hide_var = ui.BooleanVar(value=bool(getattr(current, f"hide_{key}")))
+            hint_var = ui.BooleanVar(value=bool(getattr(current, f"hint_{key}")))
             self._hide_vars[key] = hide_var
             self._hint_vars[key] = hint_var
 
-            ttk.Label(grid, text=label).grid(row=row_index, column=0, sticky="w", pady=(4, 0))
+            widgets.Label(grid, text=label).grid(row=row_index, column=0, sticky="w", pady=(4, 0))
 
-            hide_toggle = ttk.Checkbutton(grid, variable=hide_var)
+            hide_toggle = widgets.Checkbutton(grid, variable=hide_var)
             hide_toggle.grid(row=row_index, column=1, sticky="w", padx=(20, 0), pady=(4, 0))
             self._register_nav_widget(hide_toggle, row=row_index, col=1)
 
-            hint_toggle = ttk.Checkbutton(grid, variable=hint_var)
+            hint_toggle = widgets.Checkbutton(grid, variable=hint_var)
             hint_toggle.grid(row=row_index, column=2, sticky="w", padx=(20, 0), pady=(4, 0))
             self._register_nav_widget(hint_toggle, row=row_index, col=2)
 
@@ -88,14 +91,14 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
             hide_var.trace_add("write", _sync_hint_state)
             _sync_hint_state()
 
-        ttk.Separator(frame, orient="horizontal").pack(fill="x", pady=12)
+        widgets.Separator(frame, orient="horizontal").pack(fill="x", pady=12)
 
-        button_row = ttk.Frame(frame)
+        button_row = widgets.Frame(frame)
         button_row.pack(fill="x")
-        ttk.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right")
-        ttk.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right", padx=(0, 8))
+        widgets.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right")
+        widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right", padx=(0, 8))
 
-    def _register_nav_widget(self, widget: ttk.Checkbutton, *, row: int, col: int) -> None:
+    def _register_nav_widget(self, widget: widgets.Checkbutton, *, row: int, col: int) -> None:
         self._grid_widgets[(row, col)] = widget
         widget.bind("<Up>", lambda event, r=row, c=col: self._move_focus(event, r, c, -1, 0), add="+")
         widget.bind("<Down>", lambda event, r=row, c=col: self._move_focus(event, r, c, 1, 0), add="+")
@@ -104,7 +107,7 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
         widget.bind("<space>", lambda _event, w=widget: self._toggle_widget(w), add="+")
 
     @staticmethod
-    def _toggle_widget(widget: ttk.Checkbutton) -> str:
+    def _toggle_widget(widget: widgets.Checkbutton) -> str:
         widget.invoke()
         return "break"
 
@@ -155,3 +158,4 @@ def ask_column_visibility(
     if dialog.result is None:
         return None
     return dialog.result.settings
+
