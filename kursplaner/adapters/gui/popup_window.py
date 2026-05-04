@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import apply_window_theme, configure_ttk_theme
 
 
@@ -137,8 +138,8 @@ class ScrollablePopupWindow(tk.Toplevel):
                 self._close_confirmation_title(),
                 self._close_confirmation_message(),
                 parent=self,
-                default=messagebox.NO,
-                icon=messagebox.WARNING,
+                default="no",
+                icon="warning",
             )
             if not should_close:
                 return "break"

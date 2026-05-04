@@ -1,6 +1,6 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
 
+from kursplaner.adapters.gui.dialog_services import filedialog, messagebox
 from kursplaner.adapters.gui.window_identity import apply_window_icon
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
 

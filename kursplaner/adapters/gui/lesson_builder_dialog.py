@@ -1,7 +1,8 @@
 import tkinter as tk
 from dataclasses import dataclass
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow

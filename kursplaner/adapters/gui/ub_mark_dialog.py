@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import tkinter as tk
 from dataclasses import dataclass
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 
 

@@ -1,6 +1,8 @@
 import tkinter as tk
 from datetime import time
-from tkinter import filedialog, messagebox, ttk
+from tkinter import ttk
+
+from kursplaner.adapters.gui.dialog_services import filedialog, messagebox
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow

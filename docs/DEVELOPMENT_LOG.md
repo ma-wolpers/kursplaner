@@ -10,6 +10,7 @@ Regel:
 
 ### Changed
 - Shared-Dialogmigration gestartet: zentrale Bridge `kursplaner/adapters/gui/dialog_services.py` auf `bw_gui.dialogs` eingefuehrt und mehrere Controller (`action_controller.py`, `lesson_conversion_controller.py`, `overview_controller.py`, `path_settings_controller.py`, `editor_controller.py`, `selection_controller.py`, `column_reorder_controller.py`) von direkten `tkinter`-Dialogimports auf Shared-Services umgestellt.
+- Shared-Dialogmigration erweitert: auch `new_lesson_window.py`, `lesson_builder_dialog.py`, `settings_window.py`, `ub_mark_dialog.py`, `popup_window.py` und `path_bootstrap.py` nutzen jetzt die zentrale Dialog-Bridge statt direkter `tkinter`-Dialogimports.
 - Pilotmigration zum gemeinsamen GUI-Core gestartet: `bw-gui` als Git-Submodule eingebunden und `bw_libs/ui_contract/*` via Bridge auf `bw_gui.contracts.*` umgestellt, sodass Keybinding-/Popup-/HSM-Vertraege aus der gemeinsamen Quelle geladen werden.
 - Erste UI-Flow-Uebernahme aktiv: `kursplaner/adapters/gui/hover_tooltip.py` nutzt jetzt die gemeinsame `bw_gui.widgets.HoverTooltip`-Implementierung, und `ui_theme.py` wendet eine gemeinsame Theme-Baseline vor kursplanerspezifischen Style-Overlays an.
 - Shortcut-Hinweis aus dem Button-Label entfernt: `Zur Kursliste` zeigt kein `(Esc)` mehr; Shortcut-Hinweise bleiben im Hover-Overlay (`_add_help`).
