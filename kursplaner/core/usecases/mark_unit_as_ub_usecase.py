@@ -103,11 +103,11 @@ class MarkUnitAsUbUseCase:
         date_text = table.rows[row_index][idx_datum] if idx_datum < len(table.rows[row_index]) else ""
         unit_title = self._unit_title_from_lesson_stem(lesson_path)
 
-        course_subject = normalize_course_subject(str(table.metadata.get("Kursfach", "")))
         bereich: list[str] = []
         if UB_KIND_PAEDAGOGIK in kinds:
             bereich.append(UB_KIND_PAEDAGOGIK)
         if UB_KIND_FACH in kinds:
+            course_subject = normalize_course_subject(str(table.metadata.get("Kursfach", "")))
             bereich.append(course_subject)
 
         ub_path = self._resolve_existing_ub_path(workspace_root, lesson_data)

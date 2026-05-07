@@ -144,3 +144,40 @@ def test_mark_unit_as_ub_uses_lesson_file_title_for_ub_stem(tmp_path):
     assert result.proceed is True
     assert isinstance(result.ub_path, Path)
     assert result.ub_path.stem == "UB 26-02-06 Fach-Diagnose"
+
+
+def test_mark_unit_as_ub_allows_zusatzbesuch_without_domain_selection(tmp_path):
+    workspace_root = tmp_path / "7thCloud"
+    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir.mkdir(parents=True)
+
+    lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Zusatzbesuch.md"
+    _write_unterricht_lesson(lesson_path, title="Zusatzbesuch")
+    table = PlanTableData(
+        markdown_path=plan_dir / "Mathe Kurs.md",
+        headers=["Datum", "Stunden", "Inhalt"],
+        rows=[["31-03-26", "2", f"[[{lesson_path.stem}]]"]],
+        start_line=0,
+        end_line=0,
+        source_lines=[],
+        had_trailing_newline=False,
+        metadata={"Kursfach": "KeinStandardfach", "Lerngruppe": "[[gruen-6]]"},
+    )
+
+    usecase = MarkUnitAsUbUseCase(FileSystemLessonRepository(), FileSystemUbRepository())
+    result = usecase.execute(
+        workspace_root=workspace_root,
+        table=table,
+        row_index=0,
+        ub_kinds=[],
+        langentwurf=False,
+        beobachtungsschwerpunkt="",
+    )
+
+    assert result.proceed is True
+    assert isinstance(result.ub_path, Path)
+
+    ub_text = result.ub_path.read_text(encoding="utf-8")
+    assert "Bereich:" in ub_text
+    assert '  - "Pädagogik"' not in ub_text
+    assert '  - "Mathematik"' not in ub_text

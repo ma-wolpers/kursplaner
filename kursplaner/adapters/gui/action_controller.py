@@ -676,8 +676,6 @@ class MainWindowActionController:
             kinds.append("Pädagogik")
         if any(domain != "Pädagogik" for domain in domains):
             kinds.append("Fach")
-        if not kinds:
-            kinds = ["Pädagogik"]
 
         langentwurf = self._bool_value(ub_yaml.get(UB_YAML_KEY_LANGENTWURF, False))
         beobachtung = str(ub_yaml.get(UB_YAML_KEY_BEOBACHTUNG, "")).strip()

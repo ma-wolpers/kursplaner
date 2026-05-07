@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- UB-Markierung entblockt: im Dialog ist keine Pflichtauswahl `Paedagogik`/`Fach` mehr notwendig; UBs ohne Bereich werden als zusaetzliche Besuche gespeichert und zaehlen nicht in die Achievement-Fortschritte.
 - Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/window_identity.py` nutzt jetzt `bw_gui.runtime.ui`-Typen/Exceptions statt direktem `tkinter`-Import.
 - Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/path_bootstrap.py` nutzt jetzt `bw_gui.runtime.ui` fuer den Root-Window-Start statt direktem `tkinter`-Import.
 - Tk/ttk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/column_visibility_dialog.py` nutzt jetzt zentrale Runtime-Aliases aus `bw_gui.runtime` (`ui`/`widgets`) statt direkter `tkinter`-/`ttk`-Imports.

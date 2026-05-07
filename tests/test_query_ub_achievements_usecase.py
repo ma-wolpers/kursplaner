@@ -148,3 +148,20 @@ def test_query_ub_achievements_includes_same_day_after_cutoff():
 
     paed_half = next(item for item in result.items if item.key == "paed_half")
     assert paed_half.current == 1
+
+
+def test_query_ub_achievements_ignores_domainless_zusatzbesuch_entries():
+    repo = _FakeUbRepo(
+        [
+            ([], False),
+            (["Pädagogik"], False),
+        ]
+    )
+    usecase = QueryUbAchievementsUseCase(ub_repo=cast(UbRepository, repo))
+
+    result = usecase.execute(workspace_root=Path("A:/7thCloud"))
+
+    paed_half = next(item for item in result.items if item.key == "paed_half")
+    mat_half = next(item for item in result.items if item.key == "Mathematik_half")
+    assert paed_half.current == 1
+    assert mat_half.current == 0

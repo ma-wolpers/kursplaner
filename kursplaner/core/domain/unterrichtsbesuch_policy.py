@@ -28,9 +28,6 @@ def normalize_ub_kinds(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
         if text not in resolved:
             resolved.append(text)
 
-    if not resolved:
-        raise ValueError("Mindestens eine UB-Art muss gesetzt sein.")
-
     return tuple(resolved)
 
 

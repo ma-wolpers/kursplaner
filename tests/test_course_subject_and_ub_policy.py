@@ -26,6 +26,10 @@ def test_normalize_ub_kinds_deduplicates_and_preserves_order():
     assert result == (UB_KIND_PAEDAGOGIK, UB_KIND_FACH)
 
 
+def test_normalize_ub_kinds_allows_empty_selection_for_zusatzbesuch():
+    assert normalize_ub_kinds([]) == tuple()
+
+
 def test_parse_ub_yy_mm_dd_supports_plan_row_format():
     assert parse_ub_yy_mm_dd("31-03-26") == "26-03-31"
 

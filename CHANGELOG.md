@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- Beim Markieren eines Unterrichtsbesuchs ist `Paedagogik`/`Fach` nicht mehr zwingend: ohne Auswahl kann ein zusaetzlicher UB gespeichert werden, der in den Achievements nicht mitzaehlt.
 - Interactive startup path-check now creates its root window via shared `bw_gui.runtime.ui` aliases in `path_bootstrap.py` instead of importing `tkinter` directly.
 - Window identity/icon helpers now use shared `bw_gui.runtime.ui` aliases in `window_identity.py` instead of importing `tkinter` directly.
 - Column visibility popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `column_visibility_dialog.py` instead of direct `tkinter`/`ttk` imports.

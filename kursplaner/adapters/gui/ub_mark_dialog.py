@@ -44,8 +44,6 @@ class UbMarkDialog(ScrollablePopupWindow):
         self._allow_delete = bool(allow_delete)
 
         normalized_kinds = {str(item).strip() for item in initial_ub_kinds if str(item).strip()}
-        if not normalized_kinds:
-            normalized_kinds = {"Pädagogik"}
 
         self.kind_paedagogik = ui.BooleanVar(value=("Pädagogik" in normalized_kinds))
         self.kind_fach = ui.BooleanVar(value=("Fach" in normalized_kinds))
@@ -114,14 +112,6 @@ class UbMarkDialog(ScrollablePopupWindow):
             kinds.append("Pädagogik")
         if self.kind_fach.get():
             kinds.append("Fach")
-
-        if not kinds:
-            messagebox.showerror(
-                "Unterrichtsbesuch markieren",
-                "Bitte mindestens eine UB-Art auswählen.",
-                parent=self,
-            )
-            return
 
         self.result = UbMarkDialogResult(
             ub_kinds=tuple(kinds),
