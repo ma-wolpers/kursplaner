@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import time
-import tkinter as tk
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
+
+# Backward-compatible module aliases for existing tests and call sites.
+tk = ui
+ttk = widgets
 
 from bw_libs.ui_contract.hsm import (
     ESCAPE_CLOSE_POPUP,
@@ -337,7 +343,7 @@ class MainWindowUiIntentController:
     def intent_course_confirm_selection(self, event):
         if event is not None:
             event_type = getattr(event, "type", None)
-            is_mouse_event = event_type in (tk.EventType.ButtonPress, tk.EventType.ButtonRelease)
+            is_mouse_event = event_type in (ui.EventType.ButtonPress, ui.EventType.ButtonRelease)
             if is_mouse_event:
                 try:
                     mouse_button = int(getattr(event, "num", 0))
@@ -394,7 +400,7 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
             return None
-        if isinstance(self.app.focus_get(), tk.Text):
+        if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent_occurring(-1)
         return "break" if moved else None
@@ -409,7 +415,7 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
             return None
-        if isinstance(self.app.focus_get(), tk.Text):
+        if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent_occurring(1)
         return "break" if moved else None
@@ -434,7 +440,7 @@ class MainWindowUiIntentController:
         has_popup = ScrollablePopupWindow.has_active_popup()
         focused = self.app.focus_get()
         detail_active = bool(getattr(self.app, "is_detail_view", False))
-        has_inline_editor = detail_active or isinstance(focused, tk.Text)
+        has_inline_editor = detail_active or isinstance(focused, ui.Text)
         has_parent_state = detail_active
 
         action = self._hsm_contract.resolve_escape_action(
@@ -450,7 +456,7 @@ class MainWindowUiIntentController:
 
         if bool(getattr(self.app, "is_detail_view", False)):
             level = self.app.ui_state.selection_level
-            if level == self.app.ui_state.SELECTION_LEVEL_EDIT or isinstance(focused, tk.Text):
+            if level == self.app.ui_state.SELECTION_LEVEL_EDIT or isinstance(focused, ui.Text):
                 self._leave_edit_mode_to_cell(set_grid_focus=True)
                 return "break"
             if level == self.app.ui_state.SELECTION_LEVEL_CELL:
@@ -461,7 +467,7 @@ class MainWindowUiIntentController:
             if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
                 self.app.overview_controller.close_detail_view()
                 return "break"
-        if isinstance(focused, tk.Text):
+        if isinstance(focused, ui.Text):
             self.app.grid_canvas.focus_set()
             return "break"
         if bool(getattr(self.app, "is_detail_view", False)):
@@ -514,7 +520,7 @@ class MainWindowUiIntentController:
         if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_EDIT:
             return None
         focused = self.app.focus_get()
-        if isinstance(focused, tk.Text):
+        if isinstance(focused, ui.Text):
             return None
 
         if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
@@ -547,7 +553,7 @@ class MainWindowUiIntentController:
             active is not None
             and active.field_key == field_key
             and active.day_index == day_index
-            and isinstance(focused, tk.Text)
+            and isinstance(focused, ui.Text)
         ):
             return None
 
@@ -609,7 +615,7 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_CELL:
             return None
-        if isinstance(self.app.focus_get(), tk.Text):
+        if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selected_cell_vertical(direction)
         return "break" if moved else None
@@ -619,7 +625,7 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_CELL:
             return None
-        if isinstance(self.app.focus_get(), tk.Text):
+        if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selected_cell_horizontal(direction)
         return "break" if moved else None
@@ -740,7 +746,7 @@ class MainWindowUiIntentController:
         try:
             self.app.clipboard_clear()
             self.app.clipboard_append(value)
-        except tk.TclError:
+        except ui.TclError:
             return None
         return "break"
 
@@ -806,7 +812,7 @@ class MainWindowUiIntentController:
     def _get_clipboard_text(self) -> str | None:
         try:
             clipboard_text = self.app.clipboard_get()
-        except tk.TclError:
+        except ui.TclError:
             return None
         if clipboard_text is None:
             return None
@@ -837,7 +843,7 @@ class MainWindowUiIntentController:
             return None
 
         focused = self.app.focus_get()
-        if focused is None or not isinstance(focused, tk.Text):
+        if focused is None or not isinstance(focused, ui.Text):
             return None
 
         if event is not None and getattr(event, "widget", None) is focused:
@@ -895,19 +901,20 @@ class MainWindowUiIntentController:
     def _is_editable_widget(widget) -> bool:
         if widget is None:
             return False
-        editable_widget_types = (tk.Entry, tk.Text, tk.Spinbox, ttk.Entry, ttk.Combobox)
+        editable_widget_types = (ui.Entry, ui.Text, ui.Spinbox, widgets.Entry, widgets.Combobox)
         return isinstance(widget, editable_widget_types)
 
     @staticmethod
     def widget_has_text_selection(widget) -> bool:
         try:
-            if isinstance(widget, tk.Text):
+            if isinstance(widget, ui.Text):
                 return bool(widget.tag_ranges("sel"))
             if hasattr(widget, "selection_present"):
                 return bool(widget.selection_present())
             if hasattr(widget, "selection_get"):
                 selected = widget.selection_get()
                 return bool(str(selected).strip())
-        except tk.TclError:
+        except ui.TclError:
             return False
         return False
+
