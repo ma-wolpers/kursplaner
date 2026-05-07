@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-import tkinter as tk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +24,7 @@ class GridRenderer:
         """Speichert die App-Referenz als Render- und Event-Kontext."""
         self.app = app
         self._field_help_tooltips: list[HoverTooltip] = []
-        self._marker_widgets: list[tk.Canvas] = []
+        self._marker_widgets: list[ui.Canvas] = []
         self._marker_kinds_by_widget: dict[int, tuple[str, ...]] = {}
         self._marker_column_width = 12
 
@@ -47,7 +50,7 @@ class GridRenderer:
             )
         return str(theme.get("panel_strong", theme.get("border", "#999999")))
 
-    def _draw_marker_canvas(self, marker: tk.Canvas, kinds: tuple[str, ...], theme: dict[str, str]) -> None:
+    def _draw_marker_canvas(self, marker: ui.Canvas, kinds: tuple[str, ...], theme: dict[str, str]) -> None:
         """Zeichnet farbige Marker-Segmente je ausgeblendeter Spaltenart."""
         marker.delete("all")
         marker.configure(bg=str(theme.get("bg_panel", theme.get("bg_main", "#ffffff"))), highlightthickness=0)
@@ -236,7 +239,7 @@ class GridRenderer:
 
     def _apply_cell_state(
         self,
-        widget: tk.Text,
+        widget: ui.Text,
         *,
         text: str,
         editable: bool,
@@ -316,7 +319,7 @@ class GridRenderer:
             state="disabled",
         )
 
-    def _apply_cell_selection_style(self, widget: tk.Text, *, field_key: str, day_index: int) -> None:
+    def _apply_cell_selection_style(self, widget: ui.Text, *, field_key: str, day_index: int) -> None:
         """Hebt die aktuell ausgewählte Navigationszelle sichtbar hervor."""
         selected = self.app.ui_state.selected_cell
         is_selected = selected is not None and selected.field_key == field_key and selected.day_index == day_index
@@ -343,7 +346,7 @@ class GridRenderer:
 
     def _create_text_cell(
         self,
-        parent: tk.Widget,
+        parent: ui.Widget,
         text: str,
         editable: bool,
         canceled: bool,
@@ -354,11 +357,11 @@ class GridRenderer:
         is_hospitation: bool = False,
         lzk_masked: bool = False,
         italic: bool = False,
-    ) -> tk.Text:
+    ) -> ui.Text:
         """Erzeugt ein Text-Widget für eine Grid-Zelle mit zustandsabhängiger Darstellung."""
         width_chars = max(14, self.app.day_column_width // 9)
         cell_font = ("Consolas", self.app.preview_font_size, "italic") if italic else self.app.preview_font
-        widget = tk.Text(
+        widget = ui.Text(
             parent,
             wrap="word",
             width=width_chars,
@@ -477,7 +480,7 @@ class GridRenderer:
             x_cursor += self.app.day_column_width
             grid_col += 1
 
-        corner = tk.Label(
+        corner = ui.Label(
             self.app.fixed_header_frame,
             text="Datum",
             anchor="w",
@@ -496,7 +499,7 @@ class GridRenderer:
             if item.get("type") == "marker":
                 kinds = item.get("kinds", ())
                 kinds_tuple = tuple(str(kind) for kind in kinds) if isinstance(kinds, (tuple, list)) else ()
-                marker = tk.Canvas(
+                marker = ui.Canvas(
                     self.app.header_inner,
                     width=self._marker_column_width,
                     height=1,
@@ -519,7 +522,7 @@ class GridRenderer:
                 continue
             header_text, header_bg, header_fg = self._header_visual_state(day_index)
 
-            header = tk.Label(
+            header = ui.Label(
                 self.app.header_inner,
                 text=header_text,
                 anchor="center",
@@ -546,7 +549,7 @@ class GridRenderer:
             row_values = [self.app._field_value(day, field_key) for day in self.app.day_columns]
             row_height, collapsible, _expanded, field_label_text = self._row_layout(field_key)
 
-            field_label = tk.Label(
+            field_label = ui.Label(
                 self.app.fixed_inner,
                 text=field_label_text,
                 anchor="w",
@@ -872,3 +875,4 @@ class GridRenderer:
         else:
             self.app.viewport_sync.yview_scroll(units, "units")
         return "break"
+
