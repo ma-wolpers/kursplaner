@@ -65,6 +65,12 @@ class PlanOverviewQueryUseCase:
         return None
 
     @staticmethod
+    def _to_bool(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        return str(value or "").strip().lower() in {"true", "1", "ja", "yes"}
+
+    @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
         return infer_workspace_root_from_path(table.markdown_path)
 
@@ -126,6 +132,7 @@ class PlanOverviewQueryUseCase:
         remaining_hours = 0
         candidate_rows: list[int] = []
         row_dates: dict[int, str] = {}
+        row_date_values: dict[int, date] = {}
         row_contents: dict[int, str] = {}
         row_markers: dict[int, str] = {}
 
@@ -142,6 +149,7 @@ class PlanOverviewQueryUseCase:
             row_contents[row_index] = content
             row_markers[row_index] = marker_text
             row_dates[row_index] = row[idx_datum]
+            row_date_values[row_index] = row_date
             candidate_rows.append(row_index)
             is_cancel = is_ausfall_marker(marker_text)
 
@@ -203,6 +211,8 @@ class PlanOverviewQueryUseCase:
                     ub_path = candidate
 
             ub_date = parse_ub_date_from_stem(ub_path.stem if ub_path is not None else ub_link)
+            if ub_date is None:
+                ub_date = row_date_values.get(row_index)
             if ub_date is None or ub_date < reference:
                 continue
 
@@ -218,7 +228,7 @@ class PlanOverviewQueryUseCase:
                     ub_domains = [str(item).strip() for item in domains_value if str(item).strip()]
                 elif str(domains_value).strip():
                     ub_domains = [str(domains_value).strip()]
-                ub_langentwurf = bool(ub_yaml.get(UB_YAML_KEY_LANGENTWURF, False))
+                ub_langentwurf = self._to_bool(ub_yaml.get(UB_YAML_KEY_LANGENTWURF, False))
 
             if earliest_ub_date is None or ub_date < earliest_ub_date:
                 earliest_ub_date = ub_date

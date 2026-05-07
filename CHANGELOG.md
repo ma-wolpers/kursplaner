@@ -7,6 +7,8 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
+- `Nächster UB` zeigt das `+` jetzt nur noch bei echtem Langentwurf (`Langentwurf: true`), nicht mehr bei `false`-Werten aus YAML.
+- `Nächster UB` bleibt auch für Zusatzbesuche ohne Bereich/Fach sichtbar; falls ein UB-Dateiname kein Datum trägt, wird auf das Planzeilen-Datum zurückgefallen.
 - Beim Markieren eines Unterrichtsbesuchs ist `Paedagogik`/`Fach` nicht mehr zwingend: ohne Auswahl kann ein zusaetzlicher UB gespeichert werden, der in den Achievements nicht mitzaehlt.
 - Interactive startup path-check now creates its root window via shared `bw_gui.runtime.ui` aliases in `path_bootstrap.py` instead of importing `tkinter` directly.
 - Window identity/icon helpers now use shared `bw_gui.runtime.ui` aliases in `window_identity.py` instead of importing `tkinter` directly.
