@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pathlib
-import tkinter as tk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 from datetime import date
-from tkinter import ttk
 from typing import Callable
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
@@ -63,7 +65,7 @@ class MainWindowActionController:
     def __init__(self, app):
         """Speichert den App-Adapter als Delegationsziel für UI-Aktionen."""
         self.app = app
-        self._achievement_icons: dict[str, tk.PhotoImage] = {}
+        self._achievement_icons: dict[str, ui.PhotoImage] = {}
         deps = getattr(app, "gui_dependencies", None)
         if deps is None:
             raise RuntimeError("GUI Dependencies not available on app")
@@ -108,7 +110,7 @@ class MainWindowActionController:
             "Darstellendes Spiel": "ac_darstellendes_spiel.png",
         }
 
-    def _achievement_icon_for_domain(self, domain: str) -> tk.PhotoImage | None:
+    def _achievement_icon_for_domain(self, domain: str) -> ui.PhotoImage | None:
         key = str(domain or "").strip()
         if not key:
             return None
@@ -125,8 +127,8 @@ class MainWindowActionController:
             return None
 
         try:
-            icon = tk.PhotoImage(file=str(icon_path))
-        except tk.TclError:
+            icon = ui.PhotoImage(file=str(icon_path))
+        except ui.TclError:
             return None
 
         max_size = 24
@@ -137,7 +139,7 @@ class MainWindowActionController:
         if factor > 1:
             try:
                 icon = icon.subsample(factor)
-            except tk.TclError:
+            except ui.TclError:
                 pass
 
         self._achievement_icons[key] = icon
@@ -273,45 +275,45 @@ class MainWindowActionController:
         dialog.apply_theme()
         dialog._hover_tooltips = []
 
-        root = ttk.Frame(dialog.content, padding=12)
+        root = widgets.Frame(dialog.content, padding=12)
         root.pack(fill="both", expand=True)
 
-        ttk.Label(
+        widgets.Label(
             root,
             text="Nicht verlinkte Dateien im Einheiten-Ordner. Rechts wird der volle Markdown-Inhalt (inkl. YAML) angezeigt.",
         ).pack(fill="x", pady=(0, 8))
 
-        body = ttk.Panedwindow(root, orient="horizontal")
+        body = widgets.Panedwindow(root, orient="horizontal")
         body.pack(fill="both", expand=True)
 
-        list_frame = ttk.Frame(body)
-        preview_frame = ttk.Frame(body)
+        list_frame = widgets.Frame(body)
+        preview_frame = widgets.Frame(body)
         body.add(list_frame, weight=1)
         body.add(preview_frame, weight=2)
 
-        listbox = tk.Listbox(list_frame, exportselection=False)
+        listbox = ui.Listbox(list_frame, exportselection=False)
         listbox.pack(side="left", fill="both", expand=True)
-        scroll = ttk.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
+        scroll = widgets.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
         scroll.pack(side="right", fill="y")
         listbox.configure(yscrollcommand=scroll.set)
 
-        preview = tk.Text(preview_frame, wrap="none", state="disabled")
+        preview = ui.Text(preview_frame, wrap="none", state="disabled")
         preview.pack(side="left", fill="both", expand=True)
-        preview_scroll = ttk.Scrollbar(preview_frame, orient="vertical", command=preview.yview)
+        preview_scroll = widgets.Scrollbar(preview_frame, orient="vertical", command=preview.yview)
         preview_scroll.pack(side="right", fill="y")
-        preview_scroll_x = ttk.Scrollbar(preview_frame, orient="horizontal", command=preview.xview)
+        preview_scroll_x = widgets.Scrollbar(preview_frame, orient="horizontal", command=preview.xview)
         preview_scroll_x.pack(side="bottom", fill="x")
         preview.configure(yscrollcommand=preview_scroll.set, xscrollcommand=preview_scroll_x.set)
         dialog._hover_tooltips.append(HoverTooltip(listbox, SHADOW_LESSONS_HELP["list"]))
         dialog._hover_tooltips.append(HoverTooltip(preview, SHADOW_LESSONS_HELP["preview"]))
 
         for path in shadow_files:
-            listbox.insert(tk.END, path.name)
+            listbox.insert(ui.END, path.name)
         listbox.selection_set(0)
         listbox.activate(0)
 
-        status_var = tk.StringVar(value="")
-        ttk.Label(root, textvariable=status_var).pack(fill="x", pady=(8, 0))
+        status_var = ui.StringVar(value="")
+        widgets.Label(root, textvariable=status_var).pack(fill="x", pady=(8, 0))
 
         def _selected_path() -> pathlib.Path | None:
             current = listbox.curselection()
@@ -353,13 +355,13 @@ class MainWindowActionController:
             self.app.clipboard_append(str(selected))
             status_var.set(f"Pfad kopiert: {selected}")
 
-        buttons = ttk.Frame(root)
+        buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(10, 0))
-        set_clipboard_btn = ttk.Button(buttons, text="Als Kopie setzen", command=_set_as_clipboard_lesson)
+        set_clipboard_btn = widgets.Button(buttons, text="Als Kopie setzen", command=_set_as_clipboard_lesson)
         set_clipboard_btn.pack(side="left")
-        copy_path_btn = ttk.Button(buttons, text="Pfad kopieren", command=_copy_selected_path)
+        copy_path_btn = widgets.Button(buttons, text="Pfad kopieren", command=_copy_selected_path)
         copy_path_btn.pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+        widgets.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
         dialog._hover_tooltips.append(HoverTooltip(set_clipboard_btn, SHADOW_LESSONS_HELP["set_clipboard"]))
         dialog._hover_tooltips.append(HoverTooltip(copy_path_btn, SHADOW_LESSONS_HELP["copy_path"]))
 
@@ -504,8 +506,8 @@ class MainWindowActionController:
         tooltip_store: list[HoverTooltip] | None = None,
     ):
         """Rendert eine Achievement-Kachel mit Ring, Symbol, Label und Hover-Erklärung."""
-        frame = ttk.Frame(parent, padding=(4, 4))
-        canvas = tk.Canvas(frame, width=92, height=92, highlightthickness=0, bg="#000000", bd=0)
+        frame = widgets.Frame(parent, padding=(4, 4))
+        canvas = ui.Canvas(frame, width=92, height=92, highlightthickness=0, bg="#000000", bd=0)
         canvas.pack()
 
         total = max(1, int(target))
@@ -575,7 +577,7 @@ class MainWindowActionController:
             fill=progress_fg,
         )
 
-        title_label = ttk.Label(
+        title_label = widgets.Label(
             frame,
             text=title,
             anchor="center",
@@ -749,13 +751,13 @@ class MainWindowActionController:
         return "copy" if choice else "none"
 
     @staticmethod
-    def _bind_notebook_arrow_navigation(notebook: ttk.Notebook, *, scope: tk.Misc | None = None) -> None:
+    def _bind_notebook_arrow_navigation(notebook: widgets.Notebook, *, scope: ui.Misc | None = None) -> None:
         """Aktiviert zyklischen Tabwechsel per linker/rechter Pfeiltaste im angegebenen Scope."""
 
-        def _is_editable_widget(widget: tk.Misc | None) -> bool:
+        def _is_editable_widget(widget: ui.Misc | None) -> bool:
             if widget is None:
                 return False
-            editable_widget_types = (tk.Entry, tk.Text, tk.Spinbox, ttk.Entry, ttk.Combobox)
+            editable_widget_types = (ui.Entry, ui.Text, ui.Spinbox, widgets.Entry, widgets.Combobox)
             return isinstance(widget, editable_widget_types)
 
         def _is_focus_inside_notebook() -> bool:
@@ -829,27 +831,27 @@ class MainWindowActionController:
         )
         dialog.apply_theme()
         dialog._hover_tooltips = []
-        root = ttk.Frame(dialog.content, padding=12)
+        root = widgets.Frame(dialog.content, padding=12)
         root.pack(fill="both", expand=True)
 
-        notebook = ttk.Notebook(root)
+        notebook = widgets.Notebook(root)
         notebook.pack(fill="both", expand=True)
         self._bind_notebook_arrow_navigation(notebook, scope=dialog)
 
-        tab_achievements = ttk.Frame(notebook, padding=10)
-        tab_plan = ttk.Frame(notebook, padding=10)
-        tab_insights = ttk.Frame(notebook, padding=10)
+        tab_achievements = widgets.Frame(notebook, padding=10)
+        tab_plan = widgets.Frame(notebook, padding=10)
+        tab_insights = widgets.Frame(notebook, padding=10)
         notebook.add(tab_achievements, text="Achievements")
         notebook.add(tab_plan, text="UB-Plan")
         notebook.add(tab_insights, text="Entwicklungsimpulse")
 
-        ttk.Label(
+        widgets.Label(
             tab_achievements,
             text="Kursübergreifender UB-Fortschritt (gesamt)",
             font=("Segoe UI", 12, "bold"),
         ).pack(anchor="w", pady=(0, 8))
 
-        rings_wrap = ttk.Frame(tab_achievements)
+        rings_wrap = widgets.Frame(tab_achievements)
         rings_wrap.pack(fill="x")
 
         for idx, item in enumerate(achievements.items):
@@ -867,15 +869,15 @@ class MainWindowActionController:
             )
             ring.grid(row=idx // 4, column=idx % 4, padx=8, pady=8, sticky="n")
 
-        upcoming_frame = ttk.LabelFrame(tab_plan, text="Kommende UBs", padding=8)
+        upcoming_frame = widgets.LabelFrame(tab_plan, text="Kommende UBs", padding=8)
         upcoming_frame.pack(fill="both", expand=True, pady=(0, 8))
-        past_frame = ttk.LabelFrame(tab_plan, text="Absolvierte UBs", padding=8)
+        past_frame = widgets.LabelFrame(tab_plan, text="Absolvierte UBs", padding=8)
         past_frame.pack(fill="both", expand=True)
 
         plan_columns = ("datum", "faecher", "plus", "kurs")
 
-        def _build_plan_tree(parent: ttk.Frame) -> ttk.Treeview:
-            tree = ttk.Treeview(parent, columns=plan_columns, show="headings", height=8)
+        def _build_plan_tree(parent: widgets.Frame) -> widgets.Treeview:
+            tree = widgets.Treeview(parent, columns=plan_columns, show="headings", height=8)
             tree.heading("datum", text="Datum")
             tree.heading("faecher", text="Fächer")
             tree.heading("plus", text="+")
@@ -884,7 +886,7 @@ class MainWindowActionController:
             tree.column("faecher", width=280, anchor="w")
             tree.column("plus", width=50, anchor="center")
             tree.column("kurs", width=260, anchor="w")
-            y_scroll = ttk.Scrollbar(parent, orient="vertical", command=tree.yview)
+            y_scroll = widgets.Scrollbar(parent, orient="vertical", command=tree.yview)
             tree.configure(yscrollcommand=y_scroll.set)
             tree.pack(side="left", fill="both", expand=True)
             y_scroll.pack(side="right", fill="y")
@@ -903,7 +905,7 @@ class MainWindowActionController:
         if not ub_plan.past_rows:
             past_tree.insert("", "end", values=("-", "-", "", "-"))
 
-        insights_frame = ttk.LabelFrame(tab_insights, text="Letzte Entwicklungsimpulse", padding=10)
+        insights_frame = widgets.LabelFrame(tab_insights, text="Letzte Entwicklungsimpulse", padding=10)
         insights_frame.pack(fill="both", expand=True)
 
         def _format_list(items: list[str]) -> str:
@@ -924,10 +926,10 @@ class MainWindowActionController:
             ]
 
         for title, values in sections:
-            section = ttk.Frame(insights_frame)
+            section = widgets.Frame(insights_frame)
             section.pack(fill="x", pady=(0, 8))
-            ttk.Label(section, text=title, font=("Segoe UI", 10, "bold")).pack(anchor="w")
-            ttk.Label(section, text=_format_list(values), justify="left", wraplength=880).pack(anchor="w")
+            widgets.Label(section, text=title, font=("Segoe UI", 10, "bold")).pack(anchor="w")
+            widgets.Label(section, text=_format_list(values), justify="left", wraplength=880).pack(anchor="w")
 
         notebook.focus_set()
         dialog.grab_set()
@@ -1102,7 +1104,7 @@ class MainWindowActionController:
     def _has_non_whitespace_clipboard_text(self) -> bool:
         try:
             clipboard_value = self.app.clipboard_get()
-        except tk.TclError:
+        except ui.TclError:
             return False
         if clipboard_value is None:
             return False
@@ -1792,3 +1794,4 @@ class MainWindowActionController:
             f"Es wurden {result.rows_added} Zeilen ergänzt.\nZeitraum: {result.range_start} bis {result.range_end}",
             parent=self.app,
         )
+
