@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import pathlib
 import re
-import tkinter as tk
 from datetime import date, datetime
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError
@@ -246,17 +248,17 @@ class MainWindowOverviewController:
 
     def _show_loading_dialog(self, text: str):
         """Zeigt einen kleinen, nicht-blockierenden Ladehinweis mit laufender Progressbar."""
-        dialog = tk.Toplevel(self.app)
+        dialog = ui.Toplevel(self.app)
         dialog.title("Lade Kurs")
         dialog.transient(self.app)
         dialog.resizable(False, False)
         dialog.geometry("320x90")
         dialog.protocol("WM_DELETE_WINDOW", lambda: None)
 
-        content = ttk.Frame(dialog, padding=12)
+        content = widgets.Frame(dialog, padding=12)
         content.pack(fill="both", expand=True)
-        ttk.Label(content, text=text).pack(anchor="w")
-        progress = ttk.Progressbar(content, mode="indeterminate", length=280)
+        widgets.Label(content, text=text).pack(anchor="w")
+        progress = widgets.Progressbar(content, mode="indeterminate", length=280)
         progress.pack(fill="x", pady=(10, 0))
         progress.start(10)
 
