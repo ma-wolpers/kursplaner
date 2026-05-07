@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-import tkinter as tk
 from pathlib import Path
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 from kursplaner.adapters.gui.ui_theme import get_theme
@@ -12,8 +15,8 @@ class ToolbarIconStyler:
 
     def __init__(self, app):
         self.app = app
-        self._base_icons: dict[str, tk.PhotoImage] = {}
-        self._variants_by_theme: dict[str, dict[str, dict[str, tk.PhotoImage]]] = {}
+        self._base_icons: dict[str, ui.PhotoImage] = {}
+        self._variants_by_theme: dict[str, dict[str, dict[str, ui.PhotoImage]]] = {}
 
     @staticmethod
     def _icon_dir() -> Path:
@@ -74,10 +77,10 @@ class ToolbarIconStyler:
         }
 
     @staticmethod
-    def _recolor_photo(base: tk.PhotoImage, color_hex: str) -> tk.PhotoImage:
+    def _recolor_photo(base: ui.PhotoImage, color_hex: str) -> ui.PhotoImage:
         width = int(base.width())
         height = int(base.height())
-        recolored = tk.PhotoImage(width=width, height=height)
+        recolored = ui.PhotoImage(width=width, height=height)
         recolored.put(color_hex, to=(0, 0, width, height))
 
         has_transparency = hasattr(base, "transparency_get") and hasattr(recolored, "transparency_set")
@@ -89,7 +92,7 @@ class ToolbarIconStyler:
                 try:
                     if bool(base.transparency_get(x, y)):
                         recolored.transparency_set(x, y, True)
-                except tk.TclError:
+                except ui.TclError:
                     continue
         return recolored
 
@@ -106,18 +109,18 @@ class ToolbarIconStyler:
             if not icon_path.exists() or not icon_path.is_file():
                 continue
             try:
-                self._base_icons[icon_key] = tk.PhotoImage(file=str(icon_path))
-            except tk.TclError:
+                self._base_icons[icon_key] = ui.PhotoImage(file=str(icon_path))
+            except ui.TclError:
                 continue
 
-    def _ensure_theme_variants(self, theme_key: str) -> dict[str, dict[str, tk.PhotoImage]]:
+    def _ensure_theme_variants(self, theme_key: str) -> dict[str, dict[str, ui.PhotoImage]]:
         if theme_key in self._variants_by_theme:
             return self._variants_by_theme[theme_key]
 
         self._ensure_base_icons()
         colors = self._theme_icon_colors(theme_key)
 
-        variants: dict[str, dict[str, tk.PhotoImage]] = {}
+        variants: dict[str, dict[str, ui.PhotoImage]] = {}
         style_by_key = {spec.key: spec.style for spec in TOOLBAR_ACTIONS}
         style_by_key["mark_ub_remove"] = style_by_key.get("mark_ub", "Action.Utility.TButton")
         style_by_key["resume"] = style_by_key.get("ausfall", "Action.Ausfall.TButton")
