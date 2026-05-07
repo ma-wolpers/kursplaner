@@ -18,6 +18,7 @@ The format is based on Keep a Changelog.
 - Popup base window wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `popup_window.py` instead of direct `tkinter`/`ttk` imports.
 - Lesson builder popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `lesson_builder_dialog.py` instead of direct `tkinter`/`ttk` imports.
 - Overview loading dialog wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `overview_controller.py` instead of direct `tkinter`/`ttk` imports.
+- Selection overlay wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `selection_overlay_controller.py` instead of direct `tkinter`/`ttk` imports.
 - Dialog and file picker flows are now routed through shared `bw_gui.dialogs` services across controllers and key popup/startup/settings flows, reducing direct tkinter dialog coupling and aligning modal handling across apps.
 - Pilot integration for the shared GUI core started: Kursplaner now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge), and routes hover tooltips through the shared tooltip widget.
 - Theme configuration now applies a shared baseline from `bw-gui` before Kursplaner-specific style overlays.
