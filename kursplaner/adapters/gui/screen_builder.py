@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
+
 
 from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
@@ -70,7 +73,7 @@ class ScreenBuilder:
 
     def build_ui(self):
         """Erzeugt Widgets und verbindet UI-Events mit Adapter-Delegationspunkten."""
-        root = ttk.Frame(self.app, padding=16)
+        root = widgets.Frame(self.app, padding=16)
         root.pack(fill="both", expand=True)
         self._ensure_tooltip_store()
         self.app.action_buttons = {}
@@ -80,24 +83,24 @@ class ScreenBuilder:
 
         self._build_menu()
 
-        top = ttk.Frame(root)
+        top = widgets.Frame(root)
         top.pack(fill="x", pady=(0, 10))
 
-        base_label = ttk.Label(top, text="Kursordner")
+        base_label = widgets.Label(top, text="Kursordner")
         base_label.pack(side="left")
-        base_entry = ttk.Entry(top, textvariable=self.app.base_dir_var)
+        base_entry = widgets.Entry(top, textvariable=self.app.base_dir_var)
         base_entry.pack(side="left", fill="x", expand=True, padx=(8, 8))
-        base_button = ttk.Button(top, text="Ordner wählen…", command=self.app._pick_base_dir)
+        base_button = widgets.Button(top, text="Ordner wählen…", command=self.app._pick_base_dir)
         base_button.pack(side="left")
         self._add_help(base_label, MAIN_WINDOW_HELP["course_dir"])
         self._add_help(base_entry, MAIN_WINDOW_HELP["course_dir"])
         self._add_help(base_button, MAIN_WINDOW_HELP["course_dir"])
 
-        toolbar = ttk.Frame(root, style="Toolbar.TFrame")
+        toolbar = widgets.Frame(root, style="Toolbar.TFrame")
         toolbar.pack(fill="x", pady=(0, 2))
         self.app.toolbar_frame = toolbar
         for slot_key in TOOLBAR_SLOT_ORDER:
-            slot = ttk.Frame(toolbar, style="Toolbar.TFrame")
+            slot = widgets.Frame(toolbar, style="Toolbar.TFrame")
             min_width = int(TOOLBAR_SLOT_MIN_WIDTH.get(slot_key, 56))
             slot.configure(width=min_width)
             # Keep width hints, but let slot height follow button requested size.
@@ -105,7 +108,7 @@ class ScreenBuilder:
             slot.pack_propagate(True)
             self.app.toolbar_slots[slot_key] = slot
             if slot_key in TOOLBAR_SEPARATOR_SLOTS:
-                separator = ttk.Separator(slot, orient="vertical")
+                separator = widgets.Separator(slot, orient="vertical")
                 separator.pack(fill="y", padx=8)
                 self.app.toolbar_separators[slot_key] = separator
 
@@ -118,7 +121,7 @@ class ScreenBuilder:
             }
             if spec.width is not None:
                 button_kwargs["width"] = spec.width
-            button = ttk.Button(slot, **button_kwargs)
+            button = widgets.Button(slot, **button_kwargs)
             button.pack(side="left", padx=spec.padx)
             self.app.action_buttons[spec.key] = button
             if spec.help_key is not None:
@@ -126,16 +129,16 @@ class ScreenBuilder:
                 if tooltip is not None:
                     self.app.action_help_tooltips[spec.key] = tooltip
 
-        ttk.Label(root, textvariable=self.app.count_var, style="Toolbar.TLabel").pack(anchor="e", pady=(0, 8))
+        widgets.Label(root, textvariable=self.app.count_var, style="Toolbar.TLabel").pack(anchor="e", pady=(0, 8))
         self._layout_toolbar_slots()
         toolbar.bind("<Configure>", self._on_toolbar_configure)
         self._apply_toolbar_icons()
 
-        paned = ttk.Panedwindow(root, orient="horizontal")
+        paned = widgets.Panedwindow(root, orient="horizontal")
         paned.pack(fill="both", expand=True)
 
-        left = ttk.Frame(paned)
-        right = ttk.Frame(paned)
+        left = widgets.Frame(paned)
+        right = widgets.Frame(paned)
         paned.add(left, weight=1)
         paned.add(right, weight=3)
         self.app.main_paned = paned
@@ -143,10 +146,10 @@ class ScreenBuilder:
         self.app.detail_panel = right
 
         overview_columns = ("name", "next_topic", "remaining_hours", "next_lzk", "next_ub")
-        tree_frame = ttk.Frame(left)
+        tree_frame = widgets.Frame(left)
         tree_frame.pack(fill="both", expand=True)
 
-        self.app.lesson_tree = ttk.Treeview(tree_frame, columns=overview_columns, show="headings")
+        self.app.lesson_tree = widgets.Treeview(tree_frame, columns=overview_columns, show="headings")
         self.app.lesson_tree.heading("name", text="Kurs")
         self.app.lesson_tree.heading("next_topic", text="Nächstes Thema")
         self.app.lesson_tree.heading("remaining_hours", text="Reststunden")
@@ -158,7 +161,7 @@ class ScreenBuilder:
         self.app.lesson_tree.column("next_lzk", width=110, anchor="center")
         self.app.lesson_tree.column("next_ub", width=130, anchor="center")
 
-        tree_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.app.lesson_tree.yview)
+        tree_scroll = widgets.Scrollbar(tree_frame, orient="vertical", command=self.app.lesson_tree.yview)
         self.app.lesson_tree.configure(yscrollcommand=tree_scroll.set)
 
         self.app.lesson_tree.pack(side="left", fill="both", expand=True)
@@ -173,26 +176,26 @@ class ScreenBuilder:
         self.app.lesson_tree.bind("<Up>", self._on_tree_keyboard_navigation, add="+")
         self.app.lesson_tree.bind("<Down>", self._on_tree_keyboard_navigation, add="+")
 
-        header = ttk.Frame(right)
+        header = widgets.Frame(right)
         header.pack(fill="x", pady=(0, 6))
-        preview_label = ttk.Label(header, textvariable=self.app.preview_title_var)
+        preview_label = widgets.Label(header, textvariable=self.app.preview_title_var)
         preview_label.pack(side="left")
-        close_button = ttk.Button(
+        close_button = widgets.Button(
             header,
             text="Zur Kursliste",
             command=lambda: self._emit_intent(UiIntent.CLOSE_DETAIL_VIEW),
             style="Action.Utility.TButton",
         )
         close_button.pack(side="right")
-        selected_column_label = ttk.Label(header, textvariable=self.app.selected_column_var)
+        selected_column_label = widgets.Label(header, textvariable=self.app.selected_column_var)
         selected_column_label.pack(side="right")
         self._add_help(preview_label, MAIN_WINDOW_HELP.get("detail_navigation", ""))
         self._add_help(close_button, MAIN_WINDOW_HELP.get("detail_navigation", ""))
         self._add_help(selected_column_label, MAIN_WINDOW_HELP.get("detail_navigation", ""))
 
-        mode_bar = ttk.Frame(right)
+        mode_bar = widgets.Frame(right)
         mode_bar.pack(fill="x", pady=(0, 6))
-        ttk.Label(mode_bar, text="Ansicht:").pack(side="left")
+        widgets.Label(mode_bar, text="Ansicht:").pack(side="left")
         for mode_key, label in (
             ("unterricht", "Unterricht"),
             ("lzk", "LZK"),
@@ -205,7 +208,7 @@ class ScreenBuilder:
                 "ausfall": "Action.View.Ausfall.TButton",
                 "hospitation": "Action.View.Hospitation.TButton",
             }
-            btn = ttk.Button(
+            btn = widgets.Button(
                 mode_bar,
                 text=label,
                 command=lambda key=mode_key: self._emit_intent(UiIntent.SET_ROW_MODE, mode_key=key, manual=True),
@@ -216,7 +219,7 @@ class ScreenBuilder:
             self.app.row_mode_labels[mode_key] = label
             self._add_help(btn, MAIN_WINDOW_HELP.get(f"mode_{mode_key}", ""))
 
-        auto_mode_check = ttk.Checkbutton(
+        auto_mode_check = widgets.Checkbutton(
             mode_bar,
             text="Auto je Spalte",
             variable=self.app.auto_row_mode_var,
@@ -225,7 +228,7 @@ class ScreenBuilder:
         auto_mode_check.pack(side="left", padx=(12, 0))
         self._add_help(auto_mode_check, MAIN_WINDOW_HELP["mode_auto"])
 
-        column_visibility_button = ttk.Button(
+        column_visibility_button = widgets.Button(
             mode_bar,
             text="Spaltenarten…",
             command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
@@ -238,27 +241,27 @@ class ScreenBuilder:
             self.app.action_help_tooltips["column_visibility"] = tooltip
         self.app._refresh_row_mode_button_styles()
 
-        editor_frame = ttk.Frame(right)
+        editor_frame = widgets.Frame(right)
         editor_frame.pack(fill="both", expand=True)
 
-        self.app.fixed_header_frame = tk.Frame(editor_frame, highlightthickness=0, width=220)
+        self.app.fixed_header_frame = ui.Frame(editor_frame, highlightthickness=0, width=220)
         self.app.fixed_header_frame.grid(row=0, column=0, sticky="nsew")
 
-        self.app.header_canvas = tk.Canvas(editor_frame, highlightthickness=0, height=1)
+        self.app.header_canvas = ui.Canvas(editor_frame, highlightthickness=0, height=1)
         self.app.header_canvas.grid(row=0, column=1, sticky="nsew")
 
-        self.app.fixed_canvas = tk.Canvas(editor_frame, highlightthickness=0, width=220)
+        self.app.fixed_canvas = ui.Canvas(editor_frame, highlightthickness=0, width=220)
         self.app.fixed_canvas.grid(row=1, column=0, sticky="nsew")
 
-        self.app.grid_canvas = tk.Canvas(editor_frame, highlightthickness=0)
+        self.app.grid_canvas = ui.Canvas(editor_frame, highlightthickness=0)
         self.app.grid_canvas.grid(row=1, column=1, sticky="nsew")
 
         def _on_grid_xscroll(first: float, last: float):
             x_scroll.set(first, last)
             self.app.header_canvas.xview_moveto(first)
 
-        y_scroll = ttk.Scrollbar(editor_frame, orient="vertical", command=self.app._on_vertical_scroll)
-        x_scroll = ttk.Scrollbar(editor_frame, orient="horizontal", command=self.app._on_horizontal_scroll)
+        y_scroll = widgets.Scrollbar(editor_frame, orient="vertical", command=self.app._on_vertical_scroll)
+        x_scroll = widgets.Scrollbar(editor_frame, orient="horizontal", command=self.app._on_horizontal_scroll)
         self.app.grid_canvas.configure(yscrollcommand=y_scroll.set, xscrollcommand=_on_grid_xscroll)
         y_scroll.grid(row=1, column=2, sticky="ns")
         x_scroll.grid(row=2, column=1, sticky="ew")
@@ -268,11 +271,11 @@ class ScreenBuilder:
         editor_frame.columnconfigure(0, weight=0)
         editor_frame.columnconfigure(1, weight=1)
 
-        self.app.header_inner = ttk.Frame(self.app.header_canvas)
+        self.app.header_inner = widgets.Frame(self.app.header_canvas)
         self.app.header_window = self.app.header_canvas.create_window((0, 0), window=self.app.header_inner, anchor="nw")
-        self.app.fixed_inner = ttk.Frame(self.app.fixed_canvas)
+        self.app.fixed_inner = widgets.Frame(self.app.fixed_canvas)
         self.app.fixed_window = self.app.fixed_canvas.create_window((0, 0), window=self.app.fixed_inner, anchor="nw")
-        self.app.grid_inner = ttk.Frame(self.app.grid_canvas)
+        self.app.grid_inner = widgets.Frame(self.app.grid_canvas)
         self.app.grid_window = self.app.grid_canvas.create_window((0, 0), window=self.app.grid_inner, anchor="nw")
 
         self.app.header_inner.bind("<Configure>", self.app._on_grid_inner_configure)
@@ -395,9 +398,9 @@ class ScreenBuilder:
 
     def _build_menu(self):
         """Erzeugt die Hauptmenüs inklusive Wartungsaktionen."""
-        menu = tk.Menu(self.app)
+        menu = ui.Menu(self.app)
 
-        datei = tk.Menu(menu, tearoff=0)
+        datei = ui.Menu(menu, tearoff=0)
         datei.add_command(label="Neu", accelerator="Strg+N", command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW))
         datei.add_command(
             label="Lesson-Index neu aufbauen", command=lambda: self._emit_intent(UiIntent.REBUILD_LESSON_INDEX)
@@ -407,14 +410,14 @@ class ScreenBuilder:
         datei.add_command(label="Beenden", command=self.app.destroy)
         menu.add_cascade(label="Datei", menu=datei)
 
-        bearbeiten = tk.Menu(menu, tearoff=0)
+        bearbeiten = ui.Menu(menu, tearoff=0)
         bearbeiten.add_command(
             label="Undo", accelerator="Strg+Z", command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO)
         )
         bearbeiten.add_command(
             label="Redo", accelerator="Strg+Y", command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO)
         )
-        recent_changes_menu = tk.Menu(
+        recent_changes_menu = ui.Menu(
             bearbeiten,
             tearoff=0,
             postcommand=lambda: self._populate_recent_changes_menu(recent_changes_menu),
@@ -422,7 +425,7 @@ class ScreenBuilder:
         bearbeiten.add_cascade(label="Letzte Änderungen", menu=recent_changes_menu)
         menu.add_cascade(label="Bearbeiten", menu=bearbeiten)
 
-        aktion = tk.Menu(menu, tearoff=0)
+        aktion = ui.Menu(menu, tearoff=0)
         aktion.add_command(
             label="Einheit kopieren", accelerator="Strg+C", command=lambda: self._emit_intent(UiIntent.TOOLBAR_COPY)
         )
@@ -453,8 +456,8 @@ class ScreenBuilder:
         )
         menu.add_cascade(label="Aktion", menu=aktion)
 
-        ansicht = tk.Menu(menu, tearoff=0)
-        theme_menu = tk.Menu(ansicht, tearoff=0)
+        ansicht = ui.Menu(menu, tearoff=0)
+        theme_menu = ui.Menu(ansicht, tearoff=0)
         populate_theme_menu(theme_menu, self.app.theme_var, self.app._on_theme_changed)
         ansicht.add_checkbutton(
             label="Lange Zeilen aufgeklappt",
@@ -492,7 +495,7 @@ class ScreenBuilder:
 
         self.app.config(menu=menu)
 
-    def _populate_recent_changes_menu(self, menu: tk.Menu):
+    def _populate_recent_changes_menu(self, menu: ui.Menu):
         """Füllt das Untermenü mit den letzten Undo-Einträgen (neueste zuerst)."""
         menu.delete(0, "end")
         labels = self.app.action_controller.list_recent_change_labels(limit=5)
@@ -515,7 +518,7 @@ class ScreenBuilder:
         if not hasattr(self.app, "hover_tooltips"):
             self.app.hover_tooltips = []
 
-    def _add_help(self, widget: tk.Widget, text: str) -> HoverTooltip | None:
+    def _add_help(self, widget: ui.Widget, text: str) -> HoverTooltip | None:
         """Registriert bei Bedarf eine Hover-Hilfe für ein Widget."""
         if not text.strip():
             return None
@@ -599,7 +602,7 @@ class ScreenBuilder:
         self._runtime_shortcuts.register(definition)
         return definition
 
-    def _build_runtime_context(self, event: tk.Event[tk.Misc] | None = None) -> KeybindingRuntimeContext:
+    def _build_runtime_context(self, event: ui.Event[ui.Misc] | None = None) -> KeybindingRuntimeContext:
         """Build runtime context for mode-aware shortcut evaluation."""
 
         focus_get = getattr(self.app, "focus_get", None)
@@ -724,38 +727,38 @@ class ScreenBuilder:
             existing.focus_force()
             return
 
-        window = tk.Toplevel(self.app)
+        window = ui.Toplevel(self.app)
         window.title("Shortcut Runtime Debug")
         window.geometry("980x520")
         window.minsize(820, 420)
         self._track_popup_window(window, policy_id="dialog.non_blocking")
 
-        self.app.shortcut_runtime_debug_context_var = tk.StringVar(master=window, value="")
-        self.app.shortcut_runtime_debug_summary_var = tk.StringVar(master=window, value="")
-        self.app.shortcut_runtime_debug_offline_var = tk.BooleanVar(
+        self.app.shortcut_runtime_debug_context_var = ui.StringVar(master=window, value="")
+        self.app.shortcut_runtime_debug_summary_var = ui.StringVar(master=window, value="")
+        self.app.shortcut_runtime_debug_offline_var = ui.BooleanVar(
             master=window,
             value=bool(getattr(self.app, "shortcut_debug_offline", False)),
         )
 
-        toolbar = ttk.Frame(window, padding=(10, 8))
+        toolbar = widgets.Frame(window, padding=(10, 8))
         toolbar.pack(fill="x")
-        ttk.Label(toolbar, textvariable=self.app.shortcut_runtime_debug_context_var, style="Toolbar.TLabel").pack(
+        widgets.Label(toolbar, textvariable=self.app.shortcut_runtime_debug_context_var, style="Toolbar.TLabel").pack(
             side="left",
             fill="x",
             expand=True,
         )
-        ttk.Checkbutton(
+        widgets.Checkbutton(
             toolbar,
             text="Offline simulieren",
             variable=self.app.shortcut_runtime_debug_offline_var,
             command=self._on_shortcut_runtime_offline_var_changed,
         ).pack(side="left", padx=(12, 0))
-        ttk.Button(toolbar, text="Aktualisieren", command=self._refresh_shortcut_runtime_debug_dialog).pack(side="left", padx=(8, 0))
+        widgets.Button(toolbar, text="Aktualisieren", command=self._refresh_shortcut_runtime_debug_dialog).pack(side="left", padx=(8, 0))
 
-        body = ttk.Frame(window, padding=(10, 0, 10, 8))
+        body = widgets.Frame(window, padding=(10, 0, 10, 8))
         body.pack(fill="both", expand=True)
         columns = ("mode", "key", "binding", "status", "reason")
-        table = ttk.Treeview(body, columns=columns, show="headings")
+        table = widgets.Treeview(body, columns=columns, show="headings")
         table.heading("mode", text="Mode")
         table.heading("key", text="Key")
         table.heading("binding", text="Binding")
@@ -767,11 +770,11 @@ class ScreenBuilder:
         table.column("status", width=90, anchor="center", stretch=False)
         table.column("reason", width=180, anchor="w", stretch=True)
         table.pack(side="left", fill="both", expand=True)
-        y_scroll = ttk.Scrollbar(body, orient="vertical", command=table.yview)
+        y_scroll = widgets.Scrollbar(body, orient="vertical", command=table.yview)
         y_scroll.pack(side="right", fill="y")
         table.configure(yscrollcommand=y_scroll.set)
 
-        ttk.Label(window, textvariable=self.app.shortcut_runtime_debug_summary_var, style="Toolbar.TLabel").pack(
+        widgets.Label(window, textvariable=self.app.shortcut_runtime_debug_summary_var, style="Toolbar.TLabel").pack(
             fill="x",
             padx=10,
             pady=(0, 8),
@@ -854,7 +857,7 @@ class ScreenBuilder:
         """Leitet ein View-Ereignis als Intent an die Orchestrierung weiter."""
         return self.app._handle_ui_intent(intent, **payload)
 
-    def _track_popup_window(self, window: tk.Toplevel, *, policy_id: str = "dialog.modal") -> None:
+    def _track_popup_window(self, window: ui.Toplevel, *, policy_id: str = "dialog.modal") -> None:
         """Register a popup immediately in the popup policy registry."""
 
         popup_id = str(window)
@@ -872,7 +875,7 @@ class ScreenBuilder:
 
         visible_popup_ids: set[str] = set()
         for child in winfo_children():
-            if not isinstance(child, tk.Toplevel):
+            if not isinstance(child, ui.Toplevel):
                 continue
             try:
                 if not int(child.winfo_exists()):
@@ -990,7 +993,7 @@ class ScreenBuilder:
     def _is_editable_widget(widget) -> bool:
         if widget is None:
             return False
-        editable_widget_types = (tk.Entry, tk.Text, tk.Spinbox, ttk.Entry, ttk.Combobox)
+        editable_widget_types = (ui.Entry, ui.Text, ui.Spinbox, widgets.Entry, widgets.Combobox)
         return isinstance(widget, editable_widget_types)
 
     def _on_grid_delete(self, _event):
@@ -1064,3 +1067,4 @@ class ScreenBuilder:
         theme = get_theme(theme_key)
         self.app.fixed_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
         self.app.grid_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
+
