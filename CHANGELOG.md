@@ -7,9 +7,6 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Changed
-- `Nächster UB` zeigt das `+` jetzt nur noch bei echtem Langentwurf (`Langentwurf: true`), nicht mehr bei `false`-Werten aus YAML.
-- `Nächster UB` bleibt auch für Zusatzbesuche ohne Bereich/Fach sichtbar; falls ein UB-Dateiname kein Datum trägt, wird auf das Planzeilen-Datum zurückgefallen.
-- Beim Markieren eines Unterrichtsbesuchs ist `Paedagogik`/`Fach` nicht mehr zwingend: ohne Auswahl kann ein zusaetzlicher UB gespeichert werden, der in den Achievements nicht mitzaehlt.
 - Interactive startup path-check now creates its root window via shared `bw_gui.runtime.ui` aliases in `path_bootstrap.py` instead of importing `tkinter` directly.
 - Window identity/icon helpers now use shared `bw_gui.runtime.ui` aliases in `window_identity.py` instead of importing `tkinter` directly.
 - Column visibility popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `column_visibility_dialog.py` instead of direct `tkinter`/`ttk` imports.
@@ -19,6 +16,7 @@ The format is based on Keep a Changelog.
 - Settings popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `settings_window.py` instead of direct `tkinter`/`ttk` imports.
 - New lesson popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `new_lesson_window.py` instead of direct `tkinter`/`ttk` imports.
 - Popup base window wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `popup_window.py` instead of direct `tkinter`/`ttk` imports.
+- Lesson builder popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `lesson_builder_dialog.py` instead of direct `tkinter`/`ttk` imports.
 - Dialog and file picker flows are now routed through shared `bw_gui.dialogs` services across controllers and key popup/startup/settings flows, reducing direct tkinter dialog coupling and aligning modal handling across apps.
 - Pilot integration for the shared GUI core started: Kursplaner now resolves keybinding, popup, and HSM contracts through the shared `bw-gui` core (via submodule bridge), and routes hover tooltips through the shared tooltip widget.
 - Theme configuration now applies a shared baseline from `bw-gui` before Kursplaner-specific style overlays.

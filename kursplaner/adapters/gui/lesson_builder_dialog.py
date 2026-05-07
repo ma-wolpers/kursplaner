@@ -1,6 +1,8 @@
-import tkinter as tk
 from dataclasses import dataclass
-from tkinter import ttk
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
@@ -113,31 +115,31 @@ class LessonBuilderDialog(ScrollablePopupWindow):
 
     def _build_ui(self, date_label: str):
         """Erzeugt Eingabefelder mit Overlay-gestützter Auswahl."""
-        root = ttk.Frame(self.content, padding=16)
+        root = widgets.Frame(self.content, padding=16)
         root.pack(fill="both", expand=True)
 
-        basics = ttk.LabelFrame(root, text="Einheitsangaben")
+        basics = widgets.LabelFrame(root, text="Einheitsangaben")
         basics.pack(fill="both", expand=True, pady=(0, 10))
 
-        ttk.Label(basics, text=f"Datum: {date_label}").grid(
+        widgets.Label(basics, text=f"Datum: {date_label}").grid(
             row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(10, 4)
         )
 
-        title_label = ttk.Label(basics, text="Titel (Dateiname)")
+        title_label = widgets.Label(basics, text="Titel (Dateiname)")
         title_label.grid(row=1, column=0, sticky="w", padx=(10, 8), pady=4)
         self.title_field = WrappedTextField(basics, height=2)
         self.title_field.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
         self._tooltips.append(HoverTooltip(title_label, LESSON_BUILDER_HELP["title"]))
         self._tooltips.append(HoverTooltip(self.title_field.text, LESSON_BUILDER_HELP["title"]))
 
-        topic_label = ttk.Label(basics, text="Stundenthema")
+        topic_label = widgets.Label(basics, text="Stundenthema")
         topic_label.grid(row=2, column=0, sticky="w", padx=(10, 8), pady=4)
         self.topic_field = WrappedTextField(basics, height=2)
         self.topic_field.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
         self._tooltips.append(HoverTooltip(topic_label, LESSON_BUILDER_HELP["topic"]))
         self._tooltips.append(HoverTooltip(self.topic_field.text, LESSON_BUILDER_HELP["topic"]))
 
-        oberthema_label = ttk.Label(basics, text="Oberthema")
+        oberthema_label = widgets.Label(basics, text="Oberthema")
         oberthema_label.grid(row=3, column=0, sticky="w", padx=(10, 8), pady=4)
         self.oberthema_field = WrappedTextField(basics, height=2)
         self.oberthema_field.grid(row=3, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
@@ -146,7 +148,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
 
         row = 4
         if self.show_kompetenzen_field:
-            kompetenzen_label = ttk.Label(basics, text="Kompetenzen")
+            kompetenzen_label = widgets.Label(basics, text="Kompetenzen")
             kompetenzen_label.grid(row=row, column=0, sticky="w", padx=(10, 8), pady=4)
             self.kompetenzen_field = WrappedTextField(basics, height=3)
             self.kompetenzen_field.grid(row=row, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
@@ -154,7 +156,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             self._tooltips.append(HoverTooltip(kompetenzen_label, LESSON_BUILDER_HELP["kompetenzen"]))
             self._tooltips.append(HoverTooltip(self.kompetenzen_field.text, LESSON_BUILDER_HELP["kompetenzen"]))
             row += 1
-            ttk.Label(basics, text=self.kompetenzen_hint, wraplength=760, justify="left").grid(
+            widgets.Label(basics, text=self.kompetenzen_hint, wraplength=760, justify="left").grid(
                 row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
             )
             row += 1
@@ -162,7 +164,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             self.kompetenzen_field = None
 
         if self.show_stundenziel_field:
-            stundenziel_label = ttk.Label(basics, text="Stundenziel")
+            stundenziel_label = widgets.Label(basics, text="Stundenziel")
             stundenziel_label.grid(row=row, column=0, sticky="w", padx=(10, 8), pady=4)
             self.stundenziel_field = WrappedTextField(basics, height=3)
             self.stundenziel_field.grid(row=row, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
@@ -170,45 +172,45 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             self._tooltips.append(HoverTooltip(stundenziel_label, LESSON_BUILDER_HELP["stundenziel"]))
             self._tooltips.append(HoverTooltip(self.stundenziel_field.text, LESSON_BUILDER_HELP["stundenziel"]))
             row += 1
-            ttk.Label(basics, text=self.stundenziel_hint, wraplength=760, justify="left").grid(
+            widgets.Label(basics, text=self.stundenziel_hint, wraplength=760, justify="left").grid(
                 row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
             )
             row += 1
         else:
             self.stundenziel_field = None
 
-        inhalte_label = ttk.Label(basics, text="Inhalte")
+        inhalte_label = widgets.Label(basics, text="Inhalte")
         inhalte_label.grid(row=row, column=0, sticky="nw", padx=(10, 8), pady=4)
         self.inhalte_query_field = WrappedTextField(basics, height=2)
         self.inhalte_query_field.grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=4)
         self._bind_overlay_field(self.inhalte_query_field, "inhalte", enable_filter_refresh=True)
         self._tooltips.append(HoverTooltip(inhalte_label, LESSON_BUILDER_HELP["inhalte"]))
         self._tooltips.append(HoverTooltip(self.inhalte_query_field.text, LESSON_BUILDER_HELP["inhalte"]))
-        self.inhalte_chip_frame = ttk.Frame(basics)
+        self.inhalte_chip_frame = widgets.Frame(basics)
         self.inhalte_chip_frame.grid(row=row, column=2, sticky="w", padx=(0, 10), pady=4)
         row += 1
-        ttk.Label(basics, text=self.inhalte_hint, wraplength=760, justify="left").grid(
+        widgets.Label(basics, text=self.inhalte_hint, wraplength=760, justify="left").grid(
             row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 4)
         )
         row += 1
 
-        methodik_label = ttk.Label(basics, text="Methodik")
+        methodik_label = widgets.Label(basics, text="Methodik")
         methodik_label.grid(row=row, column=0, sticky="nw", padx=(10, 8), pady=4)
         self.methodik_query_field = WrappedTextField(basics, height=2)
         self.methodik_query_field.grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=4)
         self._bind_overlay_field(self.methodik_query_field, "methodik", enable_filter_refresh=True)
         self._tooltips.append(HoverTooltip(methodik_label, LESSON_BUILDER_HELP["methodik"]))
         self._tooltips.append(HoverTooltip(self.methodik_query_field.text, LESSON_BUILDER_HELP["methodik"]))
-        self.methodik_chip_frame = ttk.Frame(basics)
+        self.methodik_chip_frame = widgets.Frame(basics)
         self.methodik_chip_frame.grid(row=row, column=2, sticky="w", padx=(0, 10), pady=4)
         row += 1
-        ttk.Label(basics, text=self.methodik_hint, wraplength=760, justify="left").grid(
+        widgets.Label(basics, text=self.methodik_hint, wraplength=760, justify="left").grid(
             row=row, column=1, columnspan=2, sticky="w", padx=(0, 10), pady=(0, 10)
         )
 
         basics.columnconfigure(1, weight=1)
 
-        ub_frame = ttk.LabelFrame(root, text="UB-Punkte der letzten Besuche", padding=10)
+        ub_frame = widgets.LabelFrame(root, text="UB-Punkte der letzten Besuche", padding=10)
         ub_frame.pack(fill="x", pady=(0, 10))
         self._render_ub_sections(ub_frame)
 
@@ -223,10 +225,10 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self._render_inhalte_chips()
         self._render_methodik_chips()
 
-        buttons = ttk.Frame(root)
+        buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(10, 0))
-        ttk.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
-        ttk.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
+        widgets.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
+        widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
 
     @staticmethod
     def _format_ub_list(items: list[str]) -> str:
@@ -235,7 +237,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             return "- Keine Einträge vorhanden."
         return "\n".join(f"- {entry}" for entry in cleaned)
 
-    def _render_ub_sections(self, parent: ttk.LabelFrame) -> None:
+    def _render_ub_sections(self, parent: widgets.LabelFrame) -> None:
         theme = get_theme(self.theme_key)
         fg = str(theme.get("fg_primary", "#111827"))
         bg = str(theme.get("bg_main", "#FFFFFF"))
@@ -252,7 +254,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             return
 
         for title, values in self.ub_sections:
-            section = ttk.Frame(parent)
+            section = widgets.Frame(parent)
             section.pack(fill="x", pady=(0, 8))
             self._render_ub_text_label(section, str(title).strip(), fg=fg, bg=bg, bold=True)
             self._render_ub_text_label(section, self._format_ub_list(values), fg=fg, bg=bg)
@@ -260,7 +262,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
     @staticmethod
     def _render_ub_text_label(parent, text: str, *, fg: str, bg: str, bold: bool = False) -> None:
         font = ("Segoe UI", 10, "bold") if bold else ("Segoe UI", 10)
-        tk.Label(
+        ui.Label(
             parent,
             text=text,
             justify="left",
@@ -427,10 +429,10 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         for child in self.inhalte_chip_frame.winfo_children():
             child.destroy()
         for item in self.inhalte_selected:
-            chip = ttk.Frame(self.inhalte_chip_frame)
+            chip = widgets.Frame(self.inhalte_chip_frame)
             chip.pack(side="left", padx=(0, 4))
-            ttk.Label(chip, text=item).pack(side="left")
-            ttk.Button(chip, text="x", width=2, command=lambda value=item: self._remove_inhalt(value)).pack(
+            widgets.Label(chip, text=item).pack(side="left")
+            widgets.Button(chip, text="x", width=2, command=lambda value=item: self._remove_inhalt(value)).pack(
                 side="left", padx=(2, 0)
             )
 
@@ -438,10 +440,10 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         for child in self.methodik_chip_frame.winfo_children():
             child.destroy()
         for item in self.methodik_selected:
-            chip = ttk.Frame(self.methodik_chip_frame)
+            chip = widgets.Frame(self.methodik_chip_frame)
             chip.pack(side="left", padx=(0, 4))
-            ttk.Label(chip, text=item).pack(side="left")
-            ttk.Button(chip, text="x", width=2, command=lambda value=item: self._remove_methodik(value)).pack(
+            widgets.Label(chip, text=item).pack(side="left")
+            widgets.Button(chip, text="x", width=2, command=lambda value=item: self._remove_methodik(value)).pack(
                 side="left", padx=(2, 0)
             )
 
@@ -546,10 +548,10 @@ def _activate_modal_focus(dialog: ScrollablePopupWindow, field_widget) -> None:
         dialog.lift()
         dialog.focus_force()
         field_widget.focus_set()
-        if isinstance(field_widget, tk.Text):
+        if isinstance(field_widget, ui.Text):
             field_widget.mark_set("insert", "end-1c")
             field_widget.see("insert")
-    except tk.TclError:
+    except ui.TclError:
         return
 
 
@@ -576,17 +578,17 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
         self.kompetenzen_options = kompetenzen_options
         self.kompetenzen_hint = kompetenzen_hint.strip()
 
-        root = ttk.Frame(self.content, padding=16)
+        root = widgets.Frame(self.content, padding=16)
         root.pack(fill="both", expand=True)
 
-        basics = ttk.LabelFrame(root, text="Auswahl")
+        basics = widgets.LabelFrame(root, text="Auswahl")
         basics.pack(fill="both", expand=True, pady=(0, 10))
 
-        ttk.Label(basics, text=f"Datum: {date_label}").grid(
+        widgets.Label(basics, text=f"Datum: {date_label}").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 4)
         )
 
-        kompetenzen_label = ttk.Label(basics, text="Kompetenzen")
+        kompetenzen_label = widgets.Label(basics, text="Kompetenzen")
         kompetenzen_label.grid(row=1, column=0, sticky="w", padx=(10, 8), pady=4)
         self.kompetenzen_field = WrappedTextField(basics, height=4)
         self.kompetenzen_field.grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
@@ -604,7 +606,7 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
         self.bind("<Control-Return>", self._on_ctrl_enter_accept)
         self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
 
-        ttk.Label(basics, text=self.kompetenzen_hint, wraplength=680, justify="left").grid(
+        widgets.Label(basics, text=self.kompetenzen_hint, wraplength=680, justify="left").grid(
             row=2, column=1, sticky="w", padx=(0, 10), pady=(0, 10)
         )
         basics.columnconfigure(1, weight=1)
@@ -617,10 +619,10 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
             HoverTooltip(self.kompetenzen_field.text, LESSON_BUILDER_HELP["kompetenzen"]),
         ]
 
-        buttons = ttk.Frame(root)
+        buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(10, 0))
-        ttk.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
-        ttk.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
+        widgets.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
+        widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
         self.apply_theme()
 
     @staticmethod
@@ -778,17 +780,17 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
         self.stundenziel_options = stundenziel_options
         self.stundenziel_hint = stundenziel_hint.strip()
 
-        root = ttk.Frame(self.content, padding=16)
+        root = widgets.Frame(self.content, padding=16)
         root.pack(fill="both", expand=True)
 
-        basics = ttk.LabelFrame(root, text="Auswahl")
+        basics = widgets.LabelFrame(root, text="Auswahl")
         basics.pack(fill="both", expand=True, pady=(0, 10))
 
-        ttk.Label(basics, text=f"Datum: {date_label}").grid(
+        widgets.Label(basics, text=f"Datum: {date_label}").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 4)
         )
 
-        stundenziel_label = ttk.Label(basics, text="Stundenziel")
+        stundenziel_label = widgets.Label(basics, text="Stundenziel")
         stundenziel_label.grid(row=1, column=0, sticky="w", padx=(10, 8), pady=4)
         self.stundenziel_field = WrappedTextField(basics, height=3)
         self.stundenziel_field.grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=4)
@@ -806,7 +808,7 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
         self.bind("<Control-Return>", self._on_ctrl_enter_accept)
         self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
 
-        ttk.Label(basics, text=self.stundenziel_hint, wraplength=640, justify="left").grid(
+        widgets.Label(basics, text=self.stundenziel_hint, wraplength=640, justify="left").grid(
             row=2, column=1, sticky="w", padx=(0, 10), pady=(0, 10)
         )
         basics.columnconfigure(1, weight=1)
@@ -819,10 +821,10 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
             HoverTooltip(self.stundenziel_field.text, LESSON_BUILDER_HELP["stundenziel"]),
         ]
 
-        buttons = ttk.Frame(root)
+        buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(10, 0))
-        ttk.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
-        ttk.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
+        widgets.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
+        widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
         self.apply_theme()
 
     def _bind_overlay_field(self, field_widget: WrappedTextField, field_name: str):
@@ -946,3 +948,4 @@ def ask_lesson_stundenziel_selection(
     _activate_modal_focus(dialog, dialog.stundenziel_field.text)
     dialog.wait_window()
     return dialog.result
+
