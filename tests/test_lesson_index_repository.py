@@ -93,10 +93,14 @@ def test_index_detects_mtime_change(tmp_path):
     m1 = repo.load_lessons_metadata_for_rows(table, [0])
     assert m1[0]["Stundenthema"] == "Initial Thema"
 
+    old_mtime_ns = a1.stat().st_mtime_ns
+
     # modify file
     create_dummy_lesson(a1, "Updated Thema")
-    # ensure mtime changes
-    os.utime(a1, None)
+    # ensure mtime changes deterministically even on coarse filesystem clocks
+    forced_mtime = max(a1.stat().st_mtime + 2.0, (old_mtime_ns / 1_000_000_000) + 2.0)
+    os.utime(a1, (forced_mtime, forced_mtime))
+    assert a1.stat().st_mtime_ns > old_mtime_ns
 
     m2 = repo.load_lessons_metadata_for_rows(table, [0])
     assert isinstance(m2, dict) and 0 in m2
