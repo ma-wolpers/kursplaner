@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 
 ensure_bw_gui_on_path()
+from bw_gui.runtime import ui, widgets
 try:
     from bw_gui.theming.theme_manager import configure_ttk_theme as configure_shared_ttk_theme
 except ModuleNotFoundError:
@@ -518,13 +517,13 @@ def get_theme(theme_key: str | None = None) -> dict:
     return theme
 
 
-def apply_window_theme(window: tk.Misc, theme_key: str | None = None):
+def apply_window_theme(window: ui.Misc, theme_key: str | None = None):
     """Setzt die Hintergrundfarbe des Fensters gemäß aktivem Theme."""
     theme = get_theme(theme_key)
     window.configure({"bg": theme["bg_main"]})
 
 
-def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None):
+def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None):
     """Konfiguriert ttk-Styles für Buttons, Labels, Eingaben und Treeview."""
     theme = get_theme(theme_key)
 
@@ -532,10 +531,10 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None):
     if configure_shared_ttk_theme is not None:
         configure_shared_ttk_theme(root, normalize_theme_key(theme_key))
 
-    style = ttk.Style(root)
+    style = widgets.Style(root)
     try:
         style.theme_use("clam")
-    except tk.TclError:
+    except ui.TclError:
         pass
 
     style.configure("TFrame", background=theme["bg_main"])
@@ -1071,7 +1070,7 @@ def configure_ttk_theme(root: tk.Misc, theme_key: str | None = None):
     )
 
 
-def style_text_widget(widget: tk.Text, theme_key: str | None = None):
+def style_text_widget(widget: ui.Text, theme_key: str | None = None):
     """Stylt ein Tk-Textwidget mit Farben und Fokusrahmen des Themes."""
     theme = get_theme(theme_key)
     widget.configure(
@@ -1086,7 +1085,7 @@ def style_text_widget(widget: tk.Text, theme_key: str | None = None):
     )
 
 
-def populate_theme_menu(view_menu: tk.Menu, theme_var: tk.StringVar, on_theme_changed):
+def populate_theme_menu(view_menu: ui.Menu, theme_var: ui.StringVar, on_theme_changed):
     """Fügt alle verfügbaren Themes als Radiobuttons in ein Menü ein."""
     for theme_key in THEME_ORDER:
         view_menu.add_radiobutton(
@@ -1095,3 +1094,4 @@ def populate_theme_menu(view_menu: tk.Menu, theme_var: tk.StringVar, on_theme_ch
             value=theme_key,
             command=on_theme_changed,
         )
+
