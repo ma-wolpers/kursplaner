@@ -1,6 +1,8 @@
 import pathlib
-import tkinter as tk
-import tkinter.font as tkfont
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.runtime import ui
 from datetime import date
 
 from bw_libs.app_shell import TkinterAppShell
@@ -35,7 +37,7 @@ from kursplaner.core.config.ui_preferences_store import (
 from kursplaner.core.domain.plan_table import PlanTableData
 
 
-class KursplanerApp(tk.Tk):
+class KursplanerApp(ui.Tk):
     """Hauptfenster-Adapter der Anwendung.
 
     Verantwortlich für UI-Zustand und Delegation an spezialisierte Controller;
@@ -55,23 +57,23 @@ class KursplanerApp(tk.Tk):
 
         self.path_values = self.path_settings_usecase.load_values()
         current_paths = self.path_settings_usecase.to_managed_paths(self.path_values)
-        self.base_dir_var = tk.StringVar(value=str(current_paths.unterricht_dir))
-        self.count_var = tk.StringVar(value="0 Kurspläne")
+        self.base_dir_var = ui.StringVar(value=str(current_paths.unterricht_dir))
+        self.count_var = ui.StringVar(value="0 Kurspläne")
         persisted_theme = normalize_theme_key(load_theme_key(DEFAULT_THEME))
-        self.theme_var = tk.StringVar(value=persisted_theme)
-        self.preview_title_var = tk.StringVar(value="Kursplan")
-        self.selected_column_var = tk.StringVar(value="Ausgewählte Spalte: keine")
-        self.auto_row_mode_var = tk.BooleanVar(value=True)
-        self.auto_scroll_next_unit_var = tk.BooleanVar(value=True)
+        self.theme_var = ui.StringVar(value=persisted_theme)
+        self.preview_title_var = ui.StringVar(value="Kursplan")
+        self.selected_column_var = ui.StringVar(value="Ausgewählte Spalte: keine")
+        self.auto_row_mode_var = ui.BooleanVar(value=True)
+        self.auto_scroll_next_unit_var = ui.BooleanVar(value=True)
 
         self.preview_font_size = 10
-        self.preview_font = tkfont.Font(family="Consolas", size=self.preview_font_size)
+        self.preview_font = ("Consolas", self.preview_font_size)
         self.day_column_width = 260
         self.min_day_column_width = 140
         self.max_day_column_width = 1200
         self.collapsed_row_lines = 1
         self.expanded_row_max_lines = 20
-        self.expand_long_rows_var = tk.BooleanVar(value=True)
+        self.expand_long_rows_var = ui.BooleanVar(value=True)
         self.row_expanded: dict[str, bool] = {}
         self.clipboard_lesson_path: pathlib.Path | None = None
 
@@ -82,7 +84,7 @@ class KursplanerApp(tk.Tk):
         self._plan_overview_query = self.gui_dependencies.plan_overview_query
         self.row_display_mode_usecase = self.gui_dependencies.row_display_mode_usecase
         self.active_row_mode = self.row_display_mode_usecase.MODE_UNTERRICHT
-        self.row_mode_buttons: dict[str, tk.Widget] = {}
+        self.row_mode_buttons: dict[str, ui.Widget] = {}
         self.row_mode_labels: dict[str, str] = {
             item.key: item.label for item in self.row_display_mode_usecase.available_modes()
         }
@@ -90,10 +92,10 @@ class KursplanerApp(tk.Tk):
         self.column_visibility_settings = load_column_visibility_settings()
         self.raw_day_columns: list[dict[str, object]] = []
 
-        self.cell_widgets: dict[tuple[str, int], tk.Text] = {}
-        self.header_labels: dict[int, tk.Label] = {}
-        self.row_labels: dict[str, tk.Label] = {}
-        self.corner_label: tk.Label | None = None
+        self.cell_widgets: dict[tuple[str, int], ui.Text] = {}
+        self.header_labels: dict[int, ui.Label] = {}
+        self.row_labels: dict[str, ui.Label] = {}
+        self.corner_label: ui.Label | None = None
         self.ui_state = MainWindowUiState()
         self.selected_day_indices = set()
         self._is_rebuilding_grid = False
@@ -436,7 +438,7 @@ class KursplanerApp(tk.Tk):
 
     def _create_text_cell(
         self,
-        parent: tk.Widget,
+        parent: ui.Widget,
         text: str,
         editable: bool,
         canceled: bool,
@@ -445,7 +447,7 @@ class KursplanerApp(tk.Tk):
         *,
         is_lzk: bool = False,
         lzk_masked: bool = False,
-    ) -> tk.Text:
+    ) -> ui.Text:
         """Erzeugt ein Text-Widget für eine Grid-Zelle mit passendem Rendering."""
         return self.grid_renderer._create_text_cell(
             parent,
@@ -552,3 +554,4 @@ def main():
 
     app.after(320, _run_daily_course_log_export)
     app.mainloop()
+
