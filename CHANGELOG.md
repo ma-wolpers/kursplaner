@@ -10,6 +10,7 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- AI guardrails now also enforce shared-GUI bootstrap requirements for any newly added GUI entrypoint files and reject direct tkinter imports in those entrypoints.
 - AI guardrails were hardened to enforce mandatory shared UI contracts in `kursplaner/adapters/gui/screen_builder.py` and `kursplaner/adapters/gui/hover_tooltip.py` and fail fast on legacy fallback branches.
 - Shared UI fallback branches were removed from `kursplaner/adapters/gui/screen_builder.py` and `kursplaner/adapters/gui/hover_tooltip.py`: the shared menu bar, shared shortcut hover formatter, and shared tooltip widget are now mandatory runtime paths.
 - Theme special paths were removed from `kursplaner/adapters/gui/ui_theme.py`: shared theme registry and baseline style wiring are now mandatory, and optional fallback branches for missing shared theming were deleted.

@@ -53,6 +53,27 @@ DOCSTRING_REQUIRED_PATHS = {
     "kursplaner/adapters/gui/main_window.py",
     "kursplaner/infrastructure/repositories/lesson_index_repository.py",
 }
+FUTURE_GUI_SEARCH_ROOTS = (
+    "kursplaner/adapters/gui",
+)
+FUTURE_GUI_ENTRY_FILE_NAMES = {
+    "main_window.py",
+    "ui.py",
+    "blatt_ui.py",
+    "screen_builder.py",
+}
+FUTURE_GUI_ENTRY_BASELINES = {
+    "kursplaner/adapters/gui/main_window.py",
+    "kursplaner/adapters/gui/screen_builder.py",
+}
+FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
+    "ensure_bw_gui_on_path()",
+    "from bw_gui.runtime import",
+    "from bw_gui.menu import",
+    "open_tabbed_settings_dialog",
+    "compose_hover_text",
+    "HoverTooltip",
+)
 
 
 def _repo_root() -> Path:
@@ -106,6 +127,29 @@ def _forbid_substring(text: str, needle: str, source: str, errors: list[str]) ->
         errors.append(f"{source}: forbidden fallback text present -> {needle}")
 
 
+def _is_future_gui_entry_path(rel_path: str) -> bool:
+    """Prüft, ob ein Pfad auf einen relevanten GUI-Entrypointnamen zeigt."""
+    normalized = rel_path.replace("\\", "/")
+    file_name = normalized.rsplit("/", 1)[-1]
+    if file_name not in FUTURE_GUI_ENTRY_FILE_NAMES:
+        return False
+    return any(normalized.startswith(f"{root}/") for root in FUTURE_GUI_SEARCH_ROOTS)
+
+
+def _iter_future_gui_entry_candidates() -> list[str]:
+    """Sammelt alle GUI-Entrypoint-Kandidaten unter den definierten Suchwurzeln."""
+    candidates: set[str] = set()
+    for rel_root in FUTURE_GUI_SEARCH_ROOTS:
+        root_path = ROOT / rel_root
+        if not root_path.exists():
+            continue
+        for file_path in root_path.rglob("*.py"):
+            if file_path.name not in FUTURE_GUI_ENTRY_FILE_NAMES:
+                continue
+            candidates.add(file_path.relative_to(ROOT).as_posix())
+    return sorted(candidates)
+
+
 def _parse_module(rel_path: str, errors: list[str]) -> ast.Module | None:
     """Parst eine Python-Datei in ein AST-Modul und meldet Parse-Fehler gesammelt."""
     try:
@@ -152,7 +196,7 @@ def _has_relevant_staged_changes(staged: set[str], repo_root: Path) -> bool:
 
     for staged_path in staged:
         norm = staged_path.replace("\\", "/")
-        if norm in normalized_relevant:
+        if norm in normalized_relevant or _is_future_gui_entry_path(norm):
             return True
     return False
 
@@ -439,6 +483,21 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
     )
 
 
+def _check_future_gui_entry_contracts(errors: list[str]) -> None:
+    """Erzwingt Shared-GUI-Bootstrap fuer neue GUI-Entrypoint-Dateien."""
+
+    for rel_path in _iter_future_gui_entry_candidates():
+        if rel_path in FUTURE_GUI_ENTRY_BASELINES:
+            continue
+
+        text = _read(rel_path)
+        for snippet in FUTURE_GUI_REQUIRED_SHARED_SNIPPETS:
+            _require_substring(text, snippet, rel_path, errors)
+
+        _forbid_substring(text, "import tkinter", rel_path, errors)
+        _forbid_substring(text, "from tkinter import", rel_path, errors)
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -532,6 +591,7 @@ def main() -> int:
     _check_undo_writeflow_guardrails(errors)
     _check_runtime_shortcut_integration(errors)
     _check_shared_ui_contract_hardening(errors)
+    _check_future_gui_entry_contracts(errors)
     warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.

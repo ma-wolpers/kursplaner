@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Future-App-Guardrails erweitert: `tools/ci/check_ai_guardrails.py` prueft jetzt zusaetzlich neue GUI-Entrypoint-Dateien unter `kursplaner/adapters/gui/` auf verpflichtenden Shared-GUI-Bootstrap (`ensure_bw_gui_on_path`, `bw_gui.runtime`, Shared-Menu/Dialog/Shortcut/Hover) und blockiert direkte `tkinter`-Imports.
 - Guardrails gehaertet: `tools/ci/check_ai_guardrails.py` erzwingt Shared-UI-Vertraege in `kursplaner/adapters/gui/screen_builder.py` und `kursplaner/adapters/gui/hover_tooltip.py` und blockiert Legacy-Fallbackzweige (native Menuepfade, lokale Tooltip-Fallbackklasse).
 - Nicht-Theme-Sonderpfade entfernt: `kursplaner/adapters/gui/screen_builder.py` und `kursplaner/adapters/gui/hover_tooltip.py` nutzen Shared-Menueleiste, Shared-Shortcut-Formatter und Shared-HoverTooltip jetzt verpflichtend; native Menue- und No-op-Tooltip-Fallbacks wurden geloescht.
 - Theme-Sonderpfade entfernt: `kursplaner/adapters/gui/ui_theme.py` importiert Shared-Themeregister und Baseline-ttk-Setup jetzt verpflichtend; optionale Fallback-Branches (`ModuleNotFoundError`/`None`-Guards) wurden geloescht.
