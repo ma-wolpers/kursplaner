@@ -16,6 +16,8 @@ GUARDRAIL_RELEVANT_PATHS = {
     "docs/ARCHITEKTUR_KERN.md",
     "docs/ARCHITEKTUR_UMSETZUNGSPLAN.md",
     "kursplaner/adapters/gui/main_window.py",
+    "kursplaner/adapters/gui/screen_builder.py",
+    "kursplaner/adapters/gui/hover_tooltip.py",
     "kursplaner/core/config/path_store.py",
     "kursplaner/core/usecases/daily_course_log_usecase.py",
     "kursplaner/infrastructure/repositories/lesson_index_repository.py",
@@ -96,6 +98,12 @@ def _require_substring(text: str, needle: str, source: str, errors: list[str]) -
     """Ergänzt einen Fehler, wenn ein verpflichtender Textbaustein fehlt."""
     if needle not in text:
         errors.append(f"{source}: missing required text -> {needle}")
+
+
+def _forbid_substring(text: str, needle: str, source: str, errors: list[str]) -> None:
+    """Ergänzt einen Fehler, wenn ein verbotener Legacy-Fallback gefunden wird."""
+    if needle in text:
+        errors.append(f"{source}: forbidden fallback text present -> {needle}")
 
 
 def _parse_module(rel_path: str, errors: list[str]) -> ast.Module | None:
@@ -394,6 +402,43 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     )
 
 
+def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
+    """Erzwingt Shared-UI-Vertraege in ScreenBuilder und HoverTooltip-Bridge."""
+
+    screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
+    for snippet in (
+        "from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar",
+        "from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent",
+        "from kursplaner.adapters.gui.hover_tooltip import HoverTooltip",
+        "self._shared_menu_bar = SharedCustomMenuBar(",
+        "rendered_text = compose_shared_hover_text_for_intent(",
+        "tooltip = HoverTooltip(widget, rendered_text)",
+    ):
+        _require_substring(screen_builder, snippet, "kursplaner/adapters/gui/screen_builder.py", errors)
+
+    for snippet in (
+        "except ModuleNotFoundError",
+        "def _build_native_menu(",
+        "if SharedCustomMenuBar is None",
+        "if compose_shared_hover_text_for_intent is None",
+    ):
+        _forbid_substring(screen_builder, snippet, "kursplaner/adapters/gui/screen_builder.py", errors)
+
+    hover_tooltip = _read("kursplaner/adapters/gui/hover_tooltip.py")
+    _require_substring(
+        hover_tooltip,
+        "from bw_gui.widgets.hover_tooltip import HoverTooltip as HoverTooltip",
+        "kursplaner/adapters/gui/hover_tooltip.py",
+        errors,
+    )
+    _forbid_substring(
+        hover_tooltip,
+        "class HoverTooltip",
+        "kursplaner/adapters/gui/hover_tooltip.py",
+        errors,
+    )
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -486,6 +531,7 @@ def main() -> int:
     _check_changelog_updated(staged, errors)
     _check_undo_writeflow_guardrails(errors)
     _check_runtime_shortcut_integration(errors)
+    _check_shared_ui_contract_hardening(errors)
     warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.
