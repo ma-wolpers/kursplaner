@@ -10,6 +10,7 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- Main menu rendering now uses the shared `bw_gui.menu.CustomMenuBar` with centralized menu definitions (including recent-undo and theme submenu handling), while keeping a native fallback path when shared menu modules are unavailable.
 - Interactive startup path-check now creates its root window via shared `bw_gui.runtime.ui` aliases in `path_bootstrap.py` instead of importing `tkinter` directly.
 - Window identity/icon helpers now use shared `bw_gui.runtime.ui` aliases in `window_identity.py` instead of importing `tkinter` directly.
 - Column visibility popup wiring now uses shared `bw_gui.runtime` aliases (`ui`, `widgets`) in `column_visibility_dialog.py` instead of direct `tkinter`/`ttk` imports.

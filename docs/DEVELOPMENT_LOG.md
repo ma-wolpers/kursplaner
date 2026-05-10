@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Shared-Menueleiste integriert: `kursplaner/adapters/gui/screen_builder.py` baut das Hauptmenue jetzt primaer ueber `bw_gui.menu.CustomMenuBar` mit zentralen `MenuDefinition`/`MenuItem`-Providern (inkl. Theme-/Undo-Untermenues) und behaelt einen nativen `ui.Menu`-Fallback fuer fehlende Shared-Menu-Module.
 - Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/window_identity.py` nutzt jetzt `bw_gui.runtime.ui`-Typen/Exceptions statt direktem `tkinter`-Import.
 - Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/path_bootstrap.py` nutzt jetzt `bw_gui.runtime.ui` fuer den Root-Window-Start statt direktem `tkinter`-Import.
 - Tk/ttk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/column_visibility_dialog.py` nutzt jetzt zentrale Runtime-Aliases aus `bw_gui.runtime` (`ui`/`widgets`) statt direkter `tkinter`-/`ttk`-Imports.

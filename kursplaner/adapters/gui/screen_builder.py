@@ -4,6 +4,14 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+try:
+    from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
+    from bw_gui.menu import MenuDefinition as SharedMenuDefinition
+    from bw_gui.menu import MenuItem as SharedMenuItem
+except ModuleNotFoundError:
+    SharedCustomMenuBar = None
+    SharedMenuDefinition = None
+    SharedMenuItem = None
 
 
 from bw_libs.ui_contract.keybinding import (
@@ -29,6 +37,8 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
 )
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import (
+    THEMES,
+    THEME_ORDER,
     apply_window_theme,
     configure_ttk_theme,
     get_theme,
@@ -64,6 +74,7 @@ class ScreenBuilder:
         self.app.shortcut_runtime_debug_context_var = None
         self.app.shortcut_runtime_debug_summary_var = None
         self.app.shortcut_runtime_debug_offline_var = None
+        self._shared_menu_bar = None
 
     def _apply_toolbar_icons(self):
         styler = getattr(self.app, "toolbar_icon_styler", None)
@@ -396,8 +407,149 @@ class ScreenBuilder:
         self._last_toolbar_wrap_width = width
         self._layout_toolbar_slots()
 
+    def _set_theme_from_menu(self, theme_key: str) -> None:
+        self.app.theme_var.set(theme_key)
+        self.app._on_theme_changed()
+
+    def _recent_changes_menu_items(self):
+        if SharedMenuItem is None:
+            return ()
+
+        labels = self.app.action_controller.list_recent_change_labels(limit=5)
+        if not labels:
+            return (SharedMenuItem(type="disabled", label="Keine Änderungen"),)
+
+        return tuple(
+            SharedMenuItem(
+                type="command",
+                label=f"{idx + 1}. {(label.strip() or 'Änderung')}",
+                command=lambda recent_index=idx: self._emit_intent(
+                    UiIntent.EDIT_UNDO_TO_RECENT_INDEX,
+                    recent_index=recent_index,
+                ),
+            )
+            for idx, label in enumerate(labels)
+        )
+
+    def _menu_items_file(self):
+        return (
+            SharedMenuItem(type="command", label="Neu (Strg+N)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW)),
+            SharedMenuItem(
+                type="command",
+                label="Lesson-Index neu aufbauen",
+                command=lambda: self._emit_intent(UiIntent.REBUILD_LESSON_INDEX),
+            ),
+            SharedMenuItem(type="command", label="Einstellungen…", command=lambda: self._emit_intent(UiIntent.OPEN_SETTINGS)),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(type="command", label="Beenden", command=self.app.destroy),
+        )
+
+    def _menu_items_edit(self):
+        return (
+            SharedMenuItem(type="command", label="Undo (Strg+Z)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO)),
+            SharedMenuItem(type="command", label="Redo (Strg+Y)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO)),
+            SharedMenuItem(type="submenu", label="Letzte Änderungen", items=self._recent_changes_menu_items()),
+        )
+
+    def _menu_items_action(self):
+        return (
+            SharedMenuItem(type="command", label="Einheit kopieren (Strg+C)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_COPY)),
+            SharedMenuItem(type="command", label="Einheit einfügen (Strg+V)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_PASTE)),
+            SharedMenuItem(type="command", label="Exportieren als... (Strg+P)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_EXPORT_AS)),
+            SharedMenuItem(type="command", label="Markdown finden…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_FIND)),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(type="command", label="Einheit leeren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR)),
+            SharedMenuItem(type="command", label="Einheit umbenennen…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME)),
+            SharedMenuItem(type="command", label="Schatteneinheiten anzeigen…", command=lambda: self._emit_intent(UiIntent.SHOW_SHADOW_LESSONS)),
+            SharedMenuItem(type="command", label="Einheit aufsplitten", command=lambda: self._emit_intent(UiIntent.TOOLBAR_SPLIT)),
+            SharedMenuItem(type="command", label="Einheiten zusammenführen", command=lambda: self._emit_intent(UiIntent.TOOLBAR_MERGE)),
+            SharedMenuItem(
+                type="command",
+                label="Kontextaktion: UB markieren / Ausfall zurücknehmen (Strg+B)",
+                command=lambda: self._emit_intent(UiIntent.TOGGLE_RESUME_OR_UB),
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Als Hospitation markieren",
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_HOSPITATION),
+            ),
+        )
+
+    def _menu_items_view(self):
+        theme_items = tuple(
+            SharedMenuItem(
+                type="radio",
+                label=THEMES[theme_key].get("label", theme_key),
+                checked=(self.app.theme_var.get() == theme_key),
+                command=lambda key=theme_key: self._set_theme_from_menu(key),
+            )
+            for theme_key in THEME_ORDER
+        )
+
+        return (
+            SharedMenuItem(
+                type="radio",
+                label="Lange Zeilen aufgeklappt",
+                checked=bool(self.app.expand_long_rows_var.get()),
+                command=lambda: self._emit_intent(UiIntent.TOGGLE_EXPAND_MODE),
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Spaltenarten anzeigen/verstecken… (Strg+L)",
+                command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
+            ),
+            SharedMenuItem(
+                type="radio",
+                label="Auto-Scroll zur nächsten Einheit",
+                checked=bool(self.app.auto_scroll_next_unit_var.get()),
+                command=lambda: self.app.auto_scroll_next_unit_var.set(not bool(self.app.auto_scroll_next_unit_var.get())),
+            ),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(
+                type="command",
+                label="UB-Übersicht anzeigen (Strg+Shift+U)",
+                command=lambda: self._emit_intent(UiIntent.SHOW_UB_ACHIEVEMENTS),
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Shortcut-Übersicht anzeigen (Strg+H)",
+                command=lambda: self._emit_intent(UiIntent.SHOW_SHORTCUT_OVERVIEW),
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
+                command=self._open_shortcut_runtime_debug_dialog,
+            ),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(type="submenu", label="Theme", items=theme_items),
+        )
+
     def _build_menu(self):
         """Erzeugt die Hauptmenüs inklusive Wartungsaktionen."""
+        if SharedCustomMenuBar is None or SharedMenuDefinition is None or SharedMenuItem is None:
+            self._build_native_menu()
+            return
+
+        if self._shared_menu_bar is not None:
+            self._shared_menu_bar.destroy()
+
+        definitions = (
+            SharedMenuDefinition(key="datei", label="Datei", alt="d", items_provider=self._menu_items_file),
+            SharedMenuDefinition(key="bearbeiten", label="Bearbeiten", alt="b", items_provider=self._menu_items_edit),
+            SharedMenuDefinition(key="aktion", label="Aktion", alt="k", items_provider=self._menu_items_action),
+            SharedMenuDefinition(key="ansicht", label="Ansicht", alt="a", items_provider=self._menu_items_view),
+        )
+
+        self._shared_menu_bar = SharedCustomMenuBar(
+            self.app,
+            definitions,
+            theme_key=self.app.theme_var.get(),
+        )
+        self._shared_menu_bar.build()
+        self.app.config(menu="")
+
+    def _build_native_menu(self):
+        """Fallback-Menü für Umgebungen ohne Shared CustomMenuBar."""
         menu = ui.Menu(self.app)
 
         datei = ui.Menu(menu, tearoff=0)
@@ -1062,6 +1214,8 @@ class ScreenBuilder:
         theme_key = self.app.theme_var.get()
         apply_window_theme(self.app, theme_key)
         configure_ttk_theme(self.app, theme_key)
+        if self._shared_menu_bar is not None:
+            self._shared_menu_bar.refresh_theme(theme_key)
         self._apply_toolbar_icons()
 
         theme = get_theme(theme_key)
