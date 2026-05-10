@@ -7,8 +7,12 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 try:
+    from bw_gui.theming.theme_manager import THEMES as SHARED_THEMES
+    from bw_gui.theming.theme_manager import THEME_ORDER as SHARED_THEME_ORDER
     from bw_gui.theming.theme_manager import configure_ttk_theme as configure_shared_ttk_theme
 except ModuleNotFoundError:
+    SHARED_THEMES = {}
+    SHARED_THEME_ORDER = ()
     configure_shared_ttk_theme = None
 
 THEMES = {
@@ -351,6 +355,33 @@ THEME_ORDER = [
     "charcoal",
     "blackforge",
 ]
+
+
+def _merge_shared_theme_registry() -> None:
+    """Enrich local theme registry with shared theme family keys."""
+    if not SHARED_THEMES:
+        return
+
+    for theme_key, values in SHARED_THEMES.items():
+        THEMES.setdefault(theme_key, dict(values))
+
+    merged_order: list[str] = []
+    for theme_key in THEME_ORDER:
+        if theme_key in THEMES and theme_key not in merged_order:
+            merged_order.append(theme_key)
+
+    for theme_key in SHARED_THEME_ORDER:
+        if theme_key in THEMES and theme_key not in merged_order:
+            merged_order.append(theme_key)
+
+    for theme_key in THEMES:
+        if theme_key not in merged_order:
+            merged_order.append(theme_key)
+
+    THEME_ORDER[:] = merged_order
+
+
+_merge_shared_theme_registry()
 
 DEFAULT_THEME = "mono_day"
 THEME_INTENSITY_LEVELS: dict[str, float] = {

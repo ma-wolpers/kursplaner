@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Shared-Themeregister vereinheitlicht: `kursplaner/adapters/gui/ui_theme.py` mischt jetzt die zentrale `bw_gui`-Theme-Registry ein, sodass Kursplaner- und Blattwerk-Themefamilien gemeinsam verfuegbar sind.
+- Alt-Navigation im Shared-Hauptmenue visuell wiederhergestellt: Top-Level-Menuebuttons zeigen die Mnemonic-Unterstreichung wieder konsistent im CustomMenuBar-Pfad.
 - Shared-Menueleiste integriert: `kursplaner/adapters/gui/screen_builder.py` baut das Hauptmenue jetzt primaer ueber `bw_gui.menu.CustomMenuBar` mit zentralen `MenuDefinition`/`MenuItem`-Providern (inkl. Theme-/Undo-Untermenues) und behaelt einen nativen `ui.Menu`-Fallback fuer fehlende Shared-Menu-Module.
 - Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/window_identity.py` nutzt jetzt `bw_gui.runtime.ui`-Typen/Exceptions statt direktem `tkinter`-Import.
 - Tk-Runtime-Pilotmigration erweitert: `kursplaner/adapters/gui/path_bootstrap.py` nutzt jetzt `bw_gui.runtime.ui` fuer den Root-Window-Start statt direktem `tkinter`-Import.

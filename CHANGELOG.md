@@ -10,6 +10,8 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- Theme-Auswahl zeigt jetzt gemeinsam die Kursplaner- und Blattwerk-Themefamilien aus der zentralen Shared-GUI-Registry.
+- Alt-Mnemonics im Hauptmenue sind auf dem Shared-CustomMenuBar-Pfad wieder sichtbar unterstrichen.
 - Main menu rendering now uses the shared `bw_gui.menu.CustomMenuBar` with centralized menu definitions (including recent-undo and theme submenu handling), while keeping a native fallback path when shared menu modules are unavailable.
 - Interactive startup path-check now creates its root window via shared `bw_gui.runtime.ui` aliases in `path_bootstrap.py` instead of importing `tkinter` directly.
 - Window identity/icon helpers now use shared `bw_gui.runtime.ui` aliases in `window_identity.py` instead of importing `tkinter` directly.
