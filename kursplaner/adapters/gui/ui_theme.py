@@ -7,13 +7,13 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 try:
-    from bw_gui.theming.theme_manager import THEMES as SHARED_THEMES
-    from bw_gui.theming.theme_manager import THEME_ORDER as SHARED_THEME_ORDER
-    from bw_gui.theming.theme_manager import configure_ttk_theme as configure_shared_ttk_theme
+    from bw_gui.theming.theme_manager import THEMES as BASE_THEME_REGISTRY
+    from bw_gui.theming.theme_manager import THEME_ORDER as BASE_THEME_ORDER
+    from bw_gui.theming.theme_manager import configure_ttk_theme as configure_ttk_theme_base
 except ModuleNotFoundError:
-    SHARED_THEMES = {}
-    SHARED_THEME_ORDER = ()
-    configure_shared_ttk_theme = None
+    BASE_THEME_REGISTRY = {}
+    BASE_THEME_ORDER = ()
+    configure_ttk_theme_base = None
 
 THEMES = {
     "mono_day": {
@@ -359,10 +359,10 @@ THEME_ORDER = [
 
 def _merge_shared_theme_registry() -> None:
     """Enrich local theme registry with shared theme family keys."""
-    if not SHARED_THEMES:
+    if not BASE_THEME_REGISTRY:
         return
 
-    for theme_key, values in SHARED_THEMES.items():
+    for theme_key, values in BASE_THEME_REGISTRY.items():
         THEMES.setdefault(theme_key, dict(values))
 
     merged_order: list[str] = []
@@ -370,7 +370,7 @@ def _merge_shared_theme_registry() -> None:
         if theme_key in THEMES and theme_key not in merged_order:
             merged_order.append(theme_key)
 
-    for theme_key in SHARED_THEME_ORDER:
+    for theme_key in BASE_THEME_ORDER:
         if theme_key in THEMES and theme_key not in merged_order:
             merged_order.append(theme_key)
 
@@ -559,8 +559,8 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None):
     theme = get_theme(theme_key)
 
     # Shared baseline first, local styles override where Kursplaner needs custom behavior.
-    if configure_shared_ttk_theme is not None:
-        configure_shared_ttk_theme(root, normalize_theme_key(theme_key))
+    if configure_ttk_theme_base is not None:
+        configure_ttk_theme_base(root, normalize_theme_key(theme_key))
 
     style = widgets.Style(root)
     try:
