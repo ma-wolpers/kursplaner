@@ -4,6 +4,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
 from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
 from bw_gui.menu import MenuDefinition as SharedMenuDefinition
 from bw_gui.menu import MenuItem as SharedMenuItem

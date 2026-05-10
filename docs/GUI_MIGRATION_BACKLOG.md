@@ -1,12 +1,6 @@
 # GUI Migration Backlog
 
 ## Active Exemptions
-- kursplaner/adapters/gui/main_window.py
-  remove_by: 2026-12-31
-  reason: Existing GUI root entrypoint is baseline-scoped while strict shared-contract checks are active.
-- kursplaner/adapters/gui/screen_builder.py
-  remove_by: 2026-12-31
-  reason: Existing primary screen composition entrypoint is baseline-scoped while strict shared-contract checks are active.
 - kursplaner/adapters/gui/main_window.py:KursplanerApp
   remove_by: 2026-09-30
   reason: Local ui.Tk baseclass pending migration to bw-gui host/factory.

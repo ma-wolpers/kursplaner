@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Step-3-Exemption-Abbau fortgesetzt: Future-Entrypoint-Baselines fuer `kursplaner/adapters/gui/main_window.py` und `kursplaner/adapters/gui/screen_builder.py` entfernt; aktiver Exemption-Backlog enthaelt nur noch die verbleibenden Klassenmigrationen.
 - Step-3-Exemption-Governance aktiviert: `docs/GUI_MIGRATION_BACKLOG.md` ist jetzt verbindliche Referenz fuer aktive GUI-Baselines/Exemptions inkl. `remove_by`-Datum; Guardrails validieren die Backlog-Referenzen explizit.
 - Governance-Policy geschaerft: `AGENTS.md` und `.github/copilot-instructions.md` enthalten jetzt explizit die Strict-bw-gui-only-Regel (keine lokale tkinter/ttk-Widgetimplementierung in Repos; wiederverwendbare GUI-Bausteine zuerst in bw-gui).
 - Repo-weite Strict-bw-gui-Guardrails eingefuehrt: `tools/ci/check_ai_guardrails.py` scannt jetzt alle GUI-Pythondateien unter `kursplaner/adapters/gui/` per AST, blockiert direkte `tkinter`/`ttk`-Imports und verhindert neue lokale Basisklassen auf `ui`/`widgets`/`tui` (mit expliziter Legacy-Allowlist fuer bestehende Klassen).

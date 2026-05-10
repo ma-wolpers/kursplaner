@@ -3,6 +3,10 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
+from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
+from bw_gui.menu import CustomMenuBar as _SharedCustomMenuBarContractMarker
+from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker
+from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker
 from datetime import date
 
 from bw_libs.app_shell import TkinterAppShell
