@@ -10,7 +10,7 @@ except ModuleNotFoundError:
     class HoverTooltip:  # type: ignore[no-redef]
         """No-op fallback when shared GUI core is unavailable."""
 
-        def __init__(self, widget, text: str):
+        def __init__(self, widget, text: str, **_kwargs):
             self.widget = widget
             self.text = str(text or "").strip()
 

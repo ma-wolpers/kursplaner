@@ -10,6 +10,8 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- Hover tooltips now appear with smoother delayed behavior, pick up the active app theme automatically, and stay fully visible on-screen.
+- Shared settings and scrollbar theming received a visual polish via the updated `bw-gui` baseline styles.
 - Shared main-menu overlays now close automatically when focus moves away (inside or outside the app window), so they no longer remain in front of other applications.
 - Theme-Auswahl zeigt jetzt gemeinsam die Kursplaner- und Blattwerk-Themefamilien aus der zentralen Shared-GUI-Registry.
 - Alt-Mnemonics im Hauptmenue sind auf dem Shared-CustomMenuBar-Pfad wieder sichtbar unterstrichen.

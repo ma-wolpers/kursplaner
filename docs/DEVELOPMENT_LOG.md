@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Shared-Tooltip-Polish uebernommen: `bw_gui.widgets.HoverTooltip` nutzt jetzt verzogertes Anzeigen, Theme-Ableitung aus dem aktiven Fensterkontext sowie Bildschirm-Clamping/Cancel-Handling fuer stabilere Hover-Overlays.
+- Shared-Theme-Feinschliff uebernommen: gemeinsame ttk-Styles fuer Settings-Panels/Hint-Labels und verfeinerte Scrollbar-Kontraste kommen jetzt aus dem aktualisierten `bw-gui`-Submodule-Stand.
 - Shared-Themeregister vereinheitlicht: `kursplaner/adapters/gui/ui_theme.py` mischt jetzt die zentrale `bw_gui`-Theme-Registry ein, sodass Kursplaner- und Blattwerk-Themefamilien gemeinsam verfuegbar sind.
 - Alt-Navigation im Shared-Hauptmenue visuell wiederhergestellt: Top-Level-Menuebuttons zeigen die Mnemonic-Unterstreichung wieder konsistent im CustomMenuBar-Pfad.
 - Shared-Menueleiste integriert: `kursplaner/adapters/gui/screen_builder.py` baut das Hauptmenue jetzt primaer ueber `bw_gui.menu.CustomMenuBar` mit zentralen `MenuDefinition`/`MenuItem`-Providern (inkl. Theme-/Undo-Untermenues) und behaelt einen nativen `ui.Menu`-Fallback fuer fehlende Shared-Menu-Module.
