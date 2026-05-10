@@ -13,6 +13,11 @@ except ModuleNotFoundError:
     SharedMenuDefinition = None
     SharedMenuItem = None
 
+try:
+    from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
+except ModuleNotFoundError:
+    compose_shared_hover_text_for_intent = None
+
 
 from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
@@ -75,6 +80,7 @@ class ScreenBuilder:
         self.app.shortcut_runtime_debug_summary_var = None
         self.app.shortcut_runtime_debug_offline_var = None
         self._shared_menu_bar = None
+        self._intent_help_tooltips: list[tuple[HoverTooltip, str, str]] = []
 
     def _apply_toolbar_icons(self):
         styler = getattr(self.app, "toolbar_icon_styler", None)
@@ -136,7 +142,7 @@ class ScreenBuilder:
             button.pack(side="left", padx=spec.padx)
             self.app.action_buttons[spec.key] = button
             if spec.help_key is not None:
-                tooltip = self._add_help(button, MAIN_WINDOW_HELP.get(spec.help_key, ""))
+                tooltip = self._add_help(button, MAIN_WINDOW_HELP.get(spec.help_key, ""), intent=spec.intent)
                 if tooltip is not None:
                     self.app.action_help_tooltips[spec.key] = tooltip
 
@@ -247,7 +253,11 @@ class ScreenBuilder:
         )
         column_visibility_button.pack(side="left", padx=(12, 0))
         self.app.action_buttons["column_visibility"] = column_visibility_button
-        tooltip = self._add_help(column_visibility_button, MAIN_WINDOW_HELP.get("column_visibility", ""))
+        tooltip = self._add_help(
+            column_visibility_button,
+            MAIN_WINDOW_HELP.get("column_visibility", ""),
+            intent=UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS,
+        )
         if tooltip is not None:
             self.app.action_help_tooltips["column_visibility"] = tooltip
         self.app._refresh_row_mode_button_styles()
@@ -670,13 +680,41 @@ class ScreenBuilder:
         if not hasattr(self.app, "hover_tooltips"):
             self.app.hover_tooltips = []
 
-    def _add_help(self, widget: ui.Widget, text: str) -> HoverTooltip | None:
+    def _add_help(self, widget: ui.Widget, text: str, *, intent: str | None = None) -> HoverTooltip | None:
         """Registriert bei Bedarf eine Hover-Hilfe für ein Widget."""
-        if not text.strip():
+        base_text = text.strip()
+        if not base_text:
             return None
-        tooltip = HoverTooltip(widget, text)
+
+        rendered_text = base_text
+        if intent and compose_shared_hover_text_for_intent is not None:
+            rendered_text = compose_shared_hover_text_for_intent(
+                base_text,
+                intent=intent,
+                shortcuts=self._runtime_shortcuts,
+            )
+
+        tooltip = HoverTooltip(widget, rendered_text)
+        if intent is not None:
+            self._intent_help_tooltips.append((tooltip, base_text, intent))
         self.app.hover_tooltips.append(tooltip)
         return tooltip
+
+    def _refresh_intent_help_tooltips(self) -> None:
+        """Aktualisiert Intent-basierte Hover-Texte nach Shortcut-Registrierung."""
+
+        if compose_shared_hover_text_for_intent is None:
+            return
+
+        for tooltip, base_text, intent in list(self._intent_help_tooltips):
+            try:
+                tooltip.text = compose_shared_hover_text_for_intent(
+                    base_text,
+                    intent=intent,
+                    shortcuts=self._runtime_shortcuts,
+                )
+            except Exception:
+                continue
 
     def _bind_shortcuts(self):
         """Registriert globale Tastaturkürzel für die Hauptansicht."""
@@ -730,6 +768,7 @@ class ScreenBuilder:
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
             allow_when_text_input=True,
         )
+        self._refresh_intent_help_tooltips()
 
     def _register_runtime_shortcut(
         self,

@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Hover-Overlay-Formatierung harmonisiert: `kursplaner/adapters/gui/screen_builder.py` nutzt jetzt intent-basierte Hover-Text-Aufloesung ueber `bw_gui.shortcuts.compose_hover_text_for_intent(...)`, sodass Shortcut-Hinweise aus der zentralen Runtime-Registry stammen.
 - Shared-Tooltip-Polish uebernommen: `bw_gui.widgets.HoverTooltip` nutzt jetzt verzogertes Anzeigen, Theme-Ableitung aus dem aktiven Fensterkontext sowie Bildschirm-Clamping/Cancel-Handling fuer stabilere Hover-Overlays.
 - Shared-Theme-Feinschliff uebernommen: gemeinsame ttk-Styles fuer Settings-Panels/Hint-Labels und verfeinerte Scrollbar-Kontraste kommen jetzt aus dem aktualisierten `bw-gui`-Submodule-Stand.
 - Shared-Themeregister vereinheitlicht: `kursplaner/adapters/gui/ui_theme.py` mischt jetzt die zentrale `bw_gui`-Theme-Registry ein, sodass Kursplaner- und Blattwerk-Themefamilien gemeinsam verfuegbar sind.

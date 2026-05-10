@@ -10,6 +10,7 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- Toolbar and action hover overlays now resolve shortcut hints from the central runtime keybinding registry, keeping tooltip wording and active shortcut labels consistent.
 - Hover tooltips now appear with smoother delayed behavior, pick up the active app theme automatically, and stay fully visible on-screen.
 - Shared settings and scrollbar theming received a visual polish via the updated `bw-gui` baseline styles.
 - Shared main-menu overlays now close automatically when focus moves away (inside or outside the app window), so they no longer remain in front of other applications.
