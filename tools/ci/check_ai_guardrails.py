@@ -76,6 +76,10 @@ FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
 GUI_CONTRACT_SCAN_ROOTS = (*FUTURE_GUI_SEARCH_ROOTS, "bw_libs")
 UI_BASECLASS_MODULE_ALIASES = {"ui", "widgets", "tui"}
 LEGACY_UI_BASECLASS_ALLOWLIST: set[str] = set()
+SHARED_PRIMITIVE_CLASS_NAMES = {"TkRootHost", "ScrollablePopupWindow", "WrappedTextField"}
+SHARED_PRIMITIVE_CLASS_ALLOWLIST = {
+    "kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow",
+}
 GUI_MIGRATION_BACKLOG_PATH = "docs/GUI_MIGRATION_BACKLOG.md"
 
 
@@ -567,6 +571,15 @@ def _check_repo_wide_gui_contracts(errors: list[str]) -> None:
         for node in ast.walk(module):
             if not isinstance(node, ast.ClassDef):
                 continue
+
+            if node.name in SHARED_PRIMITIVE_CLASS_NAMES:
+                marker = f"{rel_path}:{node.name}"
+                if marker not in SHARED_PRIMITIVE_CLASS_ALLOWLIST:
+                    errors.append(
+                        f"{rel_path}:{node.lineno} class '{node.name}' redefines a reserved shared primitive; "
+                        "import it from bw_gui.runtime/dialogs/widgets instead"
+                    )
+
             bases = _local_ui_bases(node)
             if not bases:
                 continue
