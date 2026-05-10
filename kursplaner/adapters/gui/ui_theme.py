@@ -6,14 +6,9 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
-try:
-    from bw_gui.theming.theme_manager import THEMES as BASE_THEME_REGISTRY
-    from bw_gui.theming.theme_manager import THEME_ORDER as BASE_THEME_ORDER
-    from bw_gui.theming.theme_manager import configure_ttk_theme as configure_ttk_theme_base
-except ModuleNotFoundError:
-    BASE_THEME_REGISTRY = {}
-    BASE_THEME_ORDER = ()
-    configure_ttk_theme_base = None
+from bw_gui.theming.theme_manager import THEMES as BASE_THEME_REGISTRY
+from bw_gui.theming.theme_manager import THEME_ORDER as BASE_THEME_ORDER
+from bw_gui.theming.theme_manager import configure_ttk_theme as configure_ttk_theme_base
 
 THEMES = {
     "mono_day": {
@@ -359,9 +354,6 @@ THEME_ORDER = [
 
 def _merge_base_theme_registry() -> None:
     """Enrich local theme registry with base theme family keys."""
-    if not BASE_THEME_REGISTRY:
-        return
-
     for theme_key, values in BASE_THEME_REGISTRY.items():
         THEMES.setdefault(theme_key, dict(values))
 
@@ -559,8 +551,7 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None):
     theme = get_theme(theme_key)
 
     # Shared baseline first, local styles override where Kursplaner needs custom behavior.
-    if configure_ttk_theme_base is not None:
-        configure_ttk_theme_base(root, normalize_theme_key(theme_key))
+    configure_ttk_theme_base(root, normalize_theme_key(theme_key))
 
     style = widgets.Style(root)
     try:

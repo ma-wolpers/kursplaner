@@ -10,6 +10,7 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- Theme special paths were removed from `kursplaner/adapters/gui/ui_theme.py`: shared theme registry and baseline style wiring are now mandatory, and optional fallback branches for missing shared theming were deleted.
 - Settings now open through the shared `bw_gui.dialogs.open_tabbed_settings_dialog` renderer with unified section navigation for path settings, UB cutoff, and lesson-builder field toggles.
 - Toolbar and action hover overlays now resolve shortcut hints from the central runtime keybinding registry, keeping tooltip wording and active shortcut labels consistent.
 - Hover tooltips now appear with smoother delayed behavior, pick up the active app theme automatically, and stay fully visible on-screen.
