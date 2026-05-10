@@ -357,8 +357,8 @@ THEME_ORDER = [
 ]
 
 
-def _merge_shared_theme_registry() -> None:
-    """Enrich local theme registry with shared theme family keys."""
+def _merge_base_theme_registry() -> None:
+    """Enrich local theme registry with base theme family keys."""
     if not BASE_THEME_REGISTRY:
         return
 
@@ -381,7 +381,7 @@ def _merge_shared_theme_registry() -> None:
     THEME_ORDER[:] = merged_order
 
 
-_merge_shared_theme_registry()
+_merge_base_theme_registry()
 
 DEFAULT_THEME = "mono_day"
 THEME_INTENSITY_LEVELS: dict[str, float] = {
