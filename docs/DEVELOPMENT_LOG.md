@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Shared-Settings-Migration umgesetzt: `kursplaner/adapters/gui/settings_window.py` rendert die Einstellungen jetzt ueber `bw_gui.dialogs.open_tabbed_settings_dialog` (Sektionen fuer Pfade, UB-Cutoff und Lesson-Builder-Felder), inklusive bestehender Pfadvalidierung/Speicherflow aus dem Adapter.
+- `kursplaner/adapters/gui/path_settings_controller.py` oeffnet den Settings-Flow jetzt direkt ueber den neuen Shared-Dialog-Entry-Point statt ueber ein lokales Popup-Window.
 - Hover-Overlay-Formatierung harmonisiert: `kursplaner/adapters/gui/screen_builder.py` nutzt jetzt intent-basierte Hover-Text-Aufloesung ueber `bw_gui.shortcuts.compose_hover_text_for_intent(...)`, sodass Shortcut-Hinweise aus der zentralen Runtime-Registry stammen.
 - Shared-Tooltip-Polish uebernommen: `bw_gui.widgets.HoverTooltip` nutzt jetzt verzogertes Anzeigen, Theme-Ableitung aus dem aktiven Fensterkontext sowie Bildschirm-Clamping/Cancel-Handling fuer stabilere Hover-Overlays.
 - Shared-Theme-Feinschliff uebernommen: gemeinsame ttk-Styles fuer Settings-Panels/Hint-Labels und verfeinerte Scrollbar-Kontraste kommen jetzt aus dem aktualisierten `bw-gui`-Submodule-Stand.

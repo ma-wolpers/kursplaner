@@ -1,215 +1,243 @@
+from __future__ import annotations
+
 from datetime import time
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.dialogs import (
+    SettingsDialogSpec,
+    SettingsFieldSpec,
+    SettingsSectionSpec,
+    open_tabbed_settings_dialog,
+)
 
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox
-
-from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
-from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.config.ui_preferences_store import LessonBuilderFieldSettings
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
 
+_UB_CUTOFF_HOUR_KEY = "ub_past_cutoff_hour"
+_UB_CUTOFF_MINUTE_KEY = "ub_past_cutoff_minute"
+_SHOW_KOMPETENZEN_KEY = "lesson_builder_show_kompetenzen"
+_SHOW_STUNDENZIEL_KEY = "lesson_builder_show_stundenziel"
 
-class SettingsWindow(ScrollablePopupWindow):
-    """Stellt die GUI-Komponente Settings Window bereit.
 
-    Die Klasse kapselt Bedienlogik und delegiert fachliche Entscheidungen an Use Cases.
-    """
+def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> SettingsDialogSpec:
+    """Create the shared tabbed settings spec for Kursplaner settings."""
 
-    def __init__(
-        self,
-        master,
-        path_values: dict[str, str],
-        on_saved=None,
-        ub_past_cutoff_time: time | None = None,
-        on_ub_past_cutoff_saved=None,
-        lesson_builder_field_settings: LessonBuilderFieldSettings | None = None,
-        on_lesson_builder_fields_saved=None,
-        theme_key: str | None = None,
-        path_settings_usecase: PathSettingsUseCase | None = None,
-    ):
-        """Initialisiert den Einstellungen-Dialog für Pfadwerte."""
-        super().__init__(
+    path_fields = tuple(
+        SettingsFieldSpec(
+            key=field.key,
+            label=field.label,
+            field_type="string",
+            hint=field.help_text,
+        )
+        for field in path_settings_usecase.path_field_definitions()
+    )
+
+    return SettingsDialogSpec(
+        sections=(
+            SettingsSectionSpec(
+                key="paths",
+                label="Pfad-Einstellungen",
+                fields=path_fields,
+            ),
+            SettingsSectionSpec(
+                key="ub_past_cutoff",
+                label="UB-Vergangenheitsregel",
+                fields=(
+                    SettingsFieldSpec(
+                        key=_UB_CUTOFF_HOUR_KEY,
+                        label="UB-Cutoff Stunde",
+                        field_type="int",
+                        default=15,
+                        min_value=0,
+                        max_value=23,
+                        hint="UBs am aktuellen Datum gelten ab dieser Uhrzeit als Vergangenheit.",
+                    ),
+                    SettingsFieldSpec(
+                        key=_UB_CUTOFF_MINUTE_KEY,
+                        label="UB-Cutoff Minute",
+                        field_type="int",
+                        default=0,
+                        min_value=0,
+                        max_value=59,
+                        hint="24h-Format.",
+                    ),
+                ),
+            ),
+            SettingsSectionSpec(
+                key="lesson_builder_fields",
+                label="Einheit planen: optionale Felder",
+                fields=(
+                    SettingsFieldSpec(
+                        key=_SHOW_KOMPETENZEN_KEY,
+                        label="Kompetenzen anzeigen",
+                        field_type="bool",
+                        default=True,
+                    ),
+                    SettingsFieldSpec(
+                        key=_SHOW_STUNDENZIEL_KEY,
+                        label="Stundenziel anzeigen",
+                        field_type="bool",
+                        default=True,
+                    ),
+                ),
+            ),
+        )
+    )
+
+
+def _initial_values(
+    *,
+    path_values: dict[str, str],
+    ub_past_cutoff_time: time,
+    lesson_builder_field_settings: LessonBuilderFieldSettings,
+) -> dict[str, object]:
+    values: dict[str, object] = {key: value for key, value in path_values.items()}
+    values[_UB_CUTOFF_HOUR_KEY] = int(ub_past_cutoff_time.hour)
+    values[_UB_CUTOFF_MINUTE_KEY] = int(ub_past_cutoff_time.minute)
+    values[_SHOW_KOMPETENZEN_KEY] = bool(lesson_builder_field_settings.show_kompetenzen)
+    values[_SHOW_STUNDENZIEL_KEY] = bool(lesson_builder_field_settings.show_stundenziel)
+    return values
+
+
+def _extract_path_values(payload: dict[str, object], path_settings_usecase: PathSettingsUseCase) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for field in path_settings_usecase.path_field_definitions():
+        raw = payload.get(field.key, "")
+        values[field.key] = str(raw).strip()
+    return values
+
+
+def _extract_cutoff_time(payload: dict[str, object]) -> time:
+    hour = int(payload.get(_UB_CUTOFF_HOUR_KEY, 15))
+    minute = int(payload.get(_UB_CUTOFF_MINUTE_KEY, 0))
+    hour = max(0, min(23, hour))
+    minute = max(0, min(59, minute))
+    return time(hour=hour, minute=minute)
+
+
+def _extract_lesson_builder_settings(payload: dict[str, object]) -> LessonBuilderFieldSettings:
+    return LessonBuilderFieldSettings(
+        show_kompetenzen=bool(payload.get(_SHOW_KOMPETENZEN_KEY, True)),
+        show_stundenziel=bool(payload.get(_SHOW_STUNDENZIEL_KEY, True)),
+    )
+
+
+def _pick_path_for_issue(
+    *,
+    parent,
+    issue_key: str,
+    current_values: dict[str, str],
+    path_settings_usecase: PathSettingsUseCase,
+) -> str | None:
+    """Open picker dialog for an invalid path field and return normalized value."""
+
+    field = path_settings_usecase.path_field_by_key(issue_key)
+    if field is None:
+        return None
+
+    current = path_settings_usecase.resolve_for_key(current_values, issue_key)
+    initial = current if current.exists() else current.parent
+    if field.kind == "file":
+        selected = filedialog.askopenfilename(
+            parent=parent,
+            title=field.pick_title,
+            initialdir=str(initial),
+            filetypes=[("JSON", "*.json"), ("Alle Dateien", "*.*")],
+        )
+    else:
+        selected = filedialog.askdirectory(
+            parent=parent,
+            title=field.pick_title,
+            initialdir=str(initial),
+        )
+
+    if not selected:
+        return None
+
+    updated_values, changed = path_settings_usecase.apply_selected_path(current_values, issue_key, selected)
+    if not changed:
+        return None
+    return updated_values.get(issue_key)
+
+
+def open_settings_dialog(
+    master,
+    *,
+    path_values: dict[str, str],
+    on_saved=None,
+    ub_past_cutoff_time: time | None = None,
+    on_ub_past_cutoff_saved=None,
+    lesson_builder_field_settings: LessonBuilderFieldSettings | None = None,
+    on_lesson_builder_fields_saved=None,
+    theme_key: str | None = None,
+    path_settings_usecase: PathSettingsUseCase | None = None,
+) -> None:
+    """Open Kursplaner settings using the shared tabbed settings renderer."""
+
+    if path_settings_usecase is None:
+        raise RuntimeError("PathSettingsUseCase fehlt in SettingsWindow-Verdrahtung.")
+
+    spec = _build_settings_spec(path_settings_usecase)
+    active_path_values = dict(path_values)
+    active_cutoff = ub_past_cutoff_time or time(hour=15, minute=0)
+    active_lesson_builder_settings = lesson_builder_field_settings or LessonBuilderFieldSettings()
+    active_section: str | None = None
+    effective_theme_key = str(theme_key or "slate_indigo")
+
+    while True:
+        payload = _initial_values(
+            path_values=active_path_values,
+            ub_past_cutoff_time=active_cutoff,
+            lesson_builder_field_settings=active_lesson_builder_settings,
+        )
+        result = open_tabbed_settings_dialog(
             master,
             title="Einstellungen",
-            geometry="900x500",
-            minsize=(760, 340),
-            theme_key=theme_key,
+            theme_key=effective_theme_key,
+            spec=spec,
+            initial_values=payload,
+            initial_section=active_section,
         )
-
-        self.on_saved = on_saved
-        self.on_ub_past_cutoff_saved = on_ub_past_cutoff_saved
-        self.on_lesson_builder_fields_saved = on_lesson_builder_fields_saved
-        if path_settings_usecase is None:
-            raise RuntimeError("PathSettingsUseCase fehlt in SettingsWindow-Verdrahtung.")
-        self.path_settings_usecase = path_settings_usecase
-
-        cutoff = ub_past_cutoff_time or time(hour=15, minute=0)
-        self.ub_cutoff_hour_var = ui.StringVar(value=f"{int(cutoff.hour):02d}")
-        self.ub_cutoff_minute_var = ui.StringVar(value=f"{int(cutoff.minute):02d}")
-        builder_fields = lesson_builder_field_settings or LessonBuilderFieldSettings()
-        self.show_kompetenzen_var = ui.BooleanVar(value=bool(builder_fields.show_kompetenzen))
-        self.show_stundenziel_var = ui.BooleanVar(value=bool(builder_fields.show_stundenziel))
-
-        self.path_vars: dict[str, ui.StringVar] = {
-            field.key: ui.StringVar(value=path_values.get(field.key, ""))
-            for field in self.path_settings_usecase.path_field_definitions()
-        }
-        self._tooltips: list[HoverTooltip] = []
-
-        self._build_ui()
-        self._apply_theme()
-
-    def _apply_theme(self):
-        """Wendet Theme-Farben auf Fenster und ttk-Styles an."""
-        self.apply_theme()
-
-    def _build_ui(self):
-        """Erzeugt Eingabefelder und Buttons für die Pfadkonfiguration."""
-        root = widgets.Frame(self.content, padding=16)
-        root.pack(fill="both", expand=True)
-
-        paths = widgets.LabelFrame(root, text="Pfad-Einstellungen")
-        paths.pack(fill="x", expand=True)
-
-        row = 0
-        for field in self.path_settings_usecase.path_field_definitions():
-            label = widgets.Label(paths, text=field.label)
-            label.grid(
-                row=row,
-                column=0,
-                sticky="w",
-                pady=((10 if row == 0 else 8), 4),
-                padx=(10, 0),
-            )
-            self._tooltips.append(HoverTooltip(label, field.help_text))
-            row += 1
-            entry = widgets.Entry(paths, textvariable=self.path_vars[field.key])
-            entry.grid(
-                row=row,
-                column=0,
-                sticky="ew",
-                padx=(10, 0),
-                pady=(0, 4),
-            )
-            self._tooltips.append(HoverTooltip(entry, field.help_text))
-            widgets.Button(paths, text="Auswählen…", command=lambda key=field.key: self._pick_path(key)).grid(
-                row=row,
-                column=1,
-                padx=10,
-                pady=(0, 4),
-            )
-            row += 1
-
-        paths.columnconfigure(0, weight=1)
-
-        ub_rules = widgets.LabelFrame(root, text="UB-Vergangenheitsregel")
-        ub_rules.pack(fill="x", expand=False, pady=(10, 0))
-
-        widgets.Label(
-            ub_rules,
-            text="UBs am aktuellen Datum zählen ab folgender Uhrzeit als Vergangenheit:",
-        ).grid(row=0, column=0, columnspan=4, sticky="w", padx=10, pady=(10, 4))
-        widgets.Spinbox(ub_rules, from_=0, to=23, width=4, textvariable=self.ub_cutoff_hour_var).grid(
-            row=1,
-            column=0,
-            sticky="w",
-            padx=(10, 4),
-            pady=(0, 10),
-        )
-        widgets.Label(ub_rules, text=":").grid(row=1, column=1, sticky="w", pady=(0, 10))
-        widgets.Spinbox(ub_rules, from_=0, to=59, width=4, textvariable=self.ub_cutoff_minute_var).grid(
-            row=1,
-            column=2,
-            sticky="w",
-            padx=(4, 0),
-            pady=(0, 10),
-        )
-        widgets.Label(ub_rules, text="(24h-Format)").grid(row=1, column=3, sticky="w", padx=(8, 0), pady=(0, 10))
-
-        lesson_builder_rules = widgets.LabelFrame(root, text="Einheit planen: optionale Felder")
-        lesson_builder_rules.pack(fill="x", expand=False, pady=(10, 0))
-        widgets.Checkbutton(
-            lesson_builder_rules,
-            text="Kompetenzen anzeigen",
-            variable=self.show_kompetenzen_var,
-        ).pack(anchor="w", padx=10, pady=(10, 4))
-        widgets.Checkbutton(
-            lesson_builder_rules,
-            text="Stundenziel anzeigen",
-            variable=self.show_stundenziel_var,
-        ).pack(anchor="w", padx=10, pady=(0, 10))
-
-        buttons = widgets.Frame(root)
-        buttons.pack(fill="x", pady=(10, 0))
-        widgets.Button(buttons, text="Speichern", command=self._save).pack(side="left")
-        widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
-
-    def _current_values(self) -> dict[str, str]:
-        return {key: var.get().strip() for key, var in self.path_vars.items()}
-
-    def _pick_path(self, key: str):
-        """Öffnet Dateidialog passend zum Pfadtyp des gewählten Felds."""
-        field = self.path_settings_usecase.path_field_by_key(key)
-        if field is None:
+        if result is None:
             return
-        current = self.path_settings_usecase.resolve_for_key(self._current_values(), key)
-        initial = current if current.exists() else current.parent
-        if field.kind == "file":
-            selected = filedialog.askopenfilename(
-                parent=self,
-                title=field.pick_title,
-                initialdir=str(initial),
-                filetypes=[("JSON", "*.json"), ("Alle Dateien", "*.*")],
-            )
-        else:
-            selected = filedialog.askdirectory(
-                parent=self,
-                title=field.pick_title,
-                initialdir=str(initial),
-            )
 
-        if selected:
-            self.path_vars[key].set(selected)
+        proposed_path_values = _extract_path_values(result, path_settings_usecase)
+        proposed_cutoff = _extract_cutoff_time(result)
+        proposed_lesson_builder = _extract_lesson_builder_settings(result)
 
-    def _current_ub_cutoff_time(self) -> time:
-        hour_text = self.ub_cutoff_hour_var.get().strip()
-        minute_text = self.ub_cutoff_minute_var.get().strip()
-        hour = int(hour_text) if hour_text.isdigit() else 15
-        minute = int(minute_text) if minute_text.isdigit() else 0
-        hour = max(0, min(23, hour))
-        minute = max(0, min(59, minute))
-        return time(hour=hour, minute=minute)
-
-    def _save(self):
-        """Validiert und speichert die eingegebenen Pfade."""
-        values = self._current_values()
-
-        issues = self.path_settings_usecase.validate_values(values)
+        issues = path_settings_usecase.validate_values(proposed_path_values)
         if issues:
             first = issues[0]
             choose_other = messagebox.askyesno(
                 "Einstellungen",
                 f"{first.message}\n\nMöchten Sie stattdessen einen anderen Ort auswählen?",
-                parent=self,
+                parent=master,
             )
             if choose_other:
-                self._pick_path(first.key)
-            return
-
-        saved = self.path_settings_usecase.save_values(values)
-        if self.on_saved:
-            self.on_saved(saved)
-        if self.on_ub_past_cutoff_saved:
-            self.on_ub_past_cutoff_saved(self._current_ub_cutoff_time())
-        if self.on_lesson_builder_fields_saved:
-            self.on_lesson_builder_fields_saved(
-                LessonBuilderFieldSettings(
-                    show_kompetenzen=bool(self.show_kompetenzen_var.get()),
-                    show_stundenziel=bool(self.show_stundenziel_var.get()),
+                selected = _pick_path_for_issue(
+                    parent=master,
+                    issue_key=first.key,
+                    current_values=proposed_path_values,
+                    path_settings_usecase=path_settings_usecase,
                 )
-            )
-        self.destroy()
+                if selected:
+                    proposed_path_values[first.key] = selected
+
+            active_path_values = proposed_path_values
+            active_cutoff = proposed_cutoff
+            active_lesson_builder_settings = proposed_lesson_builder
+            active_section = "paths"
+            continue
+
+        saved_values = path_settings_usecase.save_values(proposed_path_values)
+        if on_saved:
+            on_saved(saved_values)
+        if on_ub_past_cutoff_saved:
+            on_ub_past_cutoff_saved(proposed_cutoff)
+        if on_lesson_builder_fields_saved:
+            on_lesson_builder_fields_saved(proposed_lesson_builder)
+        return
 

@@ -4,7 +4,7 @@ import pathlib
 from datetime import time
 
 from kursplaner.adapters.gui.dialog_services import filedialog
-from kursplaner.adapters.gui.settings_window import SettingsWindow
+from kursplaner.adapters.gui.settings_window import open_settings_dialog
 from kursplaner.core.config.ui_preferences_store import (
     LessonBuilderFieldSettings,
     load_lesson_builder_field_settings,
@@ -55,7 +55,7 @@ class MainWindowPathSettingsController:
 
     def open_settings_window(self):
         """Öffnet das Fenster zur Pflege aller verwalteten Pfade."""
-        window = SettingsWindow(
+        open_settings_dialog(
             self.app,
             path_values=self.app.path_values,
             on_saved=lambda values: self.on_paths_saved(values),
@@ -66,7 +66,6 @@ class MainWindowPathSettingsController:
             theme_key=self.app.theme_var.get(),
             path_settings_usecase=self.path_settings_usecase,
         )
-        window.grab_set()
 
     @staticmethod
     def on_ub_past_cutoff_saved(cutoff: time) -> None:
