@@ -74,6 +74,13 @@ FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
     "compose_hover_text",
     "HoverTooltip",
 )
+GUI_CONTRACT_SCAN_ROOTS = FUTURE_GUI_SEARCH_ROOTS
+UI_BASECLASS_MODULE_ALIASES = {"ui", "widgets", "tui"}
+LEGACY_UI_BASECLASS_ALLOWLIST = {
+    "kursplaner/adapters/gui/main_window.py:KursplanerApp",
+    "kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow",
+    "kursplaner/adapters/gui/wrapped_text_field.py:WrappedTextField",
+}
 
 
 def _repo_root() -> Path:
@@ -150,10 +157,60 @@ def _iter_future_gui_entry_candidates() -> list[str]:
     return sorted(candidates)
 
 
+def _is_repo_gui_python_path(rel_path: str) -> bool:
+    """Prüft, ob ein Pfad unter die repo-weiten GUI-Quellpfade fällt."""
+    normalized = rel_path.replace("\\", "/")
+    if not normalized.endswith(".py"):
+        return False
+    return any(normalized.startswith(f"{root}/") for root in GUI_CONTRACT_SCAN_ROOTS)
+
+
+def _iter_repo_gui_python_files() -> list[str]:
+    """Sammelt alle Python-Dateien unter den GUI-Scanwurzeln."""
+    files: set[str] = set()
+    for rel_root in GUI_CONTRACT_SCAN_ROOTS:
+        root_path = ROOT / rel_root
+        if not root_path.exists():
+            continue
+        for file_path in root_path.rglob("*.py"):
+            files.add(file_path.relative_to(ROOT).as_posix())
+    return sorted(files)
+
+
+def _contains_direct_tkinter_import(module: ast.Module) -> bool:
+    """Erkennt direkte tkinter/ttk-Imports auf Modulebene."""
+    for node in module.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                name = alias.name
+                if name == "tkinter" or name.startswith("tkinter.") or name == "ttk":
+                    return True
+        if isinstance(node, ast.ImportFrom):
+            module_name = node.module or ""
+            if (
+                module_name == "tkinter"
+                or module_name.startswith("tkinter.")
+                or module_name == "ttk"
+            ):
+                return True
+    return False
+
+
+def _local_ui_bases(class_node: ast.ClassDef) -> list[str]:
+    """Extrahiert lokale UI-Basisklassen wie ui.Tk/widgets.Frame/tui.Frame."""
+    bases: list[str] = []
+    for base in class_node.bases:
+        if isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name):
+            if base.value.id in UI_BASECLASS_MODULE_ALIASES:
+                bases.append(ast.unparse(base))
+    return bases
+
+
 def _parse_module(rel_path: str, errors: list[str]) -> ast.Module | None:
     """Parst eine Python-Datei in ein AST-Modul und meldet Parse-Fehler gesammelt."""
     try:
-        return ast.parse(_read(rel_path), filename=rel_path)
+        source = _read(rel_path).lstrip("\ufeff")
+        return ast.parse(source, filename=rel_path)
     except Exception as exc:
         errors.append(f"{rel_path}: failed to parse Python AST -> {exc}")
         return None
@@ -196,7 +253,7 @@ def _has_relevant_staged_changes(staged: set[str], repo_root: Path) -> bool:
 
     for staged_path in staged:
         norm = staged_path.replace("\\", "/")
-        if norm in normalized_relevant or _is_future_gui_entry_path(norm):
+        if norm in normalized_relevant or _is_future_gui_entry_path(norm) or _is_repo_gui_python_path(norm):
             return True
     return False
 
@@ -498,6 +555,34 @@ def _check_future_gui_entry_contracts(errors: list[str]) -> None:
         _forbid_substring(text, "from tkinter import", rel_path, errors)
 
 
+def _check_repo_wide_gui_contracts(errors: list[str]) -> None:
+    """Erzwingt repo-weit: keine direkten tkinter-Imports und keine neuen lokalen UI-Basisklassen."""
+
+    for rel_path in _iter_repo_gui_python_files():
+        module = _parse_module(rel_path, errors)
+        if module is None:
+            continue
+
+        if _contains_direct_tkinter_import(module):
+            errors.append(
+                f"{rel_path}: direct tkinter/ttk import is forbidden; use bw_gui.runtime and shared bw_gui modules"
+            )
+
+        for node in ast.walk(module):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            bases = _local_ui_bases(node)
+            if not bases:
+                continue
+            marker = f"{rel_path}:{node.name}"
+            if marker in LEGACY_UI_BASECLASS_ALLOWLIST:
+                continue
+            errors.append(
+                f"{rel_path}:{node.lineno} class '{node.name}' uses local UI base {bases}; "
+                "move reusable widget implementation to bw-gui"
+            )
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -592,6 +677,7 @@ def main() -> int:
     _check_runtime_shortcut_integration(errors)
     _check_shared_ui_contract_hardening(errors)
     _check_future_gui_entry_contracts(errors)
+    _check_repo_wide_gui_contracts(errors)
     warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.
