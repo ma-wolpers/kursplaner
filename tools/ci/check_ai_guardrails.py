@@ -13,6 +13,7 @@ GUARDRAIL_RELEVANT_PATHS = {
     ".github/copilot-instructions.md",
     ".github/workflows/repo-path-guardrails.yml",
     "docs/DEVELOPMENT_LOG.md",
+    "docs/GUI_MIGRATION_BACKLOG.md",
     "docs/ARCHITEKTUR_KERN.md",
     "docs/ARCHITEKTUR_UMSETZUNGSPLAN.md",
     "kursplaner/adapters/gui/main_window.py",
@@ -42,6 +43,7 @@ CHANGELOG_CODEV_RELEVANT_PATHS = {
     ".github/copilot-instructions.md",
     ".github/pull_request_template.md",
     "tools/ci/check_ai_guardrails.py",
+    "docs/GUI_MIGRATION_BACKLOG.md",
     "bw_libs/ui_contract/keybinding.py",
     "bw_libs/ui_contract/popup.py",
     "bw_libs/ui_contract/hsm.py",
@@ -81,6 +83,7 @@ LEGACY_UI_BASECLASS_ALLOWLIST = {
     "kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow",
     "kursplaner/adapters/gui/wrapped_text_field.py:WrappedTextField",
 }
+GUI_MIGRATION_BACKLOG_PATH = "docs/GUI_MIGRATION_BACKLOG.md"
 
 
 def _repo_root() -> Path:
@@ -583,6 +586,20 @@ def _check_repo_wide_gui_contracts(errors: list[str]) -> None:
             )
 
 
+def _check_gui_migration_backlog(errors: list[str]) -> None:
+    """Erzwingt explizites Backlog-Tracking fuer aktive GUI-Exemptions."""
+
+    backlog = _read(GUI_MIGRATION_BACKLOG_PATH)
+    _require_substring(backlog, "## Active Exemptions", GUI_MIGRATION_BACKLOG_PATH, errors)
+    _require_substring(backlog, "remove_by:", GUI_MIGRATION_BACKLOG_PATH, errors)
+
+    for rel_path in sorted(FUTURE_GUI_ENTRY_BASELINES):
+        _require_substring(backlog, f"- {rel_path}", GUI_MIGRATION_BACKLOG_PATH, errors)
+
+    for marker in sorted(LEGACY_UI_BASECLASS_ALLOWLIST):
+        _require_substring(backlog, f"- {marker}", GUI_MIGRATION_BACKLOG_PATH, errors)
+
+
 def _check_development_log_updated(staged: set[str], errors: list[str]) -> None:
     """Erzwingt Log-Update bei relevanten Feature-/Architektur-Aenderungen."""
     normalized = {path.replace("\\", "/") for path in staged}
@@ -678,6 +695,7 @@ def main() -> int:
     _check_shared_ui_contract_hardening(errors)
     _check_future_gui_entry_contracts(errors)
     _check_repo_wide_gui_contracts(errors)
+    _check_gui_migration_backlog(errors)
     warnings = _collect_process_guidance_warnings()
 
     # Doku must keep architecture orientation + open-work-only plan wording.
