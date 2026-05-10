@@ -10,6 +10,7 @@ The format is based on Keep a Changelog.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 
 ### Changed
+- Main-window hosting and popup/form helper wiring now use the new shared bw-gui primitives (`bw_gui.runtime.TkRootHost`, `bw_gui.dialogs.ScrollablePopupWindow`, `bw_gui.widgets.WrappedTextField`) instead of maintaining local host/widget implementations.
 - AI guardrails now include `bw_libs/` in the repo-wide GUI contract scan scope, so direct `tkinter`/`ttk` imports and new local `ui`/`widgets`/`tui` baseclass patterns are also blocked in shared-library paths.
 - AI guardrails no longer keep legacy class allowlist exemptions in `kursplaner/adapters/gui/main_window.py`, `kursplaner/adapters/gui/popup_window.py`, and `kursplaner/adapters/gui/wrapped_text_field.py`; these adapters now use composed shared runtime roots/widgets instead of local UI baseclass inheritance.
 - AI guardrails no longer keep future-entrypoint baseline exemptions for `kursplaner/adapters/gui/main_window.py` and `kursplaner/adapters/gui/screen_builder.py`; both now run under strict shared-GUI contract checks.

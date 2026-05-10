@@ -2,7 +2,7 @@ import pathlib
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import TkRootHost, ui
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
 from bw_gui.menu import CustomMenuBar as _SharedCustomMenuBarContractMarker
 from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker
@@ -41,28 +41,19 @@ from kursplaner.core.config.ui_preferences_store import (
 from kursplaner.core.domain.plan_table import PlanTableData
 
 
-class KursplanerApp:
+class KursplanerApp(TkRootHost):
     """Hauptfenster-Adapter der Anwendung.
 
     Verantwortlich für UI-Zustand und Delegation an spezialisierte Controller;
     fachliche Entscheidungen liegen in den injizierten Use Cases/Flows.
     """
 
-    @property
-    def tk_root(self) -> ui.Tk:
-        """Expose the composed Tk root for low-level integrations."""
-        return self._tk_root
-
-    def __getattr__(self, name: str):
-        """Delegate unknown UI attributes to the composed Tk root window."""
-        return getattr(self._tk_root, name)
-
     def __init__(self, dependencies: AppDependencies | None = None):
         """Initialisiert Hauptfenster, Controller und UI-Grundzustand."""
-        self._tk_root = ui.Tk()
-        apply_window_icon(self._tk_root)
+        super().__init__()
+        apply_window_icon(self.tk_root)
         self.gui_dependencies = dependencies or build_gui_dependencies()
-        self.app_shell = TkinterAppShell(self._tk_root, self.gui_dependencies.shell_config)
+        self.app_shell = TkinterAppShell(self.tk_root, self.gui_dependencies.shell_config)
 
         self.path_settings_usecase = self.gui_dependencies.path_settings_usecase
         self.new_lesson_form_usecase = self.gui_dependencies.new_lesson_form_usecase
