@@ -28,6 +28,11 @@ class _FakePopup:
         return "break"
 
 
+class _FakePopupWindowRef:
+    def __str__(self):
+        return ".fake-popup"
+
+
 def test_escape_with_text_focus_only_lifts_focus(monkeypatch):
     popup = _FakePopup(focused_widget=_FakeEditable(), is_descendant=True)
 
@@ -87,3 +92,10 @@ def test_activate_modal_focus_ignores_non_active_popup(monkeypatch):
 
     assert popup.lift_calls == 0
     assert popup.focus_force_calls == 0
+
+
+def test_popup_window_str_delegates_to_underlying_toplevel_path():
+    popup = ScrollablePopupWindow.__new__(ScrollablePopupWindow)
+    popup.__dict__["_popup_window"] = _FakePopupWindowRef()
+
+    assert str(popup) == ".fake-popup"

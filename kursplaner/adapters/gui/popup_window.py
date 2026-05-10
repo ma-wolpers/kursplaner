@@ -14,6 +14,10 @@ from kursplaner.adapters.gui.ui_theme import apply_window_theme, configure_ttk_t
 class ScrollablePopupWindow(SharedScrollablePopupWindow):
     """Basisklasse fuer Popup-Fenster mit automatisch scrollbarem Inhaltsbereich."""
 
+    def __str__(self) -> str:
+        """Expose Tk widget path for Tk calls that stringify popup owners."""
+        return str(self._popup_window)
+
     def __init__(
         self,
         master,

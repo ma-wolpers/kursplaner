@@ -9,6 +9,7 @@ The format is based on Keep a Changelog.
 ### Fixed
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 - Course selection no longer opens an empty mini popout: parent/transient dialog calls now resolve to the real Tk root path when the app runs through `TkRootHost`, so opening a course reliably switches to detail view.
+- Stundenziel/Kompetenzen popup dialogs are interactive again: popup-owner parent/transient resolution now points to a valid Tk window path, restoring typing, apply/save actions, and popup-local shortcut handling.
 
 ### Changed
 - AI guardrails now also block local redefinitions of reserved shared primitives (`TkRootHost`, `ScrollablePopupWindow`, `WrappedTextField`) so these runtime/dialog/widget foundations must be consumed from `bw-gui`; the existing popup compatibility adapter remains explicitly allowlisted.
