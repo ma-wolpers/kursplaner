@@ -6,16 +6,20 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 
-class WrappedTextField(widgets.Frame):
+class WrappedTextField:
     """Multiline text input with word-wrap for narrow form layouts.
 
     This widget wraps a tk.Text control and provides a compact get/set API,
     so dialog forms can accept longer text without forcing a wider window.
     """
 
+    def __getattr__(self, name: str):
+        """Delegate unknown widget attributes to the composed container frame."""
+        return getattr(self._container, name)
+
     def __init__(self, master, *, initial: str = "", height: int = 3):
-        super().__init__(master)
-        self.text = ui.Text(self, wrap="word", height=height, undo=True)
+        self._container = widgets.Frame(master)
+        self.text = ui.Text(self._container, wrap="word", height=height, undo=True)
         self.text.pack(fill="both", expand=True)
         self.text.bind("<Control-BackSpace>", self._on_ctrl_backspace, add="+")
         self.text.bind("<Control-Delete>", self._on_ctrl_delete, add="+")

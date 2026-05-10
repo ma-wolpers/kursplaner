@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Step-3-Exemption-Abbau abgeschlossen: verbleibende Klassen-Exemptions fuer `kursplaner/adapters/gui/main_window.py:KursplanerApp`, `kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow` und `kursplaner/adapters/gui/wrapped_text_field.py:WrappedTextField` durch Kompositionsmigration auf shared runtime-root/widgets entfernt.
 - Step-3-Exemption-Abbau fortgesetzt: Future-Entrypoint-Baselines fuer `kursplaner/adapters/gui/main_window.py` und `kursplaner/adapters/gui/screen_builder.py` entfernt; aktiver Exemption-Backlog enthaelt nur noch die verbleibenden Klassenmigrationen.
 - Step-3-Exemption-Governance aktiviert: `docs/GUI_MIGRATION_BACKLOG.md` ist jetzt verbindliche Referenz fuer aktive GUI-Baselines/Exemptions inkl. `remove_by`-Datum; Guardrails validieren die Backlog-Referenzen explizit.
 - Governance-Policy geschaerft: `AGENTS.md` und `.github/copilot-instructions.md` enthalten jetzt explizit die Strict-bw-gui-only-Regel (keine lokale tkinter/ttk-Widgetimplementierung in Repos; wiederverwendbare GUI-Bausteine zuerst in bw-gui).

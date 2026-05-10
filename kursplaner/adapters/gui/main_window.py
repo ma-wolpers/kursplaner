@@ -41,19 +41,28 @@ from kursplaner.core.config.ui_preferences_store import (
 from kursplaner.core.domain.plan_table import PlanTableData
 
 
-class KursplanerApp(ui.Tk):
+class KursplanerApp:
     """Hauptfenster-Adapter der Anwendung.
 
     Verantwortlich für UI-Zustand und Delegation an spezialisierte Controller;
     fachliche Entscheidungen liegen in den injizierten Use Cases/Flows.
     """
 
+    @property
+    def tk_root(self) -> ui.Tk:
+        """Expose the composed Tk root for low-level integrations."""
+        return self._tk_root
+
+    def __getattr__(self, name: str):
+        """Delegate unknown UI attributes to the composed Tk root window."""
+        return getattr(self._tk_root, name)
+
     def __init__(self, dependencies: AppDependencies | None = None):
         """Initialisiert Hauptfenster, Controller und UI-Grundzustand."""
-        super().__init__()
-        apply_window_icon(self)
+        self._tk_root = ui.Tk()
+        apply_window_icon(self._tk_root)
         self.gui_dependencies = dependencies or build_gui_dependencies()
-        self.app_shell = TkinterAppShell(self, self.gui_dependencies.shell_config)
+        self.app_shell = TkinterAppShell(self._tk_root, self.gui_dependencies.shell_config)
 
         self.path_settings_usecase = self.gui_dependencies.path_settings_usecase
         self.new_lesson_form_usecase = self.gui_dependencies.new_lesson_form_usecase
@@ -533,8 +542,8 @@ def main():
         return
 
     app = KursplanerApp(dependencies=dependencies)
-    apply_window_icon(app)
-    app.after(60, lambda: bring_window_to_front(app))
+    apply_window_icon(app.tk_root)
+    app.after(60, lambda: bring_window_to_front(app.tk_root))
     app.after(240, lambda: app.overview_controller.ensure_course_selected(prefer_first=True))
     app.after(260, app.lesson_tree.focus_set)
 

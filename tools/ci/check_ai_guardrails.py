@@ -75,11 +75,7 @@ FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
 )
 GUI_CONTRACT_SCAN_ROOTS = FUTURE_GUI_SEARCH_ROOTS
 UI_BASECLASS_MODULE_ALIASES = {"ui", "widgets", "tui"}
-LEGACY_UI_BASECLASS_ALLOWLIST = {
-    "kursplaner/adapters/gui/main_window.py:KursplanerApp",
-    "kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow",
-    "kursplaner/adapters/gui/wrapped_text_field.py:WrappedTextField",
-}
+LEGACY_UI_BASECLASS_ALLOWLIST: set[str] = set()
 GUI_MIGRATION_BACKLOG_PATH = "docs/GUI_MIGRATION_BACKLOG.md"
 
 

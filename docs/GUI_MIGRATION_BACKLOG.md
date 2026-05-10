@@ -1,15 +1,9 @@
 # GUI Migration Backlog
 
 ## Active Exemptions
-- kursplaner/adapters/gui/main_window.py:KursplanerApp
-  remove_by: 2026-09-30
-  reason: Local ui.Tk baseclass pending migration to bw-gui host/factory.
-- kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow
-  remove_by: 2026-09-30
-  reason: Local ui.Toplevel popup base pending migration to shared bw-gui popup host.
-- kursplaner/adapters/gui/wrapped_text_field.py:WrappedTextField
-  remove_by: 2026-09-30
-  reason: Local widgets.Frame text wrapper pending migration to shared bw-gui component.
+- none
+  remove_by: n/a
+  reason: No active GUI baseline/class allowlist exemptions remain in this repository.
 
 ## Notes
 - This backlog tracks all currently allowed baseline/exemption entries referenced by guardrails.

@@ -10,10 +10,14 @@ from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import apply_window_theme, configure_ttk_theme
 
 
-class ScrollablePopupWindow(ui.Toplevel):
+class ScrollablePopupWindow:
     """Basisklasse fuer Popup-Fenster mit automatisch scrollbarem Inhaltsbereich."""
 
     _open_popups: list["ScrollablePopupWindow"] = []
+
+    def __getattr__(self, name: str):
+        """Delegate unknown UI attributes to the composed popup window."""
+        return getattr(self._popup_window, name)
 
     def __init__(
         self,
@@ -24,7 +28,7 @@ class ScrollablePopupWindow(ui.Toplevel):
         minsize: tuple[int, int],
         theme_key: str | None = None,
     ):
-        super().__init__(master)
+        self._popup_window = ui.Toplevel(master)
         self.title(title)
         self.geometry(geometry)
         self.minsize(*minsize)
@@ -105,9 +109,10 @@ class ScrollablePopupWindow(ui.Toplevel):
     def _is_descendant_of_popup(self, widget: ui.Misc | None) -> bool:
         if widget is None:
             return False
+        popup_window = getattr(self, "_popup_window", self)
         current = widget
         while current is not None:
-            if current is self:
+            if current is self or current is popup_window:
                 return True
             try:
                 parent_name = current.winfo_parent()
