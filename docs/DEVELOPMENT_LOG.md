@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Nicht-Theme-Sonderpfade entfernt: `kursplaner/adapters/gui/screen_builder.py` und `kursplaner/adapters/gui/hover_tooltip.py` nutzen Shared-Menueleiste, Shared-Shortcut-Formatter und Shared-HoverTooltip jetzt verpflichtend; native Menue- und No-op-Tooltip-Fallbacks wurden geloescht.
 - Theme-Sonderpfade entfernt: `kursplaner/adapters/gui/ui_theme.py` importiert Shared-Themeregister und Baseline-ttk-Setup jetzt verpflichtend; optionale Fallback-Branches (`ModuleNotFoundError`/`None`-Guards) wurden geloescht.
 - Shared-Settings-Migration umgesetzt: `kursplaner/adapters/gui/settings_window.py` rendert die Einstellungen jetzt ueber `bw_gui.dialogs.open_tabbed_settings_dialog` (Sektionen fuer Pfade, UB-Cutoff und Lesson-Builder-Felder), inklusive bestehender Pfadvalidierung/Speicherflow aus dem Adapter.
 - `kursplaner/adapters/gui/path_settings_controller.py` oeffnet den Settings-Flow jetzt direkt ueber den neuen Shared-Dialog-Entry-Point statt ueber ein lokales Popup-Window.

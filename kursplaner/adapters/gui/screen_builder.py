@@ -4,19 +4,10 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
-try:
-    from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
-    from bw_gui.menu import MenuDefinition as SharedMenuDefinition
-    from bw_gui.menu import MenuItem as SharedMenuItem
-except ModuleNotFoundError:
-    SharedCustomMenuBar = None
-    SharedMenuDefinition = None
-    SharedMenuItem = None
-
-try:
-    from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
-except ModuleNotFoundError:
-    compose_shared_hover_text_for_intent = None
+from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
+from bw_gui.menu import MenuDefinition as SharedMenuDefinition
+from bw_gui.menu import MenuItem as SharedMenuItem
+from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
 
 
 from bw_libs.ui_contract.keybinding import (
@@ -47,7 +38,6 @@ from kursplaner.adapters.gui.ui_theme import (
     apply_window_theme,
     configure_ttk_theme,
     get_theme,
-    populate_theme_menu,
 )
 
 
@@ -422,9 +412,6 @@ class ScreenBuilder:
         self.app._on_theme_changed()
 
     def _recent_changes_menu_items(self):
-        if SharedMenuItem is None:
-            return ()
-
         labels = self.app.action_controller.list_recent_change_labels(limit=5)
         if not labels:
             return (SharedMenuItem(type="disabled", label="Keine Änderungen"),)
@@ -536,10 +523,6 @@ class ScreenBuilder:
 
     def _build_menu(self):
         """Erzeugt die Hauptmenüs inklusive Wartungsaktionen."""
-        if SharedCustomMenuBar is None or SharedMenuDefinition is None or SharedMenuItem is None:
-            self._build_native_menu()
-            return
-
         if self._shared_menu_bar is not None:
             self._shared_menu_bar.destroy()
 
@@ -558,123 +541,6 @@ class ScreenBuilder:
         self._shared_menu_bar.build()
         self.app.config(menu="")
 
-    def _build_native_menu(self):
-        """Fallback-Menü für Umgebungen ohne Shared CustomMenuBar."""
-        menu = ui.Menu(self.app)
-
-        datei = ui.Menu(menu, tearoff=0)
-        datei.add_command(label="Neu", accelerator="Strg+N", command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW))
-        datei.add_command(
-            label="Lesson-Index neu aufbauen", command=lambda: self._emit_intent(UiIntent.REBUILD_LESSON_INDEX)
-        )
-        datei.add_command(label="Einstellungen…", command=lambda: self._emit_intent(UiIntent.OPEN_SETTINGS))
-        datei.add_separator()
-        datei.add_command(label="Beenden", command=self.app.destroy)
-        menu.add_cascade(label="Datei", menu=datei)
-
-        bearbeiten = ui.Menu(menu, tearoff=0)
-        bearbeiten.add_command(
-            label="Undo", accelerator="Strg+Z", command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO)
-        )
-        bearbeiten.add_command(
-            label="Redo", accelerator="Strg+Y", command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO)
-        )
-        recent_changes_menu = ui.Menu(
-            bearbeiten,
-            tearoff=0,
-            postcommand=lambda: self._populate_recent_changes_menu(recent_changes_menu),
-        )
-        bearbeiten.add_cascade(label="Letzte Änderungen", menu=recent_changes_menu)
-        menu.add_cascade(label="Bearbeiten", menu=bearbeiten)
-
-        aktion = ui.Menu(menu, tearoff=0)
-        aktion.add_command(
-            label="Einheit kopieren", accelerator="Strg+C", command=lambda: self._emit_intent(UiIntent.TOOLBAR_COPY)
-        )
-        aktion.add_command(
-            label="Einheit einfügen", accelerator="Strg+V", command=lambda: self._emit_intent(UiIntent.TOOLBAR_PASTE)
-        )
-        aktion.add_command(
-            label="Exportieren als...",
-            accelerator="Strg+P",
-            command=lambda: self._emit_intent(UiIntent.TOOLBAR_EXPORT_AS),
-        )
-        aktion.add_command(label="Markdown finden…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_FIND))
-        aktion.add_separator()
-        aktion.add_command(label="Einheit leeren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR))
-        aktion.add_command(label="Einheit umbenennen…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME))
-        aktion.add_command(
-            label="Schatteneinheiten anzeigen…", command=lambda: self._emit_intent(UiIntent.SHOW_SHADOW_LESSONS)
-        )
-        aktion.add_command(label="Einheit aufsplitten", command=lambda: self._emit_intent(UiIntent.TOOLBAR_SPLIT))
-        aktion.add_command(label="Einheiten zusammenführen", command=lambda: self._emit_intent(UiIntent.TOOLBAR_MERGE))
-        aktion.add_command(
-            label="Kontextaktion: UB markieren / Ausfall zurücknehmen",
-            accelerator="Strg+B",
-            command=lambda: self._emit_intent(UiIntent.TOGGLE_RESUME_OR_UB),
-        )
-        aktion.add_command(
-            label="Als Hospitation markieren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_HOSPITATION)
-        )
-        menu.add_cascade(label="Aktion", menu=aktion)
-
-        ansicht = ui.Menu(menu, tearoff=0)
-        theme_menu = ui.Menu(ansicht, tearoff=0)
-        populate_theme_menu(theme_menu, self.app.theme_var, self.app._on_theme_changed)
-        ansicht.add_checkbutton(
-            label="Lange Zeilen aufgeklappt",
-            variable=self.app.expand_long_rows_var,
-            command=lambda: self._emit_intent(UiIntent.TOGGLE_EXPAND_MODE),
-        )
-        ansicht.add_command(
-            label="Spaltenarten anzeigen/verstecken…",
-            accelerator="Strg+L",
-            command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
-        )
-        ansicht.add_checkbutton(
-            label="Auto-Scroll zur nächsten Einheit",
-            variable=self.app.auto_scroll_next_unit_var,
-        )
-        ansicht.add_separator()
-        ansicht.add_command(
-            label="UB-Übersicht anzeigen",
-            accelerator="Strg+Shift+U",
-            command=lambda: self._emit_intent(UiIntent.SHOW_UB_ACHIEVEMENTS),
-        )
-        ansicht.add_command(
-            label="Shortcut-Übersicht anzeigen",
-            accelerator="Strg+H",
-            command=lambda: self._emit_intent(UiIntent.SHOW_SHORTCUT_OVERVIEW),
-        )
-        ansicht.add_command(
-            label="Shortcut-Runtime-Debug anzeigen",
-            accelerator="Strg+Shift+D",
-            command=self._open_shortcut_runtime_debug_dialog,
-        )
-        ansicht.add_separator()
-        ansicht.add_cascade(label="Theme", menu=theme_menu)
-        menu.add_cascade(label="Ansicht", menu=ansicht)
-
-        self.app.config(menu=menu)
-
-    def _populate_recent_changes_menu(self, menu: ui.Menu):
-        """Füllt das Untermenü mit den letzten Undo-Einträgen (neueste zuerst)."""
-        menu.delete(0, "end")
-        labels = self.app.action_controller.list_recent_change_labels(limit=5)
-        if not labels:
-            menu.add_command(label="Keine Änderungen", state="disabled")
-            return
-
-        for idx, label in enumerate(labels):
-            short_label = label.strip() or "Änderung"
-            menu.add_command(
-                label=f"{idx + 1}. {short_label}",
-                command=lambda recent_index=idx: self._emit_intent(
-                    UiIntent.EDIT_UNDO_TO_RECENT_INDEX,
-                    recent_index=recent_index,
-                ),
-            )
-
     def _ensure_tooltip_store(self):
         """Stellt sicher, dass Tooltip-Objekte am App-Lifecycle hängen."""
         if not hasattr(self.app, "hover_tooltips"):
@@ -687,7 +553,7 @@ class ScreenBuilder:
             return None
 
         rendered_text = base_text
-        if intent and compose_shared_hover_text_for_intent is not None:
+        if intent:
             rendered_text = compose_shared_hover_text_for_intent(
                 base_text,
                 intent=intent,
@@ -702,9 +568,6 @@ class ScreenBuilder:
 
     def _refresh_intent_help_tooltips(self) -> None:
         """Aktualisiert Intent-basierte Hover-Texte nach Shortcut-Registrierung."""
-
-        if compose_shared_hover_text_for_intent is None:
-            return
 
         for tooltip, base_text, intent in list(self._intent_help_tooltips):
             try:
