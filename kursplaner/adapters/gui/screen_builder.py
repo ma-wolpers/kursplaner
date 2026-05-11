@@ -22,9 +22,10 @@ from bw_libs.ui_contract.keybinding import (
     KeybindingRuntimeContext,
 )
 from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
-from bw_libs.ui_contract.laufkern import LaufKernRoute, build_manifest, verify_manifest, verify_reachability
+from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import (
@@ -766,27 +767,7 @@ class ScreenBuilder:
     def _build_laufkern_manifest(self):
         """Build one declarative LaufKern manifest from registered runtime shortcuts."""
 
-        definitions = self._runtime_shortcuts.all()
-        intents = tuple(sorted({definition.intent for definition in definitions}))
-        routes = tuple(
-            LaufKernRoute(
-                route_id=f"shortcut.{definition.binding_id}",
-                intent=definition.intent,
-                route_type="shortcut",
-                modes=tuple(definition.modes),
-                binding_id=definition.binding_id,
-                metadata={"sequence": definition.sequence},
-            )
-            for definition in definitions
-        )
-        return build_manifest(
-            manifest_id="kursplaner.shortcuts.runtime",
-            repo_name="kursplaner",
-            intents=intents,
-            routes=routes,
-            keybinding_registry=self._runtime_shortcuts,
-            metadata={"provider": "kursplaner.adapters.gui.screen_builder"},
-        )
+        return build_runtime_shortcut_manifest(self._runtime_shortcuts)
 
     def _summarize_laufkern_reachability(self, *, context: KeybindingRuntimeContext) -> str:
         """Return compact LaufKern reachability summary for current runtime state."""
