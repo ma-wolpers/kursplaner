@@ -9,6 +9,8 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Wave-3-Sunset abgeschlossen: lokale `ModuleNotFoundError`-Fallback-Zweige wurden aus den zentralen UI-Contract-Bridges (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`) entfernt; Shared-Imports sind jetzt verpflichtend.
+- Guardrail-Sunset auf Wave-3 umgestellt: `tools/ci/check_ai_guardrails.py` blockiert `except ModuleNotFoundError` jetzt repo-weit in den Scan-Scopes (`kursplaner`, `bw_libs`) ohne Bridge-Allowlist.
 - Wave-2-Sunset-Gate aktiviert: `tools/ci/check_ai_guardrails.py` erlaubt `except ModuleNotFoundError` nur noch in den zentralen UI-Contract-Bridges (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`) und blockiert neue lokale Fallback-Zweige ausserhalb dieser Baseline.
 - LaufKern-Bridge eingefuehrt: neues zentrales Modul `bw_libs/ui_contract/laufkern.py` (Shared-`bw_gui.laufkern`-Bridge mit lokalem Fallback) und Export ueber `bw_libs/ui_contract/__init__.py`; zusaetzlicher Regressionstest `tests/test_laufkern_bridge.py` fuer Manifestaufbau und Shortcut-basierte Reachability.
 - LaufKern-Runtime-Auswertung in den produktiven Shortcut-Debug-Flow integriert: `kursplaner/adapters/gui/screen_builder.py` baut jetzt ein Manifest aus der Runtime-Shortcut-Registry, validiert es zentral und zeigt die aktuelle Intent-Reachability im Debug-Summary.
