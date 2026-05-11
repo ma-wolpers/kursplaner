@@ -12,6 +12,7 @@ The format is based on Keep a Changelog.
 - Stundenziel/Kompetenzen popup dialogs are interactive again: popup-owner parent/transient resolution now points to a valid Tk window path, restoring typing, apply/save actions, and popup-local shortcut handling.
 
 ### Changed
+- Kursplaner bindet jetzt eine zentrale LaufKern-Bridge (`bw_libs.ui_contract.laufkern`) fuer Manifest-, Reachability- und Tracking-Vertraege ein und bereitet damit die Trennung "Programm = Was" und "LaufKern = Wie" technisch vor.
 - AI guardrails now also block local redefinitions of reserved shared primitives (`TkRootHost`, `ScrollablePopupWindow`, `WrappedTextField`) so these runtime/dialog/widget foundations must be consumed from `bw-gui`; the existing popup compatibility adapter remains explicitly allowlisted.
 - Main-window hosting and popup/form helper wiring now use the new shared bw-gui primitives (`bw_gui.runtime.TkRootHost`, `bw_gui.dialogs.ScrollablePopupWindow`, `bw_gui.widgets.WrappedTextField`) instead of maintaining local host/widget implementations.
 - AI guardrails now include `bw_libs/` in the repo-wide GUI contract scan scope, so direct `tkinter`/`ttk` imports and new local `ui`/`widgets`/`tui` baseclass patterns are also blocked in shared-library paths.

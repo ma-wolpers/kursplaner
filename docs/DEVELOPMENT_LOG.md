@@ -9,6 +9,7 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- LaufKern-Bridge eingefuehrt: neues zentrales Modul `bw_libs/ui_contract/laufkern.py` (Shared-`bw_gui.laufkern`-Bridge mit lokalem Fallback) und Export ueber `bw_libs/ui_contract/__init__.py`; zusaetzlicher Regressionstest `tests/test_laufkern_bridge.py` fuer Manifestaufbau und Shortcut-basierte Reachability.
 - Step-6-Guardrail-Hardening umgesetzt: `tools/ci/check_ai_guardrails.py` blockiert jetzt zusaetzlich repo-weit lokale Neudefinitionen der reservierten Shared-Primitives `TkRootHost`, `ScrollablePopupWindow` und `WrappedTextField`; der verbleibende Adapter `kursplaner/adapters/gui/popup_window.py:ScrollablePopupWindow` bleibt explizit als Kompatibilitaets-Allowlist markiert.
 - Step-5-Rollout gestartet: `kursplaner/adapters/gui/main_window.py` nutzt jetzt den zentralen Runtime-Host `bw_gui.runtime.TkRootHost`; `kursplaner/adapters/gui/popup_window.py` und `kursplaner/adapters/gui/wrapped_text_field.py` binden die neuen Shared-Bausteine `bw_gui.dialogs.ScrollablePopupWindow` und `bw_gui.widgets.WrappedTextField` statt lokaler Eigenimplementierungen ein.
 - Step-2-Guardrail-Scope abgeschlossen: die repo-weite GUI-Vertragspruefung in `tools/ci/check_ai_guardrails.py` umfasst jetzt zusaetzlich `bw_libs/`, sodass direkte `tkinter`/`ttk`-Imports und neue lokale `ui`/`widgets`/`tui`-Basisklassen auch in Shared-Library-Pfaden blockiert werden.
