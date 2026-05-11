@@ -10,6 +10,7 @@ from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker
 from datetime import date
 
 from bw_libs.app_shell import TkinterAppShell
+from bw_libs.ui_contract.laufkern import aggregate_completion, emit_tracking_artifact
 from kursplaner.adapters.bootstrap.wiring import AppDependencies, build_gui_dependencies
 from kursplaner.adapters.gui.action_controller import MainWindowActionController
 from kursplaner.adapters.gui.column_reorder_controller import MainWindowColumnReorderController
@@ -114,6 +115,10 @@ class KursplanerApp(TkRootHost):
         self.lesson_conversion_controller = MainWindowLessonConversionController(self)
         self.column_reorder_controller = MainWindowColumnReorderController(self)
         self.ui_intent_controller = MainWindowUiIntentController(self)
+        self._laufkern_tracking_run_id = "runtime-intents"
+        self._laufkern_tracking_sequence = 0
+        self._laufkern_tracking_step_ids: dict[str, str] = {}
+        self._laufkern_tracking_artifacts = []
         self.toolbar_icon_styler = ToolbarIconStyler(self)
 
         # extracted UI/component helpers
@@ -165,9 +170,60 @@ class KursplanerApp(TkRootHost):
     def _handle_ui_intent(self, intent: str, **payload):
         """Delegiert die zentrale Intent-Verarbeitung an den dedizierten Intent-Controller."""
         controller = getattr(self, "ui_intent_controller", None)
+        record_dispatch = getattr(self, "_record_laufkern_intent_dispatch", None)
         if controller is None:
             controller = MainWindowUiIntentController(self)
-        return controller.handle_intent(intent, **payload)
+        try:
+            result = controller.handle_intent(intent, **payload)
+        except Exception:
+            if callable(record_dispatch):
+                record_dispatch(intent, success=False)
+            raise
+
+        if callable(record_dispatch):
+            record_dispatch(intent, success=True)
+        return result
+
+    def _laufkern_step_id_for_intent(self, intent: str) -> str:
+        """Return stable runtime-tracking step id for one intent during this session."""
+
+        existing = self._laufkern_tracking_step_ids.get(intent)
+        if existing is not None:
+            return existing
+
+        next_index = len(self._laufkern_tracking_step_ids) + 1
+        step_id = f"LK-D-RTC-{next_index:03d}"
+        self._laufkern_tracking_step_ids[intent] = step_id
+        return step_id
+
+    def _record_laufkern_intent_dispatch(self, intent: str, *, success: bool) -> None:
+        """Record runtime intent dispatch result as LaufKern tracking artifact."""
+
+        self._laufkern_tracking_sequence += 1
+        artifact = emit_tracking_artifact(
+            run_id=self._laufkern_tracking_run_id,
+            repo_name="kursplaner",
+            step_id=self._laufkern_step_id_for_intent(intent),
+            phase="D",
+            state="done" if success else "failed",
+            sequence=self._laufkern_tracking_sequence,
+            mandatory=True,
+            producer="laufkern-runtime",
+            evidence_ref=intent,
+        )
+        self._laufkern_tracking_artifacts.append(artifact)
+
+    def _summarize_laufkern_completion(self) -> str:
+        """Return compact completion status summary from tracked runtime artifacts."""
+
+        if not self._laufkern_tracking_artifacts:
+            return "LK completion n/a"
+
+        summary = aggregate_completion(
+            self._laufkern_tracking_artifacts,
+            trusted_producers={"laufkern-runtime"},
+        )
+        return f"LK completion {summary.status} {summary.completed_steps}/{summary.mandatory_steps}"
 
     def _intent_course_confirm_selection(self, event):
         """Bestätigt die Kursauswahl aus der Übersicht über den Intent-Controller."""

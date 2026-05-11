@@ -930,6 +930,7 @@ class ScreenBuilder:
                         f"{active_count} active",
                         f"{disabled_count} disabled",
                         self._summarize_laufkern_reachability(context=context),
+                        self.app._summarize_laufkern_completion(),
                     ]
                 )
             )

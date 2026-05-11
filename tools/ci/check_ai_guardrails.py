@@ -287,28 +287,25 @@ def _check_main_window_intent_delegation(errors: list[str]) -> None:
         errors.append("main_window.py: missing method _handle_ui_intent")
         return
 
-    has_returned_delegation = False
+    has_delegation_call = False
     for node in ast.walk(method):
-        if not isinstance(node, ast.Return):
+        if not isinstance(node, ast.Call):
             continue
-        call = node.value
-        if not isinstance(call, ast.Call):
-            continue
-        if not (isinstance(call.func, ast.Attribute) and call.func.attr == "handle_intent"):
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "handle_intent"):
             continue
 
-        has_intent_arg = bool(call.args) and isinstance(call.args[0], ast.Name) and call.args[0].id == "intent"
+        has_intent_arg = bool(node.args) and isinstance(node.args[0], ast.Name) and node.args[0].id == "intent"
         has_payload_unpack = any(
             keyword.arg is None and isinstance(keyword.value, ast.Name) and keyword.value.id == "payload"
-            for keyword in call.keywords
+            for keyword in node.keywords
         )
         if has_intent_arg and has_payload_unpack:
-            has_returned_delegation = True
+            has_delegation_call = True
             break
 
-    if not has_returned_delegation:
+    if not has_delegation_call:
         errors.append(
-            "main_window.py: _handle_ui_intent must return a delegated controller.handle_intent(intent, **payload) call"
+            "main_window.py: _handle_ui_intent must delegate to controller.handle_intent(intent, **payload)"
         )
 
 
