@@ -34,7 +34,7 @@ PROCESS_GUIDANCE_RULES = {
     "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
     "manual_push": "Push erfolgt manuell",
 }
-SETTINGS_SHORTCUT_SOFT_CHECKS = (
+SHORTCUT_COVERAGE_SOFT_CHECKS = (
     {
         "label": "open-settings",
         "intent_paths": (
@@ -55,6 +55,62 @@ SETTINGS_SHORTCUT_SOFT_CHECKS = (
             "<Control-,>",
             "Strg+,",
         ),
+    },
+    {
+        "label": "toolbar-new",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("TOOLBAR_NEW", "toolbar.new"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"toolbar.new\"",),
+    },
+    {
+        "label": "toolbar-export-as",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("TOOLBAR_EXPORT_AS", "toolbar.export_as"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"toolbar.export_as\"",),
+    },
+    {
+        "label": "toolbar-undo",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("TOOLBAR_UNDO", "toolbar.undo"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"toolbar.undo\"",),
+    },
+    {
+        "label": "toolbar-redo",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("TOOLBAR_REDO", "toolbar.redo"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"toolbar.redo\"",),
+    },
+    {
+        "label": "shortcut-copy",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("SHORTCUT_COPY", "shortcut.copy"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"shortcut.copy\"",),
+    },
+    {
+        "label": "shortcut-cut",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("SHORTCUT_CUT", "shortcut.cut"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"shortcut.cut\"",),
+    },
+    {
+        "label": "shortcut-paste",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("SHORTCUT_PASTE", "shortcut.paste"),
+        "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
+        "shortcut_markers": ("\"intent\": \"shortcut.paste\"",),
+    },
+    {
+        "label": "shortcut-escape",
+        "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
+        "intent_markers": ("SHORTCUT_ESCAPE", "shortcut.escape"),
+        "shortcut_paths": ("kursplaner/adapters/gui/screen_builder.py",),
+        "shortcut_markers": ("intent=UiIntent.SHORTCUT_ESCAPE", "<Escape>"),
     },
 )
 CHANGELOG_RELEVANT_PREFIXES = (
@@ -749,11 +805,11 @@ def _has_any_marker(rel_paths: tuple[str, ...], markers: tuple[str, ...]) -> boo
     return False
 
 
-def _collect_settings_shortcut_warnings() -> list[str]:
-    """Collect non-blocking warnings when settings intents miss Ctrl+, shortcuts."""
+def _collect_shortcut_coverage_warnings() -> list[str]:
+    """Collect non-blocking warnings when key intents miss keyboard shortcut markers."""
 
     warnings: list[str] = []
-    for check in SETTINGS_SHORTCUT_SOFT_CHECKS:
+    for check in SHORTCUT_COVERAGE_SOFT_CHECKS:
         intent_paths = tuple(check["intent_paths"])
         intent_markers = tuple(check["intent_markers"])
         shortcut_paths = tuple(check["shortcut_paths"])
@@ -763,7 +819,7 @@ def _collect_settings_shortcut_warnings() -> list[str]:
         if _has_any_marker(shortcut_paths, shortcut_markers):
             continue
         warnings.append(
-            f"shortcut-coverage ({check['label']}): settings intent found without Ctrl+, binding marker"
+            f"shortcut-coverage ({check['label']}): intent marker found without configured keyboard binding marker"
         )
     return warnings
 
@@ -809,7 +865,7 @@ def main() -> int:
     _check_repo_wide_gui_contracts(errors)
     _check_gui_migration_backlog(errors)
     warnings = _collect_process_guidance_warnings()
-    warnings.extend(_collect_settings_shortcut_warnings())
+    warnings.extend(_collect_shortcut_coverage_warnings())
 
     # Doku must keep architecture orientation + open-work-only plan wording.
     arch_core = _read("docs/ARCHITEKTUR_KERN.md")
