@@ -127,16 +127,6 @@ class KursplanerApp(TkRootHost):
         self.action_controller.refresh_overview()
         self.action_controller.update_action_controls()
 
-    def __str__(self) -> str:
-        """Expose Tk widget path for Tk calls expecting a window identifier.
-
-        Tkinter dialog/window APIs stringify the passed parent/master. Because
-        this app composes the real root via TkRootHost, we forward `str(app)` to
-        the underlying Tk root path (usually ".") to keep modal/transient calls
-        valid.
-        """
-        return str(self.tk_root)
-
     @property
     def selected_day_indices(self) -> set[int]:
         """Liefert den kanonischen Selektionszustand der Grid-Spalten."""
