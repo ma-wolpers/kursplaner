@@ -34,6 +34,29 @@ PROCESS_GUIDANCE_RULES = {
     "feature_commit": "Feature-Aenderungen werden in eigenstaendigen Commits",
     "manual_push": "Push erfolgt manuell",
 }
+SETTINGS_SHORTCUT_SOFT_CHECKS = (
+    {
+        "label": "open-settings",
+        "intent_paths": (
+            "kursplaner/adapters/gui/ui_intents.py",
+            "kursplaner/adapters/gui/screen_builder.py",
+        ),
+        "intent_markers": (
+            "OPEN_SETTINGS",
+            "app.open_settings",
+            "command=lambda: self._emit_intent(UiIntent.OPEN_SETTINGS)",
+        ),
+        "shortcut_paths": (
+            "kursplaner/adapters/gui/screen_builder.py",
+            "kursplaner/resources/shortcuts/shortcut_guide.json",
+        ),
+        "shortcut_markers": (
+            "<Control-comma>",
+            "<Control-,>",
+            "Strg+,",
+        ),
+    },
+)
 CHANGELOG_RELEVANT_PREFIXES = (
     "kursplaner/adapters/gui/",
     "kursplaner/core/usecases/",
@@ -713,6 +736,38 @@ def _collect_process_guidance_warnings() -> list[str]:
     return warnings
 
 
+def _has_any_marker(rel_paths: tuple[str, ...], markers: tuple[str, ...]) -> bool:
+    """Return whether any marker appears in at least one existing source file."""
+
+    for rel_path in rel_paths:
+        path = ROOT / rel_path
+        if not path.exists():
+            continue
+        text = _read(rel_path)
+        if any(marker in text for marker in markers):
+            return True
+    return False
+
+
+def _collect_settings_shortcut_warnings() -> list[str]:
+    """Collect non-blocking warnings when settings intents miss Ctrl+, shortcuts."""
+
+    warnings: list[str] = []
+    for check in SETTINGS_SHORTCUT_SOFT_CHECKS:
+        intent_paths = tuple(check["intent_paths"])
+        intent_markers = tuple(check["intent_markers"])
+        shortcut_paths = tuple(check["shortcut_paths"])
+        shortcut_markers = tuple(check["shortcut_markers"])
+        if not _has_any_marker(intent_paths, intent_markers):
+            continue
+        if _has_any_marker(shortcut_paths, shortcut_markers):
+            continue
+        warnings.append(
+            f"shortcut-coverage ({check['label']}): settings intent found without Ctrl+, binding marker"
+        )
+    return warnings
+
+
 def _is_ci_environment() -> bool:
     """Return whether the check runs in a CI environment."""
     return bool(os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"))
@@ -754,6 +809,7 @@ def main() -> int:
     _check_repo_wide_gui_contracts(errors)
     _check_gui_migration_backlog(errors)
     warnings = _collect_process_guidance_warnings()
+    warnings.extend(_collect_settings_shortcut_warnings())
 
     # Doku must keep architecture orientation + open-work-only plan wording.
     arch_core = _read("docs/ARCHITEKTUR_KERN.md")

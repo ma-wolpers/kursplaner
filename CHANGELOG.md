@@ -16,6 +16,7 @@ The format is based on Keep a Changelog.
 - Kursübersicht und Einheitenansicht sind grafisch entkoppelt: die Detail-Toolbar ist in der Kursübersicht nicht mehr sichtbar, und die Kursübersicht besitzt eine eigene Toolbar.
 - Ehemalige Kurse (ohne kommende Einheiten) sind in der Kursübersicht standardmäßig ausgeblendet und lassen sich per Button oder `Strg+Shift+E` ein-/ausblenden.
 - Kursübersicht markiert nahe Termine fett; das Zeitfenster ist in den Einstellungen konfigurierbar (Default: 5 Tage).
+- AI guardrails now emit a non-blocking local warning when the settings intent is present but no `Ctrl+,` shortcut binding marker is found in the configured runtime/shortcut sources.
 - UI contract bridges are now fully decommissioned to thin shared re-export shims (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`); dead local duplicate implementations were removed.
 - AI guardrails now enforce a Phase-I decommission gate for UI contract bridges: each bridge must keep `ensure_bw_gui_on_path` plus shared `bw_gui` imports and may not reintroduce local contract class/function implementations.
 - AI guardrails now enforce LaufKern fallback sunset Wave-3: local `ModuleNotFoundError` fallback branches were removed from the central contract bridges (`bw_libs/ui_contract/keybinding.py`, `bw_libs/ui_contract/popup.py`, `bw_libs/ui_contract/hsm.py`, `bw_libs/ui_contract/laufkern.py`), and fallback handlers are now forbidden repo-wide in guardrail scan scopes.
