@@ -47,6 +47,8 @@ MAIN_WINDOW_HELP: dict[str, str] = {
         "Hier wählst du den Unterrichtsordner, aus dem Kurse geladen werden.\n"
         "Ein Wechsel lädt eine andere Kursübersicht."
     ),
+    "course_overview_new": "Legt einen neuen Kurs an. - Strg+N (immer)",
+    "toggle_former_courses": "Blendet ehemalige Kurse ein/aus. - Strg+Shift+E",
     "new": "Legt einen neuen Unterricht an. - Strg+N (immer)",
     "refresh": "Lädt Kursübersicht/Status neu. - Strg+R (immer)",
     "column_visibility": "Blendet Spaltenarten aus oder zeigt sie als dünne Marker an. - Strg+L",
@@ -71,7 +73,7 @@ MAIN_WINDOW_HELP: dict[str, str] = {
     "move_left": "Verschiebt die Spalte nach links. - Strg+Links",
     "move_right": "Verschiebt die Spalte nach rechts. - Strg+Rechts",
     "lesson_tree": (
-        "Kursübersicht mit nächstem Thema, Reststunden und nächster LZK.\n"
+        "Kursübersicht mit nächstem Thema, nächster Einheit, Reststunden und nächster LZK.\n"
         "Mit Hoch/Runter wechselst du die Kursauswahl, Pos1/Ende springt zum ersten/letzten Kurs.\n"
         "Öffnen per Klick oder Enter; Esc schließt die Einheitenansicht wieder."
     ),

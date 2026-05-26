@@ -34,6 +34,7 @@ from kursplaner.adapters.gui.window_identity import (
     configure_windows_process_identity,
 )
 from kursplaner.core.config.ui_preferences_store import (
+    load_course_overview_highlight_days,
     load_column_visibility_settings,
     load_theme_key,
     save_column_visibility_settings,
@@ -95,6 +96,8 @@ class KursplanerApp(TkRootHost):
         }
         self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode)
         self.column_visibility_settings = load_column_visibility_settings()
+        self.course_overview_highlight_days = load_course_overview_highlight_days()
+        self.show_former_courses = False
         self.raw_day_columns: list[dict[str, object]] = []
 
         self.cell_widgets: dict[tuple[str, int], ui.Text] = {}
@@ -567,13 +570,24 @@ class KursplanerApp(TkRootHost):
             return
 
         values = list(self.lesson_tree.item(selected, "values"))
-        if len(values) < 4:
+        if len(values) < 6:
             return
 
-        next_theme, remaining_hours, next_lzk = self._plan_overview_query.summarize_plan(self.current_table)
+        (
+            next_theme,
+            remaining_hours,
+            next_lzk,
+            next_ub,
+            next_unit,
+            _days_until_next_unit,
+            _has_upcoming_unit,
+            _has_any_dated_unit,
+        ) = self._plan_overview_query.summarize_plan(self.current_table)
         values[1] = next_theme
-        values[2] = str(remaining_hours)
-        values[3] = next_lzk
+        values[2] = next_unit
+        values[3] = str(remaining_hours)
+        values[4] = next_lzk
+        values[5] = next_ub
         self.lesson_tree.item(selected, values=tuple(values))
 
     def _on_grid_mousewheel(self, event):

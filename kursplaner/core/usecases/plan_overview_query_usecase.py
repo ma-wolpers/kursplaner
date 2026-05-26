@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from pathlib import Path
+from typing import Callable
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.content_markers import is_ausfall_marker, normalize_marker_text
@@ -41,6 +42,7 @@ class PlanOverviewQueryUseCase:
         lesson_repo: LessonRepository,
         lesson_index_repo: LessonIndexRepository | None = None,
         ub_repo: UbRepository | None = None,
+        past_cutoff_time_provider: Callable[[], time] | None = None,
     ):
         """Initialisiert den Überblicks-Use-Case mit optionalem Metadaten-Index.
 
@@ -50,6 +52,37 @@ class PlanOverviewQueryUseCase:
         self.lesson_repo = lesson_repo
         self.lesson_index_repo = lesson_index_repo
         self.ub_repo = ub_repo
+        self._past_cutoff_time_provider = past_cutoff_time_provider
+
+    def _past_cutoff_time(self) -> time:
+        if self._past_cutoff_time_provider is None:
+            return time(hour=15, minute=0)
+        try:
+            configured = self._past_cutoff_time_provider()
+        except Exception:
+            return time(hour=15, minute=0)
+        if not isinstance(configured, time):
+            return time(hour=15, minute=0)
+        return configured
+
+    def _is_row_upcoming(
+        self,
+        row_day: date,
+        *,
+        reference_day: date | None,
+        now: datetime,
+    ) -> bool:
+        if reference_day is not None:
+            return row_day >= reference_day
+
+        today = now.date()
+        if row_day > today:
+            return True
+        if row_day < today:
+            return False
+
+        cutoff = self._past_cutoff_time()
+        return now.time() < cutoff
 
     @staticmethod
     def _parse_date(value: str) -> date | None:
@@ -109,13 +142,15 @@ class PlanOverviewQueryUseCase:
         self,
         table: PlanTableData,
         reference_day: date | None = None,
-    ) -> tuple[str, int, str, str]:
-        """Berechnet `(naechstes_thema, reststunden, naechste_lzk, naechster_ub)` fuer eine Planung.
+        now: datetime | None = None,
+    ) -> tuple[str, int, str, str, str, int | None, bool, bool]:
+        """Berechnet Uebersichtskennzahlen inkl. naechster Einheit fuer eine Planung.
 
-        Berücksichtigt nur Zeilen ab `reference_day`, ignoriert Ausfallmarker bei der
-        Reststunden-Summe und nutzt sofern verfügbar den Lesson-Index.
+        Berücksichtigt den konfigurierbaren Tages-Cutoff fuer heutige Einheiten,
+        ignoriert Ausfallmarker bei Reststunden/Nächster-Einheit und nutzt sofern
+        verfügbar den Lesson-Index.
         """
-        reference = reference_day or date.today()
+        current_now = now or datetime.now()
 
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum")
@@ -123,12 +158,17 @@ class PlanOverviewQueryUseCase:
         idx_inhalt = header_map.get("inhalt")
 
         if idx_datum is None or idx_stunden is None or idx_inhalt is None:
-            return "—", 0, "—", ""
+            return "—", 0, "—", "", "—", None, False, False
 
         next_theme = "—"
         next_lzk = "—"
         next_ub = ""
+        next_unit = "—"
+        days_until_next_unit: int | None = None
+        has_upcoming_unit = False
+        has_any_dated_unit = False
         earliest_ub_date: date | None = None
+        earliest_upcoming_lesson_date: date | None = None
         remaining_hours = 0
         candidate_rows: list[int] = []
         row_dates: dict[int, str] = {}
@@ -141,7 +181,10 @@ class PlanOverviewQueryUseCase:
                 continue
 
             row_date = self._parse_date(row[idx_datum])
-            if row_date is None or row_date < reference:
+            if row_date is None:
+                continue
+            has_any_dated_unit = True
+            if not self._is_row_upcoming(row_date, reference_day=reference_day, now=current_now):
                 continue
 
             content = row[idx_inhalt].strip()
@@ -154,6 +197,11 @@ class PlanOverviewQueryUseCase:
             is_cancel = is_ausfall_marker(marker_text)
 
             if not is_cancel:
+                has_upcoming_unit = True
+                if earliest_upcoming_lesson_date is None or row_date < earliest_upcoming_lesson_date:
+                    earliest_upcoming_lesson_date = row_date
+                    next_unit = row[idx_datum].strip() or "—"
+                    days_until_next_unit = (row_date - current_now.date()).days
                 hours_raw = row[idx_stunden].strip()
                 if hours_raw.isdigit():
                     remaining_hours += int(hours_raw)
@@ -213,7 +261,9 @@ class PlanOverviewQueryUseCase:
             ub_date = parse_ub_date_from_stem(ub_path.stem if ub_path is not None else ub_link)
             if ub_date is None:
                 ub_date = row_date_values.get(row_index)
-            if ub_date is None or ub_date < reference:
+            if ub_date is None:
+                continue
+            if not self._is_row_upcoming(ub_date, reference_day=reference_day, now=current_now):
                 continue
 
             ub_domains: list[str] = []
@@ -238,4 +288,13 @@ class PlanOverviewQueryUseCase:
                     langentwurf=ub_langentwurf,
                 )
 
-        return next_theme, remaining_hours, next_lzk, next_ub
+        return (
+            next_theme,
+            remaining_hours,
+            next_lzk,
+            next_ub,
+            next_unit,
+            days_until_next_unit,
+            has_upcoming_unit,
+            has_any_dated_unit,
+        )

@@ -189,6 +189,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         lesson_repo=lesson_repo,
         lesson_index_repo=lesson_index_repo,
         ub_repo=ub_repo,
+        past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
     list_lessons_usecase = ListLessonsUseCase(plan_repo=plan_repo, plan_overview_query=plan_overview_query)
     load_plan_detail_usecase = LoadPlanDetailUseCase(plan_repo=plan_repo, lesson_repo=lesson_repo, ub_repo=ub_repo)

@@ -90,6 +90,8 @@ class ScreenBuilder:
         self.app.action_help_tooltips = {}
         self.app.toolbar_slots = {}
         self.app.toolbar_separators = {}
+        self.app.course_overview_buttons = {}
+        self.app.course_overview_toggle_button = None
 
         self._build_menu()
 
@@ -106,11 +108,55 @@ class ScreenBuilder:
         self._add_help(base_entry, MAIN_WINDOW_HELP["course_dir"])
         self._add_help(base_button, MAIN_WINDOW_HELP["course_dir"])
 
-        toolbar = widgets.Frame(root, style="Toolbar.TFrame")
-        toolbar.pack(fill="x", pady=(0, 2))
-        self.app.toolbar_frame = toolbar
+        paned = widgets.Panedwindow(root, orient="horizontal")
+        paned.pack(fill="both", expand=True)
+
+        left = widgets.Frame(paned)
+        right = widgets.Frame(paned)
+        paned.add(left, weight=1)
+        paned.add(right, weight=3)
+        self.app.main_paned = paned
+        self.app.course_panel = left
+        self.app.detail_panel = right
+
+        overview_toolbar = widgets.Frame(left, style="Toolbar.TFrame")
+        overview_toolbar.pack(fill="x", pady=(0, 6))
+        self.app.course_overview_toolbar = overview_toolbar
+
+        new_course_button = widgets.Button(
+            overview_toolbar,
+            text="Neuer Kurs",
+            command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW, from_shortcut=False),
+            style="Action.Primary.TButton",
+            width=12,
+        )
+        new_course_button.pack(side="left")
+        self.app.course_overview_buttons["new"] = new_course_button
+        self._add_help(new_course_button, MAIN_WINDOW_HELP.get("course_overview_new", ""), intent=UiIntent.TOOLBAR_NEW)
+
+        toggle_former_button = widgets.Button(
+            overview_toolbar,
+            text="Ehemalige anzeigen",
+            command=lambda: self._emit_intent(UiIntent.COURSE_TOGGLE_SHOW_FORMER),
+            style="Action.Utility.TButton",
+            width=20,
+        )
+        toggle_former_button.pack(side="left", padx=(8, 0))
+        self.app.course_overview_toggle_button = toggle_former_button
+        self.app.course_overview_buttons["toggle_former"] = toggle_former_button
+        self._add_help(
+            toggle_former_button,
+            MAIN_WINDOW_HELP.get("toggle_former_courses", ""),
+            intent=UiIntent.COURSE_TOGGLE_SHOW_FORMER,
+        )
+
+        widgets.Label(left, textvariable=self.app.count_var, style="Toolbar.TLabel").pack(anchor="e", pady=(0, 6))
+
+        detail_toolbar = widgets.Frame(right, style="Toolbar.TFrame")
+        detail_toolbar.pack(fill="x", pady=(0, 2))
+        self.app.toolbar_frame = detail_toolbar
         for slot_key in TOOLBAR_SLOT_ORDER:
-            slot = widgets.Frame(toolbar, style="Toolbar.TFrame")
+            slot = widgets.Frame(detail_toolbar, style="Toolbar.TFrame")
             min_width = int(TOOLBAR_SLOT_MIN_WIDTH.get(slot_key, 56))
             slot.configure(width=min_width)
             # Keep width hints, but let slot height follow button requested size.
@@ -139,34 +185,24 @@ class ScreenBuilder:
                 if tooltip is not None:
                     self.app.action_help_tooltips[spec.key] = tooltip
 
-        widgets.Label(root, textvariable=self.app.count_var, style="Toolbar.TLabel").pack(anchor="e", pady=(0, 8))
         self._layout_toolbar_slots()
-        toolbar.bind("<Configure>", self._on_toolbar_configure)
+        detail_toolbar.bind("<Configure>", self._on_toolbar_configure)
         self._apply_toolbar_icons()
 
-        paned = widgets.Panedwindow(root, orient="horizontal")
-        paned.pack(fill="both", expand=True)
-
-        left = widgets.Frame(paned)
-        right = widgets.Frame(paned)
-        paned.add(left, weight=1)
-        paned.add(right, weight=3)
-        self.app.main_paned = paned
-        self.app.course_panel = left
-        self.app.detail_panel = right
-
-        overview_columns = ("name", "next_topic", "remaining_hours", "next_lzk", "next_ub")
+        overview_columns = ("name", "next_topic", "next_unit", "remaining_hours", "next_lzk", "next_ub")
         tree_frame = widgets.Frame(left)
         tree_frame.pack(fill="both", expand=True)
 
         self.app.lesson_tree = widgets.Treeview(tree_frame, columns=overview_columns, show="headings")
         self.app.lesson_tree.heading("name", text="Kurs")
         self.app.lesson_tree.heading("next_topic", text="Nächstes Thema")
+        self.app.lesson_tree.heading("next_unit", text="Nächste Einheit")
         self.app.lesson_tree.heading("remaining_hours", text="Reststunden")
         self.app.lesson_tree.heading("next_lzk", text="Nächste LZK")
         self.app.lesson_tree.heading("next_ub", text="Nächster UB")
         self.app.lesson_tree.column("name", width=220, anchor="w")
-        self.app.lesson_tree.column("next_topic", width=280, anchor="w")
+        self.app.lesson_tree.column("next_topic", width=240, anchor="w")
+        self.app.lesson_tree.column("next_unit", width=120, anchor="center")
         self.app.lesson_tree.column("remaining_hours", width=90, anchor="center")
         self.app.lesson_tree.column("next_lzk", width=110, anchor="center")
         self.app.lesson_tree.column("next_ub", width=130, anchor="center")
@@ -302,7 +338,16 @@ class ScreenBuilder:
         self.app.fixed_canvas.bind("<MouseWheel>", self.app._on_grid_mousewheel)
         self.app.grid_canvas.bind("<MouseWheel>", self.app._on_grid_mousewheel)
 
+        self.refresh_course_overview_toolbar()
         self.show_course_overview()
+
+    def refresh_course_overview_toolbar(self) -> None:
+        """Synchronisiert Toggle-Beschriftung der Kursübersichts-Toolbar."""
+        button = getattr(self.app, "course_overview_toggle_button", None)
+        if button is None:
+            return
+        show_former = bool(getattr(self.app, "show_former_courses", False))
+        button.configure(text="Ehemalige ausblenden" if show_former else "Ehemalige anzeigen")
 
     @staticmethod
     def _slot_width(slot_key: str) -> int:
@@ -1114,6 +1159,7 @@ class ScreenBuilder:
         if course not in panes:
             pane.add(self.app.course_panel, weight=1)
         self.app.is_detail_view = False
+        self.refresh_course_overview_toolbar()
         self.app.overview_controller.ensure_course_selected(prefer_first=True)
         self.app.after_idle(self.app.lesson_tree.focus_set)
 

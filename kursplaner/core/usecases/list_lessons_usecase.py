@@ -50,6 +50,10 @@ class ListLessonsUseCase:
                         remaining_hours=0,
                         next_lzk="—",
                         next_ub="",
+                        next_unit="—",
+                        days_until_next_unit=None,
+                        has_upcoming_unit=False,
+                        has_any_dated_unit=False,
                         load_error=str(exc),
                     )
                 )
@@ -60,7 +64,16 @@ class ListLessonsUseCase:
             folder_name = folder_path.name
 
             try:
-                next_topic, remaining_hours, next_lzk, next_ub = self.plan_overview_query.summarize_plan(table)
+                (
+                    next_topic,
+                    remaining_hours,
+                    next_lzk,
+                    next_ub,
+                    next_unit,
+                    days_until_next_unit,
+                    has_upcoming_unit,
+                    has_any_dated_unit,
+                ) = self.plan_overview_query.summarize_plan(table)
             except Exception as exc:
                 detail = f"{markdown.name}: {exc}"
                 warnings.append(detail)
@@ -73,6 +86,10 @@ class ListLessonsUseCase:
                         remaining_hours=0,
                         next_lzk="—",
                         next_ub="",
+                        next_unit="—",
+                        days_until_next_unit=None,
+                        has_upcoming_unit=False,
+                        has_any_dated_unit=False,
                         load_error=str(exc),
                     )
                 )
@@ -87,6 +104,10 @@ class ListLessonsUseCase:
                     remaining_hours=remaining_hours,
                     next_lzk=next_lzk,
                     next_ub=next_ub,
+                    next_unit=next_unit,
+                    days_until_next_unit=days_until_next_unit,
+                    has_upcoming_unit=has_upcoming_unit,
+                    has_any_dated_unit=has_any_dated_unit,
                     load_error=None,
                 )
             )

@@ -10,6 +10,7 @@ class UiIntent:
     COURSE_KEYBOARD_NAVIGATION = "course.keyboard_navigation"
     COURSE_HOME = "course.home"
     COURSE_END = "course.end"
+    COURSE_TOGGLE_SHOW_FORMER = "course.toggle_show_former"
 
     # Grid intents
     GRID_TOGGLE_COLUMN_SELECTION = "grid.toggle_column_selection"

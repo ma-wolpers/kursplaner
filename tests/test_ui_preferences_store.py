@@ -104,3 +104,23 @@ def test_load_lesson_builder_field_settings_defaults_for_invalid_payload(tmp_pat
     loaded = ui_preferences_store.load_lesson_builder_field_settings()
 
     assert loaded == ui_preferences_store.LessonBuilderFieldSettings()
+
+
+def test_save_and_load_course_overview_highlight_days_roundtrip(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    ui_preferences_store.save_course_overview_highlight_days(8)
+    loaded = ui_preferences_store.load_course_overview_highlight_days()
+
+    assert loaded == 8
+
+
+def test_load_course_overview_highlight_days_fallback_for_invalid_payload(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    target.write_text(json.dumps({"course_overview_highlight_days": "x"}), encoding="utf-8")
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    loaded = ui_preferences_store.load_course_overview_highlight_days()
+
+    assert loaded == 5

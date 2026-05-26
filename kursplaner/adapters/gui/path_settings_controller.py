@@ -7,8 +7,10 @@ from kursplaner.adapters.gui.dialog_services import filedialog
 from kursplaner.adapters.gui.settings_window import open_settings_dialog
 from kursplaner.core.config.ui_preferences_store import (
     LessonBuilderFieldSettings,
+    load_course_overview_highlight_days,
     load_lesson_builder_field_settings,
     load_ub_past_cutoff_time,
+    save_course_overview_highlight_days,
     save_lesson_builder_field_settings,
     save_ub_past_cutoff_time,
 )
@@ -63,6 +65,8 @@ class MainWindowPathSettingsController:
             on_ub_past_cutoff_saved=self.on_ub_past_cutoff_saved,
             lesson_builder_field_settings=load_lesson_builder_field_settings(),
             on_lesson_builder_fields_saved=self.on_lesson_builder_fields_saved,
+            course_overview_highlight_days=load_course_overview_highlight_days(),
+            on_course_overview_highlight_days_saved=self.on_course_overview_highlight_days_saved,
             theme_key=self.app.theme_var.get(),
             path_settings_usecase=self.path_settings_usecase,
         )
@@ -76,6 +80,13 @@ class MainWindowPathSettingsController:
     def on_lesson_builder_fields_saved(settings: LessonBuilderFieldSettings) -> None:
         """Persistiert Sichtbarkeit optionaler Felder im Lesson-Builder."""
         save_lesson_builder_field_settings(settings)
+
+    def on_course_overview_highlight_days_saved(self, days: int) -> None:
+        """Persistiert und aktiviert das Hervorhebungsfenster der Kursübersicht."""
+        normalized = max(0, min(60, int(days)))
+        save_course_overview_highlight_days(normalized)
+        self.app.course_overview_highlight_days = normalized
+        self.app.refresh_overview()
 
     def on_paths_saved(self, values: dict[str, str]):
         """Übernimmt gespeicherte Pfade und lädt die Übersicht neu."""

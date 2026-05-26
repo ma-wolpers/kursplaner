@@ -11,6 +11,7 @@ _THEME_KEY = "theme"
 _COLUMN_VISIBILITY_KEY = "column_visibility"
 _UB_PAST_CUTOFF_KEY = "ub_past_cutoff_time"
 _LESSON_BUILDER_FIELDS_KEY = "lesson_builder_fields"
+_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 
 
 @dataclass(frozen=True)
@@ -153,4 +154,31 @@ def save_lesson_builder_field_settings(settings: LessonBuilderFieldSettings) -> 
         "show_kompetenzen": bool(settings.show_kompetenzen),
         "show_stundenziel": bool(settings.show_stundenziel),
     }
+    _save_payload(payload)
+
+
+def load_course_overview_highlight_days(default: int = 5) -> int:
+    """Laedt das Hervorhebungsfenster (Tage) fuer die Kursuebersicht."""
+    fallback = max(0, min(60, int(default)))
+    payload = _load_payload()
+    raw = payload.get(_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY)
+    if raw is None:
+        return fallback
+
+    if isinstance(raw, bool):
+        return fallback
+
+    if isinstance(raw, int):
+        return max(0, min(60, raw))
+
+    text = str(raw).strip()
+    if not text.isdigit():
+        return fallback
+    return max(0, min(60, int(text)))
+
+
+def save_course_overview_highlight_days(value: int) -> None:
+    """Persistiert das Hervorhebungsfenster (Tage) fuer die Kursuebersicht."""
+    payload = _load_payload()
+    payload[_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY] = max(0, min(60, int(value)))
     _save_payload(payload)

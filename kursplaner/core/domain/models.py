@@ -72,6 +72,10 @@ class LessonOverviewItem:
     remaining_hours: int = 0
     next_lzk: str = "—"
     next_ub: str = ""
+    next_unit: str = "—"
+    days_until_next_unit: int | None = None
+    has_upcoming_unit: bool = False
+    has_any_dated_unit: bool = False
     load_error: str | None = None
 
 

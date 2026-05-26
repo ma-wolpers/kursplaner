@@ -148,6 +148,9 @@ class MainWindowUiIntentController:
             return self.intent_course_confirm_selection(payload.get("event"))
         if intent == UiIntent.COURSE_HOVER_SELECT:
             return self.intent_course_hover_select(payload.get("event"))
+        if intent == UiIntent.COURSE_TOGGLE_SHOW_FORMER:
+            self.app.overview_controller.toggle_show_former_courses()
+            return "break"
         if intent == UiIntent.COURSE_KEYBOARD_NAVIGATION:
             self.app._tree_hover_suspend_until = time.monotonic() + 0.6
             return None

@@ -34,6 +34,45 @@ class MainWindowOverviewController:
         self.cleanup_lzk_expected_horizon_links_usecase = deps.cleanup_lzk_expected_horizon_links_usecase
         self.path_settings_usecase = app.path_settings_usecase
 
+    @staticmethod
+    def _is_former_course(lesson) -> bool:
+        if bool(getattr(lesson, "load_error", None)):
+            return False
+        if not bool(getattr(lesson, "has_any_dated_unit", False)):
+            return False
+        return not bool(getattr(lesson, "has_upcoming_unit", False))
+
+    def _should_show_course(self, lesson) -> bool:
+        if bool(getattr(self.app, "show_former_courses", False)):
+            return True
+        return not self._is_former_course(lesson)
+
+    @staticmethod
+    def _is_soon_upcoming(lesson, *, days_window: int) -> bool:
+        if not bool(getattr(lesson, "has_upcoming_unit", False)):
+            return False
+        days = getattr(lesson, "days_until_next_unit", None)
+        if not isinstance(days, int):
+            return False
+        return 0 <= days <= days_window
+
+    def _formatted_count(self, *, visible_count: int, total_count: int) -> str:
+        if bool(getattr(self.app, "show_former_courses", False)):
+            return f"{visible_count} Kurspläne"
+        if visible_count == total_count:
+            return f"{visible_count} Kurspläne"
+        return f"{visible_count} von {total_count} Kursplänen"
+
+    def toggle_show_former_courses(self) -> None:
+        """Schaltet die Anzeige ehemaliger Kurse in der Übersicht um."""
+        if bool(getattr(self.app, "is_detail_view", False)):
+            return
+        self.app.show_former_courses = not bool(getattr(self.app, "show_former_courses", False))
+        screen_builder = getattr(self.app, "screen_builder", None)
+        if screen_builder is not None:
+            screen_builder.refresh_course_overview_toolbar()
+        self.refresh_overview()
+
     def _project_visible_day_columns(self, raw_day_columns: list[dict[str, object]]) -> list[dict[str, object]]:
         """Projiziert Tages-Spalten nach aktiven Sichtbarkeits-/Marker-Regeln."""
         projection = self.column_visibility_projection_usecase.project(
@@ -188,8 +227,12 @@ class MainWindowOverviewController:
         self.app.lesson_load_errors = {}
 
         result = self.list_lessons_usecase.execute(pathlib.Path(base_dir).expanduser().resolve()) if base_dir else None
-        lessons = result.lessons if result is not None else []
-        self.app.count_var.set(f"{len(lessons)} Kurspläne")
+        all_lessons = result.lessons if result is not None else []
+        lessons = [lesson for lesson in all_lessons if self._should_show_course(lesson)]
+        self.app.count_var.set(self._formatted_count(visible_count=len(lessons), total_count=len(all_lessons)))
+        highlight_days = max(0, int(getattr(self.app, "course_overview_highlight_days", 5)))
+
+        self.app.lesson_tree.tag_configure("soon_upcoming", font=("Segoe UI", 9, "bold"))
 
         for lesson in lessons:
             iid = str(lesson.markdown_path) if lesson.markdown_path else lesson.folder_name
@@ -199,11 +242,20 @@ class MainWindowOverviewController:
                 name = f"⚠ {name}"
                 tags = ("load_error",)
                 self.app.lesson_load_errors[iid] = lesson.load_error
+            elif self._is_soon_upcoming(lesson, days_window=highlight_days):
+                tags = ("soon_upcoming",)
             self.app.lesson_tree.insert(
                 "",
                 "end",
                 iid=iid,
-                values=(name, lesson.next_topic, str(lesson.remaining_hours), lesson.next_lzk, lesson.next_ub),
+                values=(
+                    name,
+                    lesson.next_topic,
+                    lesson.next_unit,
+                    str(lesson.remaining_hours),
+                    lesson.next_lzk,
+                    lesson.next_ub,
+                ),
                 tags=tags,
             )
 

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
@@ -36,9 +36,22 @@ def test_plan_overview_uses_index(tmp_path):
     )
 
     # summarize_plan should run using the index; result should reflect the indexed topic
-    theme, remaining, next_lzk, next_ub = usecase.summarize_plan(table)
+    (
+        theme,
+        remaining,
+        next_lzk,
+        next_ub,
+        next_unit,
+        days_until_next_unit,
+        has_upcoming_unit,
+        has_any_dated_unit,
+    ) = usecase.summarize_plan(table)
     assert theme is not None
     assert "Thema1" in theme or theme == ""
+    assert next_unit == future
+    assert days_until_next_unit == 1
+    assert has_upcoming_unit is True
+    assert has_any_dated_unit is True
     assert next_ub == ""
 
 
@@ -98,7 +111,7 @@ def test_plan_overview_exposes_next_ub_display(tmp_path):
         metadata={},
     )
 
-    _theme, _remaining, _next_lzk, next_ub = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
+    _theme, _remaining, _next_lzk, next_ub, *_rest = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
     assert next_ub == "18.5. MP+"
 
 
@@ -158,7 +171,7 @@ def test_plan_overview_next_ub_without_langentwurf_has_no_plus(tmp_path):
         metadata={},
     )
 
-    _theme, _remaining, _next_lzk, next_ub = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
+    _theme, _remaining, _next_lzk, next_ub, *_rest = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
     assert next_ub == "18.5. MP"
 
 
@@ -216,7 +229,7 @@ def test_plan_overview_falls_back_to_row_date_when_ub_stem_has_no_date(tmp_path)
         metadata={},
     )
 
-    _theme, _remaining, _next_lzk, next_ub = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
+    _theme, _remaining, _next_lzk, next_ub, *_rest = usecase.summarize_plan(table, reference_day=date(2026, 5, 1))
     assert next_ub == "18.5."
 
 
@@ -265,6 +278,80 @@ def test_plan_overview_next_lzk_uses_stundentyp_not_topic_keyword(tmp_path):
         metadata={},
     )
 
-    _theme, _remaining, next_lzk, _next_ub = usecase.summarize_plan(table)
+    _theme, _remaining, next_lzk, _next_ub, *_rest = usecase.summarize_plan(table)
 
     assert next_lzk == future_2
+
+
+def test_plan_overview_counts_today_as_past_after_cutoff(tmp_path):
+    root = tmp_path / "Unterricht"
+    (root / "FachX").mkdir(parents=True)
+
+    lesson_repo = FileSystemLessonRepository()
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo)
+
+    today_text = date.today().strftime("%d-%m-%y")
+    table = PlanTableData(
+        markdown_path=root / "FachX" / "plan.md",
+        headers=["datum", "stunden", "inhalt"],
+        rows=[[today_text, "2", ""]],
+        start_line=0,
+        end_line=0,
+        source_lines=[],
+        had_trailing_newline=False,
+        metadata={},
+    )
+
+    (
+        _theme,
+        remaining,
+        _next_lzk,
+        _next_ub,
+        next_unit,
+        days_until_next_unit,
+        has_upcoming_unit,
+        has_any_dated_unit,
+    ) = usecase.summarize_plan(table, now=datetime.combine(date.today(), time(hour=16, minute=0)))
+
+    assert remaining == 0
+    assert next_unit == "—"
+    assert days_until_next_unit is None
+    assert has_upcoming_unit is False
+    assert has_any_dated_unit is True
+
+
+def test_plan_overview_counts_today_as_upcoming_before_cutoff(tmp_path):
+    root = tmp_path / "Unterricht"
+    (root / "FachX").mkdir(parents=True)
+
+    lesson_repo = FileSystemLessonRepository()
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo)
+
+    today_text = date.today().strftime("%d-%m-%y")
+    table = PlanTableData(
+        markdown_path=root / "FachX" / "plan.md",
+        headers=["datum", "stunden", "inhalt"],
+        rows=[[today_text, "2", ""]],
+        start_line=0,
+        end_line=0,
+        source_lines=[],
+        had_trailing_newline=False,
+        metadata={},
+    )
+
+    (
+        _theme,
+        remaining,
+        _next_lzk,
+        _next_ub,
+        next_unit,
+        days_until_next_unit,
+        has_upcoming_unit,
+        has_any_dated_unit,
+    ) = usecase.summarize_plan(table, now=datetime.combine(date.today(), time(hour=14, minute=0)))
+
+    assert remaining == 2
+    assert next_unit == today_text
+    assert days_until_next_unit == 0
+    assert has_upcoming_unit is True
+    assert has_any_dated_unit is True

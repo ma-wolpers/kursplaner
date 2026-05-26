@@ -18,6 +18,7 @@ from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
 
 _UB_CUTOFF_HOUR_KEY = "ub_past_cutoff_hour"
 _UB_CUTOFF_MINUTE_KEY = "ub_past_cutoff_minute"
+_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _SHOW_KOMPETENZEN_KEY = "lesson_builder_show_kompetenzen"
 _SHOW_STUNDENZIEL_KEY = "lesson_builder_show_stundenziel"
 
@@ -84,6 +85,21 @@ def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> Settings
                     ),
                 ),
             ),
+            SettingsSectionSpec(
+                key="course_overview",
+                label="Kursübersicht",
+                fields=(
+                    SettingsFieldSpec(
+                        key=_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY,
+                        label="Fett-Hervorhebung nächste Einheit (Tage)",
+                        field_type="int",
+                        default=5,
+                        min_value=0,
+                        max_value=60,
+                        hint="Einträge im Zeitraum 0..N Tage werden fett dargestellt.",
+                    ),
+                ),
+            ),
         )
     )
 
@@ -93,12 +109,14 @@ def _initial_values(
     path_values: dict[str, str],
     ub_past_cutoff_time: time,
     lesson_builder_field_settings: LessonBuilderFieldSettings,
+    course_overview_highlight_days: int,
 ) -> dict[str, object]:
     values: dict[str, object] = {key: value for key, value in path_values.items()}
     values[_UB_CUTOFF_HOUR_KEY] = int(ub_past_cutoff_time.hour)
     values[_UB_CUTOFF_MINUTE_KEY] = int(ub_past_cutoff_time.minute)
     values[_SHOW_KOMPETENZEN_KEY] = bool(lesson_builder_field_settings.show_kompetenzen)
     values[_SHOW_STUNDENZIEL_KEY] = bool(lesson_builder_field_settings.show_stundenziel)
+    values[_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY] = max(0, min(60, int(course_overview_highlight_days)))
     return values
 
 
@@ -123,6 +141,18 @@ def _extract_lesson_builder_settings(payload: dict[str, object]) -> LessonBuilde
         show_kompetenzen=bool(payload.get(_SHOW_KOMPETENZEN_KEY, True)),
         show_stundenziel=bool(payload.get(_SHOW_STUNDENZIEL_KEY, True)),
     )
+
+
+def _extract_course_overview_highlight_days(payload: dict[str, object]) -> int:
+    raw = payload.get(_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY, 5)
+    if isinstance(raw, bool):
+        return 5
+    if isinstance(raw, int):
+        return max(0, min(60, raw))
+    text = str(raw).strip()
+    if not text.isdigit():
+        return 5
+    return max(0, min(60, int(text)))
 
 
 def _pick_path_for_issue(
@@ -172,6 +202,8 @@ def open_settings_dialog(
     on_ub_past_cutoff_saved=None,
     lesson_builder_field_settings: LessonBuilderFieldSettings | None = None,
     on_lesson_builder_fields_saved=None,
+    course_overview_highlight_days: int = 5,
+    on_course_overview_highlight_days_saved=None,
     theme_key: str | None = None,
     path_settings_usecase: PathSettingsUseCase | None = None,
 ) -> None:
@@ -184,6 +216,7 @@ def open_settings_dialog(
     active_path_values = dict(path_values)
     active_cutoff = ub_past_cutoff_time or time(hour=15, minute=0)
     active_lesson_builder_settings = lesson_builder_field_settings or LessonBuilderFieldSettings()
+    active_course_overview_highlight_days = max(0, min(60, int(course_overview_highlight_days)))
     active_section: str | None = None
     effective_theme_key = str(theme_key or "slate_indigo")
 
@@ -192,6 +225,7 @@ def open_settings_dialog(
             path_values=active_path_values,
             ub_past_cutoff_time=active_cutoff,
             lesson_builder_field_settings=active_lesson_builder_settings,
+            course_overview_highlight_days=active_course_overview_highlight_days,
         )
         result = open_tabbed_settings_dialog(
             master,
@@ -207,6 +241,7 @@ def open_settings_dialog(
         proposed_path_values = _extract_path_values(result, path_settings_usecase)
         proposed_cutoff = _extract_cutoff_time(result)
         proposed_lesson_builder = _extract_lesson_builder_settings(result)
+        proposed_course_overview_highlight_days = _extract_course_overview_highlight_days(result)
 
         issues = path_settings_usecase.validate_values(proposed_path_values)
         if issues:
@@ -229,6 +264,7 @@ def open_settings_dialog(
             active_path_values = proposed_path_values
             active_cutoff = proposed_cutoff
             active_lesson_builder_settings = proposed_lesson_builder
+            active_course_overview_highlight_days = proposed_course_overview_highlight_days
             active_section = "paths"
             continue
 
@@ -239,5 +275,7 @@ def open_settings_dialog(
             on_ub_past_cutoff_saved(proposed_cutoff)
         if on_lesson_builder_fields_saved:
             on_lesson_builder_fields_saved(proposed_lesson_builder)
+        if on_course_overview_highlight_days_saved:
+            on_course_overview_highlight_days_saved(proposed_course_overview_highlight_days)
         return
 

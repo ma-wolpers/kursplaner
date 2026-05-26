@@ -50,6 +50,15 @@
     "didactic_hint": "E markiert den Schritt, den Plan über den aktuellen Stand hinaus zu verlängern."
   },
   {
+    "key_sequence": "<Control-Shift-e>",
+    "display_shortcut": "Strg+Shift+E",
+    "action_label": "Ehemalige Kurse ein/ausblenden",
+    "intent": "course.toggle_show_former",
+    "from_shortcut": true,
+    "mnemonic": "E = Ehemalig",
+    "didactic_hint": "Schaltet in der Kursübersicht die Anzeige ehemaliger Kurse um."
+  },
+  {
     "key_sequence": "<Control-u>",
     "display_shortcut": "Strg+U",
     "action_label": "Als Unterricht markieren",
