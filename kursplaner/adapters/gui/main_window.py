@@ -602,6 +602,18 @@ def main():
     if not ensure_paths_interactive(path_settings_usecase=dependencies.path_settings_usecase):
         return
 
+    def _run_startup_relation_registry_rebuild() -> None:
+        """Rebuild file relations once on startup to warm the persistent registry."""
+        try:
+            managed_paths = dependencies.path_settings_usecase.to_managed_paths(
+                dependencies.path_settings_usecase.load_values()
+            )
+            dependencies.rebuild_file_relation_registry_usecase.execute(managed_paths.unterricht_dir)
+        except Exception as exc:
+            print(f"Startup relation registry rebuild failed: {exc}")
+
+    _run_startup_relation_registry_rebuild()
+
     app = KursplanerApp(dependencies=dependencies)
     apply_window_icon(app.tk_root)
     app.after(60, lambda: bring_window_to_front(app.tk_root))

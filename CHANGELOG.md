@@ -109,6 +109,7 @@ The format is based on Keep a Changelog.
 - New shortcut runtime debug dialog (`Ansicht -> Shortcut-Runtime-Debug`, `Strg+Shift+D`) with compact table output and offline simulation toggle (`Strg+Shift+O`).
 - New runtime module tests for keybinding evaluation and popup policy stack behavior.
 - Neuer Tab `UB-Plan` mit getrennten Listen fuer kommende und absolvierte UBs inklusive Spalten `Datum`, `Faecher`, `+` (Langentwurf), `Kurs`.
+- Technische Grundlage fuer Sequenzplanung hinzugefuegt: neue Sequenz-Dateiverwaltung (`Sequenzen`), persistente Datei-Relations-Registry und automatischer Registry-Rebuild beim Start sowie nach getrackten Schreibvorgaengen.
 
 ## [0.1.2] - 2026-04-22
 

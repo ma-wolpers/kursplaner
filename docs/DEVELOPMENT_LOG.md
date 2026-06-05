@@ -9,6 +9,9 @@ Regel:
 ## [Unreleased]
 
 ### Changed
+- Sequenzplanung-Foundation gestartet: neue Domain-/Infra-Module fuer Sequenzdateien (`kursplaner/core/domain/sequence_planning.py`, `kursplaner/infrastructure/repositories/sequence_plan_repository.py`) mit kanonischer Dateinamenbildung (`<Sequenz> <Lerngruppe> <26-2>`), `Kursplan`-YAML-Link und strikt teilweiser Update-Strategie (nur Brainstorming-Bereich editierbar, trailing Export-Tabelle ersetzbar).
+- Persistente Datei-Relations-Registry eingefuehrt (`kursplaner/core/domain/file_relation_registry.py`, `kursplaner/infrastructure/repositories/file_relation_registry_repository.py`) und als Rebuild-Use-Case verdrahtet (`kursplaner/core/usecases/rebuild_file_relation_registry_usecase.py`, Composition Root in `kursplaner/adapters/bootstrap/wiring.py`).
+- Registry-Rebuild in Runtime-Flows integriert: einmal beim App-Start (`kursplaner/adapters/gui/main_window.py`) sowie nach erfolgreichen getrackten Schreibvorgaengen (`kursplaner/adapters/gui/action_controller.py`), damit Plan-/Einheiten-/UB-/Sequenz-Beziehungen kontinuierlich aktualisiert bleiben.
 - Kursübersicht erweitert: neue Spalte `Nächste Einheit` mit derselben Cutoff-Uhrzeitregel wie bei UB-Auswertungen; heutige Einheiten gelten ab konfigurierter Uhrzeit als vergangen.
 - Kursübersicht-Filter ergänzt: ehemalige Kurse (nur vergangene Einheiten) sind standardmäßig ausgeblendet und können per neuer Übersichtsaktion/Shortcut (`Strg+Shift+E`) ein- oder ausgeblendet werden; Sonderfälle mit Ladefehlern/unklarer Datumsbasis bleiben sichtbar.
 - Hervorhebung in der Kursübersicht konfigurierbar gemacht: Einträge mit naher nächster Einheit werden im einstellbaren Zeitfenster (Default 5 Tage) fett markiert.

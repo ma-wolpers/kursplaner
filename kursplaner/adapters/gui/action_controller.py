@@ -971,6 +971,25 @@ class MainWindowActionController:
         self.app._update_selected_lesson_metrics()
         self.update_action_controls()
 
+    def _rebuild_file_relation_registry(self) -> None:
+        """Best-effort rebuild for the persistent file relation registry."""
+        rebuild_uc = getattr(self.app.gui_dependencies, "rebuild_file_relation_registry_usecase", None)
+        if rebuild_uc is None:
+            return
+
+        base_dir_text = self.app.base_dir_var.get().strip()
+        if not base_dir_text:
+            return
+
+        base_dir = pathlib.Path(base_dir_text).expanduser().resolve()
+        if not base_dir.exists() or not base_dir.is_dir():
+            return
+
+        try:
+            rebuild_uc.execute(base_dir)
+        except Exception as exc:
+            print(f"File relation registry rebuild failed: {exc}")
+
     def _run_tracked_write(
         self,
         *,
@@ -982,7 +1001,7 @@ class MainWindowActionController:
     ):
         if self.app.current_table is None:
             return action()
-        return self._tracked_write_uc.run_tracked_action(
+        result = self._tracked_write_uc.run_tracked_action(
             label=label,
             action=action,
             table=self.app.current_table,
@@ -992,6 +1011,8 @@ class MainWindowActionController:
             extra_after=extra_after,
             extra_after_from_result=extra_after_from_result,
         )
+        self._rebuild_file_relation_registry()
+        return result
 
     def _set_slot_visibility(self, slot_key: str, visible: bool) -> None:
         slots = getattr(self.app, "toolbar_slots", None)

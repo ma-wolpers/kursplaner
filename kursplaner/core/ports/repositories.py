@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Protocol
 
+from kursplaner.core.domain.file_relation_registry import FileRelationRegistrySnapshot
 from kursplaner.core.domain.kompetenzkatalog import Kompetenzkatalog, KompetenzkatalogManifestEntry
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 
@@ -575,4 +576,44 @@ class UbRepository(Protocol):
 
     def delete_ub_markdown(self, path: Path) -> None:
         """Löscht eine UB-Markdown-Datei, falls vorhanden."""
+        ...
+
+
+class SequencePlanRepository(Protocol):
+    """Contract for sequence markdown file lifecycle and partial table updates."""
+
+    def resolve_sequence_path(self, *, table: PlanTableData, sequence_name: str) -> Path:
+        """Return the canonical sequence file path for one plan/sequence pair."""
+        ...
+
+    def ensure_sequence_document(self, *, table: PlanTableData, sequence_name: str) -> Path:
+        """Create a sequence markdown file when it is missing and return its path."""
+        ...
+
+    def read_brainstorming(self, sequence_path: Path) -> str:
+        """Read the editable brainstorming section from a sequence markdown file."""
+        ...
+
+    def write_brainstorming(self, *, sequence_path: Path, brainstorming_text: str) -> None:
+        """Persist only the brainstorming section while preserving the remaining file."""
+        ...
+
+    def replace_trailing_table(self, *, sequence_path: Path, table_lines: list[str]) -> None:
+        """Replace only the trailing markdown table in a sequence file."""
+        ...
+
+    def render_markdown_table(self, *, headers: list[str], rows: list[list[str]]) -> list[str]:
+        """Render rows into a markdown table line representation."""
+        ...
+
+
+class FileRelationRegistryRepository(Protocol):
+    """Contract for persistent file relation snapshots used by cross-file write flows."""
+
+    def load_snapshot(self) -> FileRelationRegistrySnapshot:
+        """Load the persisted relation snapshot from storage."""
+        ...
+
+    def save_snapshot(self, snapshot: FileRelationRegistrySnapshot) -> None:
+        """Persist a complete relation snapshot to storage."""
         ...

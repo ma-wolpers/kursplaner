@@ -49,6 +49,7 @@ from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQue
 from kursplaner.core.usecases.plan_regular_lesson_usecase import PlanRegularLessonUseCase
 from kursplaner.core.usecases.query_ub_achievements_usecase import QueryUbAchievementsUseCase
 from kursplaner.core.usecases.query_ub_plan_usecase import QueryUbPlanUseCase
+from kursplaner.core.usecases.rebuild_file_relation_registry_usecase import RebuildFileRelationRegistryUseCase
 from kursplaner.core.usecases.rebuild_lesson_index_usecase import RebuildLessonIndexUseCase
 from kursplaner.core.usecases.rebuild_plan_index_usecase import RebuildPlanIndexUseCase
 from kursplaner.core.usecases.rebuild_subject_source_index_usecase import RebuildSubjectSourceIndexUseCase
@@ -67,6 +68,9 @@ from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import 
 from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import ExpectedHorizonPdfRenderer
 from kursplaner.infrastructure.export.topic_units_markdown_renderer import TopicUnitsMarkdownRenderer
 from kursplaner.infrastructure.export.topic_units_pdf_renderer import TopicUnitsPdfRenderer
+from kursplaner.infrastructure.repositories.file_relation_registry_repository import (
+    FileSystemFileRelationRegistryRepository,
+)
 from kursplaner.infrastructure.repositories import FileSystemLessonIndexRepository
 from kursplaner.infrastructure.repositories.markdown_repositories import (
     FileSystemCalendarRepository,
@@ -79,6 +83,7 @@ from kursplaner.infrastructure.repositories.markdown_repositories import (
     FileSystemSubjectSourceRepository,
     FileSystemUbRepository,
 )
+from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
 
 
 class CalendarTermResolver(Protocol):
@@ -140,6 +145,9 @@ class GuiDependencies:
     save_cell_value: SaveCellValueUseCase
     rename_linked_file_for_row: RenameLinkedFileForRowUseCase
     path_settings_usecase: PathSettingsUseCase
+    sequence_plan_repo: FileSystemSequencePlanRepository
+    file_relation_registry_repo: FileSystemFileRelationRegistryRepository
+    rebuild_file_relation_registry_usecase: RebuildFileRelationRegistryUseCase
     grid_cell_policy_usecase: GridCellPolicyUseCase
     row_display_mode_usecase: RowDisplayModeUseCase
     column_visibility_projection_usecase: ColumnVisibilityProjectionUseCase
@@ -368,6 +376,13 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
+    sequence_plan_repo = FileSystemSequencePlanRepository()
+    file_relation_registry_repo = FileSystemFileRelationRegistryRepository()
+    rebuild_file_relation_registry_usecase = RebuildFileRelationRegistryUseCase(
+        plan_repo=plan_repo,
+        lesson_repo=lesson_repo,
+        relation_registry_repo=file_relation_registry_repo,
+    )
 
     return GuiDependencies(
         max_history=max_history,
@@ -405,6 +420,9 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         save_cell_value=save_cell_value,
         rename_linked_file_for_row=rename_linked_file_for_row,
         path_settings_usecase=path_settings_usecase,
+        sequence_plan_repo=sequence_plan_repo,
+        file_relation_registry_repo=file_relation_registry_repo,
+        rebuild_file_relation_registry_usecase=rebuild_file_relation_registry_usecase,
         grid_cell_policy_usecase=grid_cell_policy_usecase,
         row_display_mode_usecase=row_display_mode_usecase,
         column_visibility_projection_usecase=column_visibility_projection_usecase,
