@@ -33,6 +33,7 @@ build/
 # User and machine local configuration
 config/paths.json
 config/ui_preferences.json
+config/file_relation_registry.json
 config/logs/
 
 # Temp outputs
