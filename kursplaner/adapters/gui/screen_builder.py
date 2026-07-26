@@ -5,8 +5,6 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
-from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar
-from bw_gui.menu import MenuDefinition as SharedMenuDefinition
 from bw_gui.menu import MenuItem as SharedMenuItem
 from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
 
@@ -36,8 +34,6 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
 )
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import (
-    THEMES,
-    THEME_ORDER,
     apply_window_theme,
     configure_ttk_theme,
     get_theme,
@@ -72,7 +68,6 @@ class ScreenBuilder:
         self.app.shortcut_runtime_debug_context_var = None
         self.app.shortcut_runtime_debug_summary_var = None
         self.app.shortcut_runtime_debug_offline_var = None
-        self._shared_menu_bar = None
         self._intent_help_tooltips: list[tuple[HoverTooltip, str, str]] = []
 
     def _apply_toolbar_icons(self):
@@ -81,9 +76,9 @@ class ScreenBuilder:
             return
         styler.apply(self.app.theme_var.get())
 
-    def build_ui(self):
+    def build_ui(self, frame=None):
         """Erzeugt Widgets und verbindet UI-Events mit Adapter-Delegationspunkten."""
-        root = widgets.Frame(self.app, padding=16)
+        root = widgets.Frame(frame if frame is not None else self.app, padding=16)
         root.pack(fill="both", expand=True)
         self._ensure_tooltip_store()
         self.app.action_buttons = {}
@@ -92,8 +87,6 @@ class ScreenBuilder:
         self.app.toolbar_separators = {}
         self.app.course_overview_buttons = {}
         self.app.course_overview_toggle_button = None
-
-        self._build_menu()
 
         top = widgets.Frame(root)
         top.pack(fill="x", pady=(0, 10))
@@ -484,7 +477,6 @@ class ScreenBuilder:
                 label="Lesson-Index neu aufbauen",
                 command=lambda: self._emit_intent(UiIntent.REBUILD_LESSON_INDEX),
             ),
-            SharedMenuItem(type="command", label="Einstellungen…", command=lambda: self._emit_intent(UiIntent.OPEN_SETTINGS)),
             SharedMenuItem(type="separator"),
             SharedMenuItem(type="command", label="Beenden", command=self.app.destroy),
         )
@@ -521,16 +513,6 @@ class ScreenBuilder:
         )
 
     def _menu_items_view(self):
-        theme_items = tuple(
-            SharedMenuItem(
-                type="radio",
-                label=THEMES[theme_key].get("label", theme_key),
-                checked=(self.app.theme_var.get() == theme_key),
-                command=lambda key=theme_key: self._set_theme_from_menu(key),
-            )
-            for theme_key in THEME_ORDER
-        )
-
         return (
             SharedMenuItem(
                 type="radio",
@@ -565,29 +547,7 @@ class ScreenBuilder:
                 label="Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
                 command=self._open_shortcut_runtime_debug_dialog,
             ),
-            SharedMenuItem(type="separator"),
-            SharedMenuItem(type="submenu", label="Theme", items=theme_items),
         )
-
-    def _build_menu(self):
-        """Erzeugt die Hauptmenüs inklusive Wartungsaktionen."""
-        if self._shared_menu_bar is not None:
-            self._shared_menu_bar.destroy()
-
-        definitions = (
-            SharedMenuDefinition(key="datei", label="Datei", alt="d", items_provider=self._menu_items_file),
-            SharedMenuDefinition(key="bearbeiten", label="Bearbeiten", alt="b", items_provider=self._menu_items_edit),
-            SharedMenuDefinition(key="aktion", label="Aktion", alt="k", items_provider=self._menu_items_action),
-            SharedMenuDefinition(key="ansicht", label="Ansicht", alt="a", items_provider=self._menu_items_view),
-        )
-
-        self._shared_menu_bar = SharedCustomMenuBar(
-            self.app,
-            definitions,
-            theme_key=self.app.theme_var.get(),
-        )
-        self._shared_menu_bar.build()
-        self.app.config(menu="")
 
     def _ensure_tooltip_store(self):
         """Stellt sicher, dass Tooltip-Objekte am App-Lifecycle hängen."""
@@ -1190,8 +1150,6 @@ class ScreenBuilder:
         theme_key = self.app.theme_var.get()
         apply_window_theme(self.app, theme_key)
         configure_ttk_theme(self.app, theme_key)
-        if self._shared_menu_bar is not None:
-            self._shared_menu_bar.refresh_theme(theme_key)
         self._apply_toolbar_icons()
 
         theme = get_theme(theme_key)

@@ -2,14 +2,13 @@ import pathlib
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import TkRootHost, ui
+from bw_gui.runtime import BwBaseWindow, ui
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
-from bw_gui.menu import CustomMenuBar as _SharedCustomMenuBarContractMarker
+from bw_gui.menu import section_spec
 from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker
 from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker
 from datetime import date
 
-from bw_libs.app_shell import TkinterAppShell
 from bw_libs.ui_contract.laufkern import aggregate_completion, emit_tracking_artifact
 from kursplaner.adapters.bootstrap.wiring import AppDependencies, build_gui_dependencies
 from kursplaner.adapters.gui.action_controller import MainWindowActionController
@@ -24,6 +23,7 @@ from kursplaner.adapters.gui.path_bootstrap import ensure_paths_interactive
 from kursplaner.adapters.gui.path_settings_controller import MainWindowPathSettingsController
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
+from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.toolbar_icon_styler import ToolbarIconStyler
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
@@ -43,7 +43,7 @@ from kursplaner.core.config.ui_preferences_store import (
 from kursplaner.core.domain.plan_table import PlanTableData
 
 
-class KursplanerApp(TkRootHost):
+class KursplanerApp(BwBaseWindow):
     """Hauptfenster-Adapter der Anwendung.
 
     Verantwortlich für UI-Zustand und Delegation an spezialisierte Controller;
@@ -52,11 +52,30 @@ class KursplanerApp(TkRootHost):
 
     def __init__(self, dependencies: AppDependencies | None = None):
         """Initialisiert Hauptfenster, Controller und UI-Grundzustand."""
-        super().__init__()
-        apply_window_icon(self.tk_root)
         self.gui_dependencies = dependencies or build_gui_dependencies()
-        self.app_shell = TkinterAppShell(self.tk_root, self.gui_dependencies.shell_config)
+        persisted_theme = normalize_theme_key(load_theme_key(DEFAULT_THEME))
+        self.screen_builder = ScreenBuilder(self)
+        cfg = self.gui_dependencies.shell_config
+        super().__init__(
+            title=cfg.title,
+            geometry=cfg.geometry,
+            theme_key=persisted_theme,
+            min_width=cfg.min_width,
+            min_height=cfg.min_height,
+        )
 
+    def build_menu(self) -> list:
+        """Liefert die Menüstruktur für BwBaseWindow."""
+        return [
+            section_spec("file", label="Datei", alt="d", items_provider=self.screen_builder._menu_items_file),
+            section_spec("edit", label="Bearbeiten", alt="b", items_provider=self.screen_builder._menu_items_edit),
+            section_spec("aktion", label="Aktion", alt="k", items_provider=self.screen_builder._menu_items_action),
+            section_spec("view", label="Ansicht", alt="a", items_provider=self.screen_builder._menu_items_view),
+        ]
+
+    def build_content(self, frame) -> None:
+        """Erzeugt alle UI-Komponenten nach Fenster-Setup durch BwBaseWindow."""
+        apply_window_icon(self.tk_root)
         self.path_settings_usecase = self.gui_dependencies.path_settings_usecase
         self.new_lesson_form_usecase = self.gui_dependencies.new_lesson_form_usecase
         self.new_lesson_usecase = self.gui_dependencies.new_lesson_usecase
@@ -65,8 +84,7 @@ class KursplanerApp(TkRootHost):
         current_paths = self.path_settings_usecase.to_managed_paths(self.path_values)
         self.base_dir_var = ui.StringVar(value=str(current_paths.unterricht_dir))
         self.count_var = ui.StringVar(value="0 Kurspläne")
-        persisted_theme = normalize_theme_key(load_theme_key(DEFAULT_THEME))
-        self.theme_var = ui.StringVar(value=persisted_theme)
+        self.theme_var = ui.StringVar(value=normalize_theme_key(load_theme_key(DEFAULT_THEME)))
         self.preview_title_var = ui.StringVar(value="Kursplan")
         self.selected_column_var = ui.StringVar(value="Ausgewählte Spalte: keine")
         self.auto_row_mode_var = ui.BooleanVar(value=True)
@@ -124,16 +142,26 @@ class KursplanerApp(TkRootHost):
         self._laufkern_tracking_artifacts = []
         self.toolbar_icon_styler = ToolbarIconStyler(self)
 
-        # extracted UI/component helpers
-        self.screen_builder = ScreenBuilder(self)
         self.grid_renderer = GridRenderer(self)
         self.action_controller = MainWindowActionController(self)
 
-        self.screen_builder.build_ui()
+        self.screen_builder.build_ui(frame)
         self.screen_builder._bind_shortcuts()
         self.screen_builder._apply_theme()
         self.action_controller.refresh_overview()
         self.action_controller.update_action_controls()
+
+    def open_settings(self) -> None:
+        """Öffnet den Einstellungen-Dialog."""
+        self._handle_ui_intent(UiIntent.OPEN_SETTINGS)
+
+    def apply_theme(self, theme_key: str) -> None:
+        """Wechselt Theme und synchronisiert alle programm-spezifischen Flächen."""
+        super().apply_theme(theme_key)
+        self.theme_var.set(normalize_theme_key(theme_key))
+        save_theme_key(normalize_theme_key(theme_key))
+        self.screen_builder._apply_theme()
+        self._apply_grid_theme()
 
     @property
     def selected_day_indices(self) -> set[int]:
@@ -639,5 +667,5 @@ def main():
             print(f"Daily course log export failed: {exc}")
 
     app.after(320, _run_daily_course_log_export)
-    app.mainloop()
+    app.run()
 
