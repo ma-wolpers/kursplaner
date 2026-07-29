@@ -36,7 +36,7 @@ from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import (
     apply_window_theme,
     configure_ttk_theme,
-    get_theme,
+    kursplaner_theme,
 )
 
 
@@ -1152,7 +1152,7 @@ class ScreenBuilder:
         configure_ttk_theme(self.app, theme_key)
         self._apply_toolbar_icons()
 
-        theme = get_theme(theme_key)
+        theme = kursplaner_theme(theme_key)
         self.app.fixed_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
         self.app.grid_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
 

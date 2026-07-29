@@ -7,7 +7,7 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
-from kursplaner.adapters.gui.ui_theme import get_theme
+from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 
 
 class ToolbarIconStyler:
@@ -65,7 +65,7 @@ class ToolbarIconStyler:
 
     @staticmethod
     def _theme_icon_colors(theme_key: str) -> dict[str, str]:
-        theme = get_theme(theme_key)
+        theme = kursplaner_theme(theme_key)
         return {
             "utility": str(theme.get("fg_primary", "#222222")),
             "primary": str(theme.get("fg_on_accent", theme.get("fg_primary", "#FFFFFF"))),

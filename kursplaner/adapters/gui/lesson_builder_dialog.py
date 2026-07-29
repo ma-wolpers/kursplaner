@@ -9,7 +9,7 @@ from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.selection_overlay_controller import SelectionOverlayController
-from kursplaner.adapters.gui.ui_theme import get_theme
+from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 from kursplaner.adapters.gui.wrapped_text_field import WrappedTextField
 
 
@@ -238,7 +238,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         return "\n".join(f"- {entry}" for entry in cleaned)
 
     def _render_ub_sections(self, parent: widgets.LabelFrame) -> None:
-        theme = get_theme(self.theme_key)
+        theme = kursplaner_theme(self.theme_key)
         fg = str(theme.get("fg_primary", "#111827"))
         bg = str(theme.get("bg_main", "#FFFFFF"))
 

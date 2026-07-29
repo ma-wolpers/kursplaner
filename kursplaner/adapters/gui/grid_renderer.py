@@ -10,7 +10,7 @@ from pathlib import Path
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.ui_intents import UiIntent
-from kursplaner.adapters.gui.ui_theme import get_theme
+from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 
 
 class GridRenderer:
@@ -93,7 +93,7 @@ class GridRenderer:
 
     def _header_visual_state(self, day_index: int) -> tuple[str, str, str]:
         """Liefert Header-Text und Basisfarben für eine Tages-Spalte."""
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         if day_index >= len(self.app.day_columns):
             return "", theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])), theme["fg_primary"]
 
@@ -141,7 +141,7 @@ class GridRenderer:
 
     def _ub_border_color(self, day_index: int) -> str:
         """Liefert die Rahmenfarbe für als UB markierte Spalten."""
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         if 0 <= day_index < len(self.app.day_columns):
             day = self.app.day_columns[day_index]
             if bool(day.get("is_ub", False)):
@@ -261,7 +261,7 @@ class GridRenderer:
         else:
             widget.configure(font=self.app.preview_font)
 
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         if canceled:
             widget.configure(
                 bg=theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"]))),
@@ -323,7 +323,7 @@ class GridRenderer:
         """Hebt die aktuell ausgewählte Navigationszelle sichtbar hervor."""
         selected = self.app.ui_state.selected_cell
         is_selected = selected is not None and selected.field_key == field_key and selected.day_index == day_index
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         if is_selected:
             highlight = str(theme.get("selection_bg", theme.get("accent", "#4A90E2")))
             widget.configure(
@@ -375,7 +375,7 @@ class GridRenderer:
         )
         widget.insert("1.0", text)
 
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         if canceled:
             widget.configure(
                 bg=theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"]))),
@@ -456,7 +456,7 @@ class GridRenderer:
         for child in self.app.grid_inner.winfo_children():
             child.destroy()
 
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
 
         self.app.fixed_inner.grid_columnconfigure(0, weight=0, minsize=220)
         x_cursor = 0
@@ -721,7 +721,7 @@ class GridRenderer:
         if label is None:
             return
 
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         row_height, collapsible, _expanded, label_text = self._row_layout(field_key)
         label.configure(
             text=label_text,
@@ -781,7 +781,7 @@ class GridRenderer:
         """Wendet Theme-Änderungen per Patch-Update auf das bestehende Grid an."""
         if self.app._is_rebuilding_grid:
             return
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         if self.app.corner_label is not None:
             self.app.corner_label.configure(
                 bg=theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),

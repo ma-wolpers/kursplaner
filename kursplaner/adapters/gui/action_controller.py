@@ -26,7 +26,7 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
     build_toolbar_view_model,
 )
 from kursplaner.adapters.gui.ub_mark_dialog import ask_mark_unit_as_ub
-from kursplaner.adapters.gui.ui_theme import get_theme
+from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 from kursplaner.core.config.path_store import (
     CALENDAR_DIR_KEY,
     infer_workspace_root_from_path,
@@ -517,7 +517,7 @@ class MainWindowActionController:
         if value == 0:
             extent = max(extent, int(360 * 0.05))
 
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         is_dark = self._is_dark_hex(str(theme.get("bg_main", "#FFFFFF")))
         category_colors = self.ACHIEVEMENT_COLORS_DARK if is_dark else self.ACHIEVEMENT_COLORS_LIGHT
         progress_color = category_colors.get(str(category), category_colors["half"])

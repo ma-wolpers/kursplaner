@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.adapters.gui.ui_theme import get_theme
+from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 
 
 class MainWindowSelectionController:
@@ -277,7 +277,7 @@ class MainWindowSelectionController:
 
     def refresh_header_styles(self):
         """Wendet selektions-/zustandsabhängige Header-Farben auf alle Spalten an."""
-        theme = get_theme(self.app.theme_var.get())
+        theme = kursplaner_theme(self.app.theme_var.get())
         selected_bg = str(
             theme.get(
                 "selection_bg",
