@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from kursplaner.core.domain.course_subject import normalize_course_subject
+from kursplaner.core.domain.sequence_planning import SEQUENCE_YAML_COURSE_PLAN_KEY
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,17 @@ LESSON_SCHEMA = YamlSchema(
         "Dauer": _is_valid_dauer,
     },
 )
+
+SEQUENCE_PLAN_SCHEMA = YamlSchema(
+    label="Sequenz-Datei",
+    required_keys=(SEQUENCE_YAML_COURSE_PLAN_KEY, "Sequenzname", "Lerngruppe", "Halbjahr"),
+)
+"""Schema für die persistente Sequenz-Markdown-Datei (`Sequenzen/*.md`).
+
+`Sequenzziel` und `Leitkompetenz` sind bewusst nicht in `required_keys`
+aufgeführt: sie werden bei Neuanlage der Datei leer angelegt und erst später
+vom Nutzer befüllt (siehe `FileSystemSequencePlanRepository`).
+"""
 
 
 def _is_empty_value(value: object) -> bool:

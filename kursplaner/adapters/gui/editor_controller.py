@@ -25,6 +25,7 @@ class MainWindowEditorController:
         self.lesson_commands = deps.lesson_commands
         self.save_cell_value = deps.save_cell_value
         self._tracked_write_uc = deps.tracked_write_usecase
+        self.update_sequence_goal_field_usecase = deps.update_sequence_goal_field_usecase
 
     def _run_tracked_write(
         self,
@@ -238,3 +239,56 @@ class MainWindowEditorController:
 
         if not result.proceed:
             raise RuntimeError(result.error_message or "Speichern fehlgeschlagen")
+
+    def save_sequence_field(self, sequence_field_key: str, first_row_index: int) -> bool:
+        """Persistiert eine bearbeitete Sequenzfeld-Zelle (Sequenzziel/Leitkompetenz).
+
+        Spiegelt `save_cell()`, schreibt aber nicht in eine Einheiten-Datei,
+        sondern über `UpdateSequenceGoalFieldUseCase` in die zentrale,
+        persistente Sequenzdatei der betroffenen Sequenz.
+
+        Args:
+            sequence_field_key: ``"Sequenzziel"`` oder ``"Leitkompetenz"``.
+            first_row_index: Stabiler Zeilenindex der ersten Einheit der
+                Sequenz; identifiziert Widget und `TopicSequencePlanView`
+                eindeutig, auch wenn mehrere Sequenzen denselben Oberthema-Text
+                tragen (siehe `topic_sequence_runs`).
+
+        Returns:
+            ``True`` bei erfolgreichem Speichern oder wenn keine Änderung
+            nötig war; ``False`` bei Abbruch (z. B. während eines
+            Grid-Rebuilds oder wenn die Sequenz nicht mehr existiert).
+        """
+        if self.app._is_rebuilding_grid or self.app.current_table is None:
+            return False
+
+        cell = self.app.sequence_field_widgets.get((sequence_field_key, first_row_index))
+        if cell is None:
+            return False
+
+        view = next(
+            (item for item in self.app.topic_sequence_plans if item.run.first_row_index == first_row_index),
+            None,
+        )
+        if view is None:
+            return False
+
+        value = cell.get("1.0", "end-1c").strip()
+        current_value = view.sequenzziel if sequence_field_key == "Sequenzziel" else view.leitkompetenz
+        if value == current_value.strip():
+            return True
+
+        try:
+            self.update_sequence_goal_field_usecase.execute(
+                table=self.app.current_table,
+                oberthema=view.run.oberthema,
+                field_key=sequence_field_key,
+                value=value,
+            )
+        except Exception as exc:
+            messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
+            return False
+
+        self.app._collect_day_columns()
+        self.app._rebuild_grid()
+        return True

@@ -1239,7 +1239,7 @@ class MainWindowActionController:
         if selection is None:
             return
 
-        selected_index, _, _ = context
+        selected_index, row_index, _ = context
         if selection.layout == "expected_horizon":
             base_name = "Kompetenzhorizont"
         else:
@@ -1259,22 +1259,40 @@ class MainWindowActionController:
             return
 
         output_path = pathlib.Path(selected_file).expanduser().resolve()
-        if selection.layout == "expected_horizon":
-            if selection.output_format == "pdf":
-                export_uc = self._export_expected_horizon_pdf_uc
-            else:
-                export_uc = self._export_expected_horizon_markdown_uc
-        else:
-            if selection.output_format == "pdf":
-                export_uc = self._export_topic_units_pdf_uc
-            else:
-                export_uc = self._export_topic_units_markdown_uc
 
+        if selection.layout == "expected_horizon":
+            export_uc = (
+                self._export_expected_horizon_pdf_uc
+                if selection.output_format == "pdf"
+                else self._export_expected_horizon_markdown_uc
+            )
+            try:
+                result = export_uc.execute(
+                    table=self.app.current_table,
+                    day_columns=list(self.app.day_columns),
+                    selected_day_index=selected_index,
+                    output_path=output_path,
+                    export_date=date.today(),
+                )
+            except Exception as exc:
+                messagebox.showerror("Exportieren als...", str(exc), parent=self.app)
+                return
+            messagebox.showinfo(
+                "Exportieren als...",
+                f"{filetype_label} erfolgreich exportiert:\n{result.output_path}\n\n"
+                f"Einheiten: {result.row_count}\nTitel: {result.title}",
+                parent=self.app,
+            )
+            return
+
+        export_uc = (
+            self._export_topic_units_pdf_uc if selection.output_format == "pdf" else self._export_topic_units_markdown_uc
+        )
         try:
             result = export_uc.execute(
                 table=self.app.current_table,
-                day_columns=list(self.app.day_columns),
-                selected_day_index=selected_index,
+                day_columns=list(self.app.raw_day_columns),
+                selected_row_index=row_index,
                 output_path=output_path,
                 export_date=date.today(),
             )
@@ -1282,11 +1300,24 @@ class MainWindowActionController:
             messagebox.showerror("Exportieren als...", str(exc), parent=self.app)
             return
 
-        messagebox.showinfo(
-            "Exportieren als...",
-            f"{filetype_label} erfolgreich exportiert:\n{result.output_path}\n\nEinheiten: {result.row_count}\nTitel: {result.title}",
-            parent=self.app,
+        success_text = (
+            f"{filetype_label} erfolgreich exportiert:\n{result.output_path}\n\n"
+            f"Einheiten: {result.row_count}\nTitel: {result.title}"
         )
+        warnings: list[str] = []
+        if not bool(self.app.sequence_fields_visible_var.get()):
+            warnings.append("Die Sequenzfelder sind in der Ansicht aktuell ausgeblendet.")
+        if not result.sequenzziel.strip() or not result.leitkompetenz.strip():
+            warnings.append("Sequenzziel oder Leitkompetenz sind für diese Sequenz noch leer.")
+
+        if warnings:
+            messagebox.showwarning(
+                "Exportieren als...",
+                success_text + "\n\nHinweis:\n- " + "\n- ".join(warnings),
+                parent=self.app,
+            )
+        else:
+            messagebox.showinfo("Exportieren als...", success_text, parent=self.app)
 
     def export_selected_lzk_expected_horizon_action(self):
         """Exportiert den Kompetenzhorizont der ausgewählten LZK als Markdown und PDF."""

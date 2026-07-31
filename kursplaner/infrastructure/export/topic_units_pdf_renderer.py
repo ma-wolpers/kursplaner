@@ -42,6 +42,15 @@ class TopicUnitsPdfRenderer:
             alignment=1,
             spaceAfter=12,
         )
+        self._sequence_meta_style = ParagraphStyle(
+            "TopicExportSequenceMeta",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=10,
+            leading=13,
+            alignment=1,
+            spaceAfter=3,
+        )
         self._cell_style = ParagraphStyle(
             "TopicExportCell",
             parent=styles["Normal"],
@@ -101,10 +110,15 @@ class TopicUnitsPdfRenderer:
             author="kursplaner",
         )
 
+        sequenzziel_text = document.sequenzziel.strip() or "(nicht gesetzt)"
+        leitkompetenz_text = document.leitkompetenz.strip() or "(nicht gesetzt)"
+
         story = [
             Paragraph(document.title, self._title_style),
             Paragraph(document.subtitle, self._subtitle_style),
             Paragraph(document.export_date_text, self._date_style),
+            Paragraph(f"<b>Sequenzziel:</b> {sequenzziel_text}", self._sequence_meta_style),
+            Paragraph(f"<b>Leitkompetenz:</b> {leitkompetenz_text}", self._sequence_meta_style),
             Spacer(1, 6),
         ]
 

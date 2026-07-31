@@ -213,6 +213,20 @@ class MainWindowUiIntentController:
             return self.intent_grid_date_cell_click(self.app._to_int(payload.get("day_index", -1), -1))
         if intent == UiIntent.GRID_COLUMN_CLICK:
             return self.intent_grid_column_click(self.app._to_int(payload.get("day_index", -1), -1))
+        if intent == UiIntent.GRID_COMMIT_SEQUENCE_FIELD:
+            sequence_field_key = str(payload.get("sequence_field_key", ""))
+            sequence_row_index = self.app._to_int(payload.get("sequence_row_index", -1), -1)
+            if sequence_field_key and sequence_row_index >= 0:
+                self.app.editor_controller.save_sequence_field(sequence_field_key, sequence_row_index)
+            return None
+        if intent in (
+            UiIntent.GRID_SEQUENCE_FIELD_CLICK,
+            UiIntent.GRID_SEQUENCE_FIELD_FOCUS_IN,
+            UiIntent.GRID_SEQUENCE_FIELD_FOCUS_OUT,
+        ):
+            # Sequenzfeld-Zellen nehmen nicht an der (field_key, day_index)-Navigation
+            # normaler Zellen teil; Fokus-/Klick-Verhalten übernimmt Tk selbst.
+            return None
 
         if intent == UiIntent.OPEN_SETTINGS:
             self.app.action_controller.open_settings_window()
@@ -251,6 +265,8 @@ class MainWindowUiIntentController:
             return None
         if intent == UiIntent.TOGGLE_EXPAND_MODE:
             return self.intent_toggle_expand_mode()
+        if intent == UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE:
+            return self.intent_toggle_sequence_fields_visible()
 
         if intent == UiIntent.SHORTCUT_DETAIL_LEFT:
             return self.intent_detail_left()
@@ -391,6 +407,16 @@ class MainWindowUiIntentController:
         for field_key, _ in self.app.row_defs:
             self.app.row_expanded[field_key] = expand_all
         self._apply_row_layout_change()
+        return None
+
+    def intent_toggle_sequence_fields_visible(self):
+        """Schaltet die Sichtbarkeit der Sequenzziel-/Leitkompetenz-Zeilen um.
+
+        Ein reiner Struktur-Wechsel (Zeilenmodell ändert sich), daher wird das
+        Grid komplett neu aufgebaut statt patch-aktualisiert.
+        """
+        self.app.sequence_fields_visible_var.set(not bool(self.app.sequence_fields_visible_var.get()))
+        self.app._rebuild_grid()
         return None
 
     def intent_detail_left(self):

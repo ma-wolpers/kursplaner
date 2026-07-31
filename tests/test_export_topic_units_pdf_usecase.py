@@ -7,6 +7,8 @@ import pytest
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicUnitsPdfUseCase, TopicUnitsPdfDocument
+from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
+from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
 
 
 class _RendererSpy:
@@ -17,9 +19,11 @@ class _RendererSpy:
         self.calls.append((document, output_path))
 
 
-def _table() -> PlanTableData:
+def _table(tmp_path: Path) -> PlanTableData:
+    plan_dir = tmp_path / "Unterricht" / "INF lila-5 25-2"
+    plan_dir.mkdir(parents=True, exist_ok=True)
     return PlanTableData(
-        markdown_path=Path("A:/7thCloud/Unterricht/INF lila-5 25-2/INF lila-5 25-2.md"),
+        markdown_path=plan_dir / "INF lila-5 25-2.md",
         headers=["Datum", "Stunden", "Inhalt"],
         rows=[],
         start_line=1,
@@ -31,29 +35,41 @@ def _table() -> PlanTableData:
 
 
 def _day(
-    *, row_index: int, datum: str, stunden: str, kind: str, obert: str, thema: str, ziel: str, kompetenzen: list[str]
+    *,
+    row_index: int,
+    datum: str = "01-09-25",
+    stunden: str = "2",
+    kind: str,
+    obert: str = "",
+    thema: str = "",
+    ziel: str = "",
+    kompetenzen: list[str] | None = None,
 ):
     return {
         "row_index": row_index,
         "datum": datum,
         "stunden": stunden,
-        "Stundentyp": kind,
         "yaml": {
             "Stundentyp": kind,
             "Oberthema": obert,
             "Stundenthema": thema,
             "Stundenziel": ziel,
-            "Kompetenzen": kompetenzen,
+            "Kompetenzen": kompetenzen or [],
         },
-        "link": Path(f"A:/7thCloud/unit-{row_index}.md"),
-        "is_cancel": False,
+        "link": Path(f"unit-{row_index}.md"),
+        "is_cancel": kind == "Ausfall",
     }
 
 
-def test_export_builds_expected_title_and_rows_for_selected_oberthema():
+def _make_usecase() -> tuple[ExportTopicUnitsPdfUseCase, _RendererSpy]:
     renderer = _RendererSpy()
-    usecase = ExportTopicUnitsPdfUseCase(renderer=renderer)
-    table = _table()
+    sync = SyncSequenceExportTableUseCase(sequence_plan_repo=FileSystemSequencePlanRepository())
+    return ExportTopicUnitsPdfUseCase(renderer=renderer, sequence_export_sync=sync), renderer
+
+
+def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
+    usecase, renderer = _make_usecase()
+    table = _table(tmp_path)
 
     day_columns = [
         _day(
@@ -88,11 +104,11 @@ def test_export_builds_expected_title_and_rows_for_selected_oberthema():
         ),
     ]
 
-    output_path = Path("A:/7thCloud/export.pdf")
+    output_path = tmp_path / "export.pdf"
     result = usecase.execute(
         table=table,
         day_columns=day_columns,
-        selected_day_index=0,
+        selected_row_index=0,
         output_path=output_path,
         export_date=date(2026, 3, 31),
     )
@@ -100,6 +116,9 @@ def test_export_builds_expected_title_and_rows_for_selected_oberthema():
     assert result.output_path == output_path
     assert result.row_count == 2
     assert result.title == "Informatik lila-5 2025/26 Hj. 2"
+    assert result.sequenzziel == ""
+    assert result.leitkompetenz == ""
+    assert result.sequence_path.exists()
     assert len(renderer.calls) == 1
 
     document, rendered_path = renderer.calls[0]
@@ -112,76 +131,125 @@ def test_export_builds_expected_title_and_rows_for_selected_oberthema():
     assert document.rows[0].prozesskompetenzen == "PK1; PK2"
 
 
-def test_export_title_uses_requested_halfyear_format():
-    renderer = _RendererSpy()
-    usecase = ExportTopicUnitsPdfUseCase(renderer=renderer)
+def test_export_title_uses_requested_halfyear_format(tmp_path):
+    usecase, _renderer = _make_usecase()
 
     day_columns = [
-        _day(
-            row_index=0,
-            datum="01-09-25",
-            stunden="1",
-            kind="Unterricht",
-            obert="Thema A",
-            thema="A1",
-            ziel="",
-            kompetenzen=[],
-        ),
-        _day(
-            row_index=1,
-            datum="08-09-25",
-            stunden="1",
-            kind="Unterricht",
-            obert="Thema B",
-            thema="B1",
-            ziel="",
-            kompetenzen=[],
-        ),
-        _day(
-            row_index=2,
-            datum="15-09-25",
-            stunden="1",
-            kind="LZK",
-            obert="Thema C",
-            thema="C1",
-            ziel="",
-            kompetenzen=[],
-        ),
+        _day(row_index=0, datum="01-09-25", stunden="1", kind="Unterricht", obert="Thema A", thema="A1"),
+        _day(row_index=1, datum="08-09-25", stunden="1", kind="Unterricht", obert="Thema B", thema="B1"),
+        _day(row_index=2, datum="15-09-25", stunden="1", kind="LZK", obert="Thema C", thema="C1"),
     ]
 
     result = usecase.execute(
-        table=_table(),
+        table=_table(tmp_path),
         day_columns=day_columns,
-        selected_day_index=1,
-        output_path=Path("A:/7thCloud/export-c.pdf"),
+        selected_row_index=1,
+        output_path=tmp_path / "export-c.pdf",
         export_date=date(2026, 3, 31),
     )
 
     assert result.title == "Informatik lila-5 2025/26 Hj. 2"
 
 
-def test_export_rejects_selection_without_oberthema():
-    renderer = _RendererSpy()
-    usecase = ExportTopicUnitsPdfUseCase(renderer=renderer)
+def test_export_rejects_selection_without_oberthema(tmp_path):
+    usecase, _renderer = _make_usecase()
 
     day_columns = [
-        _day(
-            row_index=0,
-            datum="01-09-25",
-            stunden="2",
-            kind="Unterricht",
-            obert="",
-            thema="Sortieren",
-            ziel="",
-            kompetenzen=[],
-        )
+        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="", thema="Sortieren"),
     ]
 
     with pytest.raises(RuntimeError, match="kein Oberthema"):
         usecase.execute(
-            table=_table(),
+            table=_table(tmp_path),
             day_columns=day_columns,
-            selected_day_index=0,
-            output_path=Path("A:/7thCloud/fail.pdf"),
+            selected_row_index=0,
+            output_path=tmp_path / "fail.pdf",
             export_date=date(2026, 3, 31),
         )
+
+
+def test_export_does_not_merge_non_adjacent_occurrences_of_same_oberthema(tmp_path):
+    usecase, renderer = _make_usecase()
+
+    day_columns = [
+        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Funktionen", thema="Einstieg"),
+        _day(row_index=1, datum="08-09-25", stunden="2", kind="Unterricht", obert="Geometrie", thema="Dreiecke"),
+        _day(row_index=2, datum="15-09-25", stunden="2", kind="Unterricht", obert="Funktionen", thema="Vertiefung"),
+    ]
+
+    result = usecase.execute(
+        table=_table(tmp_path),
+        day_columns=day_columns,
+        selected_row_index=0,
+        output_path=tmp_path / "export.pdf",
+        export_date=date(2026, 3, 31),
+    )
+
+    assert result.row_count == 1
+    document, _rendered_path = renderer.calls[0]
+    assert document.rows[0].thema == "Einstieg"
+
+
+def test_export_includes_hospitation_in_chain_but_not_as_table_row(tmp_path):
+    usecase, renderer = _make_usecase()
+
+    day_columns = [
+        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Optik", thema="Linsen"),
+        _day(row_index=1, datum="08-09-25", stunden="2", kind="Hospitation", obert="Optik", thema="Hospitation"),
+        _day(row_index=2, datum="15-09-25", stunden="2", kind="Unterricht", obert="Optik", thema="Brennweite"),
+    ]
+
+    result = usecase.execute(
+        table=_table(tmp_path),
+        day_columns=day_columns,
+        selected_row_index=0,
+        output_path=tmp_path / "export.pdf",
+        export_date=date(2026, 3, 31),
+    )
+
+    assert result.row_count == 2
+    document, _rendered_path = renderer.calls[0]
+    assert [row.thema for row in document.rows] == ["Linsen", "Brennweite"]
+
+
+def test_export_ausfall_does_not_break_the_chain(tmp_path):
+    usecase, _renderer = _make_usecase()
+
+    day_columns = [
+        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Chemie", thema="Saeuren"),
+        _day(row_index=1, datum="08-09-25", stunden="2", kind="Ausfall"),
+        _day(row_index=2, datum="15-09-25", stunden="2", kind="Unterricht", obert="Chemie", thema="Basen"),
+    ]
+
+    result = usecase.execute(
+        table=_table(tmp_path),
+        day_columns=day_columns,
+        selected_row_index=0,
+        output_path=tmp_path / "export.pdf",
+        export_date=date(2026, 3, 31),
+    )
+
+    assert result.row_count == 2
+
+
+def test_export_updates_sequence_file_export_table(tmp_path):
+    usecase, _renderer = _make_usecase()
+    table = _table(tmp_path)
+
+    day_columns = [
+        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Mechanik", thema="Kraft"),
+        _day(row_index=1, datum="08-09-25", stunden="2", kind="Unterricht", obert="Mechanik", thema="Impuls"),
+    ]
+
+    result = usecase.execute(
+        table=table,
+        day_columns=day_columns,
+        selected_row_index=0,
+        output_path=tmp_path / "export.pdf",
+        export_date=date(2026, 3, 31),
+    )
+
+    sequence_text = result.sequence_path.read_text(encoding="utf-8")
+    assert "| Datum | Std. | Thema | Stundenziel | Kompetenzen |" in sequence_text
+    assert "Kraft" in sequence_text
+    assert "Impuls" in sequence_text

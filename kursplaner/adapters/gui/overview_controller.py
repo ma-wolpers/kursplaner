@@ -32,6 +32,7 @@ class MainWindowOverviewController:
         self.repair_lesson_yaml_frontmatter_usecase = deps.repair_lesson_yaml_frontmatter_usecase
         self.reconcile_ub_overview_usecase = deps.reconcile_ub_overview_usecase
         self.cleanup_lzk_expected_horizon_links_usecase = deps.cleanup_lzk_expected_horizon_links_usecase
+        self.sync_topic_sequence_plans_usecase = deps.sync_topic_sequence_plans_usecase
         self.path_settings_usecase = app.path_settings_usecase
 
     @staticmethod
@@ -334,6 +335,7 @@ class MainWindowOverviewController:
         self.app.current_table = None
         self.app.raw_day_columns = []
         self.app.day_columns = []
+        self.app.topic_sequence_plans = []
         self.app.day_column_x_positions = {}
         self.app.selected_day_indices = set()
         self.app.ui_state.clear_selected_cell()
@@ -378,6 +380,7 @@ class MainWindowOverviewController:
             self.app.current_table = detail.table
             self.app.raw_day_columns = list(detail.day_columns)
             self.app.day_columns = self._project_visible_day_columns(self.app.raw_day_columns)
+            self._sync_topic_sequence_plans()
             self.app._update_row_mode_from_selection()
             self.app.lesson_load_errors.pop(selected, None)
             self.app._show_course_detail()
@@ -500,6 +503,25 @@ class MainWindowOverviewController:
         if self.app.current_table is None:
             self.app.raw_day_columns = []
             self.app.day_columns = []
+            self.app.topic_sequence_plans = []
             return
         self.app.raw_day_columns = self.load_plan_detail_usecase.build_day_columns(self.app.current_table)
         self.app.day_columns = self._project_visible_day_columns(self.app.raw_day_columns)
+        self._sync_topic_sequence_plans()
+
+    def _sync_topic_sequence_plans(self) -> None:
+        """Aktualisiert erkannte Themen-Sequenzen und deren Sequenzdateien.
+
+        Läuft auf `raw_day_columns` (unprojiziert), damit die Sequenz-Erkennung
+        unabhängig von aktuellen Sichtbarkeits-Einstellungen ist (siehe
+        `SyncTopicSequencePlansUseCase`). Wird nach jedem Neuladen der
+        Tagesliste aufgerufen und erledigt damit die automatische
+        Sequenzdatei-Erzeugung "sofort", sobald 2+ benachbarte Einheiten ein
+        gemeinsames Oberthema tragen.
+        """
+        if self.app.current_table is None:
+            self.app.topic_sequence_plans = []
+            return
+        self.app.topic_sequence_plans = self.sync_topic_sequence_plans_usecase.execute(
+            table=self.app.current_table, day_columns=self.app.raw_day_columns
+        )

@@ -41,6 +41,7 @@ from kursplaner.core.config.ui_preferences_store import (
     save_theme_key,
 )
 from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 
 
 class KursplanerApp(BwBaseWindow):
@@ -100,6 +101,9 @@ class KursplanerApp(BwBaseWindow):
         self.expand_long_rows_var = ui.BooleanVar(value=True)
         self.row_expanded: dict[str, bool] = {}
         self.clipboard_lesson_path: pathlib.Path | None = None
+        self.sequence_fields_visible_var = ui.BooleanVar(value=True)
+        self.topic_sequence_plans: list[TopicSequencePlanView] = []
+        self.sequence_field_widgets: dict[tuple[str, int], ui.Text] = {}
 
         self.current_table: PlanTableData | None = None
         self.day_columns: list[dict[str, object]] = []
@@ -107,6 +111,7 @@ class KursplanerApp(BwBaseWindow):
         self.lesson_load_errors: dict[str, str] = {}
         self._plan_overview_query = self.gui_dependencies.plan_overview_query
         self.row_display_mode_usecase = self.gui_dependencies.row_display_mode_usecase
+        self.update_sequence_goal_field_usecase = self.gui_dependencies.update_sequence_goal_field_usecase
         self.active_row_mode = self.row_display_mode_usecase.MODE_UNTERRICHT
         self.row_mode_buttons: dict[str, ui.Widget] = {}
         self.row_mode_labels: dict[str, str] = {

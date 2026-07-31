@@ -45,6 +45,7 @@ class RowDisplayModeUseCase:
 
     HOSPITATION_ROWS: tuple[RowDef, ...] = (
         ("Stundenthema", "Welches Stundenthema"),
+        ("Oberthema", "Welches Oberthema"),
         ("Beobachtungsschwerpunkte", "Welche Beobachtungsschwerpunkte"),
         ("Ressourcen", "Welche Ressourcen"),
         ("Baustellen", "Welche Baustellen"),

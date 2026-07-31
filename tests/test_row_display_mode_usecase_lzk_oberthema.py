@@ -28,3 +28,12 @@ def test_hospitation_mode_contains_stundenthema_row():
     keys = [field for field, _ in row_defs]
 
     assert "Stundenthema" in keys
+
+
+def test_hospitation_mode_contains_oberthema_row():
+    usecase = RowDisplayModeUseCase()
+
+    row_defs = usecase.row_defs_for_mode(usecase.MODE_HOSPITATION)
+    keys = [field for field, _ in row_defs]
+
+    assert "Oberthema" in keys

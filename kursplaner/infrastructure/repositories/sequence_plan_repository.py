@@ -12,6 +12,10 @@ from kursplaner.core.domain.sequence_planning import (
     extract_halfyear_token_from_table,
     sequence_directory_for_plan,
 )
+from kursplaner.core.domain.yaml_registry import SEQUENCE_PLAN_SCHEMA, parse_yaml_frontmatter
+
+_GOAL_KEY = "Sequenzziel"
+_FOCUS_COMPETENCY_KEY = "Leitkompetenz"
 
 
 class FileSystemSequencePlanRepository:
@@ -92,6 +96,8 @@ class FileSystemSequencePlanRepository:
             f"Sequenzname: {self._yaml_quote(sequence_name)}",
             f"Lerngruppe: {self._yaml_quote(group_name)}",
             f"Halbjahr: {self._yaml_quote(halfyear_token)}",
+            f"{_GOAL_KEY}: {self._yaml_quote('')}",
+            f"{_FOCUS_COMPETENCY_KEY}: {self._yaml_quote('')}",
             "---",
             "",
             f"# {title}",
@@ -189,3 +195,71 @@ class FileSystemSequencePlanRepository:
             escaped = [str(cell or "").replace("|", "\\|").replace("\n", " ").strip() for cell in row]
             lines.append("| " + " | ".join(escaped) + " |")
         return lines
+
+    @staticmethod
+    def _coerce_frontmatter_text(raw_value: object) -> str:
+        """Normalisiert einen geparsten Frontmatter-Wert auf reinen Text.
+
+        `parse_yaml_frontmatter` interpretiert eine leere Zeile (``Schluessel: ""``)
+        als Beginn einer YAML-Liste, weil dasselbe Parsing auch echte Listenfelder
+        (z. B. ``Kompetenzen``) bedienen muss. Für die reinen Textfelder dieses
+        Repositories wird ein solches Leer-Listen-Ergebnis auf einen leeren String
+        zurückgeführt.
+        """
+        if isinstance(raw_value, list):
+            return ""
+        return str(raw_value or "").strip()
+
+    def read_goal_and_focus_competency(self, sequence_path: Path) -> tuple[str, str]:
+        """Liest Sequenzziel und Leitkompetenz aus dem YAML-Frontmatter einer Sequenzdatei.
+
+        Args:
+            sequence_path: Pfad der Sequenz-Markdown-Datei.
+
+        Returns:
+            Tupel ``(sequenzziel, leitkompetenz)``; beide leer, wenn (noch) nicht gesetzt.
+        """
+        path = sequence_path.expanduser().resolve()
+        text = path.read_text(encoding="utf-8")
+        data, _ = parse_yaml_frontmatter(text, SEQUENCE_PLAN_SCHEMA, source_label=str(path))
+        sequenzziel = self._coerce_frontmatter_text(data.get(_GOAL_KEY, ""))
+        leitkompetenz = self._coerce_frontmatter_text(data.get(_FOCUS_COMPETENCY_KEY, ""))
+        return sequenzziel, leitkompetenz
+
+    def write_goal_and_focus_competency(
+        self, *, sequence_path: Path, sequenzziel: str, leitkompetenz: str
+    ) -> None:
+        """Schreibt Sequenzziel/Leitkompetenz chirurgisch in das Frontmatter zurück.
+
+        Ersetzt ausschließlich die beiden betroffenen Frontmatter-Zeilen zwischen
+        den beiden ``---``-Markern; alle anderen Frontmatter-Felder sowie der
+        gesamte Dateikörper (Titel, Brainstorming, Export-Tabelle) bleiben
+        unverändert.
+
+        Args:
+            sequence_path: Pfad der Sequenz-Markdown-Datei.
+            sequenzziel: Neuer Text für das Sequenzziel-Feld.
+            leitkompetenz: Neuer Text für das Leitkompetenz-Feld.
+
+        Raises:
+            RuntimeError: Wenn die Datei kein (geschlossenes) YAML-Frontmatter besitzt.
+        """
+        path = sequence_path.expanduser().resolve()
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if not lines or lines[0].strip() != "---":
+            raise RuntimeError(f"Fehlendes YAML-Frontmatter in Sequenzdatei: {path}")
+
+        closing_index = next((idx for idx in range(1, len(lines)) if lines[idx].strip() == "---"), None)
+        if closing_index is None:
+            raise RuntimeError(f"YAML-Frontmatter nicht geschlossen in Sequenzdatei: {path}")
+
+        frontmatter_body = [
+            line
+            for line in lines[1:closing_index]
+            if not line.startswith(f"{_GOAL_KEY}:") and not line.startswith(f"{_FOCUS_COMPETENCY_KEY}:")
+        ]
+        frontmatter_body.append(f"{_GOAL_KEY}: {self._yaml_quote(sequenzziel)}")
+        frontmatter_body.append(f"{_FOCUS_COMPETENCY_KEY}: {self._yaml_quote(leitkompetenz)}")
+
+        new_lines = ["---"] + frontmatter_body + lines[closing_index:]
+        atomic_write_text(path, "\n".join(new_lines).rstrip() + "\n", encoding="utf-8")

@@ -235,5 +235,13 @@
     "intent": "detail.open_column_visibility_settings",
     "mnemonic": "L = Layout",
     "didactic_hint": "L passt als Merkanker für die Layout-Ansicht der Spaltenarten."
+  },
+  {
+    "key_sequence": "<Control-Shift-S>",
+    "display_shortcut": "Strg+Shift+S",
+    "action_label": "Sequenzfelder ein-/ausblenden",
+    "intent": "detail.toggle_sequence_fields_visible",
+    "mnemonic": "S = Sequenz",
+    "didactic_hint": "Shift hebt den Sequenz-Toggle von anderen Kürzeln ab und bleibt kollisionsfrei."
   }
 ]

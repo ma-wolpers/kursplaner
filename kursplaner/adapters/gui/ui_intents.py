@@ -30,6 +30,13 @@ class UiIntent:
     GRID_DATE_CELL_CLICK = "grid.date_cell_click"
     GRID_COLUMN_CLICK = "grid.column_click"
 
+    # Sequence-field intents (spanning Sequenzziel/Leitkompetenz cells)
+    GRID_SEQUENCE_FIELD_CLICK = "grid.sequence_field_click"
+    GRID_SEQUENCE_FIELD_FOCUS_IN = "grid.sequence_field_focus_in"
+    GRID_COMMIT_SEQUENCE_FIELD = "grid.commit_sequence_field"
+    GRID_SEQUENCE_FIELD_FOCUS_OUT = "grid.sequence_field_focus_out"
+    TOGGLE_SEQUENCE_FIELDS_VISIBLE = "detail.toggle_sequence_fields_visible"
+
     # Toolbar intents
     TOOLBAR_NEW = "toolbar.new"
     TOOLBAR_REFRESH = "toolbar.refresh"

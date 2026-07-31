@@ -49,7 +49,15 @@ _ALLOWED_BY_TYPE: dict[LessonType, tuple[str, ...]] = {
         "Inhaltsübersicht",
     ),
     "Ausfall": ("Stundentyp", "Dauer", "Stundenthema", "Vertretungsmaterial"),
-    "Hospitation": ("Stundentyp", "Dauer", "Stundenthema", "Beobachtungsschwerpunkte", "Ressourcen", "Baustellen"),
+    "Hospitation": (
+        "Stundentyp",
+        "Dauer",
+        "Stundenthema",
+        "Oberthema",
+        "Beobachtungsschwerpunkte",
+        "Ressourcen",
+        "Baustellen",
+    ),
 }
 
 
@@ -146,6 +154,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
     elif stundentyp == "Hospitation":
         defaults.update(
             {
+                "Oberthema": "",
                 "Beobachtungsschwerpunkte": "",
                 "Ressourcen": [],
                 "Baustellen": [],

@@ -62,8 +62,11 @@ from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseC
 from kursplaner.core.usecases.save_cell_value_usecase import SaveCellValueUseCase
 from kursplaner.core.usecases.split_selected_unit_usecase import SplitSelectedUnitUseCase
 from kursplaner.core.usecases.subject_sources_usecase import SubjectSourcesUseCase
+from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
+from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopicSequencePlansUseCase
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
+from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
 from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import ExpectedHorizonPdfRenderer
 from kursplaner.infrastructure.export.topic_units_markdown_renderer import TopicUnitsMarkdownRenderer
@@ -146,6 +149,8 @@ class GuiDependencies:
     rename_linked_file_for_row: RenameLinkedFileForRowUseCase
     path_settings_usecase: PathSettingsUseCase
     sequence_plan_repo: FileSystemSequencePlanRepository
+    sync_topic_sequence_plans_usecase: SyncTopicSequencePlansUseCase
+    update_sequence_goal_field_usecase: UpdateSequenceGoalFieldUseCase
     file_relation_registry_repo: FileSystemFileRelationRegistryRepository
     rebuild_file_relation_registry_usecase: RebuildFileRelationRegistryUseCase
     grid_cell_policy_usecase: GridCellPolicyUseCase
@@ -337,8 +342,16 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         plan_repo=plan_repo,
         create_plan_usecase=create_plan_usecase,
     )
-    export_topic_units_pdf_usecase = ExportTopicUnitsPdfUseCase(renderer=TopicUnitsPdfRenderer())
-    export_topic_units_markdown_usecase = ExportTopicUnitsPdfUseCase(renderer=TopicUnitsMarkdownRenderer())
+    sequence_plan_repo = FileSystemSequencePlanRepository()
+    sync_sequence_export_table_usecase = SyncSequenceExportTableUseCase(sequence_plan_repo=sequence_plan_repo)
+    sync_topic_sequence_plans_usecase = SyncTopicSequencePlansUseCase(sequence_plan_repo=sequence_plan_repo)
+    update_sequence_goal_field_usecase = UpdateSequenceGoalFieldUseCase(sequence_plan_repo=sequence_plan_repo)
+    export_topic_units_pdf_usecase = ExportTopicUnitsPdfUseCase(
+        renderer=TopicUnitsPdfRenderer(), sequence_export_sync=sync_sequence_export_table_usecase
+    )
+    export_topic_units_markdown_usecase = ExportTopicUnitsPdfUseCase(
+        renderer=TopicUnitsMarkdownRenderer(), sequence_export_sync=sync_sequence_export_table_usecase
+    )
     export_expected_horizon_pdf_usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonPdfRenderer())
     export_expected_horizon_markdown_usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
     export_lzk_expected_horizon_usecase = ExportLzkExpectedHorizonUseCase(
@@ -376,7 +389,6 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
-    sequence_plan_repo = FileSystemSequencePlanRepository()
     file_relation_registry_repo = FileSystemFileRelationRegistryRepository()
     rebuild_file_relation_registry_usecase = RebuildFileRelationRegistryUseCase(
         plan_repo=plan_repo,
@@ -421,6 +433,8 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         rename_linked_file_for_row=rename_linked_file_for_row,
         path_settings_usecase=path_settings_usecase,
         sequence_plan_repo=sequence_plan_repo,
+        sync_topic_sequence_plans_usecase=sync_topic_sequence_plans_usecase,
+        update_sequence_goal_field_usecase=update_sequence_goal_field_usecase,
         file_relation_registry_repo=file_relation_registry_repo,
         rebuild_file_relation_registry_usecase=rebuild_file_relation_registry_usecase,
         grid_cell_policy_usecase=grid_cell_policy_usecase,
