@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from bw_gui.theming import get_theme as _bw_get_theme, tinted_color
+
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.adapters.gui.ui_theme import kursplaner_theme
+from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
 
 class MainWindowSelectionController:
@@ -277,7 +279,10 @@ class MainWindowSelectionController:
 
     def refresh_header_styles(self):
         """Wendet selektions-/zustandsabhängige Header-Farben auf alle Spalten an."""
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = _bw_get_theme()
+        column_ausfall_bg     = tinted_color("warning_soft",   degree=0.72, base_token="panel_strong")
+        column_hospitation_bg = tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+        column_lzk_bg         = tinted_color("success_soft",   degree=0.72, base_token="panel_strong")
         selected_bg = str(
             theme.get(
                 "selection_bg",
@@ -298,29 +303,15 @@ class MainWindowSelectionController:
             is_hospitation = bool(day.get("is_hospitation"))
             is_lzk = bool(day.get("is_lzk"))
             if is_cancel:
-                base_bg = str(
-                    theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"])))
-                )
+                base_bg = column_ausfall_bg
             elif is_hospitation:
-                base_bg = str(
-                    theme.get(
-                        "column_hospitation_bg",
-                        theme.get(
-                            "hospitation_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))
-                        ),
-                    )
-                )
+                base_bg = column_hospitation_bg
             elif is_unresolved_link:
                 base_bg = str(
                     theme.get("warning_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"])))
                 )
             elif is_lzk:
-                base_bg = str(
-                    theme.get(
-                        "column_lzk_bg",
-                        theme.get("success_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                    )
-                )
+                base_bg = column_lzk_bg
             else:
                 base_bg = str(theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])))
             base_fg = str(theme.get("fg_muted") if is_cancel else theme.get("fg_primary"))

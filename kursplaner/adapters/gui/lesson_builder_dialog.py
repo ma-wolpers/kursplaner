@@ -9,7 +9,6 @@ from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.selection_overlay_controller import SelectionOverlayController
-from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 from kursplaner.adapters.gui.wrapped_text_field import WrappedTextField
 
 
@@ -238,10 +237,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         return "\n".join(f"- {entry}" for entry in cleaned)
 
     def _render_ub_sections(self, parent: widgets.LabelFrame) -> None:
-        theme = kursplaner_theme(self.theme_key)
-        fg = str(theme.get("fg_primary", "#111827"))
-        bg = str(theme.get("bg_main", "#FFFFFF"))
-
+        """Renders UB Unterrichtsbesuch section labels inside *parent*."""
         if not self.ub_sections:
             hint = "Noch keine UB-Einträge gefunden."
             if self.ub_error_hint:
@@ -250,26 +246,25 @@ class LessonBuilderDialog(ScrollablePopupWindow):
                     "Bitte Logging prüfen.\n"
                     f"{self.ub_error_hint}"
                 )
-            self._render_ub_text_label(parent, hint, fg=fg, bg=bg)
+            self._render_ub_text_label(parent, hint)
             return
 
         for title, values in self.ub_sections:
             section = widgets.Frame(parent)
             section.pack(fill="x", pady=(0, 8))
-            self._render_ub_text_label(section, str(title).strip(), fg=fg, bg=bg, bold=True)
-            self._render_ub_text_label(section, self._format_ub_list(values), fg=fg, bg=bg)
+            self._render_ub_text_label(section, str(title).strip(), bold=True)
+            self._render_ub_text_label(section, self._format_ub_list(values))
 
     @staticmethod
-    def _render_ub_text_label(parent, text: str, *, fg: str, bg: str, bold: bool = False) -> None:
+    def _render_ub_text_label(parent, text: str, *, bold: bool = False) -> None:
+        """Pack a styled text label into *parent* using the active ttk theme."""
         font = ("Segoe UI", 10, "bold") if bold else ("Segoe UI", 10)
-        ui.Label(
+        widgets.Label(
             parent,
             text=text,
             justify="left",
             anchor="w",
             wraplength=900,
-            fg=fg,
-            bg=bg,
             font=font,
         ).pack(anchor="w")
 

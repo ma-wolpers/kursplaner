@@ -1,16 +1,22 @@
 """Kursplaner-specific theme configuration.
 
 Wraps bw_gui.theming for the canonical theme registry, intensity scaling, and
-shared style baseline.  Adds kursplaner-specific domain tokens (hospitation,
-view-mode colour tints, column background tints) and registers the two
-kursplaner-only themes (Ledger, Blackforge) into bw_gui at import time so
-``bw_gui.theming.get_theme()`` can resolve them.
+shared style baseline.  Domain colour computation (Hospitation purple ramp,
+view-mode toggle tints, column background tints) is delegated entirely to
+bw_gui's ``tinted_color`` / ``tinted_foreground`` API.  This module owns only
+the domain seed constant and the two kursplaner-only themes.
 
-External callers import ``kursplaner_theme``, ``configure_ttk_theme``,
-``apply_window_theme``, ``DEFAULT_THEME``, and ``normalize_theme_key`` from
-this module unchanged.  ``set_theme_intensity`` / ``get_theme_intensity`` are
-re-exported from bw_gui so any future settings adapter can import them from
-either location.
+``HOSPITATION_SEED`` is the single source of truth for the purple hue used in
+all Hospitation lesson-type styling.  Importers that need the colour (e.g.
+``grid_renderer``, ``toolbar_icon_styler``) import the constant from here and
+pass it as ``mix_color`` — no colour math needed at the call site.
+``configure_ttk_theme`` derives every Hospitation shade via ``tinted_color`` /
+``tinted_foreground`` at switch time.
+
+External callers import ``configure_ttk_theme``, ``apply_window_theme``,
+``HOSPITATION_SEED``, ``DEFAULT_THEME``, and ``normalize_theme_key`` from this
+module.  ``set_theme_intensity`` / ``get_theme_intensity`` are re-exported from
+bw_gui so any future settings adapter can import them from either location.
 """
 
 from __future__ import annotations
@@ -23,14 +29,14 @@ from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.platform import apply_window_chrome_theme
 from bw_gui.theming import (
     configure_ttk_theme as _configure_base,
-    contrast_text_color,
     get_theme as _bw_get_theme,
     get_theme_intensity,
     is_dark_color,
-    mix_hex,
     normalize_theme_key as _normalize,
     register_theme,
     set_theme_intensity,
+    tinted_color,
+    tinted_foreground,
 )
 
 DEFAULT_THEME = "mono_day"
@@ -111,6 +117,18 @@ register_theme("ledger", _LEDGER, append_order=True)
 register_theme("blackforge", _BLACKFORGE, append_order=True)
 
 
+# ── Domain seed constants ────────────────────────────────────────────────────
+
+HOSPITATION_SEED: str = "#7C3AED"
+"""Purple hue seed for the Hospitation lesson type.
+
+All Hospitation colour values are derived at switch time by bw_gui's
+``tinted_color`` / ``tinted_foreground``.  Importers that need the colour
+(e.g. ``grid_renderer``, ``toolbar_icon_styler``) import this constant and
+pass it as ``mix_color`` — no colour math needed at the call site.
+"""
+
+
 # ── Public API ──────────────────────────────────────────────────────────────
 
 def normalize_theme_key(theme_key: str | None = None) -> str:
@@ -118,70 +136,29 @@ def normalize_theme_key(theme_key: str | None = None) -> str:
 
     Delegates to bw_gui so the full 13-theme registry (plus Ledger and
     Blackforge registered above) is used for validation.
+
+    Args:
+        theme_key: Raw key string to validate; ``None`` returns ``DEFAULT_THEME``.
+
+    Returns:
+        Validated theme key string.
     """
     return _normalize(theme_key)
-
-
-def kursplaner_theme(theme_key: str | None = None) -> dict:
-    """Return the fully-resolved theme dict with kursplaner domain tokens.
-
-    Calls ``bw_gui.theming.get_theme()`` to get the base palette with intensity
-    scaling already applied, then fills in the following domain-specific tokens
-    that are not part of the bw_gui contract:
-
-    - ``hospitation`` / ``hospitation_hover`` / ``hospitation_soft`` /
-      ``fg_on_hospitation``: purple-tinted colour ramp for Hospitation lesson
-      type.  Computed from ``bg_panel`` and a fixed purple seed if not already
-      present in the bw_gui theme dict.
-    - ``view_unterricht_bg`` / ``view_unterricht_active``: background colours
-      for the view-mode toggle button in Unterricht state.
-    - ``view_lzk_bg`` / ``view_lzk_active``: same for Lzk (written exam).
-    - ``view_ausfall_bg`` / ``view_ausfall_active``: same for Ausfall (absence).
-    - ``view_hospitation_bg`` / ``view_hospitation_active``: same for
-      Hospitation.
-    - ``column_lzk_bg`` / ``column_ausfall_bg`` / ``column_hospitation_bg``:
-      slightly stronger tint used as Treeview row backgrounds for those lesson
-      types in the plan grid.
-
-    Returns a fresh dict; the bw_gui registry is not mutated.
-    """
-    theme = dict(_bw_get_theme(theme_key))
-
-    neutral = str(theme.get("bg_panel", theme.get("bg_main", "#FFFFFF")))
-    dark_base = is_dark_color(str(theme.get("bg_main", "#FFFFFF")))
-    purple_seed = "#7C3AED"
-
-    if "hospitation" not in theme:
-        theme["hospitation"] = mix_hex(neutral, purple_seed, 0.80 if dark_base else 0.70)
-    if "hospitation_hover" not in theme:
-        theme["hospitation_hover"] = mix_hex(neutral, purple_seed, 0.90 if dark_base else 0.82)
-    if "hospitation_soft" not in theme:
-        theme["hospitation_soft"] = mix_hex(neutral, purple_seed, 0.52 if dark_base else 0.38)
-    if "fg_on_hospitation" not in theme:
-        theme["fg_on_hospitation"] = contrast_text_color(str(theme["hospitation"]))
-
-    panel = str(theme.get("panel_strong", theme.get("bg_panel", theme.get("bg_main", "#FFFFFF"))))
-    theme["view_unterricht_bg"] = mix_hex(panel, str(theme.get("accent_soft", panel)), 0.70)
-    theme["view_unterricht_active"] = mix_hex(panel, str(theme.get("accent", panel)), 0.58)
-    theme["view_lzk_bg"] = mix_hex(panel, str(theme.get("success_soft", panel)), 0.70)
-    theme["view_lzk_active"] = mix_hex(panel, str(theme.get("success", panel)), 0.58)
-    theme["view_ausfall_bg"] = mix_hex(panel, str(theme.get("warning_soft", panel)), 0.70)
-    theme["view_ausfall_active"] = mix_hex(panel, str(theme.get("warning", panel)), 0.58)
-    theme["view_hospitation_bg"] = mix_hex(panel, str(theme.get("hospitation_soft", panel)), 0.70)
-    theme["view_hospitation_active"] = mix_hex(panel, str(theme.get("hospitation", panel)), 0.58)
-    theme["column_lzk_bg"] = mix_hex(panel, str(theme.get("success_soft", panel)), 0.72)
-    theme["column_ausfall_bg"] = mix_hex(panel, str(theme.get("warning_soft", panel)), 0.72)
-    theme["column_hospitation_bg"] = mix_hex(panel, str(theme.get("hospitation_soft", panel)), 0.72)
-
-    return theme
 
 
 def apply_window_theme(window: ui.Misc, theme_key: str | None = None) -> None:
     """Set *window*'s background to ``bg_main`` and apply Windows title-bar chrome.
 
-    The chrome call is a no-op on non-Windows platforms.
+    Resolves the current theme via bw_gui (using the globally tracked key when
+    *theme_key* is ``None``), configures the window background, and calls
+    ``apply_window_chrome_theme`` so the OS title bar matches.  The chrome call
+    is a no-op on non-Windows platforms.
+
+    Args:
+        window:    Tk root or top-level to configure.
+        theme_key: Explicit theme override; ``None`` uses the global current theme.
     """
-    theme = kursplaner_theme(theme_key)
+    theme = _bw_get_theme(theme_key)
     window.configure({"bg": theme["bg_main"]})
     apply_window_chrome_theme(window, prefer_dark=is_dark_color(str(theme["bg_main"])))
 
@@ -189,9 +166,10 @@ def apply_window_theme(window: ui.Misc, theme_key: str | None = None) -> None:
 def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  # deliberate exception: long by necessity
     """Configure the bw_gui baseline and add kursplaner-specific style overrides.
 
-    Calls ``bw_gui.theming.configure_ttk_theme()`` first to establish the
-    shared baseline (TFrame, TLabel, TEntry, scrollbars, Treeview, action
-    buttons …), then applies kursplaner additions:
+    Calls ``bw_gui.theming.configure_ttk_theme()`` first (which sets the
+    globally tracked current theme), then derives Hospitation and view-mode
+    colours via ``tinted_color`` / ``tinted_foreground`` and applies the
+    kursplaner-specific style overrides:
 
     - ``Panel.TFrame`` / ``Toolbar.TFrame`` — panel_strong background used for
       side panels and toolbars.
@@ -205,13 +183,33 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     - ``Action.Unterricht/Lzk/Hospitation/Ausfall.TButton`` — fully saturated
       lesson-type action buttons.
     - ``Action.View.Unterricht/Lzk/Ausfall/Hospitation.TButton`` — softly tinted
-      view-mode toggle buttons (using precomputed ``view_*_bg`` tokens).
+      view-mode toggle buttons derived from ``tinted_color``.
     - ``Action.Utility/Secondary.TButton`` — neutral utility and secondary actions.
     - ``Action.Warn/Danger/Success.TButton`` — semantic colour actions.
-    """
-    _configure_base(root, theme_key)
 
-    theme = kursplaner_theme(theme_key)
+    Args:
+        root:      Tk root or top-level widget to configure styles on.
+        theme_key: Theme to activate; ``None`` uses the globally tracked current theme.
+    """
+    _configure_base(root, theme_key)  # sets bw_gui global; tinted_color calls below use it
+
+    # ── Hospitation domain colours (purple seed, not a bw_gui token) ──────────
+    hospitation       = tinted_color(HOSPITATION_SEED, degree=0.70, base_token="bg_panel")
+    hospitation_hover = tinted_color(HOSPITATION_SEED, degree=0.82, base_token="bg_panel")
+    fg_on_hospitation = tinted_foreground(HOSPITATION_SEED, degree=0.70, base_token="bg_panel")
+
+    # ── View-mode toggle button backgrounds ───────────────────────────────────
+    view_unterricht_bg      = tinted_color("accent_soft",    degree=0.70, base_token="panel_strong")
+    view_unterricht_active  = tinted_color("accent",         degree=0.58, base_token="panel_strong")
+    view_lzk_bg             = tinted_color("success_soft",   degree=0.70, base_token="panel_strong")
+    view_lzk_active         = tinted_color("success",        degree=0.58, base_token="panel_strong")
+    view_ausfall_bg         = tinted_color("warning_soft",   degree=0.70, base_token="panel_strong")
+    view_ausfall_active     = tinted_color("warning",        degree=0.58, base_token="panel_strong")
+    view_hospitation_bg     = tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+    view_hospitation_active = tinted_color(HOSPITATION_SEED, degree=0.58, base_token="panel_strong")
+
+    # Standard bw_gui tokens for borders, disabled states, and solid bg colours.
+    theme = _bw_get_theme(theme_key)
     style = widgets.Style(root)
     try:
         style.theme_use("clam")
@@ -223,13 +221,8 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     disabled_fg = str(theme.get("fg_muted", theme["fg_primary"]))
     button_border = str(theme.get("border", theme.get("panel_strong", theme["bg_panel"])))
     button_light = str(theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])))
-    hospitation = str(theme["hospitation"])
-    hospitation_hover = str(theme["hospitation_hover"])
-    hospitation_soft = str(theme["hospitation_soft"])
-    fg_on_hospitation = str(theme["fg_on_hospitation"])
-    change_fg = "#111111" if is_dark_color(str(theme.get("bg_main", "#FFFFFF"))) else "#FFFFFF"
-
     panel_bg = str(theme.get("panel_strong", theme.get("secondary_soft", theme.get("bg_panel", theme["bg_main"]))))
+
     style.configure("Panel.TFrame", background=panel_bg)
     style.configure("Toolbar.TFrame", background=panel_bg)
     style.configure("Toolbar.TLabel", background=panel_bg, foreground=theme["fg_primary"])
@@ -266,7 +259,8 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     )
 
     style.configure(
-        "Action.Unterricht.TButton", background=theme["accent"], foreground=change_fg,
+        "Action.Unterricht.TButton", background=theme["accent"],
+        foreground=theme.get("fg_on_accent", theme["fg_primary"]),
         padding=(4, 2), borderwidth=1, relief="flat",
         bordercolor=button_border, lightcolor=theme["accent"], darkcolor=theme["accent"],
         focuscolor=theme.get("focus_ring", theme["accent"]),
@@ -274,12 +268,15 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     style.map(
         "Action.Unterricht.TButton",
         background=[("disabled", disabled_bg), ("active", theme["accent_hover"]), ("pressed", theme["accent_hover"])],
-        foreground=[("disabled", disabled_fg), ("active", change_fg), ("pressed", change_fg)],
+        foreground=[("disabled", disabled_fg),
+                    ("active", theme.get("fg_on_accent", theme["fg_primary"])),
+                    ("pressed", theme.get("fg_on_accent", theme["fg_primary"]))],
     )
 
     lzk_bg = str(theme.get("success", theme.get("accent", theme["bg_surface"])))
     style.configure(
-        "Action.Lzk.TButton", background=lzk_bg, foreground=change_fg,
+        "Action.Lzk.TButton", background=lzk_bg,
+        foreground=theme.get("fg_on_success", theme["fg_primary"]),
         padding=(4, 2), borderwidth=1, relief="flat",
         bordercolor=button_border, lightcolor=lzk_bg, darkcolor=lzk_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
@@ -287,11 +284,13 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     style.map(
         "Action.Lzk.TButton",
         background=[("disabled", disabled_bg), ("active", lzk_bg), ("pressed", lzk_bg)],
-        foreground=[("disabled", disabled_fg), ("active", change_fg), ("pressed", change_fg)],
+        foreground=[("disabled", disabled_fg),
+                    ("active", theme.get("fg_on_success", theme["fg_primary"])),
+                    ("pressed", theme.get("fg_on_success", theme["fg_primary"]))],
     )
 
     style.configure(
-        "Action.Hospitation.TButton", background=hospitation, foreground=change_fg,
+        "Action.Hospitation.TButton", background=hospitation, foreground=fg_on_hospitation,
         padding=(4, 2), borderwidth=1, relief="flat",
         bordercolor=button_border, lightcolor=hospitation, darkcolor=hospitation,
         focuscolor=theme.get("focus_ring", theme["accent"]),
@@ -299,12 +298,13 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     style.map(
         "Action.Hospitation.TButton",
         background=[("disabled", disabled_bg), ("active", hospitation_hover), ("pressed", hospitation_hover)],
-        foreground=[("disabled", disabled_fg), ("active", change_fg), ("pressed", change_fg)],
+        foreground=[("disabled", disabled_fg), ("active", fg_on_hospitation), ("pressed", fg_on_hospitation)],
     )
 
     ausfall_bg = str(theme.get("warning", theme.get("accent", theme["bg_surface"])))
     style.configure(
-        "Action.Ausfall.TButton", background=ausfall_bg, foreground=change_fg,
+        "Action.Ausfall.TButton", background=ausfall_bg,
+        foreground=theme.get("fg_on_warning", theme["fg_primary"]),
         padding=(4, 2), borderwidth=1, relief="flat",
         bordercolor=button_border, lightcolor=ausfall_bg, darkcolor=ausfall_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
@@ -312,69 +312,67 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     style.map(
         "Action.Ausfall.TButton",
         background=[("disabled", disabled_bg), ("active", ausfall_bg), ("pressed", ausfall_bg)],
-        foreground=[("disabled", disabled_fg), ("active", change_fg), ("pressed", change_fg)],
+        foreground=[("disabled", disabled_fg),
+                    ("active", theme.get("fg_on_warning", theme["fg_primary"])),
+                    ("pressed", theme.get("fg_on_warning", theme["fg_primary"]))],
     )
 
     style.configure(
-        "Action.View.Unterricht.TButton", background=theme["view_unterricht_bg"],
+        "Action.View.Unterricht.TButton", background=view_unterricht_bg,
         foreground=theme.get("accent_hover", theme["fg_primary"]),
         padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border,
-        lightcolor=theme["view_unterricht_bg"], darkcolor=theme["view_unterricht_bg"],
+        bordercolor=button_border, lightcolor=view_unterricht_bg, darkcolor=view_unterricht_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Unterricht.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["view_unterricht_active"]),
-                    ("pressed", theme["view_unterricht_active"])],
+        background=[("disabled", disabled_bg), ("active", view_unterricht_active),
+                    ("pressed", view_unterricht_active)],
         foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_accent", theme["fg_primary"])),
                     ("pressed", theme.get("fg_on_accent", theme["fg_primary"]))],
     )
 
     style.configure(
-        "Action.View.Lzk.TButton", background=theme["view_lzk_bg"],
+        "Action.View.Lzk.TButton", background=view_lzk_bg,
         foreground=theme.get("success_hover", theme["fg_primary"]),
         padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border,
-        lightcolor=theme["view_lzk_bg"], darkcolor=theme["view_lzk_bg"],
+        bordercolor=button_border, lightcolor=view_lzk_bg, darkcolor=view_lzk_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Lzk.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["view_lzk_active"]),
-                    ("pressed", theme["view_lzk_active"])],
+        background=[("disabled", disabled_bg), ("active", view_lzk_active),
+                    ("pressed", view_lzk_active)],
         foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_success", theme["fg_primary"])),
                     ("pressed", theme.get("fg_on_success", theme["fg_primary"]))],
     )
 
     style.configure(
-        "Action.View.Ausfall.TButton", background=theme["view_ausfall_bg"],
+        "Action.View.Ausfall.TButton", background=view_ausfall_bg,
         foreground=theme.get("warning_hover", theme["fg_primary"]),
         padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border,
-        lightcolor=theme["view_ausfall_bg"], darkcolor=theme["view_ausfall_bg"],
+        bordercolor=button_border, lightcolor=view_ausfall_bg, darkcolor=view_ausfall_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Ausfall.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["view_ausfall_active"]),
-                    ("pressed", theme["view_ausfall_active"])],
+        background=[("disabled", disabled_bg), ("active", view_ausfall_active),
+                    ("pressed", view_ausfall_active)],
         foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_warning", theme["fg_primary"])),
                     ("pressed", theme.get("fg_on_warning", theme["fg_primary"]))],
     )
 
     style.configure(
-        "Action.View.Hospitation.TButton", background=theme["view_hospitation_bg"],
-        foreground=hospitation_hover,
+        "Action.View.Hospitation.TButton", background=view_hospitation_bg,
+        foreground=hospitation_hover,  # saturated purple label text on soft-tinted bg
         padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border,
-        lightcolor=theme["view_hospitation_bg"], darkcolor=theme["view_hospitation_bg"],
+        bordercolor=button_border, lightcolor=view_hospitation_bg, darkcolor=view_hospitation_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Hospitation.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["view_hospitation_active"]),
-                    ("pressed", theme["view_hospitation_active"])],
+        background=[("disabled", disabled_bg), ("active", view_hospitation_active),
+                    ("pressed", view_hospitation_active)],
         foreground=[("disabled", disabled_fg), ("active", fg_on_hospitation), ("pressed", fg_on_hospitation)],
     )
 

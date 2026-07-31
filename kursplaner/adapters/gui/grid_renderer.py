@@ -7,10 +7,13 @@ from bw_gui.runtime import ui
 from datetime import datetime
 from pathlib import Path
 
+from kursplaner.adapters.gui.grid_span_layout import compute_contiguous_spans
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
+from bw_gui.theming import get_theme as _bw_get_theme, tinted_color
+
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.ui_intents import UiIntent
-from kursplaner.adapters.gui.ui_theme import kursplaner_theme
+from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
 
 class GridRenderer:
@@ -27,6 +30,23 @@ class GridRenderer:
         self._marker_widgets: list[ui.Canvas] = []
         self._marker_kinds_by_widget: dict[int, tuple[str, ...]] = {}
         self._marker_column_width = 12
+
+    def _theme(self) -> dict[str, str]:
+        """Return the bw_gui theme dict augmented with kursplaner column tints.
+
+        All three column-type background colours are derived from the current
+        theme via ``tinted_color``; they are merged into the standard bw_gui
+        theme dict so callers can use the familiar ``theme.get(...)`` pattern.
+        ``hospitation_soft`` is included for the marker canvas fallback chain.
+        """
+        base = _bw_get_theme()
+        return {
+            **base,
+            "column_ausfall_bg":     tinted_color("warning_soft",   degree=0.72, base_token="panel_strong"),
+            "column_lzk_bg":         tinted_color("success_soft",   degree=0.72, base_token="panel_strong"),
+            "column_hospitation_bg": tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong"),
+            "hospitation_soft":      tinted_color(HOSPITATION_SEED, degree=0.38, base_token="bg_panel"),
+        }
 
     @staticmethod
     def _marker_color_for_kind(theme: dict[str, str], kind: str) -> str:
@@ -93,7 +113,7 @@ class GridRenderer:
 
     def _header_visual_state(self, day_index: int) -> tuple[str, str, str]:
         """Liefert Header-Text und Basisfarben für eine Tages-Spalte."""
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         if day_index >= len(self.app.day_columns):
             return "", theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])), theme["fg_primary"]
 
@@ -141,7 +161,7 @@ class GridRenderer:
 
     def _ub_border_color(self, day_index: int) -> str:
         """Liefert die Rahmenfarbe für als UB markierte Spalten."""
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         if 0 <= day_index < len(self.app.day_columns):
             day = self.app.day_columns[day_index]
             if bool(day.get("is_ub", False)):
@@ -261,7 +281,7 @@ class GridRenderer:
         else:
             widget.configure(font=self.app.preview_font)
 
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         if canceled:
             widget.configure(
                 bg=theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"]))),
@@ -323,7 +343,7 @@ class GridRenderer:
         """Hebt die aktuell ausgewählte Navigationszelle sichtbar hervor."""
         selected = self.app.ui_state.selected_cell
         is_selected = selected is not None and selected.field_key == field_key and selected.day_index == day_index
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         if is_selected:
             highlight = str(theme.get("selection_bg", theme.get("accent", "#4A90E2")))
             widget.configure(
@@ -375,7 +395,7 @@ class GridRenderer:
         )
         widget.insert("1.0", text)
 
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         if canceled:
             widget.configure(
                 bg=theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"]))),
@@ -440,6 +460,7 @@ class GridRenderer:
         self.app.cell_widgets = {}
         self.app.header_labels = {}
         self.app.row_labels = {}
+        self.app.sequence_field_widgets = {}
         self.app.corner_label = None
         self._marker_widgets = []
         self._marker_kinds_by_widget = {}
@@ -456,7 +477,7 @@ class GridRenderer:
         for child in self.app.grid_inner.winfo_children():
             child.destroy()
 
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
 
         self.app.fixed_inner.grid_columnconfigure(0, weight=0, minsize=220)
         x_cursor = 0
@@ -652,6 +673,9 @@ class GridRenderer:
 
             row_idx += 1
 
+        if self.app.sequence_fields_visible_var.get():
+            row_idx = self._render_sequence_field_rows(row_idx, day_grid_columns, theme, row_pixel_heights)
+
         for row_idx, pixel_height in row_pixel_heights.items():
             if pixel_height <= 0:
                 continue
@@ -667,6 +691,162 @@ class GridRenderer:
         self.app._refresh_header_styles()
         self.app._on_grid_inner_configure()
         self.app.action_controller.update_action_controls()
+
+    def _render_sequence_field_rows(
+        self,
+        row_idx: int,
+        day_grid_columns: dict[int, int],
+        theme: dict[str, str],
+        row_pixel_heights: dict[int, int],
+    ) -> int:
+        """Rendert die spannenden Sequenzziel-/Leitkompetenz-Zeilen, falls Sequenzen erkannt wurden.
+
+        Wird nur aufgerufen, wenn `sequence_fields_visible_var` aktiv ist. Baut
+        pro erkannter Sequenz (`self.app.topic_sequence_plans`) ein oder mehrere
+        über die zugehörigen Tages-Spalten spannende Text-Widgets; nicht von
+        einer Sequenz abgedeckte, sichtbare Tages-Spalten erhalten eine
+        deaktivierte Leerzelle, damit das Rasterbild vollständig bleibt.
+
+        Args:
+            row_idx: Nächster freier Grid-Zeilenindex.
+            day_grid_columns: Abbildung von `day_index` (Position in
+                `self.app.day_columns`) auf die tatsächliche Tk-Grid-Spalte.
+            theme: Aktuell aufgelöstes Farbschema.
+            row_pixel_heights: Sammelstruktur für Zeilenhöhen, wird ergänzt.
+
+        Returns:
+            Der nächste freie Grid-Zeilenindex nach den Sequenzfeld-Zeilen.
+        """
+        if not self.app.topic_sequence_plans:
+            return row_idx
+
+        row_index_to_grid_col: dict[int, int] = {}
+        for day_index, day in enumerate(self.app.day_columns):
+            if not isinstance(day, dict):
+                continue
+            try:
+                stable_row_index = int(day.get("row_index", -1))
+            except (TypeError, ValueError):
+                continue
+            grid_col = day_grid_columns.get(day_index)
+            if grid_col is not None:
+                row_index_to_grid_col[stable_row_index] = grid_col
+
+        for field_key, label_text in (("Sequenzziel", "Sequenzziel"), ("Leitkompetenz", "Leitkompetenz")):
+            row_idx = self._render_one_sequence_field_row(
+                row_idx=row_idx,
+                field_key=field_key,
+                label_text=label_text,
+                row_index_to_grid_col=row_index_to_grid_col,
+                theme=theme,
+                row_pixel_heights=row_pixel_heights,
+            )
+        return row_idx
+
+    def _render_one_sequence_field_row(
+        self,
+        *,
+        row_idx: int,
+        field_key: str,
+        label_text: str,
+        row_index_to_grid_col: dict[int, int],
+        theme: dict[str, str],
+        row_pixel_heights: dict[int, int],
+    ) -> int:
+        """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz)."""
+        field_label = ui.Label(
+            self.app.fixed_inner,
+            text=label_text,
+            anchor="w",
+            justify="left",
+            font=("Segoe UI", 9, "bold"),
+            bg=theme.get("sequence_bg", theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"]))),
+            fg=theme["fg_primary"],
+            padx=8,
+            pady=3,
+            relief="solid",
+            borderwidth=1,
+        )
+        field_label.grid(row=row_idx, column=0, sticky="nsew")
+        row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(field_label.winfo_reqheight()))
+
+        covered_grid_cols: set[int] = set()
+        for view in self.app.topic_sequence_plans:
+            grid_cols = sorted(
+                {
+                    row_index_to_grid_col[member_row_index]
+                    for member_row_index in view.run.member_row_indices
+                    if member_row_index in row_index_to_grid_col
+                }
+            )
+            if not grid_cols:
+                continue
+            covered_grid_cols.update(grid_cols)
+            value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
+            widget_key = (field_key, view.run.first_row_index)
+
+            for segment in compute_contiguous_spans(grid_cols):
+                cell = self._create_text_cell(
+                    self.app.grid_inner,
+                    value,
+                    editable=True,
+                    canceled=False,
+                    unresolved_link=False,
+                    height_lines=self.app.collapsed_row_lines,
+                )
+                cell.configure(bg=theme.get("sequence_bg", theme["bg_surface"]))
+                cell.grid(row=row_idx, column=segment.start_column, columnspan=segment.column_span, sticky="nsew")
+                self._bind_sequence_field_events(cell, field_key=field_key, first_row_index=view.run.first_row_index)
+                self.app.sequence_field_widgets[widget_key] = cell
+                row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(cell.winfo_reqheight()))
+
+        for grid_col in sorted(set(row_index_to_grid_col.values()) - covered_grid_cols):
+            blank_cell = self._create_text_cell(
+                self.app.grid_inner,
+                "",
+                editable=False,
+                canceled=False,
+                unresolved_link=False,
+                height_lines=self.app.collapsed_row_lines,
+            )
+            blank_cell.grid(row=row_idx, column=grid_col, sticky="nsew")
+
+        return row_idx + 1
+
+    def _bind_sequence_field_events(self, cell: ui.Text, *, field_key: str, first_row_index: int) -> None:
+        """Bindet den Editier-Lebenszyklus einer spannenden Sequenzfeld-Zelle.
+
+        Spiegelt das Muster normaler Grid-Zellen (`GRID_CELL_CLICK` /
+        `GRID_EDITOR_FOCUS_IN` / `GRID_COMMIT_CELL` / `GRID_EDITOR_FOCUS_OUT`),
+        jedoch mit `sequence_field_key`/`sequence_row_index` als Payload, da
+        eine Sequenzfeld-Zelle mehrere Tages-Spalten gleichzeitig repräsentiert
+        und daher nicht über `(field_key, day_index)` identifizierbar ist.
+        """
+        cell.bind(
+            "<Button-1>",
+            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
+                UiIntent.GRID_SEQUENCE_FIELD_CLICK, sequence_field_key=fk, sequence_row_index=ri
+            ),
+        )
+        cell.bind(
+            "<FocusIn>",
+            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
+                UiIntent.GRID_SEQUENCE_FIELD_FOCUS_IN, sequence_field_key=fk, sequence_row_index=ri
+            ),
+        )
+        cell.bind(
+            "<FocusOut>",
+            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
+                UiIntent.GRID_COMMIT_SEQUENCE_FIELD, sequence_field_key=fk, sequence_row_index=ri
+            ),
+        )
+        cell.bind(
+            "<FocusOut>",
+            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
+                UiIntent.GRID_SEQUENCE_FIELD_FOCUS_OUT, sequence_field_key=fk, sequence_row_index=ri
+            ),
+            add="+",
+        )
 
     def update_header(self, day_index: int):
         """Aktualisiert Text/Basisfarbe eines existierenden Tages-Headers."""
@@ -721,7 +901,7 @@ class GridRenderer:
         if label is None:
             return
 
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         row_height, collapsible, _expanded, label_text = self._row_layout(field_key)
         label.configure(
             text=label_text,
@@ -781,7 +961,7 @@ class GridRenderer:
         """Wendet Theme-Änderungen per Patch-Update auf das bestehende Grid an."""
         if self.app._is_rebuilding_grid:
             return
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = self._theme()
         if self.app.corner_label is not None:
             self.app.corner_label.configure(
                 bg=theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),

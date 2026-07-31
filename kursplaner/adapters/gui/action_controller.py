@@ -5,6 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.theming import get_theme as _bw_get_theme
 from datetime import date
 from typing import Callable
 
@@ -26,7 +27,6 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
     build_toolbar_view_model,
 )
 from kursplaner.adapters.gui.ub_mark_dialog import ask_mark_unit_as_ub
-from kursplaner.adapters.gui.ui_theme import kursplaner_theme
 from kursplaner.core.config.path_store import (
     CALENDAR_DIR_KEY,
     infer_workspace_root_from_path,
@@ -517,12 +517,12 @@ class MainWindowActionController:
         if value == 0:
             extent = max(extent, int(360 * 0.05))
 
-        theme = kursplaner_theme(self.app.theme_var.get())
+        theme = _bw_get_theme()  # TODO: bw_gui themed drawing primitives
         is_dark = self._is_dark_hex(str(theme.get("bg_main", "#FFFFFF")))
         category_colors = self.ACHIEVEMENT_COLORS_DARK if is_dark else self.ACHIEVEMENT_COLORS_LIGHT
         progress_color = category_colors.get(str(category), category_colors["half"])
         muted_symbol = "#6B7280" if not is_dark else "#7E8794"
-        center_bg = str(theme.get("bg_surface", "#FFFFFF"))
+        center_bg = str(theme.get("bg_surface", theme.get("bg_main", "#FFFFFF")))
         ring_bg = str(theme.get("border", "#C5CCD8"))
         if self._color_distance(progress_color, ring_bg) < 96:
             ring_bg = "#4B5563" if is_dark else "#E5EAF1"

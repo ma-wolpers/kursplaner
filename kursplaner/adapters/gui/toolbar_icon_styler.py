@@ -5,9 +5,10 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
+from bw_gui.theming import get_theme as _bw_get_theme, tinted_foreground
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
-from kursplaner.adapters.gui.ui_theme import kursplaner_theme
+from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
 
 class ToolbarIconStyler:
@@ -64,16 +65,26 @@ class ToolbarIconStyler:
         return "utility"
 
     @staticmethod
-    def _theme_icon_colors(theme_key: str) -> dict[str, str]:
-        theme = kursplaner_theme(theme_key)
+    def _theme_icon_colors() -> dict[str, str]:
+        """Return per-role icon foreground colours for the current active theme.
+
+        Reads the globally tracked current theme via bw_gui so no ``theme_key``
+        argument is needed.  The Hospitation foreground is derived from
+        ``HOSPITATION_SEED`` via ``tinted_foreground`` — matching exactly what
+        ``configure_ttk_theme`` uses for the button style.
+
+        Returns:
+            Mapping from role name to ``"#RRGGBB"`` foreground colour string.
+        """
+        theme = _bw_get_theme()
         return {
-            "utility": str(theme.get("fg_primary", "#222222")),
-            "primary": str(theme.get("fg_on_accent", theme.get("fg_primary", "#FFFFFF"))),
+            "utility":    str(theme.get("fg_primary", "#222222")),
+            "primary":    str(theme.get("fg_on_accent", theme.get("fg_primary", "#FFFFFF"))),
             "unterricht": str(theme.get("fg_on_accent", theme.get("fg_primary", "#FFFFFF"))),
-            "ausfall": str(theme.get("fg_on_warning", theme.get("fg_on_accent", "#FFFFFF"))),
-            "hospitation": str(theme.get("fg_on_hospitation", theme.get("fg_on_accent", "#FFFFFF"))),
-            "lzk": str(theme.get("fg_on_success", theme.get("fg_on_accent", "#FFFFFF"))),
-            "disabled": str(theme.get("fg_muted", "#777777")),
+            "ausfall":    str(theme.get("fg_on_warning", theme.get("fg_on_accent", "#FFFFFF"))),
+            "hospitation": tinted_foreground(HOSPITATION_SEED, degree=0.70, base_token="bg_panel"),
+            "lzk":        str(theme.get("fg_on_success", theme.get("fg_on_accent", "#FFFFFF"))),
+            "disabled":   str(theme.get("fg_muted", "#777777")),
         }
 
     @staticmethod
@@ -118,7 +129,7 @@ class ToolbarIconStyler:
             return self._variants_by_theme[theme_key]
 
         self._ensure_base_icons()
-        colors = self._theme_icon_colors(theme_key)
+        colors = self._theme_icon_colors()
 
         variants: dict[str, dict[str, ui.PhotoImage]] = {}
         style_by_key = {spec.key: spec.style for spec in TOOLBAR_ACTIONS}

@@ -5,6 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
+from bw_gui.theming import get_theme as _bw_get_theme
 from bw_gui.menu import MenuItem as SharedMenuItem
 from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
 
@@ -36,7 +37,6 @@ from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import (
     apply_window_theme,
     configure_ttk_theme,
-    kursplaner_theme,
 )
 
 
@@ -524,6 +524,12 @@ class ScreenBuilder:
                 type="command",
                 label="Spaltenarten anzeigen/verstecken… (Strg+L)",
                 command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
+            ),
+            SharedMenuItem(
+                type="radio",
+                label="Sequenzfelder anzeigen (Strg+Shift+S)",
+                checked=bool(self.app.sequence_fields_visible_var.get()),
+                command=lambda: self._emit_intent(UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE),
             ),
             SharedMenuItem(
                 type="radio",
@@ -1152,7 +1158,7 @@ class ScreenBuilder:
         configure_ttk_theme(self.app, theme_key)
         self._apply_toolbar_icons()
 
-        theme = kursplaner_theme(theme_key)
+        theme = _bw_get_theme()
         self.app.fixed_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
         self.app.grid_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
 
