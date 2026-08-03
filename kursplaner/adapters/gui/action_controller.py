@@ -1035,7 +1035,7 @@ class MainWindowActionController:
 
         styler = getattr(self.app, "toolbar_icon_styler", None)
         if styler is not None:
-            styler.apply(self.app.theme_var.get())
+            styler.apply_state_overrides()
 
         self._update_contextual_toolbar_help()
 

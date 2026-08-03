@@ -5,115 +5,94 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
-from bw_gui.theming import get_theme as _bw_get_theme, tinted_foreground
+from bw_gui.theming import icon_button, recolor_photo, recolor_photo_token
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
 
+# Maps ttk style name → bw_gui color_tint seed for icon recoloring.
+# None means no tint: icon pixels are recolored to fg_primary (the neutral
+# foreground) rather than to the contrast foreground of a tinted background.
+_STYLE_TINT: dict[str, str | None] = {
+    "Action.Primary.TButton":     "accent",
+    "Action.Unterricht.TButton":  "accent",
+    "Action.Ausfall.TButton":     "warning",
+    "Action.Hospitation.TButton": HOSPITATION_SEED,
+    "Action.Lzk.TButton":         "success",
+}
+
+# Style assigned to alternate (state-swap) icons so they receive the same
+# tint as the button they replace.
+_ALTERNATE_ICON_STYLE: dict[str, str] = {
+    "mark_ub_remove": "Action.Unterricht.TButton",
+    "resume":         "Action.Ausfall.TButton",
+}
+
+
 class ToolbarIconStyler:
-    """Verwaltet Toolbar-Icons inkl. Theme-Tinting und Disabled-Varianten."""
+    """Manages toolbar icon loading, tinting, and state-based icon overrides.
+
+    Buttons are created via ``create_button()`` which delegates to bw_gui's
+    ``icon_button()`` so every registered button is automatically recolored on
+    every theme switch — no per-theme variant cache is required here.
+
+    ``apply_state_overrides()`` handles the small subset of buttons whose icon
+    depends on domain state (mark_ub ↔ mark_ub_remove, ausfall ↔ resume) and
+    the disabled appearance (icons recolored to ``fg_muted``).  It is called
+    from ``_apply_theme()`` after ``configure_ttk_theme()`` has already
+    restored every registered button to its enabled icon.
+    """
 
     def __init__(self, app):
+        """Store the app reference; icon loading is deferred until first use."""
         self.app = app
         self._base_icons: dict[str, ui.PhotoImage] = {}
-        self._variants_by_theme: dict[str, dict[str, dict[str, ui.PhotoImage]]] = {}
 
     @staticmethod
     def _icon_dir() -> Path:
+        """Return the absolute path to the toolbar assets directory."""
         return Path(__file__).resolve().parents[3] / "assets" / "toolbar"
 
     @staticmethod
     def _icon_file_by_action() -> dict[str, str]:
-        return {
-            "new": "tb_new.png",
-            "refresh": "tb_refresh.png",
-            "export_as": "tb_export.png",
-            "undo": "tb_undo.png",
-            "redo": "tb_redo.png",
-            "plan": "tb_unterricht.png",
-            "extend_to_vacation": "tb_extend.png",
-            "ausfall": "tb_ausfall.png",
-            "hospitation": "tb_hospitation.png",
-            "lzk": "tb_lzk.png",
-            "mark_ub": "tb_bu.png",
-            "mark_ub_remove": "tb_no_ub.png",
-            "copy": "tb_copy.png",
-            "paste": "tb_paste.png",
-            "find": "tb_find.png",
-            "clear": "tb_clear.png",
-            "rename": "tb_rename.png",
-            "split": "tb_split.png",
-            "merge": "tb_merge.png",
-            "resume": "tb_resume.png",
-            "move_left": "tb_move_left.png",
-            "move_right": "tb_move_right.png",
-        }
+        """Return a mapping from action key to PNG filename in the assets folder.
 
-    @staticmethod
-    def _icon_color_role_for_style(style_name: str) -> str:
-        if style_name == "Action.Primary.TButton":
-            return "primary"
-        if style_name == "Action.Unterricht.TButton":
-            return "unterricht"
-        if style_name == "Action.Ausfall.TButton":
-            return "ausfall"
-        if style_name == "Action.Hospitation.TButton":
-            return "hospitation"
-        if style_name == "Action.Lzk.TButton":
-            return "lzk"
-        return "utility"
-
-    @staticmethod
-    def _theme_icon_colors() -> dict[str, str]:
-        """Return per-role icon foreground colours for the current active theme.
-
-        Reads the globally tracked current theme via bw_gui so no ``theme_key``
-        argument is needed.  The Hospitation foreground is derived from
-        ``HOSPITATION_SEED`` via ``tinted_foreground`` — matching exactly what
-        ``configure_ttk_theme`` uses for the button style.
-
-        Returns:
-            Mapping from role name to ``"#RRGGBB"`` foreground colour string.
+        Includes both primary action keys (those with toolbar specs) and the
+        two alternate-state icons (mark_ub_remove, resume) that replace their
+        counterparts depending on column domain state.
         """
-        theme = _bw_get_theme()
         return {
-            "utility":    str(theme.get("fg_primary", "#222222")),
-            "primary":    str(theme.get("fg_on_accent", theme.get("fg_primary", "#FFFFFF"))),
-            "unterricht": str(theme.get("fg_on_accent", theme.get("fg_primary", "#FFFFFF"))),
-            "ausfall":    str(theme.get("fg_on_warning", theme.get("fg_on_accent", "#FFFFFF"))),
-            "hospitation": tinted_foreground(HOSPITATION_SEED, degree=0.70, base_token="bg_panel"),
-            "lzk":        str(theme.get("fg_on_success", theme.get("fg_on_accent", "#FFFFFF"))),
-            "disabled":   str(theme.get("fg_muted", "#777777")),
+            "new":                "tb_new.png",
+            "refresh":            "tb_refresh.png",
+            "export_as":          "tb_export.png",
+            "undo":               "tb_undo.png",
+            "redo":               "tb_redo.png",
+            "plan":               "tb_unterricht.png",
+            "extend_to_vacation": "tb_extend.png",
+            "ausfall":            "tb_ausfall.png",
+            "hospitation":        "tb_hospitation.png",
+            "lzk":                "tb_lzk.png",
+            "mark_ub":            "tb_bu.png",
+            "mark_ub_remove":     "tb_no_ub.png",
+            "copy":               "tb_copy.png",
+            "paste":              "tb_paste.png",
+            "find":               "tb_find.png",
+            "clear":              "tb_clear.png",
+            "rename":             "tb_rename.png",
+            "split":              "tb_split.png",
+            "merge":              "tb_merge.png",
+            "resume":             "tb_resume.png",
+            "move_left":          "tb_move_left.png",
+            "move_right":         "tb_move_right.png",
         }
-
-    @staticmethod
-    def _recolor_photo(base: ui.PhotoImage, color_hex: str) -> ui.PhotoImage:
-        width = int(base.width())
-        height = int(base.height())
-        recolored = ui.PhotoImage(width=width, height=height)
-        recolored.put(color_hex, to=(0, 0, width, height))
-
-        has_transparency = hasattr(base, "transparency_get") and hasattr(recolored, "transparency_set")
-        if not has_transparency:
-            return recolored
-
-        for y in range(height):
-            for x in range(width):
-                try:
-                    if bool(base.transparency_get(x, y)):
-                        recolored.transparency_set(x, y, True)
-                except ui.TclError:
-                    continue
-        return recolored
 
     def _ensure_base_icons(self) -> None:
+        """Load all base (uncolored) PNG icons from disk on first call."""
         if self._base_icons:
             return
-
         icon_dir = self._icon_dir()
-        icon_files = self._icon_file_by_action()
-        for icon_key, filename in icon_files.items():
+        for icon_key, filename in self._icon_file_by_action().items():
             if not filename:
                 continue
             icon_path = icon_dir / filename
@@ -124,46 +103,61 @@ class ToolbarIconStyler:
             except ui.TclError:
                 continue
 
-    def _ensure_theme_variants(self, theme_key: str) -> dict[str, dict[str, ui.PhotoImage]]:
-        if theme_key in self._variants_by_theme:
-            return self._variants_by_theme[theme_key]
+    def create_button(self, parent, spec, command):
+        """Create and return a theme-aware icon button for *spec*.
 
+        Loads the base PNG for ``spec.key``, selects the correct tint from
+        ``_STYLE_TINT``, and delegates to ``icon_button()`` so the button is
+        registered for automatic recoloring on every subsequent theme switch.
+
+        Args:
+            parent:  Tk parent widget for the new button.
+            spec:    Toolbar action spec providing ``key``, ``style``, ``width``.
+            command: Callable invoked on button press.
+
+        Returns:
+            The created ``ttk.Button``, or ``None`` if no icon asset was found.
+        """
         self._ensure_base_icons()
-        colors = self._theme_icon_colors()
+        base = self._base_icons.get(spec.key)
+        if base is None:
+            return None
+        tint = _STYLE_TINT.get(spec.style)  # None → recolor to fg_primary
+        kwargs: dict = {"style": spec.style}
+        if spec.width is not None:
+            kwargs["width"] = spec.width
+        return icon_button(parent, base, command, color_tint=tint, **kwargs)
 
-        variants: dict[str, dict[str, ui.PhotoImage]] = {}
-        style_by_key = {spec.key: spec.style for spec in TOOLBAR_ACTIONS}
-        style_by_key["mark_ub_remove"] = style_by_key.get("mark_ub", "Action.Utility.TButton")
-        style_by_key["resume"] = style_by_key.get("ausfall", "Action.Ausfall.TButton")
-        for icon_key, style_name in style_by_key.items():
-            base = self._base_icons.get(icon_key)
-            if base is None:
-                continue
-            role = self._icon_color_role_for_style(style_name)
-            enabled_color = colors.get(role, colors["utility"])
-            variants[icon_key] = {
-                "enabled": self._recolor_photo(base, enabled_color),
-                "disabled": self._recolor_photo(base, colors["disabled"]),
-            }
+    def apply_state_overrides(self) -> None:
+        """Override button icons for state-based swaps and disabled appearance.
 
-        self._variants_by_theme[theme_key] = variants
-        return variants
+        Called from ``_apply_theme()`` after ``configure_ttk_theme()`` has
+        restored every registered icon button to its default enabled icon via
+        bw_gui's internal ``_reapply_icon_buttons``.  Applies two override
+        categories:
 
-    def apply(self, theme_key: str | None = None) -> None:
+        - **State swaps**: replaces the mark_ub icon with mark_ub_remove and
+          the ausfall icon with resume when the currently selected day column's
+          domain state requires it.
+        - **Disabled icons**: recolors to ``fg_muted`` for buttons that are
+          currently in the disabled ttk state, so inactive actions appear
+          visually dimmed.
+
+        No ``theme_key`` parameter is needed — bw_gui reads the globally active
+        theme internally (Principle C: theme is ambient).
+        """
         buttons = getattr(self.app, "action_buttons", None)
         if not isinstance(buttons, dict):
             return
 
-        resolved_theme = str(theme_key or self.app.theme_var.get())
-        variants = self._ensure_theme_variants(resolved_theme)
-        self.app.toolbar_button_images = variants
+        self._ensure_base_icons()
 
         mark_ub_remove_mode = False
         ausfall_resume_mode = False
-        selected_indices = sorted(int(idx) for idx in getattr(self.app, "selected_day_indices", set()))
-        if len(selected_indices) == 1:
+        selected = sorted(int(i) for i in getattr(self.app, "selected_day_indices", set()))
+        if len(selected) == 1:
             day_columns = list(getattr(self.app, "day_columns", []))
-            idx = selected_indices[0]
+            idx = selected[0]
             if 0 <= idx < len(day_columns):
                 day = day_columns[idx]
                 yaml_data = day.get("yaml") if isinstance(day, dict) else {}
@@ -175,19 +169,30 @@ class ToolbarIconStyler:
             button = buttons.get(spec.key)
             if button is None:
                 continue
-            icon_key = spec.key
-            if spec.key == "mark_ub" and mark_ub_remove_mode and "mark_ub_remove" in variants:
-                icon_key = "mark_ub_remove"
-            if spec.key == "ausfall" and ausfall_resume_mode and "resume" in variants:
-                icon_key = "resume"
 
-            icon_set = variants.get(icon_key)
-            if not isinstance(icon_set, dict):
-                button.configure(text=spec.text, image="")
+            icon_key = spec.key
+            icon_style = spec.style
+            if spec.key == "mark_ub" and mark_ub_remove_mode and "mark_ub_remove" in self._base_icons:
+                icon_key = "mark_ub_remove"
+                icon_style = _ALTERNATE_ICON_STYLE.get("mark_ub_remove", spec.style)
+            elif spec.key == "ausfall" and ausfall_resume_mode and "resume" in self._base_icons:
+                icon_key = "resume"
+                icon_style = _ALTERNATE_ICON_STYLE.get("resume", spec.style)
+
+            base = self._base_icons.get(icon_key)
+            if base is None:
                 continue
+
             is_disabled = bool(button.instate(["disabled"]))
-            button.configure(
-                image=icon_set["disabled"] if is_disabled else icon_set["enabled"],
-                text="",
-                compound="center",
-            )
+            if is_disabled:
+                img = recolor_photo_token(base, "fg_muted")
+                button.configure(image=img, text="", compound="center")
+            elif icon_key != spec.key:
+                # State-swapped alternate icon: apply the correct tint seed
+                tint = _STYLE_TINT.get(icon_style)
+                if tint is not None:
+                    img = recolor_photo(base, tint)
+                else:
+                    img = recolor_photo_token(base, "fg_primary")
+                button.configure(image=img, text="", compound="center")
+            # Normal case: _reapply_icon_buttons already applied the right color.

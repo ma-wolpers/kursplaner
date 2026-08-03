@@ -5,7 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
-from bw_gui.theming import get_theme as _bw_get_theme
+from bw_gui.theming import theme_canvas
 from bw_gui.menu import MenuItem as SharedMenuItem
 from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
 
@@ -69,12 +69,6 @@ class ScreenBuilder:
         self.app.shortcut_runtime_debug_summary_var = None
         self.app.shortcut_runtime_debug_offline_var = None
         self._intent_help_tooltips: list[tuple[HoverTooltip, str, str]] = []
-
-    def _apply_toolbar_icons(self):
-        styler = getattr(self.app, "toolbar_icon_styler", None)
-        if styler is None:
-            return
-        styler.apply(self.app.theme_var.get())
 
     def build_ui(self, frame=None):
         """Erzeugt Widgets und verbindet UI-Events mit Adapter-Delegationspunkten."""
@@ -161,16 +155,20 @@ class ScreenBuilder:
                 separator.pack(fill="y", padx=8)
                 self.app.toolbar_separators[slot_key] = separator
 
+        styler = getattr(self.app, "toolbar_icon_styler", None)
         for spec in TOOLBAR_ACTIONS:
             slot = self.app.toolbar_slots[spec.slot_key]
-            button_kwargs = {
-                "text": spec.text,
-                "command": lambda intent=spec.intent, payload=spec.payload: self._emit_intent(intent, **dict(payload)),
-                "style": spec.style,
-            }
-            if spec.width is not None:
-                button_kwargs["width"] = spec.width
-            button = widgets.Button(slot, **button_kwargs)
+            command = lambda intent=spec.intent, payload=spec.payload: self._emit_intent(intent, **dict(payload))
+            button = styler.create_button(slot, spec, command) if styler is not None else None
+            if button is None:
+                button_kwargs: dict = {
+                    "text": spec.text,
+                    "command": command,
+                    "style": spec.style,
+                }
+                if spec.width is not None:
+                    button_kwargs["width"] = spec.width
+                button = widgets.Button(slot, **button_kwargs)
             button.pack(side="left", padx=spec.padx)
             self.app.action_buttons[spec.key] = button
             if spec.help_key is not None:
@@ -180,7 +178,6 @@ class ScreenBuilder:
 
         self._layout_toolbar_slots()
         detail_toolbar.bind("<Configure>", self._on_toolbar_configure)
-        self._apply_toolbar_icons()
 
         overview_columns = ("name", "next_topic", "next_unit", "remaining_hours", "next_lzk", "next_ub")
         tree_frame = widgets.Frame(left)
@@ -1156,9 +1153,11 @@ class ScreenBuilder:
         theme_key = self.app.theme_var.get()
         apply_window_theme(self.app, theme_key)
         configure_ttk_theme(self.app, theme_key)
-        self._apply_toolbar_icons()
-
-        theme = _bw_get_theme()
-        self.app.fixed_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
-        self.app.grid_canvas.configure(bg=theme.get("bg_surface", theme["bg_main"]))
+        styler = getattr(self.app, "toolbar_icon_styler", None)
+        if styler is not None:
+            styler.apply_state_overrides()
+        theme_canvas(self.app.fixed_canvas)
+        self.app.fixed_canvas.configure(highlightthickness=0)
+        theme_canvas(self.app.grid_canvas)
+        self.app.grid_canvas.configure(highlightthickness=0)
 
