@@ -5,7 +5,14 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
-from bw_gui.theming import get_theme as _bw_get_theme
+from bw_gui.theming import (
+    canvas_domain_fill,
+    canvas_domain_outline,
+    canvas_fill,
+    canvas_outline_color,
+    canvas_text_fill,
+    theme_canvas,
+)
 from datetime import date
 from typing import Callable
 
@@ -466,31 +473,6 @@ class MainWindowActionController:
 
         self._refresh_after_write(selected_index=selected_index)
 
-    @staticmethod
-    def _is_dark_hex(color: str) -> bool:
-        """Bestimmt anhand der Luminanz, ob eine Hex-Farbe dunkel ist."""
-        text = str(color or "").strip().lstrip("#")
-        if len(text) != 6:
-            return False
-        red = int(text[0:2], 16)
-        green = int(text[2:4], 16)
-        blue = int(text[4:6], 16)
-        luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255.0
-        return luminance < 0.45
-
-    @staticmethod
-    def _hex_to_rgb(color: str) -> tuple[int, int, int]:
-        text = str(color or "").strip().lstrip("#")
-        if len(text) != 6:
-            return (0, 0, 0)
-        return (int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
-
-    @classmethod
-    def _color_distance(cls, color_a: str, color_b: str) -> int:
-        ax, ay, az = cls._hex_to_rgb(color_a)
-        bx, by, bz = cls._hex_to_rgb(color_b)
-        return abs(ax - bx) + abs(ay - by) + abs(az - bz)
-
     def _draw_progress_ring(
         self,
         parent,
@@ -507,8 +489,11 @@ class MainWindowActionController:
     ):
         """Rendert eine Achievement-Kachel mit Ring, Symbol, Label und Hover-Erklärung."""
         frame = widgets.Frame(parent, padding=(4, 4))
-        canvas = ui.Canvas(frame, width=92, height=92, highlightthickness=0, bg="#000000", bd=0)
+        canvas = ui.Canvas(frame, width=92, height=92, highlightthickness=0, bd=0)
         canvas.pack()
+        # bw_gui resolves bg_surface for the canvas background.
+        theme_canvas(canvas)
+        canvas.configure(highlightthickness=0)
 
         total = max(1, int(target))
         value = max(0, min(int(current), total))
@@ -517,65 +502,52 @@ class MainWindowActionController:
         if value == 0:
             extent = max(extent, int(360 * 0.05))
 
-        theme = _bw_get_theme()  # TODO: bw_gui themed drawing primitives
-        is_dark = self._is_dark_hex(str(theme.get("bg_main", "#FFFFFF")))
-        category_colors = self.ACHIEVEMENT_COLORS_DARK if is_dark else self.ACHIEVEMENT_COLORS_LIGHT
-        progress_color = category_colors.get(str(category), category_colors["half"])
-        muted_symbol = "#6B7280" if not is_dark else "#7E8794"
-        center_bg = str(theme.get("bg_surface", theme.get("bg_main", "#FFFFFF")))
-        ring_bg = str(theme.get("border", "#C5CCD8"))
-        if self._color_distance(progress_color, ring_bg) < 96:
-            ring_bg = "#4B5563" if is_dark else "#E5EAF1"
-        center_fg = progress_color if is_fulfilled else muted_symbol
-        canvas.configure(bg=center_bg)
+        light_c = self.ACHIEVEMENT_COLORS_LIGHT.get(str(category), self.ACHIEVEMENT_COLORS_LIGHT["half"])
+        dark_c = self.ACHIEVEMENT_COLORS_DARK.get(str(category), self.ACHIEVEMENT_COLORS_DARK["half"])
 
         center = 46
         radius = 34
-        canvas.create_oval(
-            center - radius,
-            center - radius,
-            center + radius,
-            center + radius,
-            outline=ring_bg,
+        track_oval = canvas.create_oval(
+            center - radius, center - radius, center + radius, center + radius,
             width=8,
         )
-        canvas.create_arc(
-            center - radius,
-            center - radius,
-            center + radius,
-            center + radius,
-            start=90,
-            extent=-extent,
-            outline=progress_color,
-            width=8,
-            style="arc",
+        canvas_outline_color(canvas, track_oval, token="border")
+
+        progress_arc = canvas.create_arc(
+            center - radius, center - radius, center + radius, center + radius,
+            start=90, extent=-extent, width=8, style="arc",
         )
+        canvas_domain_outline(canvas, progress_arc, light_color=light_c, dark_color=dark_c)
 
         symbol_radius = 18
-        canvas.create_oval(
-            center - symbol_radius,
-            center - symbol_radius,
-            center + symbol_radius,
-            center + symbol_radius,
-            fill=center_bg,
-            outline=ring_bg,
+        center_oval = canvas.create_oval(
+            center - symbol_radius, center - symbol_radius,
+            center + symbol_radius, center + symbol_radius,
             width=1,
         )
+        canvas_fill(canvas, center_oval, token="bg_surface")
+        canvas_outline_color(canvas, center_oval, token="border")
+
         icon = self._achievement_icon_for_domain(domain)
         if icon is not None:
             canvas.create_image(center, center - 2, image=icon)
         else:
-            canvas.create_text(center, center - 2, text=symbol, font=("Segoe UI", 14, "bold"), fill=center_fg)
+            symbol_text = canvas.create_text(
+                center, center - 2, text=symbol, font=("Segoe UI", 14, "bold"),
+            )
+            if is_fulfilled:
+                canvas_domain_fill(canvas, symbol_text, light_color=light_c, dark_color=dark_c)
+            else:
+                canvas_text_fill(canvas, symbol_text, token="fg_muted")
 
         # Always show the numeric progress to keep the goal state glanceable.
-        progress_fg = progress_color if is_fulfilled else muted_symbol
-        canvas.create_text(
-            center,
-            center + 22,
-            text=f"{value}/{total}",
-            font=("Segoe UI", 9, "bold"),
-            fill=progress_fg,
+        progress_text = canvas.create_text(
+            center, center + 22, text=f"{value}/{total}", font=("Segoe UI", 9, "bold"),
         )
+        if is_fulfilled:
+            canvas_domain_fill(canvas, progress_text, light_color=light_c, dark_color=dark_c)
+        else:
+            canvas_text_fill(canvas, progress_text, token="fg_muted")
 
         title_label = widgets.Label(
             frame,
