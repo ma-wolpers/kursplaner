@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from bw_gui.theming import get_theme as _bw_get_theme, tinted_color
+from bw_gui.theming import theme_label_tinted, theme_label_token
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
@@ -279,20 +279,6 @@ class MainWindowSelectionController:
 
     def refresh_header_styles(self):
         """Wendet selektions-/zustandsabhängige Header-Farben auf alle Spalten an."""
-        theme = _bw_get_theme()
-        column_ausfall_bg     = tinted_color("warning_soft",   degree=0.72, base_token="panel_strong")
-        column_hospitation_bg = tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
-        column_lzk_bg         = tinted_color("success_soft",   degree=0.72, base_token="panel_strong")
-        selected_bg = str(
-            theme.get(
-                "selection_bg",
-                theme.get(
-                    "accent",
-                    theme.get("accent_hover", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-            )
-        )
-        selected_fg = str(theme.get("selection_fg", theme.get("fg_on_accent", theme.get("fg_primary", "#000000"))))
         for day_index, label in self.app.header_labels.items():
             if day_index >= len(self.app.day_columns):
                 continue
@@ -302,28 +288,24 @@ class MainWindowSelectionController:
             is_unresolved_link = bool(day.get("is_unresolved_link"))
             is_hospitation = bool(day.get("is_hospitation"))
             is_lzk = bool(day.get("is_lzk"))
-            if is_cancel:
-                base_bg = column_ausfall_bg
-            elif is_hospitation:
-                base_bg = column_hospitation_bg
-            elif is_unresolved_link:
-                base_bg = str(
-                    theme.get("warning_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"])))
-                )
-            elif is_lzk:
-                base_bg = column_lzk_bg
-            else:
-                base_bg = str(theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])))
-            base_fg = str(theme.get("fg_muted") if is_cancel else theme.get("fg_primary"))
             if is_selected:
-                label.configure(
-                    bg=selected_bg,
-                    fg=selected_fg,
-                    borderwidth=2,
-                    relief="raised",
-                )
+                label.configure(borderwidth=2, relief="raised")
+                theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
+            elif is_cancel:
+                label.configure(borderwidth=1, relief="solid")
+                theme_label_tinted(label, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            elif is_hospitation:
+                label.configure(borderwidth=1, relief="solid")
+                theme_label_tinted(label, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+            elif is_unresolved_link:
+                label.configure(borderwidth=1, relief="solid")
+                theme_label_token(label, bg_token="warning_soft")
+            elif is_lzk:
+                label.configure(borderwidth=1, relief="solid")
+                theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
             else:
-                label.configure(bg=base_bg, fg=base_fg, borderwidth=1, relief="solid")
+                label.configure(borderwidth=1, relief="solid")
+                theme_label_token(label, bg_token="panel_strong")
 
     def selected_indices_sorted(self) -> list[int]:
         """Liefert gültige selektierte Spaltenindizes in stabiler Reihenfolge."""

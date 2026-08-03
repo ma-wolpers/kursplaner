@@ -9,7 +9,16 @@ from pathlib import Path
 
 from kursplaner.adapters.gui.grid_span_layout import compute_contiguous_spans
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
-from bw_gui.theming import get_theme as _bw_get_theme, tinted_color
+from bw_gui.theming import (
+    canvas_fill,
+    canvas_tinted_fill,
+    theme_canvas,
+    theme_label_tinted,
+    theme_label_token,
+    theme_text,
+    theme_text_tinted,
+    theme_widget_border,
+)
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.ui_intents import UiIntent
@@ -31,49 +40,23 @@ class GridRenderer:
         self._marker_kinds_by_widget: dict[int, tuple[str, ...]] = {}
         self._marker_column_width = 12
 
-    def _theme(self) -> dict[str, str]:
-        """Return the bw_gui theme dict augmented with kursplaner column tints.
-
-        All three column-type background colours are derived from the current
-        theme via ``tinted_color``; they are merged into the standard bw_gui
-        theme dict so callers can use the familiar ``theme.get(...)`` pattern.
-        ``hospitation_soft`` is included for the marker canvas fallback chain.
-        """
-        base = _bw_get_theme()
-        return {
-            **base,
-            "column_ausfall_bg":     tinted_color("warning_soft",   degree=0.72, base_token="panel_strong"),
-            "column_lzk_bg":         tinted_color("success_soft",   degree=0.72, base_token="panel_strong"),
-            "column_hospitation_bg": tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong"),
-            "hospitation_soft":      tinted_color(HOSPITATION_SEED, degree=0.38, base_token="bg_panel"),
-        }
-
-    @staticmethod
-    def _marker_color_for_kind(theme: dict[str, str], kind: str) -> str:
-        """Liefert Markerfarbe passend zur ausgeblendeten Spaltenart."""
+    def _apply_marker_kind_fill(self, canvas: ui.Canvas, item_id: int, kind: str) -> None:
+        """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
         normalized = str(kind).strip().lower()
         if normalized == "ausfall":
-            return str(theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", "#999999"))))
-        if normalized == "lzk":
-            return str(
-                theme.get(
-                    "column_lzk_bg",
-                    theme.get("success_soft", theme.get("accent_soft", theme.get("border", "#999999"))),
-                )
-            )
-        if normalized == "hospitation":
-            return str(
-                theme.get(
-                    "column_hospitation_bg",
-                    theme.get("hospitation_soft", theme.get("accent_soft", theme.get("border", "#999999"))),
-                )
-            )
-        return str(theme.get("panel_strong", theme.get("border", "#999999")))
+            canvas_tinted_fill(canvas, item_id, color_tint="warning_soft", degree=0.72, base_token="panel_strong")
+        elif normalized == "lzk":
+            canvas_tinted_fill(canvas, item_id, color_tint="success_soft", degree=0.72, base_token="panel_strong")
+        elif normalized == "hospitation":
+            canvas_tinted_fill(canvas, item_id, color_tint=HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+        else:
+            canvas_fill(canvas, item_id, token="panel_strong")
 
-    def _draw_marker_canvas(self, marker: ui.Canvas, kinds: tuple[str, ...], theme: dict[str, str]) -> None:
+    def _draw_marker_canvas(self, marker: ui.Canvas, kinds: tuple[str, ...]) -> None:
         """Zeichnet farbige Marker-Segmente je ausgeblendeter Spaltenart."""
         marker.delete("all")
-        marker.configure(bg=str(theme.get("bg_panel", theme.get("bg_main", "#ffffff"))), highlightthickness=0)
+        theme_canvas(marker)
+        marker.configure(highlightthickness=0)
         marker_width = max(1, int(marker.winfo_width()))
         marker_height = max(1, int(marker.winfo_height()))
         normalized = tuple(str(kind).strip() for kind in kinds if str(kind).strip())
@@ -84,14 +67,8 @@ class GridRenderer:
         x0 = 0
         for index, kind in enumerate(normalized):
             x1 = marker_width if index == (len(normalized) - 1) else min(marker_width, x0 + segment_width)
-            marker.create_rectangle(
-                x0,
-                0,
-                x1,
-                marker_height,
-                fill=self._marker_color_for_kind(theme, kind),
-                outline="",
-            )
+            rect = marker.create_rectangle(x0, 0, x1, marker_height, outline="")
+            self._apply_marker_kind_fill(marker, rect, kind)
             x0 = x1
 
     def _display_layout_items(self) -> list[dict[str, object]]:
@@ -111,62 +88,49 @@ class GridRenderer:
             return LESSON_BUILDER_HELP.get("teilziele", "")
         return ""
 
-    def _header_visual_state(self, day_index: int) -> tuple[str, str, str]:
-        """Liefert Header-Text und Basisfarben für eine Tages-Spalte."""
-        theme = self._theme()
+    def _header_visual_state(self, day_index: int) -> tuple[str, str]:
+        """Liefert Header-Text und Spalten-Zustandsschlüssel für eine Tages-Spalte.
+
+        Returns:
+            (date_text, col_type) — col_type ∈ {'normal', 'cancel', 'hospitation',
+            'lzk', 'unresolved'}.  Pass both to ``_apply_header_color``.
+        """
         if day_index >= len(self.app.day_columns):
-            return "", theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])), theme["fg_primary"]
-
+            return "", "normal"
         day = self.app.day_columns[day_index]
-        is_cancel = bool(day.get("is_cancel"))
-        is_unresolved_link = bool(day.get("is_unresolved_link"))
-        is_lzk = bool(day.get("is_lzk"))
-        is_hospitation = bool(day.get("is_hospitation"))
         date_text = self._format_header_date(str(day.get("datum", "")))
-        if is_cancel:
-            return (
-                date_text,
-                theme.get("column_ausfall_bg", theme.get("warning_soft", theme["border"])),
-                theme["fg_muted"],
-            )
-        if is_hospitation:
-            return (
-                date_text,
-                theme.get(
-                    "column_hospitation_bg",
-                    theme.get("hospitation_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-                theme["fg_primary"],
-            )
-        if is_lzk:
-            return (
-                date_text,
-                theme.get(
-                    "column_lzk_bg",
-                    theme.get("success_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-                theme["fg_primary"],
-            )
-        if is_unresolved_link:
-            return (
-                f"{date_text} ⚠",
-                theme.get("warning_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                theme["fg_primary"],
-            )
-        return (
-            date_text,
-            theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),
-            theme["fg_primary"],
-        )
+        if bool(day.get("is_cancel")):
+            return date_text, "cancel"
+        if bool(day.get("is_hospitation")):
+            return date_text, "hospitation"
+        if bool(day.get("is_lzk")):
+            return date_text, "lzk"
+        if bool(day.get("is_unresolved_link")):
+            return f"{date_text} ⚠", "unresolved"
+        return date_text, "normal"
 
-    def _ub_border_color(self, day_index: int) -> str:
-        """Liefert die Rahmenfarbe für als UB markierte Spalten."""
-        theme = self._theme()
-        if 0 <= day_index < len(self.app.day_columns):
-            day = self.app.day_columns[day_index]
-            if bool(day.get("is_ub", False)):
-                return str(theme.get("column_ub_border", theme.get("accent", "#4A90E2")))
-        return str(theme.get("border", theme.get("panel_strong", theme["bg_main"])))
+    def _apply_header_color(self, label: ui.Label, col_type: str) -> None:
+        """Wendet Spalten-Typ-Farben auf ein Header-Label an (kein Hex-Wert im Consumer)."""
+        if col_type == "cancel":
+            theme_label_tinted(label, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+        elif col_type == "hospitation":
+            theme_label_tinted(label, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+        elif col_type == "lzk":
+            theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
+        elif col_type == "unresolved":
+            theme_label_token(label, bg_token="warning_soft")
+        else:
+            theme_label_token(label, bg_token="panel_strong")
+
+    def _apply_ub_border(self, widget: ui.Widget, day_index: int) -> None:
+        """Setzt UB-Akzentrahmen oder neutralen Rahmen auf einem Widget."""
+        is_ub = 0 <= day_index < len(self.app.day_columns) and bool(
+            self.app.day_columns[day_index].get("is_ub", False)
+        )
+        if is_ub:
+            theme_widget_border(widget, color_token="accent", thickness=2)
+        else:
+            theme_widget_border(widget, color_token="border", thickness=1)
 
     @staticmethod
     def _format_header_date(raw_date: str) -> str:
@@ -276,93 +240,42 @@ class GridRenderer:
         widget.delete("1.0", "end")
         widget.insert("1.0", text)
         widget.configure(height=max(self.app.collapsed_row_lines, row_height))
-        if italic:
-            widget.configure(font=("Consolas", self.app.preview_font_size, "italic"))
-        else:
-            widget.configure(font=self.app.preview_font)
+        widget.configure(font=("Consolas", self.app.preview_font_size, "italic") if italic else self.app.preview_font)
 
-        theme = self._theme()
         if canceled:
-            widget.configure(
-                bg=theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"]))),
-                fg=theme.get("fg_muted", theme["fg_primary"]),
-                insertbackground=theme.get("fg_muted", theme["fg_primary"]),
-                state="disabled",
-            )
+            theme_text_tinted(widget, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            widget.configure(state="disabled")
             return
         if unresolved_link:
-            widget.configure(
-                bg=theme.get("warning_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                fg=theme.get("fg_primary", theme["fg_primary"]),
-                insertbackground=theme.get("fg_primary", theme["fg_primary"]),
-            )
+            theme_text(widget, bg_token="warning_soft")
             return
         if lzk_masked:
-            widget.configure(
-                bg=theme.get(
-                    "column_lzk_bg",
-                    theme.get("success_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-                fg=theme.get("fg_muted", theme["fg_primary"]),
-                insertbackground=theme.get("fg_muted", theme["fg_primary"]),
-                state="disabled",
-            )
+            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            widget.configure(state="disabled")
             return
         if is_hospitation:
-            widget.configure(
-                bg=theme.get(
-                    "column_hospitation_bg",
-                    theme.get("hospitation_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-                fg=theme.get("fg_primary", theme["fg_primary"]),
-                insertbackground=theme.get("fg_primary", theme["fg_primary"]),
-            )
+            theme_text_tinted(widget, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
             return
         if is_lzk:
-            widget.configure(
-                bg=theme.get("column_lzk_bg", theme.get("success_soft", theme.get("accent_soft", theme["bg_surface"]))),
-                fg=theme.get("fg_primary", theme["fg_primary"]),
-                insertbackground=theme.get("fg_primary", theme["fg_primary"]),
-            )
+            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong")
             return
         if editable:
-            widget.configure(
-                bg=theme["bg_surface"],
-                fg=theme["fg_primary"],
-                insertbackground=theme["fg_primary"],
-            )
+            theme_text(widget)
             return
-        widget.configure(
-            bg=theme.get("bg_panel", theme["bg_main"]),
-            fg=theme.get("fg_muted", theme["fg_primary"]),
-            insertbackground=theme.get("fg_muted", theme["fg_primary"]),
-            state="disabled",
-        )
+        theme_text(widget, bg_token="bg_panel", fg_token="fg_muted")
+        widget.configure(state="disabled")
 
     def _apply_cell_selection_style(self, widget: ui.Text, *, field_key: str, day_index: int) -> None:
         """Hebt die aktuell ausgewählte Navigationszelle sichtbar hervor."""
         selected = self.app.ui_state.selected_cell
         is_selected = selected is not None and selected.field_key == field_key and selected.day_index == day_index
-        theme = self._theme()
         if is_selected:
-            highlight = str(theme.get("selection_bg", theme.get("accent", "#4A90E2")))
-            widget.configure(
-                borderwidth=2,
-                highlightthickness=2,
-                highlightbackground=highlight,
-                highlightcolor=highlight,
-                relief="solid",
-            )
+            theme_widget_border(widget, color_token="selection_bg", thickness=2)
+            widget.configure(borderwidth=2, relief="solid")
             return
-        neutral = self._ub_border_color(day_index)
-        border_width = 2 if 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub")) else 1
-        widget.configure(
-            borderwidth=border_width,
-            highlightthickness=1,
-            highlightbackground=neutral,
-            highlightcolor=neutral,
-            relief="solid",
-        )
+        is_ub = 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub"))
+        self._apply_ub_border(widget, day_index)
+        widget.configure(borderwidth=2 if is_ub else 1, relief="solid")
 
     def _create_text_cell(
         self,
@@ -395,58 +308,23 @@ class GridRenderer:
         )
         widget.insert("1.0", text)
 
-        theme = self._theme()
         if canceled:
-            widget.configure(
-                bg=theme.get("column_ausfall_bg", theme.get("warning_soft", theme.get("border", theme["bg_main"]))),
-                fg=theme.get("fg_muted", theme["fg_primary"]),
-                insertbackground=theme.get("fg_muted", theme["fg_primary"]),
-                state="disabled",
-            )
+            theme_text_tinted(widget, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            widget.configure(state="disabled")
         elif unresolved_link:
-            widget.configure(
-                bg=theme.get("warning_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                fg=theme.get("fg_primary", theme["fg_primary"]),
-                insertbackground=theme.get("fg_primary", theme["fg_primary"]),
-            )
+            theme_text(widget, bg_token="warning_soft")
         elif lzk_masked:
-            widget.configure(
-                bg=theme.get(
-                    "column_lzk_bg",
-                    theme.get("success_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-                fg=theme.get("fg_muted", theme["fg_primary"]),
-                insertbackground=theme.get("fg_muted", theme["fg_primary"]),
-                state="disabled",
-            )
+            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            widget.configure(state="disabled")
         elif is_hospitation:
-            widget.configure(
-                bg=theme.get(
-                    "column_hospitation_bg",
-                    theme.get("hospitation_soft", theme.get("accent_soft", theme.get("bg_panel", theme["bg_main"]))),
-                ),
-                fg=theme.get("fg_primary", theme["fg_primary"]),
-                insertbackground=theme.get("fg_primary", theme["fg_primary"]),
-            )
+            theme_text_tinted(widget, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
         elif is_lzk:
-            widget.configure(
-                bg=theme.get("column_lzk_bg", theme.get("success_soft", theme.get("accent_soft", theme["bg_surface"]))),
-                fg=theme.get("fg_primary", theme["fg_primary"]),
-                insertbackground=theme.get("fg_primary", theme["fg_primary"]),
-            )
+            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong")
         elif editable:
-            widget.configure(
-                bg=theme["bg_surface"],
-                fg=theme["fg_primary"],
-                insertbackground=theme["fg_primary"],
-            )
+            theme_text(widget)
         else:
-            widget.configure(
-                bg=theme.get("bg_panel", theme["bg_main"]),
-                fg=theme.get("fg_muted", theme["fg_primary"]),
-                insertbackground=theme.get("fg_muted", theme["fg_primary"]),
-                state="disabled",
-            )
+            theme_text(widget, bg_token="bg_panel", fg_token="fg_muted")
+            widget.configure(state="disabled")
 
         widget.bind("<MouseWheel>", self.app._on_grid_mousewheel)
         self._apply_cell_selection_style(widget, field_key="", day_index=-1)
@@ -477,8 +355,6 @@ class GridRenderer:
         for child in self.app.grid_inner.winfo_children():
             child.destroy()
 
-        theme = self._theme()
-
         self.app.fixed_inner.grid_columnconfigure(0, weight=0, minsize=220)
         x_cursor = 0
         grid_col = 0
@@ -506,13 +382,12 @@ class GridRenderer:
             text="Datum",
             anchor="w",
             font=("Segoe UI", 9, "bold"),
-            bg=theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),
-            fg=theme["fg_primary"],
             padx=8,
             pady=6,
             relief="solid",
             borderwidth=1,
         )
+        theme_label_token(corner, bg_token="panel_strong")
         corner.pack(fill="both", expand=True)
         self.app.corner_label = corner
 
@@ -530,10 +405,10 @@ class GridRenderer:
                 marker.grid(row=0, column=grid_col, sticky="nsew")
                 marker.bind(
                     "<Configure>",
-                    lambda _event, widget=marker, mk=kinds_tuple: self._draw_marker_canvas(widget, mk, theme),
+                    lambda _event, widget=marker, mk=kinds_tuple: self._draw_marker_canvas(widget, mk),
                 )
                 self._marker_kinds_by_widget[int(marker.winfo_id())] = kinds_tuple
-                self._draw_marker_canvas(marker, kinds_tuple, theme)
+                self._draw_marker_canvas(marker, kinds_tuple)
                 self._marker_widgets.append(marker)
                 continue
 
@@ -541,23 +416,21 @@ class GridRenderer:
             day_index = day_index_obj if isinstance(day_index_obj, int) else -1
             if day_index < 0:
                 continue
-            header_text, header_bg, header_fg = self._header_visual_state(day_index)
+            header_text, col_type = self._header_visual_state(day_index)
+            is_ub = bool(self.app.day_columns[day_index].get("is_ub", False))
 
             header = ui.Label(
                 self.app.header_inner,
                 text=header_text,
                 anchor="center",
                 font=("Segoe UI", 9, "bold"),
-                bg=header_bg,
-                fg=header_fg,
                 padx=6,
                 pady=6,
                 relief="solid",
-                borderwidth=2 if bool(self.app.day_columns[day_index].get("is_ub", False)) else 1,
-                highlightthickness=1,
-                highlightbackground=self._ub_border_color(day_index),
-                highlightcolor=self._ub_border_color(day_index),
+                borderwidth=2 if is_ub else 1,
             )
+            self._apply_header_color(header, col_type)
+            self._apply_ub_border(header, day_index)
             header.grid(row=0, column=grid_col, sticky="nsew")
             header.bind(
                 "<Button-1>",
@@ -576,14 +449,13 @@ class GridRenderer:
                 anchor="w",
                 justify="left",
                 font=("Segoe UI", 9, "bold"),
-                bg=theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),
-                fg=theme["fg_primary"],
                 padx=8,
                 pady=3,
                 relief="solid",
                 borderwidth=1,
                 cursor="hand2" if collapsible else "",
             )
+            theme_label_token(field_label, bg_token="panel_strong")
             field_label.grid(row=row_idx, column=0, sticky="nsew")
             if collapsible:
                 field_label.bind(
@@ -674,7 +546,7 @@ class GridRenderer:
             row_idx += 1
 
         if self.app.sequence_fields_visible_var.get():
-            row_idx = self._render_sequence_field_rows(row_idx, day_grid_columns, theme, row_pixel_heights)
+            row_idx = self._render_sequence_field_rows(row_idx, day_grid_columns, row_pixel_heights)
 
         for row_idx, pixel_height in row_pixel_heights.items():
             if pixel_height <= 0:
@@ -696,7 +568,6 @@ class GridRenderer:
         self,
         row_idx: int,
         day_grid_columns: dict[int, int],
-        theme: dict[str, str],
         row_pixel_heights: dict[int, int],
     ) -> int:
         """Rendert die spannenden Sequenzziel-/Leitkompetenz-Zeilen, falls Sequenzen erkannt wurden.
@@ -711,7 +582,6 @@ class GridRenderer:
             row_idx: Nächster freier Grid-Zeilenindex.
             day_grid_columns: Abbildung von `day_index` (Position in
                 `self.app.day_columns`) auf die tatsächliche Tk-Grid-Spalte.
-            theme: Aktuell aufgelöstes Farbschema.
             row_pixel_heights: Sammelstruktur für Zeilenhöhen, wird ergänzt.
 
         Returns:
@@ -738,7 +608,6 @@ class GridRenderer:
                 field_key=field_key,
                 label_text=label_text,
                 row_index_to_grid_col=row_index_to_grid_col,
-                theme=theme,
                 row_pixel_heights=row_pixel_heights,
             )
         return row_idx
@@ -750,7 +619,6 @@ class GridRenderer:
         field_key: str,
         label_text: str,
         row_index_to_grid_col: dict[int, int],
-        theme: dict[str, str],
         row_pixel_heights: dict[int, int],
     ) -> int:
         """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz)."""
@@ -760,13 +628,12 @@ class GridRenderer:
             anchor="w",
             justify="left",
             font=("Segoe UI", 9, "bold"),
-            bg=theme.get("sequence_bg", theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"]))),
-            fg=theme["fg_primary"],
             padx=8,
             pady=3,
             relief="solid",
             borderwidth=1,
         )
+        theme_label_token(field_label, bg_token="panel_strong")
         field_label.grid(row=row_idx, column=0, sticky="nsew")
         row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(field_label.winfo_reqheight()))
 
@@ -794,7 +661,6 @@ class GridRenderer:
                     unresolved_link=False,
                     height_lines=self.app.collapsed_row_lines,
                 )
-                cell.configure(bg=theme.get("sequence_bg", theme["bg_surface"]))
                 cell.grid(row=row_idx, column=segment.start_column, columnspan=segment.column_span, sticky="nsew")
                 self._bind_sequence_field_events(cell, field_key=field_key, first_row_index=view.run.first_row_index)
                 self.app.sequence_field_widgets[widget_key] = cell
@@ -853,17 +719,11 @@ class GridRenderer:
         label = self.app.header_labels.get(day_index)
         if label is None:
             return
-        text, bg, fg = self._header_visual_state(day_index)
+        text, col_type = self._header_visual_state(day_index)
         is_ub = 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub", False))
-        label.configure(
-            text=text,
-            bg=bg,
-            fg=fg,
-            borderwidth=2 if is_ub else 1,
-            highlightthickness=1,
-            highlightbackground=self._ub_border_color(day_index),
-            highlightcolor=self._ub_border_color(day_index),
-        )
+        label.configure(text=text, borderwidth=2 if is_ub else 1)
+        self._apply_header_color(label, col_type)
+        self._apply_ub_border(label, day_index)
 
     def update_cell(self, field_key: str, day_index: int, *, sync_row_style: bool = True):
         """Aktualisiert eine einzelne Grid-Zelle im bestehenden Widget-Baum."""
@@ -901,14 +761,9 @@ class GridRenderer:
         if label is None:
             return
 
-        theme = self._theme()
         row_height, collapsible, _expanded, label_text = self._row_layout(field_key)
-        label.configure(
-            text=label_text,
-            cursor="hand2" if collapsible else "",
-            bg=theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),
-            fg=theme["fg_primary"],
-        )
+        label.configure(text=label_text, cursor="hand2" if collapsible else "")
+        theme_label_token(label, bg_token="panel_strong")
         if collapsible:
             label.bind(
                 "<Button-1>",
@@ -961,16 +816,11 @@ class GridRenderer:
         """Wendet Theme-Änderungen per Patch-Update auf das bestehende Grid an."""
         if self.app._is_rebuilding_grid:
             return
-        theme = self._theme()
         if self.app.corner_label is not None:
-            self.app.corner_label.configure(
-                bg=theme.get("panel_strong", theme.get("bg_panel", theme["bg_main"])),
-                fg=theme["fg_primary"],
-            )
+            theme_label_token(self.app.corner_label, bg_token="panel_strong")
         for widget in self._marker_widgets:
-            widget.configure(bg=str(theme.get("bg_panel", theme.get("bg_main", "#ffffff"))))
             marker_kinds = self._marker_kinds_by_widget.get(int(widget.winfo_id()), ())
-            self._draw_marker_canvas(widget, marker_kinds, theme)
+            self._draw_marker_canvas(widget, marker_kinds)
         self.refresh_grid_content()
 
     def _on_grid_inner_configure(self, _event=None):
