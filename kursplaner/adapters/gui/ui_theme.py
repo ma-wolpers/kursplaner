@@ -15,8 +15,14 @@ pass it as ``mix_color`` — no colour math needed at the call site.
 
 External callers import ``configure_ttk_theme``, ``apply_window_theme``,
 ``HOSPITATION_SEED``, ``DEFAULT_THEME``, and ``normalize_theme_key`` from this
-module.  ``set_theme_intensity`` / ``get_theme_intensity`` are re-exported from
-bw_gui so any future settings adapter can import them from either location.
+module.  ``apply_window_theme`` is bw_gui's own public function, re-exported
+unchanged: it only sets a window's ``bg`` and is meant for raw Tk roots outside
+``BwBaseWindow`` (popups, secondary top-levels).  Windows-chrome (dark/light
+title bar) is a ``BwBaseWindow`` internal concern per bw-gui's ownership
+principle ("bw-gui is the only entity that knows about colours") and must not
+be reimplemented here.  ``set_theme_intensity`` / ``get_theme_intensity`` are
+re-exported from bw_gui so any future settings adapter can import them from
+either location.
 """
 
 from __future__ import annotations
@@ -26,18 +32,20 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 
 from bw_gui.runtime import ui, widgets
-from bw_gui.runtime.platform import apply_window_chrome_theme
 from bw_gui.theming import (
+    apply_window_theme,
     configure_ttk_theme as _configure_base,
-    get_theme as _bw_get_theme,
     get_theme_intensity,
-    is_dark_color,
     normalize_theme_key as _normalize,
     register_theme,
     set_theme_intensity,
     tinted_color,
     tinted_foreground,
 )
+# Deliberate private-path import: ui_theme is the single theming-configuration
+# layer allowed to read the raw theme dict (needed to derive domain token
+# values on every theme switch).  No other kursplaner module may do this.
+from bw_gui.theming._theme_manager import get_theme as _bw_get_theme
 
 DEFAULT_THEME = "mono_day"
 
@@ -144,23 +152,6 @@ def normalize_theme_key(theme_key: str | None = None) -> str:
         Validated theme key string.
     """
     return _normalize(theme_key)
-
-
-def apply_window_theme(window: ui.Misc, theme_key: str | None = None) -> None:
-    """Set *window*'s background to ``bg_main`` and apply Windows title-bar chrome.
-
-    Resolves the current theme via bw_gui (using the globally tracked key when
-    *theme_key* is ``None``), configures the window background, and calls
-    ``apply_window_chrome_theme`` so the OS title bar matches.  The chrome call
-    is a no-op on non-Windows platforms.
-
-    Args:
-        window:    Tk root or top-level to configure.
-        theme_key: Explicit theme override; ``None`` uses the global current theme.
-    """
-    theme = _bw_get_theme(theme_key)
-    window.configure({"bg": theme["bg_main"]})
-    apply_window_chrome_theme(window, prefer_dark=is_dark_color(str(theme["bg_main"])))
 
 
 def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  # deliberate exception: long by necessity
