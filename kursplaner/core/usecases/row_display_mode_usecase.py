@@ -155,7 +155,7 @@ class RowDisplayModeUseCase:
 
     def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
         """Ermittelt fachlich, ob ein Feld für eine Spalte editierbar sein darf."""
-        if field_key in {"datum", "stunden", "inhalt"}:
+        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
             return False
         if field_key == "Kompetenzhorizont" and bool(day.get("is_lzk", False)):
             return False

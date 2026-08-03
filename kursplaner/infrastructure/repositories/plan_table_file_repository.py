@@ -9,7 +9,8 @@ from kursplaner.core.domain.lesson_directory import (
     managed_lesson_dir_names,
     resolve_lesson_dir,
 )
-from kursplaner.core.domain.lesson_naming import build_lesson_stem, row_mmdd
+from kursplaner.core.domain.lesson_directory import LESSON_DIR_ARCHIVE
+from kursplaner.core.domain.lesson_naming import generate_random_lesson_stem
 from kursplaner.core.domain.lesson_yaml_policy import (
     allowed_keys_for_type,
     canonicalize_lesson_yaml,
@@ -28,27 +29,6 @@ PLAN_DATE_RE = re.compile(r"\d{2}-\d{2}-\d{2}")
 WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
 MARKDOWN_LINK_VALUE_RE = re.compile(r"^\s*\[[^\]]+\]\([^\)]+\.md\)\s*$", re.IGNORECASE)
 
-
-def _next_content_stem(stunden_dir: Path, group: str, mmdd: str, content_title: str) -> str:
-    """Ermittelt den nächsten eindeutigen Stem für dieselbe Gruppe+Datum+Inhalt-Kombination."""
-    base_stem = build_lesson_stem(group, mmdd, content_title)
-    base_lower = base_stem.lower()
-    suffix_re = re.compile(rf"^{re.escape(base_lower)}(?: (\+)?(\d+))?$")
-
-    max_suffix = 1
-    found_base = False
-    for item in stunden_dir.glob("*.md"):
-        match = suffix_re.match(item.stem.lower())
-        if not match:
-            continue
-        found_base = True
-        raw_suffix = match.group(2)
-        if raw_suffix and raw_suffix.isdigit():
-            max_suffix = max(max_suffix, int(raw_suffix))
-
-    if not found_base:
-        return base_stem
-    return f"{base_stem} {max_suffix + 1}"
 
 
 def _split_row(row_line: str) -> list[str]:
@@ -147,8 +127,8 @@ def _parse_plan_metadata(path: Path) -> dict[str, str]:
 def _validate_plan_rows(rows: list[list[str]], source_label: str) -> None:
     """Validiert zentrale Tabelleninvarianten fuer Datum/Stunden hart."""
     for index, row in enumerate(rows, start=1):
-        if len(row) < 3:
-            raise RuntimeError(f"Ungueltige Tabellenzeile in {source_label}: Zeile {index} hat weniger als 3 Spalten.")
+        if len(row) < 4:
+            raise RuntimeError(f"Ungueltige Tabellenzeile in {source_label}: Zeile {index} hat weniger als 4 Spalten.")
 
         date_text = str(row[0]).strip()
         if not PLAN_DATE_RE.fullmatch(date_text):
@@ -249,12 +229,15 @@ def load_last_plan_table(markdown_path: Path) -> PlanTableData:
             continue
 
         lowered = [cell.lower().strip() for cell in head]
-        if lowered == ["datum", "stunden", "inhalt"]:
+        if lowered == ["datum", "stunden", "inhalt", "thema/ausfall"]:
             selected = (start, end)
             headers = head
 
     if selected is None:
-        raise RuntimeError("Keine gültige Planungstabelle gefunden. Erwartet wird exakt: Datum | Stunden | Inhalt")
+        raise RuntimeError(
+            "Keine gültige Planungstabelle gefunden. "
+            "Erwartet wird exakt: Datum | Stunden | Inhalt | Thema/Ausfall"
+        )
 
     start, end = selected
     body_lines = lines[start + 2 : end + 1]
@@ -354,21 +337,32 @@ def create_linked_lesson_file(
     lesson_topic: str,
     default_hours: int,
 ) -> Path:
+    """Legt eine neue Stundendatei mit Zufallsstem an und verknüpft sie in der Plantabelle.
+
+    Der Dateiname besteht aus einem eindeutigen 6-stelligen Zufallscode aus
+    ``[a-z0-9]`` (z. B. ``md38md.md``), der global über beide Einheitenordner
+    (``Einheiten/`` und ``Alteinheiten/``) eindeutig ist.
+
+    Args:
+        plan_table: Planungstabelle, in die der Link eingetragen wird.
+        row_index: Index der Tabellenzeile, die den Link erhalten soll.
+        lesson_topic: Fachlicher Stundenthemen-Titel (wird ins YAML geschrieben).
+        default_hours: Stundenzahl als Standardwert im YAML-Feld ``Dauer``.
+
+    Returns:
+        Pfad der neu angelegten Stundendatei.
+    """
     plan_dir = plan_table.markdown_path.parent
     stunden_dir = resolve_lesson_dir(plan_dir, create_if_missing=True)
 
-    group = strip_wiki_link(str(plan_table.metadata.get("Lerngruppe", "gruppe")))
-    group = sanitize_hour_title(group) or "gruppe"
-    mmdd = row_mmdd(plan_table, row_index)
-    title = sanitize_hour_title(lesson_topic) or "einheit"
-    base_name = _next_content_stem(stunden_dir, group, mmdd, title)
+    existing_stems = {p.stem for p in stunden_dir.glob("*.md")}
+    archive_dir = plan_dir / LESSON_DIR_ARCHIVE
+    if archive_dir.exists():
+        existing_stems |= {p.stem for p in archive_dir.glob("*.md")}
 
-    candidate = stunden_dir / f"{base_name}.md"
-    counter = 2
-    stem_base = build_lesson_stem(group, mmdd, title)
-    while candidate.exists():
-        candidate = stunden_dir / f"{stem_base} {counter}.md"
-        counter += 1
+    new_stem = generate_random_lesson_stem(existing_stems)
+    candidate = stunden_dir / f"{new_stem}.md"
+    title = sanitize_hour_title(lesson_topic) or "einheit"
 
     initial = {
         "Stundentyp": "Unterricht",
@@ -385,12 +379,82 @@ def create_linked_lesson_file(
 
     header_map = {name.lower(): idx for idx, name in enumerate(plan_table.headers)}
     idx_inhalt = header_map.get("inhalt")
+    idx_thema_ausfall = header_map.get("thema/ausfall")
     if idx_inhalt is not None and 0 <= row_index < len(plan_table.rows):
         link_text = build_wiki_link(candidate.stem)
         if link_text:
             plan_table.rows[row_index][idx_inhalt] = link_text
+    if idx_thema_ausfall is not None and 0 <= row_index < len(plan_table.rows):
+        row = plan_table.rows[row_index]
+        if idx_thema_ausfall < len(row):
+            row[idx_thema_ausfall] = ""
 
     return candidate
+
+
+def sync_thema_ausfall_to_plan_row(
+    table: PlanTableData,
+    row_index: int,
+    yaml_data: dict[str, object],
+    group_name: str,
+) -> None:
+    """Aktualisiert die Thema/Ausfall-Spalte einer Planzeile anhand der YAML-Stundendaten.
+
+    Ermittelt aus ``Stundentyp`` und ``Oberthema`` im YAML-Dictionary den
+    Inhalt der vierten Planungsspalte und schreibt ihn direkt in die Zeile.
+    Die Persistenz liegt beim Aufrufer (dieser ruft anschließend
+    :func:`save_plan_table` auf).
+
+    Zuordnungsregeln:
+    * Unterricht / Hospitation mit Oberthema → ``[[gruppe oberthema]]``
+    * LZK mit Oberthema                      → ``LZK [[gruppe oberthema]]``
+    * Ausfall                                → Feld unverändert lassen
+    * Kein Oberthema                         → Feld leeren
+
+    Args:
+        table: Planungstabelle, deren Zeile aktualisiert wird.
+        row_index: Index der zu aktualisierenden Zeile in ``table.rows``.
+        yaml_data: Normalisiertes YAML-Dictionary der verlinkten Stundendatei,
+            z. B. aus :func:`load_linked_lesson_yaml`.
+        group_name: Lerngruppen-Bezeichnung; darf als Wiki-Link vorliegen
+            (z. B. ``"[[li2]]"``) und wird automatisch bereinigt.
+
+    Example::
+
+        sync_thema_ausfall_to_plan_row(
+            table,
+            row_index=2,
+            yaml_data={"Stundentyp": "Unterricht", "Oberthema": "Kodierung"},
+            group_name="[[li2]]",
+        )
+        # → table.rows[2][3] == "[[li2 Kodierung]]"
+    """
+    if row_index < 0 or row_index >= len(table.rows):
+        return
+    header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
+    idx_thema_ausfall = header_map.get("thema/ausfall")
+    if idx_thema_ausfall is None:
+        return
+    row = table.rows[row_index]
+    if idx_thema_ausfall >= len(row):
+        return
+
+    stundentyp = str(yaml_data.get("Stundentyp", "Unterricht")).strip()
+    oberthema = str(yaml_data.get("Oberthema", "")).strip()
+    group_plain = strip_wiki_link(str(group_name or "").strip())
+
+    if stundentyp == "Ausfall":
+        return
+
+    if not oberthema:
+        row[idx_thema_ausfall] = ""
+        return
+
+    seq_stem = f"{group_plain} {oberthema}"
+    if stundentyp == "LZK":
+        row[idx_thema_ausfall] = f"LZK [[{seq_stem}]]"
+    else:
+        row[idx_thema_ausfall] = f"[[{seq_stem}]]"
 
 
 def set_lesson_markdown_sections(

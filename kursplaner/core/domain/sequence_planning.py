@@ -32,12 +32,34 @@ def extract_halfyear_token_from_table(table: PlanTableData) -> str:
 
 
 def build_sequence_stem(*, sequence_name: str, group_name: str, halfyear_token: str) -> str:
-    """Build the canonical sequence file stem ``<Sequenz> <Gruppe> <26-2>``."""
-    normalized_halfyear = normalize_halfyear_token(halfyear_token)
+    """Baut den kanonischen Stem einer Sequenz-Markdown-Datei.
+
+    Das Format ist ``<Gruppe> <Sequenzname>`` – ohne Halbjahr, damit dieselbe
+    thematische Sequenz kursübergreifend auf dieselbe Brainstorming-Datei zeigt.
+    Der Parameter ``halfyear_token`` wird formal behalten, damit bestehende
+    Aufrufer nicht geändert werden müssen, hat aber keinen Einfluss auf das
+    Ergebnis.
+
+    Args:
+        sequence_name: Fachlicher Name der Sequenz (z. B. ``"Kodierung"``).
+        group_name: Lerngruppen-Bezeichnung; darf als Wiki-Link vorliegen
+            (z. B. ``"[[li2]]"``), wird automatisch bereinigt.
+        halfyear_token: Wird ignoriert; nur aus Kompatibilitätsgründen vorhanden.
+
+    Returns:
+        Stem-String der Form ``"li2 Kodierung"``.
+
+    Example::
+
+        build_sequence_stem(sequence_name="Kodierung",
+                            group_name="[[li2]]",
+                            halfyear_token="26-2")
+        # → "li2 Kodierung"
+    """
     sequence_part = sanitize_hour_title(str(sequence_name or "").strip()) or "Sequenz"
     group_plain = strip_wiki_link(str(group_name or "").strip())
     group_part = sanitize_hour_title(group_plain) or "Lerngruppe"
-    return f"{sequence_part} {group_part} {normalized_halfyear}".strip()
+    return f"{group_part} {sequence_part}".strip()
 
 
 def sequence_directory_for_plan(table: PlanTableData) -> Path:

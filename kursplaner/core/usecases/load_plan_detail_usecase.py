@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
+from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
 from kursplaner.core.domain.content_markers import (
     is_ausfall_marker,
     is_hospitation_marker,
@@ -122,12 +123,16 @@ class LoadPlanDetailUseCase:
 
     @staticmethod
     def _is_valid_unterricht_link(*, link: Path | None, link_target: str, group_name: str) -> bool:
-        """Validiert, ob ein Link auf eine verwaltete Stunden-Datei zeigt."""
+        """Validiert, ob ein Link auf eine verwaltete Stunden-Datei zeigt.
+
+        Akzeptiert Dateien aus ``Einheiten/`` (aktive Einheiten) und
+        ``Alteinheiten/`` (archivierte vergangene Einheiten), da beide Ordner
+        von :func:`managed_lesson_dir_names` verwaltet werden.
+        """
         if not (isinstance(link, Path) and link.exists() and link.is_file()):
             return False
-        if link.parent.name.lower() != "einheiten":
-            return False
-        return True
+        managed = {d.lower() for d in managed_lesson_dir_names()}
+        return link.parent.name.lower() in managed
 
     def _ensure_valid_lesson_yaml(self, lesson_path: Path, topic: str) -> LessonYamlData:
         """Lädt und validiert YAML einer Stunden-Datei und ergänzt fehlende Keys.
@@ -164,11 +169,24 @@ class LoadPlanDetailUseCase:
         return PlanDetailResult(table=table, day_columns=self.build_day_columns(table))
 
     def build_day_columns(self, table: PlanTableData) -> list[dict[str, object]]:
-        """Erzeugt aufbereitete Tages-Spalten inkl. geladener YAML-Daten."""
+        """Erzeugt aufbereitete Tages-Spalten inkl. geladener YAML-Daten.
+
+        Liest aus dem 4-Spalten-Format (Datum | Stunden | Inhalt | Thema/Ausfall):
+        - Inhalt (col 2): Wiki-Link zur Stundendatei oder leer
+        - Thema/Ausfall (col 3): ``X Grund`` für Ausfall, ``[[gruppe thema]]`` für
+          Unterricht/Hospitation, ``LZK [[...]]`` für LZK, sonst leer
+
+        Ausfall-Erkennung erfolgt ausschließlich über col 3 (``X ``-Präfix), nicht
+        mehr über den Inhalt-Text, der im neuen Schema nur noch Links enthält.
+        Der Spalten-Header (``header_content``) wird bevorzugt aus dem YAML-Feld
+        ``Stundenthema`` befüllt, da Einheits-Dateinamen nun kryptische 6-Zeichen-
+        Codes sind und keinen lesbaren Titel enthalten.
+        """
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum", 0)
         idx_stunden = header_map.get("stunden", 1)
         idx_inhalt = header_map.get("inhalt", 2)
+        idx_thema_ausfall = header_map.get("thema/ausfall")
         group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
 
         collected: list[dict[str, object]] = []
@@ -176,6 +194,11 @@ class LoadPlanDetailUseCase:
             datum = row[idx_datum] if idx_datum < len(row) else ""
             stunden = row[idx_stunden] if idx_stunden < len(row) else ""
             inhalt = row[idx_inhalt] if idx_inhalt < len(row) else ""
+            thema_ausfall = (
+                row[idx_thema_ausfall]
+                if idx_thema_ausfall is not None and idx_thema_ausfall < len(row)
+                else ""
+            )
             marker_text = normalize_marker_text(inhalt)
 
             link = self.lesson_repo.resolve_row_link_path(table, row_index)
@@ -186,7 +209,7 @@ class LoadPlanDetailUseCase:
                 link_target=link_target,
                 group_name=group_name,
             )
-            is_cancel = is_ausfall_marker(marker_text)
+            is_cancel = is_ausfall_marker(thema_ausfall)
             is_unresolved_link = bool(inhalt.strip() and has_link_ref and link is None)
             is_hospitation = is_hospitation_marker(marker_text, group_name)
             is_unterricht = is_unterricht_marker(marker_text, group_name)
@@ -212,7 +235,6 @@ class LoadPlanDetailUseCase:
                     yaml_data["Nutzbare Ressourcen"] = resources
 
             is_lzk = lesson_type == "LZK"
-            header_content = marker_text or ""
             is_link_header = bool(has_link_ref)
 
             if lesson_type == "Ausfall":
@@ -222,12 +244,23 @@ class LoadPlanDetailUseCase:
             if lesson_type == "Unterricht":
                 is_unterricht = True
 
+            stundenthema = str(yaml_data.get("Stundenthema", "")).strip()
+            thema_text = str(thema_ausfall).strip()
+            if stundenthema:
+                header_content = stundenthema
+            elif is_cancel:
+                reason = thema_text[2:].strip() if thema_text.upper().startswith("X ") else thema_text
+                header_content = reason or "Ausfall"
+            else:
+                header_content = marker_text or ""
+
             collected.append(
                 {
                     "row_index": row_index,
                     "datum": datum,
                     "stunden": stunden,
                     "inhalt": inhalt,
+                    "thema_ausfall": thema_ausfall,
                     "link": link,
                     "is_cancel": is_cancel,
                     "is_unresolved_link": is_unresolved_link,

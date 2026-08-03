@@ -46,11 +46,11 @@ $required = @("Stundentyp", "Dauer", "Stundenthema")
 $validTypes = @("Unterricht", "LZK", "Ausfall", "Hospitation")
 
 $errors = @()
-$files = Get-ChildItem -Path $root.FullName -Recurse -File -Filter "*.md" | Where-Object { $_.FullName -match "\\Einheiten\\" }
+$files = Get-ChildItem -Path $root.FullName -Recurse -File -Filter "*.md" | Where-Object { $_.FullName -match "\\Einheiten\\" -or $_.FullName -match "\\Alteinheiten\\" }
 
 foreach ($f in $files) {
   $stem = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-  if ($stem -notmatch '^.+ \d{2}-\d{2} .+$') {
+  if ($stem -notmatch '^[a-z0-9]{6}$') {
     $errors += "Ungueltiger Dateiname: $($f.FullName)"
   }
 

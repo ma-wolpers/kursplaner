@@ -69,7 +69,7 @@ class GridCellPolicyUseCase:
 
     def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
         """Prüft, ob ein Feld fachlich editierbar ist (Status, Marker, Linklage)."""
-        if field_key in {"datum", "stunden", "inhalt"}:
+        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
             return False
         link_obj = day.get("link")
         has_known_lesson = isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()

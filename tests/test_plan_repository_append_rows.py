@@ -14,9 +14,9 @@ def test_append_plan_rows_extends_existing_last_table(tmp_path):
         'Kursfach: "Mathematik"\n'
         "Stufe: 11\n"
         "---\n\n"
-        "| Datum | Stunden | Inhalt |\n"
-        "| --- | --- | --- |\n"
-        "| 10-03-26 | 2 | [[GK blau-1 0310 Einheit]] |\n",
+        "| Datum | Stunden | Inhalt | Thema/Ausfall |\n"
+        "| --- | --- | --- | --- |\n"
+        "| 10-03-26 | 2 | [[GK blau-1 0310 Einheit]] |  |\n",
         encoding="utf-8",
     )
 
@@ -24,8 +24,8 @@ def test_append_plan_rows_extends_existing_last_table(tmp_path):
     repo.append_plan_rows(plan_file, [(date(2026, 3, 12), 2, "")])
 
     text = plan_file.read_text(encoding="utf-8")
-    assert text.count("| Datum | Stunden | Inhalt |") == 1
-    assert "| 12-03-26 | 2 |  |" in text
+    assert text.count("| Datum | Stunden | Inhalt | Thema/Ausfall |") == 1
+    assert "| 12-03-26 | 2 |  |  |" in text
 
     table = load_last_plan_table(plan_file)
     assert len(table.rows) == 2

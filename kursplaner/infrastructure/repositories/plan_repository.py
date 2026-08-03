@@ -168,7 +168,8 @@ class FileSystemPlanRepository:
 
         table = load_last_plan_table(markdown_path)
         for day, hours, note in rows:
-            table.rows.append([day.strftime("%d-%m-%y"), str(hours), str(note)])
+            note_str = str(note) if note else ""
+            table.rows.append([day.strftime("%d-%m-%y"), str(hours), "", note_str])
         save_plan_table(table)
 
     def write_plan_rows(
@@ -186,7 +187,10 @@ class FileSystemPlanRepository:
             if not allowed:
                 raise RuntimeError("Schreibvorgang für Plan-Tabelle abgebrochen.")
 
-        normalized_rows = [[day.strftime("%d-%m-%y"), str(hours), str(note)] for day, hours, note in rows]
+        normalized_rows = [
+            [day.strftime("%d-%m-%y"), str(hours), "", str(note) if note else ""]
+            for day, hours, note in rows
+        ]
 
         try:
             table = load_last_plan_table(markdown_path)
@@ -198,11 +202,13 @@ class FileSystemPlanRepository:
             if prefix and not prefix.endswith("\n\n"):
                 prefix += "\n"
 
-            rendered_rows = [f"| {row[0]} | {row[1]} | {row[2]} |" for row in normalized_rows]
+            rendered_rows = [
+                f"| {row[0]} | {row[1]} | {row[2]} | {row[3]} |" for row in normalized_rows
+            ]
             table_text = "\n".join(
                 [
-                    "| Datum | Stunden | Inhalt |",
-                    "| --- | --- | --- |",
+                    "| Datum | Stunden | Inhalt | Thema/Ausfall |",
+                    "| --- | --- | --- | --- |",
                     *rendered_rows,
                 ]
             )

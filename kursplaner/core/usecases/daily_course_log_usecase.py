@@ -128,7 +128,7 @@ class DailyCourseLogUseCase:
             "inhalt": str(day.get("inhalt", "")).strip(),
         }
         for field in cls._FIELDS:
-            if field in {"datum", "stunden", "inhalt"}:
+            if field in {"datum", "stunden", "inhalt", "thema/ausfall"}:
                 continue
             cells[field] = cls._normalize_value(
                 yaml_data.get(

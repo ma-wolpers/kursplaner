@@ -27,6 +27,7 @@ from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.toolbar_icon_styler import ToolbarIconStyler
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
+from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.adapters.gui.ui_theme import DEFAULT_THEME, normalize_theme_key
 from kursplaner.adapters.gui.window_identity import (
     apply_window_icon,
@@ -645,6 +646,20 @@ def main():
         except Exception as exc:
             print(f"Startup relation registry rebuild failed: {exc}")
 
+    def _run_startup_archive_past_lessons() -> None:
+        """Verschiebt vergangene Einheitsdateien einmalig beim Start in Alteinheiten/."""
+        try:
+            managed_paths = dependencies.path_settings_usecase.to_managed_paths(
+                dependencies.path_settings_usecase.load_values()
+            )
+            tables = dependencies.plan_repo.load_plan_tables(managed_paths.unterricht_dir)
+            archiver = ArchivePastLessonFilesUseCase()
+            for table in tables:
+                archiver.execute(table)
+        except Exception as exc:
+            print(f"Startup lesson archival failed: {exc}")
+
+    _run_startup_archive_past_lessons()
     _run_startup_relation_registry_rebuild()
 
     app = KursplanerApp(dependencies=dependencies)

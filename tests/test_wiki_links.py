@@ -41,14 +41,16 @@ def test_create_linked_lesson_file_writes_balanced_wiki_link(tmp_path):
     assert lesson_path.stem in inhalt_value
 
 
-def test_create_linked_lesson_file_collision_uses_full_stem_with_numeric_suffix(tmp_path):
+def test_create_linked_lesson_file_generates_unique_random_stem(tmp_path):
+    """Neuer Stem ist ein eindeutiger 6-Zeichen-Code aus [a-z0-9], der von bestehenden abweicht."""
     plan_path = tmp_path / "Informatik" / "Informatik.md"
     plan_path.parent.mkdir(parents=True)
     plan_path.write_text("", encoding="utf-8")
 
     einheiten_dir = plan_path.parent / "Einheiten"
     einheiten_dir.mkdir(parents=True)
-    (einheiten_dir / "lila-5 03-10 Hardware.md").write_text(
+    existing_stem = "ab12cd"
+    (einheiten_dir / f"{existing_stem}.md").write_text(
         "---\nStundentyp: Unterricht\nDauer: 2\nStundenthema: Hardware\n---\n", encoding="utf-8"
     )
 
@@ -71,8 +73,10 @@ def test_create_linked_lesson_file_collision_uses_full_stem_with_numeric_suffix(
     )
 
     assert lesson_path.exists()
-    assert lesson_path.stem == "lila-5 03-10 Hardware 2"
-    assert table.rows[0][2] == "[[lila-5 03-10 Hardware 2]]"
+    assert len(lesson_path.stem) == 6
+    assert lesson_path.stem.isalnum() and lesson_path.stem == lesson_path.stem.lower()
+    assert lesson_path.stem != existing_stem
+    assert table.rows[0][2] == f"[[{lesson_path.stem}]]"
 
 
 def test_write_plan_metadata_uses_valid_wiki_link(tmp_path):

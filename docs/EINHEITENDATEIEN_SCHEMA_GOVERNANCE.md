@@ -18,8 +18,11 @@ Ziel: Verhindern, dass nur ein Teil (z. B. nur README oder nur Code) geaendert w
 2. Erforderliche YAML-Mindestvalidierung beim Parsen:
 `kursplaner/core/domain/yaml_registry.py`
 
-3. Dateibenennung (`Lerngruppe mm-dd Titel`):
-`kursplaner/core/domain/lesson_naming.py`
+3. Dateibenennung (6-stelliger Zufallscode `[a-z0-9]{6}`, z. B. `ab12cd`):
+`kursplaner/core/domain/lesson_naming.py` → `generate_random_lesson_stem()`
+
+3a. Archivordner für vergangene Einheiten: `Alteinheiten/` (zweiter Suchpfad):
+`kursplaner/core/domain/lesson_directory.py` → `LESSON_DIR_ARCHIVE`, `managed_lesson_dir_names()`
 
 4. Persistenz/Kanonisierung beim Lesen/Schreiben:
 `kursplaner/infrastructure/repositories/plan_table_file_repository.py`

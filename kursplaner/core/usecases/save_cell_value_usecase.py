@@ -181,7 +181,7 @@ class SaveCellValueUseCase:
         day: dict[str, object],
     ) -> SaveCellRuntimeContext:
         """Prüft fachliche Editierbarkeit und liefert Laufzeitdaten für den Save-Flow."""
-        if field_key in {"datum", "stunden", "inhalt"}:
+        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
             return SaveCellRuntimeContext(
                 proceed=False,
                 row_index=None,
