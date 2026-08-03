@@ -7,7 +7,7 @@ from bw_gui.runtime import ui
 from datetime import datetime
 from pathlib import Path
 
-from kursplaner.adapters.gui.grid_span_layout import compute_contiguous_spans
+from bw_gui.widgets import compute_contiguous_spans
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from bw_gui.theming import (
     canvas_fill,

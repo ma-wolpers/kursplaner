@@ -512,7 +512,7 @@ class ScreenBuilder:
     def _menu_items_view(self):
         return (
             SharedMenuItem(
-                type="radio",
+                type="checkbox",
                 label="Lange Zeilen aufgeklappt",
                 checked=bool(self.app.expand_long_rows_var.get()),
                 command=lambda: self._emit_intent(UiIntent.TOGGLE_EXPAND_MODE),
@@ -523,13 +523,13 @@ class ScreenBuilder:
                 command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
             ),
             SharedMenuItem(
-                type="radio",
+                type="checkbox",
                 label="Sequenzfelder anzeigen (Strg+Shift+S)",
                 checked=bool(self.app.sequence_fields_visible_var.get()),
                 command=lambda: self._emit_intent(UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE),
             ),
             SharedMenuItem(
-                type="radio",
+                type="checkbox",
                 label="Auto-Scroll zur nächsten Einheit",
                 checked=bool(self.app.auto_scroll_next_unit_var.get()),
                 command=lambda: self.app.auto_scroll_next_unit_var.set(not bool(self.app.auto_scroll_next_unit_var.get())),
