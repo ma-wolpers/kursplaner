@@ -439,6 +439,9 @@ class GridRenderer:
             self.app.header_labels[day_index] = header
 
         row_idx = 0
+        if self.app.sequence_fields_visible_var.get():
+            row_idx = self._render_sequence_field_rows(row_idx, day_grid_columns, row_pixel_heights)
+
         for field_key, label_text in self._visible_row_defs():
             row_values = [self.app._field_value(day, field_key) for day in self.app.day_columns]
             row_height, collapsible, _expanded, field_label_text = self._row_layout(field_key)
@@ -545,9 +548,6 @@ class GridRenderer:
 
             row_idx += 1
 
-        if self.app.sequence_fields_visible_var.get():
-            row_idx = self._render_sequence_field_rows(row_idx, day_grid_columns, row_pixel_heights)
-
         for row_idx, pixel_height in row_pixel_heights.items():
             if pixel_height <= 0:
                 continue
@@ -639,12 +639,13 @@ class GridRenderer:
 
         covered_grid_cols: set[int] = set()
         for view in self.app.topic_sequence_plans:
+            # Der volle Zahlenbereich statt nur member_row_indices, damit übersprungene
+            # Ausfall-Zeilen innerhalb des Laufs visuell mit überspannt werden: jede
+            # andere Zeile in dieser Spanne hätte die Kette bereits beendet.
             grid_cols = sorted(
-                {
-                    row_index_to_grid_col[member_row_index]
-                    for member_row_index in view.run.member_row_indices
-                    if member_row_index in row_index_to_grid_col
-                }
+                row_index_to_grid_col[row_index]
+                for row_index in range(view.run.first_row_index, view.run.last_row_index + 1)
+                if row_index in row_index_to_grid_col
             )
             if not grid_cols:
                 continue
