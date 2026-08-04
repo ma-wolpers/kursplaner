@@ -45,6 +45,14 @@ def _day(
     ziel: str = "",
     kompetenzen: list[str] | None = None,
 ):
+    """Baut einen Tages-Eintrag in der jeweils realistischen Form.
+
+    Ausfall-Tage haben in der echten Anwendung keine verlinkte Stundendatei,
+    daher bleibt `yaml` leer und der Typ ergibt sich nur aus `is_cancel`
+    (siehe `row_lesson_type()`), nicht aus `yaml.Stundentyp`.
+    """
+    if kind == "Ausfall":
+        return {"row_index": row_index, "datum": datum, "stunden": stunden, "yaml": {}, "is_cancel": True}
     return {
         "row_index": row_index,
         "datum": datum,
@@ -57,7 +65,7 @@ def _day(
             "Kompetenzen": kompetenzen or [],
         },
         "link": Path(f"unit-{row_index}.md"),
-        "is_cancel": kind == "Ausfall",
+        "is_cancel": False,
     }
 
 

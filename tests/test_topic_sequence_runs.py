@@ -1,10 +1,21 @@
 from kursplaner.core.domain.topic_sequence_runs import (
     compute_topic_sequence_runs,
     find_run_for_row_index,
+    row_lesson_type,
 )
 
 
 def _day(*, row_index: int, kind: str, obert: str = ""):
+    """Baut einen Tages-Eintrag in der jeweils realistischen Form.
+
+    Ausfall-Tage haben in der echten Anwendung nie eine verlinkte Stundendatei
+    (kein `[[Link]]` in der Planungstabelle) und tragen ihren Typ deshalb nur
+    über das `is_cancel`-Flag, nicht über `yaml.Stundentyp` — genau die Form,
+    die den ursprünglichen Bug (Ausfall bricht die Kette statt sie zu
+    überspringen) verursacht hat.
+    """
+    if kind == "Ausfall":
+        return {"row_index": row_index, "yaml": {}, "is_cancel": True}
     return {
         "row_index": row_index,
         "yaml": {"Stundentyp": kind, "Oberthema": obert},
@@ -48,6 +59,27 @@ def test_ausfall_is_skipped_and_does_not_break_the_chain():
 
     assert len(runs) == 1
     assert runs[0].member_row_indices == (0, 2)
+
+
+def test_two_consecutive_ausfall_days_are_both_skipped():
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="KI"),
+        _day(row_index=1, kind="Ausfall"),
+        _day(row_index=2, kind="Ausfall"),
+        _day(row_index=3, kind="Unterricht", obert="KI"),
+    ]
+
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert len(runs) == 1
+    assert runs[0].member_row_indices == (0, 3)
+
+
+def test_row_lesson_type_recognizes_linkless_ausfall_via_is_cancel_flag():
+    """Regressionstest: Ausfall-Tage ohne verlinkte Stundendatei (yaml={}) müssen
+    trotzdem als "Ausfall" erkannt werden, nicht als leerer/unbekannter Typ."""
+    assert row_lesson_type({"is_cancel": True, "yaml": {}}) == "Ausfall"
+    assert row_lesson_type({"is_cancel": True}) == "Ausfall"
 
 
 def test_hospitation_counts_as_chain_member():

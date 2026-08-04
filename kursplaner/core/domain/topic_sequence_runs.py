@@ -25,7 +25,14 @@ SKIPPED_SEQUENCE_TYPES = frozenset({"Ausfall"})
 
 
 def row_lesson_type(day: dict[str, object]) -> str:
-    """Liest den Stundentyp einer Tages-Spalte aus deren YAML-Daten.
+    """Liest den Stundentyp einer Tages-Spalte.
+
+    Bevorzugt den `Stundentyp` aus den YAML-Daten der verlinkten Stundendatei.
+    Ausfall-Tage haben jedoch nie eine verlinkte Datei (`yaml` bleibt `{}`) und
+    werden stattdessen über das Marker-Flag `is_cancel` erkannt; Hospitation
+    kann ebenso ohne Link vorkommen (`is_hospitation`-Marker). Dieser Fallback
+    spiegelt exakt die Ableitung aus `RowDisplayModeUseCase.infer_day_mode()`,
+    damit beide Stellen für dieselbe Spalte immer denselben Typ ermitteln.
 
     Args:
         day: Eintrag aus einer Tagesliste (z. B. `raw_day_columns`), wie sie
@@ -33,13 +40,19 @@ def row_lesson_type(day: dict[str, object]) -> str:
 
     Returns:
         Der Stundentyp-Text (z. B. ``"Unterricht"``) oder ein leerer String,
-        wenn die Spalte keine auswertbaren YAML-Daten enthält.
+        wenn die Spalte keinem bekannten Typ zugeordnet werden kann.
     """
     yaml_data = day.get("yaml")
     if isinstance(yaml_data, dict):
         lesson_type = str(yaml_data.get("Stundentyp", "")).strip()
         if lesson_type:
             return lesson_type
+    if bool(day.get("is_cancel", False)):
+        return "Ausfall"
+    if bool(day.get("is_hospitation", False)):
+        return "Hospitation"
+    if bool(day.get("is_lzk", False)):
+        return "LZK"
     return str(day.get("Stundentyp", "")).strip()
 
 
