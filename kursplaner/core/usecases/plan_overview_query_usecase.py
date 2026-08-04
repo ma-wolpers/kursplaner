@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.content_markers import is_ausfall_marker, normalize_marker_text
+from kursplaner.core.domain.content_markers import normalize_marker_text, resolve_row_cancel_state
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
@@ -194,7 +194,7 @@ class PlanOverviewQueryUseCase:
             row_dates[row_index] = row[idx_datum]
             row_date_values[row_index] = row_date
             candidate_rows.append(row_index)
-            is_cancel = is_ausfall_marker(marker_text)
+            is_cancel = resolve_row_cancel_state(table.headers, row)
 
             if not is_cancel:
                 has_upcoming_unit = True

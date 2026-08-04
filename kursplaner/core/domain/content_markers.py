@@ -29,6 +29,49 @@ def is_ausfall_marker(text: str) -> bool:
     return lowered == "x" or lowered.startswith("x ") or lowered.startswith("ausfall")
 
 
+def resolve_row_cancel_state(headers: list[str], row: list[str]) -> bool:
+    """Ermittelt robust und schema-übergreifend, ob eine Plantabellenzeile Ausfall ist.
+
+    Zentraler, "sturdy" Einstiegspunkt fuer die Ausfall-Erkennung, damit nicht
+    jede Aufrufstelle einzeln zwischen dem aktuellen 4-Spalten-Schema und alten
+    3-Spalten-Tabellen unterscheiden muss (genau das ist bei der Migration auf
+    die eigene `Thema/Ausfall`-Spalte an mehreren Stellen im Code auseinander-
+    gedriftet). Bevorzugt die `Thema/Ausfall`-Spalte; nur wenn diese in `headers`
+    komplett fehlt, wird ersatzweise der `Inhalt`-Zellwert auf einen eingebetteten
+    Legacy-Marker geprüft. Neue Aufrufstellen, die aus einer Planzeile einen
+    Ausfall-Status ableiten müssen, sollen diese Funktion nutzen statt eine eigene
+    spaltenspezifische Prüfung zu schreiben.
+
+    Args:
+        headers: Spaltenüberschriften der Planungstabelle (Groß-/Kleinschreibung
+            beliebig, wird intern normalisiert).
+        row: Zellwerte einer einzelnen Tabellenzeile, passend zu `headers`.
+
+    Returns:
+        `True`, wenn die Zeile als Ausfall gilt.
+
+    Example::
+
+        resolve_row_cancel_state(
+            ["Datum", "Stunden", "Inhalt", "Thema/Ausfall"],
+            ["27-02-26", "2", "", "X XLAB"],
+        )
+        # -> True
+    """
+    header_map = {str(name).strip().lower(): idx for idx, name in enumerate(headers)}
+
+    idx_thema_ausfall = header_map.get("thema/ausfall")
+    if idx_thema_ausfall is not None:
+        cell = row[idx_thema_ausfall] if idx_thema_ausfall < len(row) else ""
+        return is_ausfall_marker(cell)
+
+    idx_inhalt = header_map.get("inhalt")
+    if idx_inhalt is None:
+        return False
+    cell = row[idx_inhalt] if idx_inhalt < len(row) else ""
+    return is_ausfall_marker(normalize_marker_text(cell))
+
+
 def build_ausfall_marker(reason_text: str) -> str:
     """Baut die kanonische Ausfall-Markierung als `X <Grund>`."""
     reason = normalize_marker_text(reason_text)

@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.content_markers import build_ausfall_marker
+from kursplaner.core.domain.content_markers import build_ausfall_marker, resolve_row_cancel_state
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
@@ -62,18 +62,6 @@ class PlanCommandsUseCase:
         return idx
 
     @staticmethod
-    def _contains_link(content: str) -> bool:
-        """Prüft, ob ein Zelleninhalt einen Wiki-Link enthält.
-
-        Args:
-            content: Zu prüfender Zelleninhalt.
-
-        Returns:
-            ``True``, wenn ein Linkmuster gefunden wurde.
-        """
-        return bool(LINK_RE.search(content or ""))
-
-    @staticmethod
     def _row_content(table: PlanTableData, row_index: int) -> str:
         """Liest den bereinigten Inhalt der Spalte ``inhalt`` aus einer Zeile.
 
@@ -91,12 +79,25 @@ class PlanCommandsUseCase:
         return row[idx_inhalt].strip() if idx_inhalt < len(row) else ""
 
     def restore_from_cancel(self, table: PlanTableData, row_index: int) -> None:
-        """Entfernt den Abbruchtext aus der gewählten Zeile.
+        """Entfernt die Ausfall-Markierung aus der gewählten Zeile.
 
         Args:
             table: Planungstabelle.
             row_index: Zielzeile.
+
+        Note:
+            Moderne 4-Spalten-Tabellen tragen den Ausfallgrund in der
+            `Thema/Ausfall`-Spalte; die `Inhalt`-Spalte bleibt dabei unberührt
+            und muss daher nur geleert werden, wenn dort (Legacy-Tabellen ohne
+            eigene `Thema/Ausfall`-Spalte) noch der alte Kombi-Marker steht.
         """
+        idx_thema_ausfall = self._header_map(table).get("thema/ausfall")
+        if idx_thema_ausfall is not None:
+            row = table.rows[row_index]
+            if idx_thema_ausfall < len(row):
+                row[idx_thema_ausfall] = ""
+            return
+
         idx_inhalt = self._idx(table, "inhalt")
         current = table.rows[row_index][idx_inhalt]
         if isinstance(current, str):
@@ -126,7 +127,7 @@ class PlanCommandsUseCase:
         return link
 
     def convert_to_ausfall(self, table: PlanTableData, row_index: int, reason_text: str) -> Path | None:
-        """Setzt eine Zeile auf Ausfalltext und liefert einen ggf. vorhandenen Link.
+        """Setzt eine Zeile auf Ausfall und liefert einen ggf. vorhandenen Link.
 
         Args:
             table: Planungstabelle.
@@ -135,10 +136,25 @@ class PlanCommandsUseCase:
 
         Returns:
             Vorher verlinkte Stunden-Datei oder ``None``.
+
+        Note:
+            Moderne 4-Spalten-Tabellen tragen den Ausfallgrund ausschließlich in
+            der `Thema/Ausfall`-Spalte; die `Inhalt`-Spalte bleibt unverändert
+            (sie darf weiterhin auf eine Schatten-Einheiten-Datei verlinken, z. B.
+            wenn deren YAML separat auf `Stundentyp: Ausfall` gesetzt wird). Nur
+            für Legacy-Tabellen ohne eigene `Thema/Ausfall`-Spalte greift der
+            alte Kombi-Marker-Pfad in der `Inhalt`-Spalte.
         """
-        idx_inhalt = self._idx(table, "inhalt")
         link = self.lesson_repo.resolve_row_link_path(table, row_index)
         marker = build_ausfall_marker(reason_text)
+        idx_thema_ausfall = self._header_map(table).get("thema/ausfall")
+        if idx_thema_ausfall is not None:
+            row = table.rows[row_index]
+            if idx_thema_ausfall < len(row):
+                row[idx_thema_ausfall] = marker
+            return link
+
+        idx_inhalt = self._idx(table, "inhalt")
         if isinstance(link, Path):
             table.rows[row_index][idx_inhalt] = f"{marker} {build_wiki_link(link.stem)}"
         else:
@@ -293,10 +309,7 @@ class PlanCommandsUseCase:
 
         valid_rows: list[int] = []
         for row_index, row in enumerate(table.rows):
-            content = row[idx_inhalt] if idx_inhalt < len(row) else ""
-            has_link = self._contains_link(content)
-            is_cancel = bool(content.strip() and not has_link)
-            if not is_cancel:
+            if not resolve_row_cancel_state(table.headers, row):
                 valid_rows.append(row_index)
 
         if start_row_index not in valid_rows:

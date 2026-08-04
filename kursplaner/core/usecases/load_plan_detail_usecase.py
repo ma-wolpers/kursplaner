@@ -7,10 +7,10 @@ from pathlib import Path
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
 from kursplaner.core.domain.content_markers import (
-    is_ausfall_marker,
     is_hospitation_marker,
     is_unterricht_marker,
     normalize_marker_text,
+    resolve_row_cancel_state,
 )
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml, infer_stundentyp
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
@@ -209,7 +209,7 @@ class LoadPlanDetailUseCase:
                 link_target=link_target,
                 group_name=group_name,
             )
-            is_cancel = is_ausfall_marker(thema_ausfall)
+            is_cancel = resolve_row_cancel_state(table.headers, row)
             is_unresolved_link = bool(inhalt.strip() and has_link_ref and link is None)
             is_hospitation = is_hospitation_marker(marker_text, group_name)
             is_unterricht = is_unterricht_marker(marker_text, group_name)
