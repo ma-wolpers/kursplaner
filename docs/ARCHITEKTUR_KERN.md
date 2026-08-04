@@ -952,3 +952,28 @@ Verboten:
 - Gleichartige Format-Logik in mehreren Dateien duplizieren.
 - Format-Parsing/-Reparatur als GUI-Helfer zu implementieren, wenn es fachlich wiederverwendbar ist.
 
+---
+
+## 28) Dateigrößen-Limit und Ausnahmen (verbindlich)
+
+Neue und geänderte Module dürfen **300 ausführbare Codezeilen** nicht überschreiten
+(ausführbar = nicht Leerzeilen, Kommentarzeilen, Import-Zeilen, Docstring-Inhalt).
+
+Gültige Ausnahmen:
+
+- **Rein datenhaltige Dateien** (große Dicts/Konstanten ohne echte Logik) sind vollständig ausgenommen.
+- **Unvermeidbar lange Methoden** werden mit `# deliberate exception: long by necessity` markiert;
+  die Datei zählt dennoch zum Limit.
+- **Strukturell unvermeidlich große Dateien** (z. B. weil sie eine kohärente Verantwortungsgruppe
+  bündeln, die sinnvoll nicht weiter zerlegbar ist) werden hier als benannte Ausnahmen geführt.
+
+### Benannte Ausnahmen (Stand 2026-08-04)
+
+| Datei | Executable Lines | Begründung |
+|---|---|---|
+| `kursplaner/adapters/gui/action_controller.py` | ~1532 | Kapselt alle Toolbar-/Dialog-Aktionen des Hauptfensters (Save, Export, Undo/Redo, UB, Spaltenoperationen usw.) als kohärente Aktionsschicht. Aufspaltung würde enge Kopplung durch viele kleine Controller erzeugen, die alle denselben App-Kontext benötigen. Refaktorierung wenn sinnvoller Schnitt entsteht. |
+| `kursplaner/adapters/gui/grid_renderer.py` | ~766 | Bündelt die gesamte Grid-Render-Logik (Aufbau, Patch-Updates, Zell-Styling, Marker). Konsequenz aus Architektur-Abschnitt 25f: Grid-Renderer ist eine dedizierte, in sich geschlossene Render-Komponente. |
+| `kursplaner/adapters/gui/overview_controller.py` | ~417 | Verwaltet Kursübersicht, Detailview-Wechsel, Tageslog und Reload-Flows. Zusammenhängende Zustandsmaschine; Aufspaltung würde zyklische Abhängigkeiten erzeugen. |
+| `kursplaner/adapters/gui/selection_controller.py` | ~314 | Durch Fast-Path-Erweiterung für Grid-Navigation 2026-08-04 minimal über Limit. Refaktorierungskandidat: `refresh_header_styles`/`_apply_single_header_style` gehört semantisch in `grid_renderer.py`. |
+
+**Pflicht beim Anlegen einer neuen Ausnahme:** Tabelleneintrag hier ergänzen, Begründung ein Satz, Datum.

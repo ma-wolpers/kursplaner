@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+### Performance
+- Grid-Navigation per Fast Path beschleunigt (2026-08-04): `selection_controller.py:set_selected_cell()` aktualisiert jetzt bei normaler Navigation nur die 2 betroffenen Zell-Borders und max. 2 Spalten-Header statt das gesamte Grid — konform mit Architektur-Abschnitt 25c (partielle Updates statt Full-Rebuild). Neue Methode `_apply_single_header_style()` für Einzelspalten-Header-Styling. Row-Layout-Cache in `grid_renderer.py:_row_layout()` eingeführt (Invalidierung bei `_rebuild_grid()` und `collect_day_columns()`). Debounce für `update_action_controls()` in `action_controller.py` (80 ms, nur im Nav-Fast-Path). `parse_group_token()` in `lesson_context_controller.py` cacht per `id(current_table)`.
+- Dateigrößen-Ausnahmen in `docs/ARCHITEKTUR_KERN.md` Abschnitt 28 dokumentiert (2026-08-04): vier Adapter-Dateien mit strukturell bedingter Überschreitung des 300-Zeilen-Limits benannt.
+
 ### Changed
 - Sequenzplanung-Foundation gestartet: neue Domain-/Infra-Module fuer Sequenzdateien (`kursplaner/core/domain/sequence_planning.py`, `kursplaner/infrastructure/repositories/sequence_plan_repository.py`) mit kanonischer Dateinamenbildung (`<Sequenz> <Lerngruppe> <26-2>`), `Kursplan`-YAML-Link und strikt teilweiser Update-Strategie (nur Brainstorming-Bereich editierbar, trailing Export-Tabelle ersetzbar).
 - Persistente Datei-Relations-Registry eingefuehrt (`kursplaner/core/domain/file_relation_registry.py`, `kursplaner/infrastructure/repositories/file_relation_registry_repository.py`) und als Rebuild-Use-Case verdrahtet (`kursplaner/core/usecases/rebuild_file_relation_registry_usecase.py`, Composition Root in `kursplaner/adapters/bootstrap/wiring.py`).

@@ -111,6 +111,12 @@ The format is based on Keep a Changelog.
 - Neuer Tab `UB-Plan` mit getrennten Listen fuer kommende und absolvierte UBs inklusive Spalten `Datum`, `Faecher`, `+` (Langentwurf), `Kurs`.
 - Technische Grundlage fuer Sequenzplanung hinzugefuegt: neue Sequenz-Dateiverwaltung (`Sequenzen`), persistente Datei-Relations-Registry und automatischer Registry-Rebuild beim Start sowie nach getrackten Schreibvorgaengen.
 
+### Performance
+- Grid-Zellnavigation (Pfeiltasten) erheblich beschleunigt: `set_selected_cell()` in `selection_controller.py` nutzt jetzt einen Fast Path, der nur die 2 betroffenen Zellen und max. 2 Spalten-Header aktualisiert statt das gesamte Grid neu zu zeichnen; alle anderen Zellen bleiben unberührt.
+- `_row_layout()` in `grid_renderer.py` cacht berechnete Zeilenhöhen pro Feldschlüssel; Cache wird bei Datenschreibvorgängen (`collect_day_columns()` in `overview_controller.py`) und vollständigem Grid-Rebuild (`_rebuild_grid()`) invalidiert.
+- `update_action_controls()` in `action_controller.py` wird bei Navigation mit 80 ms Debounce geplant (`schedule_action_controls_update()`), sodass gehaltene Pfeiltasten nur einen einzigen Toolbar-Update auslösen statt bei jedem Keypress synchron den System-Clipboard abzufragen.
+- `parse_group_token()` in `lesson_context_controller.py` cacht das Ergebnis per `id(current_table)` und verhindert ~100 redundante Stringoperationen pro Grid-Refresh.
+
 ## [0.1.2] - 2026-04-22
 
 ### Changed
