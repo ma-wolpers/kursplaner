@@ -216,9 +216,14 @@ class GridRenderer:
         return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
 
     def _field_is_visible_for_day(self, field_key: str, day: dict[str, object]) -> bool:
-        """Bestimmt, ob ein Feld für eine Spalte als Widget aufgebaut werden soll."""
+        """Bestimmt, ob ein Feld für eine Spalte als Widget aufgebaut werden soll.
+
+        Reihenfolge: Unlinked-Guard → Zeilenfilter → Modus-Check.
+        """
         if not self._is_linked_day(day):
             return field_key in {"inhalt", "stunden"}
+        if not self.app.row_filter_settings.is_visible(field_key):
+            return False
         return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day)
 
     def _apply_cell_state(

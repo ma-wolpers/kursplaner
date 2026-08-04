@@ -263,6 +263,9 @@ class MainWindowUiIntentController:
         if intent == UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS:
             self.app.action_controller.open_column_visibility_settings()
             return None
+        if intent == UiIntent.OPEN_ROW_FILTER_SETTINGS:
+            self.app.action_controller.open_row_filter_settings()
+            return None
         if intent == UiIntent.TOGGLE_EXPAND_MODE:
             return self.intent_toggle_expand_mode()
         if intent == UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE:

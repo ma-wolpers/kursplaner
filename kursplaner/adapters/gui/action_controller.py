@@ -17,6 +17,7 @@ from datetime import date
 from typing import Callable
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
+from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
@@ -182,6 +183,17 @@ class MainWindowActionController:
         if settings is None:
             return
         self.app._set_column_visibility_settings(settings)
+
+    def open_row_filter_settings(self) -> None:
+        """Öffnet den Dialog zum Ein-/Ausblenden von Zeilenfeldern."""
+        settings = ask_row_filter(
+            self.app,
+            current=self.app.row_filter_settings,
+            theme_key=self.app.theme_var.get(),
+        )
+        if settings is None:
+            return
+        self.app._set_row_filter_settings(settings)
 
     def on_paths_saved(self, values: dict[str, str]):
         """Reagiert auf gespeicherte Pfade und triggert nachgelagerte Updates."""

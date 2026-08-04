@@ -6,12 +6,14 @@ from pathlib import Path
 from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilitySettings
+from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 
 _THEME_KEY = "theme"
 _COLUMN_VISIBILITY_KEY = "column_visibility"
 _UB_PAST_CUTOFF_KEY = "ub_past_cutoff_time"
 _LESSON_BUILDER_FIELDS_KEY = "lesson_builder_fields"
 _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
+_ROW_FILTER_KEY = "row_filter"
 
 
 @dataclass(frozen=True)
@@ -181,4 +183,28 @@ def save_course_overview_highlight_days(value: int) -> None:
     """Persistiert das Hervorhebungsfenster (Tage) fuer die Kursuebersicht."""
     payload = _load_payload()
     payload[_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY] = max(0, min(60, int(value)))
+    _save_payload(payload)
+
+
+def load_row_filter_settings() -> RowFilterSettings:
+    """Lädt die persistierten Zeilenfilter-Einstellungen.
+
+    Bei fehlendem oder korruptem Eintrag wird ein leeres ``RowFilterSettings()``
+    (= alle Felder sichtbar) zurückgegeben.
+    """
+    payload = _load_payload()
+    raw = payload.get(_ROW_FILTER_KEY)
+    if not isinstance(raw, dict):
+        return RowFilterSettings()
+    hidden_raw = raw.get("hidden_fields")
+    if not isinstance(hidden_raw, list):
+        return RowFilterSettings()
+    hidden = frozenset(str(k) for k in hidden_raw if isinstance(k, str))
+    return RowFilterSettings(hidden_fields=hidden)
+
+
+def save_row_filter_settings(settings: RowFilterSettings) -> None:
+    """Persistiert die Zeilenfilter-Einstellungen."""
+    payload = _load_payload()
+    payload[_ROW_FILTER_KEY] = {"hidden_fields": sorted(settings.hidden_fields)}
     _save_payload(payload)

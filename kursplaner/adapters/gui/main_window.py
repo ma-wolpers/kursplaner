@@ -37,10 +37,13 @@ from kursplaner.adapters.gui.window_identity import (
 from kursplaner.core.config.ui_preferences_store import (
     load_course_overview_highlight_days,
     load_column_visibility_settings,
+    load_row_filter_settings,
     load_theme_key,
     save_column_visibility_settings,
+    save_row_filter_settings,
     save_theme_key,
 )
+from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 
@@ -120,6 +123,7 @@ class KursplanerApp(BwBaseWindow):
         }
         self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode)
         self.column_visibility_settings = load_column_visibility_settings()
+        self.row_filter_settings: RowFilterSettings = load_row_filter_settings()
         self.course_overview_highlight_days = load_course_overview_highlight_days()
         self.show_former_courses = False
         self.raw_day_columns: list[dict[str, object]] = []
@@ -344,6 +348,12 @@ class KursplanerApp(BwBaseWindow):
         save_column_visibility_settings(settings)
         self._collect_day_columns()
         self._update_row_mode_from_selection()
+        self._rebuild_grid()
+
+    def _set_row_filter_settings(self, settings: RowFilterSettings) -> None:
+        """Setzt den Zeilenfilter, persistiert ihn und rendert das Grid neu."""
+        save_row_filter_settings(settings)
+        self.row_filter_settings = settings
         self._rebuild_grid()
 
     def _update_row_mode_from_selection(self):

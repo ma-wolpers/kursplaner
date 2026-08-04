@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
+from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 
 
 class _Var:
@@ -110,6 +111,7 @@ class _SelectionAppStub(SimpleNamespace):
         day_columns: list[dict[str, object]],
         row_defs: list[tuple[str, str]],
         editable_cells: set[tuple[str, int]],
+        row_filter_settings: RowFilterSettings | None = None,
     ):
         ui_state = MainWindowUiState()
         super().__init__(
@@ -122,6 +124,7 @@ class _SelectionAppStub(SimpleNamespace):
             header_labels={},
             selected_day_indices=set(),
             row_display_mode_usecase=_RowDisplayModeUseCaseStub(editable_cells),
+            row_filter_settings=row_filter_settings if row_filter_settings is not None else RowFilterSettings(),
             action_controller=_ActionControllerSpy(),
             grid_canvas=_GridCanvasStub(),
             grid_window=object(),

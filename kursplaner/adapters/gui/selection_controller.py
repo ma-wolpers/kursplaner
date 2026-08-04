@@ -73,12 +73,14 @@ class MainWindowSelectionController:
         return True
 
     def select_first_editable_in_selected_column(self) -> bool:
-        """Markiert die erste editierbare Zelle der aktuell ausgewählten Spalte."""
+        """Markiert die erste editierbare, sichtbare Zelle der aktuell ausgewählten Spalte."""
         selected = self.selected_indices_sorted()
         if len(selected) != 1:
             return False
         day_index = selected[0]
         for field_key, _label in self.app.row_defs:
+            if not self.app.row_filter_settings.is_visible(field_key):
+                continue
             if self.app.row_display_mode_usecase.is_editable(field_key, self.app.day_columns[day_index]):
                 return self.set_selected_cell(field_key, day_index, ensure_visible=True)
         return False
@@ -98,7 +100,9 @@ class MainWindowSelectionController:
         probe = current_pos + direction
         while 0 <= probe < len(field_order):
             candidate = field_order[probe]
-            if self.app.row_display_mode_usecase.is_editable(candidate, self.app.day_columns[day_index]):
+            if self.app.row_filter_settings.is_visible(candidate) and self.app.row_display_mode_usecase.is_editable(
+                candidate, self.app.day_columns[day_index]
+            ):
                 return self.set_selected_cell(candidate, day_index, ensure_visible=True)
             probe += direction
         return False

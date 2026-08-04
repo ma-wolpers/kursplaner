@@ -279,6 +279,16 @@ class ScreenBuilder:
         )
         if tooltip is not None:
             self.app.action_help_tooltips["column_visibility"] = tooltip
+
+        row_filter_btn = widgets.Button(
+            mode_bar,
+            text="Zeilenfelder…",
+            command=lambda: self._emit_intent(UiIntent.OPEN_ROW_FILTER_SETTINGS),
+            style="Action.Utility.TButton",
+        )
+        row_filter_btn.pack(side="left", padx=(6, 0))
+        self.app.action_buttons["row_filter"] = row_filter_btn
+
         self.app._refresh_row_mode_button_styles()
 
         editor_frame = widgets.Frame(right)

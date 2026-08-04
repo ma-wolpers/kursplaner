@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 RowDef = tuple[str, str]
@@ -153,6 +153,44 @@ class RowDisplayModeUseCase:
         fields = {field for field, _ in self.row_defs_for_mode(mode)}
         return field_key in fields
 
+    def all_fields_ordered(self) -> list[tuple[str, str, str]]:
+        """Liefert alle Felder aller Modi als deduplizierte, geordnete Liste.
+
+        Reihenfolge: COMMON → UNTERRICHT → LZK → AUSFALL → HOSPITATION.
+        Felder, die in mehreren Modi vorkommen (z. B. ``Stundenthema`` in
+        Unterricht, LZK und Hospitation), erscheinen nur einmal — beim ersten
+        Auftreten.  Das Label stammt ebenfalls vom ersten Auftreten.
+
+        Args:
+            (none)
+
+        Returns:
+            Liste von ``(field_key, label, modes_str)``-Tupeln, wobei
+            ``modes_str`` ein durch Leerzeichen getrennter String der
+            Modusbuchstaben ist (z. B. ``"U L H"``).
+
+        Example::
+
+            use_case.all_fields_ordered()
+            # → [("inhalt", "Inhalt", "U L A H"), ("Stundenthema", "Welches Stundenthema", "U L H"), …]
+        """
+        abbrevs = {
+            self.MODE_UNTERRICHT: "U",
+            self.MODE_LZK: "L",
+            self.MODE_AUSFALL: "A",
+            self.MODE_HOSPITATION: "H",
+        }
+        seen: dict[str, list] = {}
+        order: list[str] = []
+        for mode_def in self.available_modes():
+            abbrev = abbrevs[mode_def.key]
+            for field_key, label in mode_def.rows:
+                if field_key not in seen:
+                    seen[field_key] = [label, []]
+                    order.append(field_key)
+                seen[field_key][1].append(abbrev)
+        return [(k, seen[k][0], " ".join(seen[k][1])) for k in order]
+
     def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
         """Ermittelt fachlich, ob ein Feld für eine Spalte editierbar sein darf."""
         if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
@@ -163,3 +201,26 @@ class RowDisplayModeUseCase:
             return False
         link_obj = day.get("link") if isinstance(day, dict) else None
         return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
+
+
+@dataclass(frozen=True)
+class RowFilterSettings:
+    """Konfiguriert, welche Zeilenfelder im Grid ausgeblendet werden.
+
+    Default = leere Menge → alle Felder sichtbar.
+
+    Args:
+        hidden_fields: Menge der ``field_key``-Strings, die ausgeblendet werden.
+
+    Example::
+
+        settings = RowFilterSettings(hidden_fields=frozenset({"Oberthema"}))
+        settings.is_visible("Oberthema")   # False
+        settings.is_visible("Stundenziel") # True
+    """
+
+    hidden_fields: frozenset[str] = field(default_factory=frozenset)
+
+    def is_visible(self, field_key: str) -> bool:
+        """Gibt ``True`` zurück, wenn das Feld nicht durch den Filter versteckt ist."""
+        return field_key not in self.hidden_fields
