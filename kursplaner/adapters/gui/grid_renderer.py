@@ -7,7 +7,6 @@ from bw_gui.runtime import ui
 from datetime import datetime
 from pathlib import Path
 
-from bw_gui.widgets import compute_contiguous_spans
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from bw_gui.theming import (
     canvas_fill,
@@ -21,6 +20,7 @@ from bw_gui.theming import (
 )
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.sequence_field_grid_renderer import SequenceFieldGridRenderer
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
@@ -40,6 +40,8 @@ class GridRenderer:
         self._marker_kinds_by_widget: dict[int, tuple[str, ...]] = {}
         self._marker_column_width = 12
         self._row_layout_cache: dict[str, tuple[int, bool, bool, str]] = {}
+        self._sequence_field_renderer = SequenceFieldGridRenderer(app, self._create_text_cell)
+        self._zoom_rebuild_after_id: str | None = None
 
     def _apply_marker_kind_fill(self, canvas: ui.Canvas, item_id: int, kind: str) -> None:
         """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
@@ -374,6 +376,12 @@ class GridRenderer:
 
     def _rebuild_grid(self):
         """Baut den gesamten Grid-Inhalt aus dem aktuellen UI-Zustand neu auf."""
+        # deliberate exception: long by necessity — muss Fix-Spalte, Header-Zeile,
+        # Marker-Spalten, Sequenzfeld-Zeilen und alle Tages-Zellen in einem
+        # zusammenhängenden Widget-Baum neu aufbauen (Tk-Grid-Layout erfordert
+        # konsistente Spalten-/Zeilenindizes über alle Container hinweg); eine
+        # Aufteilung würde nur den Layout-Zustand über mehrere Methoden verteilen,
+        # ohne echte Kopplung zu reduzieren.
         self.invalidate_row_layout_cache()
         self.app._is_rebuilding_grid = True
         self._field_help_tooltips.clear()
@@ -483,7 +491,7 @@ class GridRenderer:
 
         row_idx = 0
         if self.app.sequence_fields_visible_var.get():
-            row_idx = self._render_sequence_field_rows(row_idx, day_grid_columns, row_pixel_heights)
+            row_idx = self._sequence_field_renderer.render(row_idx, day_grid_columns, row_pixel_heights)
 
         for field_key, label_text in self._visible_row_defs():
             row_values = [self.app._field_value(day, field_key) for day in self.app.day_columns]
@@ -606,168 +614,6 @@ class GridRenderer:
         self.app._refresh_header_styles()
         self.app._on_grid_inner_configure()
         self.app.action_controller.update_action_controls()
-
-    def _render_sequence_field_rows(
-        self,
-        row_idx: int,
-        day_grid_columns: dict[int, int],
-        row_pixel_heights: dict[int, int],
-    ) -> int:
-        """Rendert die spannenden Sequenzziel-/Leitkompetenz-Zeilen, falls Sequenzen erkannt wurden.
-
-        Wird nur aufgerufen, wenn `sequence_fields_visible_var` aktiv ist. Baut
-        pro erkannter Sequenz (`self.app.topic_sequence_plans`) ein oder mehrere
-        über die zugehörigen Tages-Spalten spannende Text-Widgets; nicht von
-        einer Sequenz abgedeckte, sichtbare Tages-Spalten erhalten eine
-        deaktivierte Leerzelle, damit das Rasterbild vollständig bleibt.
-
-        Args:
-            row_idx: Nächster freier Grid-Zeilenindex.
-            day_grid_columns: Abbildung von `day_index` (Position in
-                `self.app.day_columns`) auf die tatsächliche Tk-Grid-Spalte.
-            row_pixel_heights: Sammelstruktur für Zeilenhöhen, wird ergänzt.
-
-        Returns:
-            Der nächste freie Grid-Zeilenindex nach den Sequenzfeld-Zeilen.
-        """
-        if not self.app.topic_sequence_plans:
-            return row_idx
-
-        row_index_to_grid_col: dict[int, int] = {}
-        grid_col_is_cancel: dict[int, bool] = {}
-        for day_index, day in enumerate(self.app.day_columns):
-            if not isinstance(day, dict):
-                continue
-            try:
-                stable_row_index = int(day.get("row_index", -1))
-            except (TypeError, ValueError):
-                continue
-            grid_col = day_grid_columns.get(day_index)
-            if grid_col is not None:
-                row_index_to_grid_col[stable_row_index] = grid_col
-                grid_col_is_cancel[grid_col] = bool(day.get("is_cancel", False))
-
-        for field_key, label_text in (("Sequenzziel", "Sequenzziel"), ("Leitkompetenz", "Leitkompetenz")):
-            row_idx = self._render_one_sequence_field_row(
-                row_idx=row_idx,
-                field_key=field_key,
-                label_text=label_text,
-                row_index_to_grid_col=row_index_to_grid_col,
-                grid_col_is_cancel=grid_col_is_cancel,
-                row_pixel_heights=row_pixel_heights,
-            )
-        return row_idx
-
-    def _render_one_sequence_field_row(
-        self,
-        *,
-        row_idx: int,
-        field_key: str,
-        label_text: str,
-        row_index_to_grid_col: dict[int, int],
-        grid_col_is_cancel: dict[int, bool],
-        row_pixel_heights: dict[int, int],
-    ) -> int:
-        """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz).
-
-        Args:
-            grid_col_is_cancel: Abbildung von Tk-Grid-Spalte auf `is_cancel`,
-                genutzt um sequenzlose Ausfall-Spalten (Oberthema ringsherum
-                weicht ab, keine Überspannung) mit der überall im Grid
-                verwendeten Ausfall-Tönung statt neutral-grau darzustellen.
-        """
-        field_label = ui.Label(
-            self.app.fixed_inner,
-            text=label_text,
-            anchor="w",
-            justify="left",
-            font=("Segoe UI", 9, "bold"),
-            padx=8,
-            pady=3,
-            relief="solid",
-            borderwidth=1,
-        )
-        theme_label_token(field_label, bg_token="panel_strong")
-        field_label.grid(row=row_idx, column=0, sticky="nsew")
-        row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(field_label.winfo_reqheight()))
-
-        covered_grid_cols: set[int] = set()
-        for view in self.app.topic_sequence_plans:
-            # Der volle Zahlenbereich statt nur member_row_indices, damit übersprungene
-            # Ausfall-Zeilen innerhalb des Laufs visuell mit überspannt werden: jede
-            # andere Zeile in dieser Spanne hätte die Kette bereits beendet.
-            grid_cols = sorted(
-                row_index_to_grid_col[row_index]
-                for row_index in range(view.run.first_row_index, view.run.last_row_index + 1)
-                if row_index in row_index_to_grid_col
-            )
-            if not grid_cols:
-                continue
-            covered_grid_cols.update(grid_cols)
-            value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
-            widget_key = (field_key, view.run.first_row_index)
-
-            for segment in compute_contiguous_spans(grid_cols):
-                cell = self._create_text_cell(
-                    self.app.grid_inner,
-                    value,
-                    editable=True,
-                    canceled=False,
-                    unresolved_link=False,
-                    height_lines=self.app.collapsed_row_lines,
-                )
-                cell.grid(row=row_idx, column=segment.start_column, columnspan=segment.column_span, sticky="nsew")
-                self._bind_sequence_field_events(cell, field_key=field_key, first_row_index=view.run.first_row_index)
-                self.app.sequence_field_widgets[widget_key] = cell
-                row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(cell.winfo_reqheight()))
-
-        for grid_col in sorted(set(row_index_to_grid_col.values()) - covered_grid_cols):
-            blank_cell = self._create_text_cell(
-                self.app.grid_inner,
-                "",
-                editable=False,
-                canceled=grid_col_is_cancel.get(grid_col, False),
-                unresolved_link=False,
-                height_lines=self.app.collapsed_row_lines,
-            )
-            blank_cell.grid(row=row_idx, column=grid_col, sticky="nsew")
-
-        return row_idx + 1
-
-    def _bind_sequence_field_events(self, cell: ui.Text, *, field_key: str, first_row_index: int) -> None:
-        """Bindet den Editier-Lebenszyklus einer spannenden Sequenzfeld-Zelle.
-
-        Spiegelt das Muster normaler Grid-Zellen (`GRID_CELL_CLICK` /
-        `GRID_EDITOR_FOCUS_IN` / `GRID_COMMIT_CELL` / `GRID_EDITOR_FOCUS_OUT`),
-        jedoch mit `sequence_field_key`/`sequence_row_index` als Payload, da
-        eine Sequenzfeld-Zelle mehrere Tages-Spalten gleichzeitig repräsentiert
-        und daher nicht über `(field_key, day_index)` identifizierbar ist.
-        """
-        cell.bind(
-            "<Button-1>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_SEQUENCE_FIELD_CLICK, sequence_field_key=fk, sequence_row_index=ri
-            ),
-        )
-        cell.bind(
-            "<FocusIn>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_SEQUENCE_FIELD_FOCUS_IN, sequence_field_key=fk, sequence_row_index=ri
-            ),
-        )
-        cell.bind(
-            "<FocusOut>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_COMMIT_SEQUENCE_FIELD, sequence_field_key=fk, sequence_row_index=ri
-            ),
-        )
-        cell.bind(
-            "<FocusOut>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_SEQUENCE_FIELD_FOCUS_OUT, sequence_field_key=fk, sequence_row_index=ri
-            ),
-            add="+",
-        )
 
     def update_header(self, day_index: int):
         """Aktualisiert Text/Basisfarbe eines existierenden Tages-Headers."""
@@ -951,7 +797,7 @@ class GridRenderer:
                 self.app.min_day_column_width,
                 min(self.app.max_day_column_width, self.app.day_column_width + step),
             )
-            self._rebuild_grid()
+            self._schedule_zoom_rebuild()
             return "break"
 
         units = -1 if event.delta > 0 else 1
@@ -960,4 +806,34 @@ class GridRenderer:
         else:
             self.app.viewport_sync.yview_scroll(units, "units")
         return "break"
+
+    def _schedule_zoom_rebuild(self, delay_ms: int = 120) -> None:
+        """Plant einen verzögerten vollen Grid-Rebuild nach Zoom-Änderung (Debounce).
+
+        `_rebuild_grid()` zerstört und baut den kompletten Widget-Baum neu. Bei
+        schnellem Scrollen (Strg+Mausrad) erzeugt das Mausrad mehrere Events in
+        kurzer Folge; würde jedes davon synchron einen vollen Rebuild auslösen,
+        blockiert jeder Tick das nächste Event ("erst alles neu laden, dann
+        weiter zoomen"). Analog zu `ActionController.schedule_action_controls_update`
+        wird ein laufender `after`-Call abgebrochen und neu geplant, sodass
+        mehrere schnelle Zoom-Ticks zu genau einem Rebuild kollabieren, sobald
+        für `delay_ms` kein weiteres Wheel-Event mehr kam. Die Spaltenbreite
+        selbst wird weiterhin sofort aktualisiert (billig); nur der teure
+        Rebuild wird entkoppelt.
+
+        Args:
+            delay_ms: Wartezeit in Millisekunden bis zum tatsächlichen Rebuild.
+        """
+        if self._zoom_rebuild_after_id is not None:
+            try:
+                self.app.after_cancel(self._zoom_rebuild_after_id)
+            except Exception:
+                pass
+            self._zoom_rebuild_after_id = None
+        self._zoom_rebuild_after_id = self.app.after(delay_ms, self._run_scheduled_zoom_rebuild)
+
+    def _run_scheduled_zoom_rebuild(self) -> None:
+        """Führt den geplanten Zoom-Rebuild aus und löscht die Pending-ID."""
+        self._zoom_rebuild_after_id = None
+        self._rebuild_grid()
 
