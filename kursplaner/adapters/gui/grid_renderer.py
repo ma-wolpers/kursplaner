@@ -591,6 +591,7 @@ class GridRenderer:
             return row_idx
 
         row_index_to_grid_col: dict[int, int] = {}
+        grid_col_is_cancel: dict[int, bool] = {}
         for day_index, day in enumerate(self.app.day_columns):
             if not isinstance(day, dict):
                 continue
@@ -601,6 +602,7 @@ class GridRenderer:
             grid_col = day_grid_columns.get(day_index)
             if grid_col is not None:
                 row_index_to_grid_col[stable_row_index] = grid_col
+                grid_col_is_cancel[grid_col] = bool(day.get("is_cancel", False))
 
         for field_key, label_text in (("Sequenzziel", "Sequenzziel"), ("Leitkompetenz", "Leitkompetenz")):
             row_idx = self._render_one_sequence_field_row(
@@ -608,6 +610,7 @@ class GridRenderer:
                 field_key=field_key,
                 label_text=label_text,
                 row_index_to_grid_col=row_index_to_grid_col,
+                grid_col_is_cancel=grid_col_is_cancel,
                 row_pixel_heights=row_pixel_heights,
             )
         return row_idx
@@ -619,9 +622,17 @@ class GridRenderer:
         field_key: str,
         label_text: str,
         row_index_to_grid_col: dict[int, int],
+        grid_col_is_cancel: dict[int, bool],
         row_pixel_heights: dict[int, int],
     ) -> int:
-        """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz)."""
+        """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz).
+
+        Args:
+            grid_col_is_cancel: Abbildung von Tk-Grid-Spalte auf `is_cancel`,
+                genutzt um sequenzlose Ausfall-Spalten (Oberthema ringsherum
+                weicht ab, keine Überspannung) mit der überall im Grid
+                verwendeten Ausfall-Tönung statt neutral-grau darzustellen.
+        """
         field_label = ui.Label(
             self.app.fixed_inner,
             text=label_text,
@@ -672,7 +683,7 @@ class GridRenderer:
                 self.app.grid_inner,
                 "",
                 editable=False,
-                canceled=False,
+                canceled=grid_col_is_cancel.get(grid_col, False),
                 unresolved_link=False,
                 height_lines=self.app.collapsed_row_lines,
             )
