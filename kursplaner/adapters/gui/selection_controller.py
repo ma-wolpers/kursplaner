@@ -54,23 +54,101 @@ class MainWindowSelectionController:
         self.app._refresh_grid_content()
 
     def set_selected_cell(self, field_key: str, day_index: int, *, ensure_visible: bool = False) -> bool:
-        """Markiert eine editierbare Zelle als aktive Navigationszelle."""
+        """Markiert eine editierbare Zelle als aktive Navigationszelle.
+
+        Im Normalfall (Grid vorhanden, kein laufender Rebuild) wird ein Fast Path
+        genutzt: Nur die bisher selektierte und die neu selektierte Zelle erhalten
+        ein aktualisiertes Border-Styling, und nur die betroffenen Spalten-Header
+        werden neu gezeichnet. Alle anderen Zellen bleiben unberührt.
+
+        Bei erstem Grid-Aufbau, nach einem Modus-Wechsel (der `_rebuild_grid()`
+        auslöst) oder wenn `cell_widgets` noch leer ist, fällt die Methode auf den
+        vollen `_refresh_grid_content()` zurück.
+
+        Args:
+            field_key: Schlüssel der Feld-Zeile (z.B. ``"Stundenthema"``).
+            day_index: Index der Spalte in `day_columns`.
+            ensure_visible: Wenn True, scrollt das Grid zur neuen Zelle.
+
+        Returns:
+            True wenn die Zelle selektiert wurde; False wenn ungültig oder nicht editierbar.
+        """
         if not (0 <= day_index < len(self.app.day_columns)):
             return False
         day = self.app.day_columns[day_index]
         if not self.app.row_display_mode_usecase.is_editable(field_key, day):
             return False
+
+        old_sel = self.app.ui_state.selected_cell
+        old_field_key = old_sel.field_key if old_sel is not None else None
+        old_day_index = old_sel.day_index if old_sel is not None else None
+
         self.app.selected_day_indices = {day_index}
         self.app.ui_state.set_selected_cell(field_key, day_index)
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
-        self.refresh_header_styles()
-        self.app._refresh_grid_content()
-        self.app.action_controller.update_action_controls()
+
+        if self.app.cell_widgets and not self.app._is_rebuilding_grid:
+            gr = self.app.grid_renderer
+            if old_field_key is not None and old_day_index is not None:
+                old_widget = self.app.cell_widgets.get((old_field_key, old_day_index))
+                if old_widget is not None:
+                    gr._apply_cell_selection_style(old_widget, field_key=old_field_key, day_index=old_day_index)
+                if old_day_index != day_index and old_day_index in self.app.header_labels:
+                    self._apply_single_header_style(old_day_index)
+            new_widget = self.app.cell_widgets.get((field_key, day_index))
+            if new_widget is not None:
+                gr._apply_cell_selection_style(new_widget, field_key=field_key, day_index=day_index)
+            if day_index in self.app.header_labels:
+                self._apply_single_header_style(day_index)
+            self.app.action_controller.schedule_action_controls_update()
+        else:
+            self.refresh_header_styles()
+            self.app._refresh_grid_content()
+            self.app.action_controller.update_action_controls()
+
         if ensure_visible:
             self.ensure_column_visible(day_index)
             self.ensure_row_visible(field_key, day_index)
         return True
+
+    def _apply_single_header_style(self, day_index: int) -> None:
+        """Wendet selektions-/zustandsabhängige Header-Farbe auf genau eine Spalte an.
+
+        Entspricht der If/Elif-Kette in `refresh_header_styles()`, beschränkt sich
+        aber auf einen einzigen Header-Label. Wird vom Fast Path in `set_selected_cell()`
+        genutzt, um nicht alle Header neu zu stylen, wenn nur zwei Spalten betroffen sind.
+
+        Args:
+            day_index: Index des Spalten-Headers in `header_labels`/`day_columns`.
+        """
+        label = self.app.header_labels.get(day_index)
+        if label is None or day_index >= len(self.app.day_columns):
+            return
+        day = self.app.day_columns[day_index]
+        is_selected = day_index in self.app.selected_day_indices
+        is_cancel = bool(day.get("is_cancel"))
+        is_unresolved_link = bool(day.get("is_unresolved_link"))
+        is_hospitation = bool(day.get("is_hospitation"))
+        is_lzk = bool(day.get("is_lzk"))
+        if is_selected:
+            label.configure(borderwidth=2, relief="raised")
+            theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
+        elif is_cancel:
+            label.configure(borderwidth=1, relief="solid")
+            theme_label_tinted(label, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+        elif is_hospitation:
+            label.configure(borderwidth=1, relief="solid")
+            theme_label_tinted(label, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+        elif is_unresolved_link:
+            label.configure(borderwidth=1, relief="solid")
+            theme_label_token(label, bg_token="warning_soft")
+        elif is_lzk:
+            label.configure(borderwidth=1, relief="solid")
+            theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
+        else:
+            label.configure(borderwidth=1, relief="solid")
+            theme_label_token(label, bg_token="panel_strong")
 
     def select_first_editable_in_selected_column(self) -> bool:
         """Markiert die erste editierbare, sichtbare Zelle der aktuell ausgewählten Spalte."""

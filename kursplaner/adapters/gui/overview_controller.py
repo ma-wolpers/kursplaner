@@ -507,6 +507,7 @@ class MainWindowOverviewController:
             return
         self.app.raw_day_columns = self.load_plan_detail_usecase.build_day_columns(self.app.current_table)
         self.app.day_columns = self._project_visible_day_columns(self.app.raw_day_columns)
+        self.app.grid_renderer.invalidate_row_layout_cache()
         self._sync_topic_sequence_plans()
 
     def _sync_topic_sequence_plans(self) -> None:

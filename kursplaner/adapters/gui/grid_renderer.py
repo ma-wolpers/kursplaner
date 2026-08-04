@@ -39,6 +39,7 @@ class GridRenderer:
         self._marker_widgets: list[ui.Canvas] = []
         self._marker_kinds_by_widget: dict[int, tuple[str, ...]] = {}
         self._marker_column_width = 12
+        self._row_layout_cache: dict[str, tuple[int, bool, bool, str]] = {}
 
     def _apply_marker_kind_fill(self, canvas: ui.Canvas, item_id: int, kind: str) -> None:
         """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
@@ -194,7 +195,24 @@ class GridRenderer:
         return True
 
     def _row_layout(self, field_key: str) -> tuple[int, bool, bool, str]:
-        """Berechnet Hoehe und Labeltext einer Feldzeile."""
+        """Berechnet Höhe, Kollaps-Status und Labeltext einer Feldzeile und cacht das Ergebnis.
+
+        Das Ergebnis hängt ausschließlich von den Zellwerten aller Spalten ab
+        und ändert sich während der Navigation nie — nur nach Datenschreibvorgängen
+        oder explizitem Zeilen-Expand/Collapse. Deshalb werden berechnete Werte in
+        `_row_layout_cache` gespeichert und nur über `invalidate_row_layout_cache()`
+        gelöscht.
+
+        Returns:
+            Tupel (row_height, collapsible, expanded, label_text), wobei
+            `row_height` die darzustellende Zeilenhöhe in Textzeilen ist,
+            `collapsible` angibt, ob ein Expand/Collapse-Pfeil gezeigt werden soll,
+            `expanded` den aktuellen Aufklapp-Zustand hält und
+            `label_text` ggf. mit dem Richtungspfeil-Icon versehen ist.
+        """
+        cached = self._row_layout_cache.get(field_key)
+        if cached is not None:
+            return cached
         label_text = next((text for key, text in self.app.row_defs if key == field_key), field_key)
         row_values = [self.app._field_value(day, field_key) for day in self.app.day_columns]
         max_visual_lines = max([self.app._estimate_visual_lines(value) for value in row_values], default=1)
@@ -207,7 +225,26 @@ class GridRenderer:
         if collapsible:
             icon = "▾" if expanded else "▸"
             label_text = f"{icon} {label_text}"
-        return row_height, collapsible, expanded, label_text
+        result = (row_height, collapsible, expanded, label_text)
+        self._row_layout_cache[field_key] = result
+        return result
+
+    def invalidate_row_layout_cache(self, field_key: str | None = None) -> None:
+        """Löscht den Row-Layout-Cache vollständig oder für ein einzelnes Feld.
+
+        Muss aufgerufen werden, wenn sich Zellwerte ändern könnten (Schreibvorgang
+        via `collect_day_columns()`) oder wenn die Grid-Struktur komplett neu aufgebaut
+        wird (`_rebuild_grid()`). Letzteres deckt auch Zoom-Änderungen,
+        Modus-Wechsel und Zeilen-Expand/Collapse ab.
+
+        Args:
+            field_key: Wenn angegeben, wird nur der Cache-Eintrag für dieses Feld
+                gelöscht; ohne Argument wird der gesamte Cache geleert.
+        """
+        if field_key is None:
+            self._row_layout_cache.clear()
+        else:
+            self._row_layout_cache.pop(field_key, None)
 
     @staticmethod
     def _is_linked_day(day: dict[str, object]) -> bool:
@@ -337,6 +374,7 @@ class GridRenderer:
 
     def _rebuild_grid(self):
         """Baut den gesamten Grid-Inhalt aus dem aktuellen UI-Zustand neu auf."""
+        self.invalidate_row_layout_cache()
         self.app._is_rebuilding_grid = True
         self._field_help_tooltips.clear()
         self.app.ui_state.clear_active_editor()

@@ -26,6 +26,8 @@ class MainWindowLessonContextController:
         self.lesson_context_query = deps.lesson_context_query
         self.lesson_transfer = deps.lesson_transfer
         self.rename_linked_file_for_row_usecase = getattr(deps, "rename_linked_file_for_row", None)
+        self._cached_group_token: str | None = None
+        self._cached_group_token_table_id: int | None = None
 
     def field_value(self, day: dict[str, object], field_key: str) -> str:
         """Projiziert den Zellwert eines Feldes aus `day_columns` in UI-Text."""
@@ -211,11 +213,28 @@ class MainWindowLessonContextController:
         return match.group(1) if match else "??-?"
 
     def parse_group_token(self) -> str:
-        """Liest und normalisiert den Lerngruppen-Token aus Plan-Metadaten."""
+        """Liest und normalisiert den Lerngruppen-Token aus Plan-Metadaten.
+
+        Das Ergebnis wird per `id(current_table)` gecacht: `current_table` wird
+        bei jedem Kurslade-Vorgang neu zugewiesen (nie mutiert), sodass der
+        Objekt-Identitätsvergleich zuverlässig auf einen neuen Kurs reagiert.
+        Während der Grid-Navigation — wo diese Methode ~100× pro Grid-Refresh
+        aufgerufen werden kann — bleibt der Cache gültig und vermeidet
+        redundante Stringoperationen.
+
+        Returns:
+            Normalisierter Gruppenname (z.B. ``"9a"``), Fallback ``"gruppe"``.
+        """
+        current_id = id(self.app.current_table) if self.app.current_table is not None else None
+        if current_id is not None and current_id == self._cached_group_token_table_id:
+            return self._cached_group_token  # type: ignore[return-value]
         if self.app.current_table is None:
             return "gruppe"
         group = strip_wiki_link(str(self.app.current_table.metadata.get("Lerngruppe", "gruppe")))
-        return sanitize_hour_title(group) or "gruppe"
+        result = sanitize_hour_title(group) or "gruppe"
+        self._cached_group_token = result
+        self._cached_group_token_table_id = current_id
+        return result
 
     def parse_subject_token(self) -> str:
         """Liest und normalisiert das Fachkürzel aus Plan-Metadaten."""

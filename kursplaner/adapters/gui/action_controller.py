@@ -99,6 +99,7 @@ class MainWindowActionController:
         self._query_ub_achievements_uc = deps.query_ub_achievements_usecase
         self._query_ub_plan_uc = deps.query_ub_plan_usecase
         self._load_last_ub_insights_uc = deps.load_last_ub_insights_usecase
+        self._action_controls_after_id: str | None = None
 
     @staticmethod
     def _workspace_root_from_path(path: pathlib.Path) -> pathlib.Path:
@@ -1105,6 +1106,33 @@ class MainWindowActionController:
 
         visible_actions = self._apply_toolbar_view_model(toolbar_vm)
         self.app.ui_state.visible_toolbar_actions = visible_actions
+
+    def schedule_action_controls_update(self, delay_ms: int = 80) -> None:
+        """Plant eine verzögerte Toolbar-Aktualisierung und verhindert unnötige Mehrfachaufrufe.
+
+        Wird vom Navigation-Fast-Path in `set_selected_cell()` genutzt, damit
+        `update_action_controls()` (das u.a. den System-Clipboard liest und
+        Domain-Queries ausführt) nicht bei jeder Tastenwiederholung synchron
+        blockiert. Läuft ein Aufruf noch aus, wird er zuvor abgebrochen und
+        durch diesen ersetzt (Debounce). 80 ms Verzögerung reicht, damit die
+        Tastenwiederholung eines gehaltenen Pfeils zu einem einzigen Aufruf
+        kollabiert, ohne dass der Nutzer eine spürbare Latenz wahrnimmt.
+
+        Args:
+            delay_ms: Wartezeit in Millisekunden bis zum tatsächlichen Aufruf.
+        """
+        if self._action_controls_after_id is not None:
+            try:
+                self.app.after_cancel(self._action_controls_after_id)
+            except Exception:
+                pass
+            self._action_controls_after_id = None
+        self._action_controls_after_id = self.app.after(delay_ms, self._run_scheduled_action_controls)
+
+    def _run_scheduled_action_controls(self) -> None:
+        """Führt den geplanten Toolbar-Update aus und löscht die Pending-ID."""
+        self._action_controls_after_id = None
+        self.update_action_controls()
 
     def _has_non_whitespace_clipboard_text(self) -> bool:
         try:
