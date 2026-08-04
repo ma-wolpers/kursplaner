@@ -344,7 +344,9 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     )
     sequence_plan_repo = FileSystemSequencePlanRepository()
     sync_sequence_export_table_usecase = SyncSequenceExportTableUseCase(sequence_plan_repo=sequence_plan_repo)
-    sync_topic_sequence_plans_usecase = SyncTopicSequencePlansUseCase(sequence_plan_repo=sequence_plan_repo)
+    sync_topic_sequence_plans_usecase = SyncTopicSequencePlansUseCase(
+        sequence_plan_repo=sequence_plan_repo, sequence_export_sync=sync_sequence_export_table_usecase
+    )
     update_sequence_goal_field_usecase = UpdateSequenceGoalFieldUseCase(sequence_plan_repo=sequence_plan_repo)
     export_topic_units_pdf_usecase = ExportTopicUnitsPdfUseCase(
         renderer=TopicUnitsPdfRenderer(), sequence_export_sync=sync_sequence_export_table_usecase

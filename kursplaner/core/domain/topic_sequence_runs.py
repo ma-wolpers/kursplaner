@@ -17,11 +17,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.export_date_formatting import format_day_date
+
 ELIGIBLE_SEQUENCE_TYPES = frozenset({"Unterricht", "LZK", "Hospitation"})
 """Stundentypen, die selbst ein Oberthema tragen und Teil einer Sequenz sein können."""
 
 SKIPPED_SEQUENCE_TYPES = frozenset({"Ausfall"})
 """Stundentypen, die eine laufende Sequenz weder fortsetzen noch unterbrechen."""
+
+EXPORTABLE_LESSON_TYPES = frozenset({"Unterricht", "LZK"})
+"""Stundentypen, die als eigene Zeile in der Sequenz-Export-Tabelle erscheinen."""
+
+EXPORT_TABLE_HEADERS: tuple[str, ...] = ("Datum", "Std.", "Thema", "Stundenziel", "Kompetenzen")
+"""Spaltenüberschriften der Sequenz-Export-Tabelle (manueller Export und Auto-Sync)."""
 
 
 def row_lesson_type(day: dict[str, object]) -> str:
@@ -190,3 +198,74 @@ def find_run_for_row_index(runs: list[TopicSequenceRun], row_index: int) -> Topi
         if row_index in run.member_row_indices:
             return run
     return None
+
+
+@dataclass(frozen=True)
+class TopicUnitExportRow:
+    """Eine exportierte Tabellenzeile eines Sequenz-Laufs."""
+
+    datum: str
+    stunden: str
+    thema: str
+    stundenziel: str
+    prozesskompetenzen: str
+
+
+def _format_competencies_text(value: object) -> str:
+    """Formatiert die Kompetenzen-Liste einer Einheit als Fließtext für den Export."""
+    if isinstance(value, list):
+        cleaned = [str(item).strip() for item in value if str(item).strip()]
+        return "; ".join(cleaned)
+    return str(value or "").strip()
+
+
+def build_export_rows_for_run(
+    day_columns: list[dict[str, object]], run: TopicSequenceRun
+) -> list[TopicUnitExportRow]:
+    """Baut die Exportzeilen ausschließlich aus den Mitgliedern eines Sequenz-Laufs.
+
+    Hospitations-Einheiten zählen als Kettenmitglied (siehe
+    `compute_topic_sequence_runs`), erscheinen aber wie bisher nicht als eigene
+    Tabellenzeile, da `EXPORTABLE_LESSON_TYPES` nur Unterricht/LZK umfasst.
+    Gemeinsam genutzt vom manuellen Sequenzplan-Export
+    (`ExportTopicUnitsPdfUseCase`) und dem automatischen Sequenzdatei-Sync
+    (`SyncTopicSequencePlansUseCase`), damit beide exakt dieselbe Tabelle
+    erzeugen und nicht unabhängig voneinander auseinanderdriften können.
+
+    Args:
+        day_columns: Vollständige, unprojizierte Tagesliste in chronologischer
+            Reihenfolge (z. B. `app.raw_day_columns`).
+        run: Der Sequenz-Lauf, dessen Mitglieder exportiert werden sollen.
+
+    Returns:
+        Eine Exportzeile pro exportierbarem Kettenmitglied, in chronologischer
+        Reihenfolge.
+    """
+    member_row_indices = set(run.member_row_indices)
+    rows: list[TopicUnitExportRow] = []
+    for day in day_columns:
+        if not isinstance(day, dict):
+            continue
+        try:
+            row_index = int(day.get("row_index", -1))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            continue
+        if row_index not in member_row_indices:
+            continue
+        if row_lesson_type(day) not in EXPORTABLE_LESSON_TYPES:
+            continue
+
+        yaml_data = day.get("yaml")
+        if not isinstance(yaml_data, dict):
+            continue
+
+        rows.append(
+            TopicUnitExportRow(
+                datum=format_day_date(day.get("datum", "")),
+                stunden=str(day.get("stunden", "")).strip(),
+                thema=str(yaml_data.get("Stundenthema", "")).strip(),
+                stundenziel=str(yaml_data.get("Stundenziel", "")).strip(),
+                prozesskompetenzen=_format_competencies_text(yaml_data.get("Kompetenzen", [])),
+            )
+        )
+    return rows

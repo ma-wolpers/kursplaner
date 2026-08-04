@@ -15,27 +15,19 @@ from datetime import date
 from pathlib import Path
 from typing import Protocol
 
-from kursplaner.core.domain.export_date_formatting import extract_term_token, format_day_date, schoolyear_from_term
+from kursplaner.core.domain.export_date_formatting import extract_term_token, schoolyear_from_term
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
-    TopicSequenceRun,
+    EXPORT_TABLE_HEADERS,
+    EXPORTABLE_LESSON_TYPES,
+    TopicUnitExportRow,
+    build_export_rows_for_run,
     compute_topic_sequence_runs,
     find_run_for_row_index,
     row_lesson_type,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
-
-
-@dataclass(frozen=True)
-class TopicUnitExportRow:
-    """Eine exportierte Tabellenzeile fuer den Sequenz-PDF-Report."""
-
-    datum: str
-    stunden: str
-    thema: str
-    stundenziel: str
-    prozesskompetenzen: str
 
 
 @dataclass(frozen=True)
@@ -81,9 +73,6 @@ class TopicUnitsPdfRendererPort(Protocol):
 class ExportTopicUnitsPdfUseCase:
     """Exportiert die zusammenhängende Sequenz einer ausgewählten Unterrichts- oder LZK-Einheit."""
 
-    _ALLOWED_TYPES = {"Unterricht", "LZK"}
-    _EXPORT_TABLE_HEADERS = ("Datum", "Std.", "Thema", "Stundenziel", "Kompetenzen")
-
     def __init__(self, *, renderer: TopicUnitsPdfRendererPort, sequence_export_sync: SyncSequenceExportTableUseCase):
         """Initialisiert den Use Case mit Renderer und Sequenzdatei-Synchronisation.
 
@@ -108,56 +97,6 @@ class ExportTopicUnitsPdfUseCase:
             except (TypeError, ValueError):
                 continue
         return None
-
-    @classmethod
-    def _process_competencies_text(cls, value: object) -> str:
-        """Formatiert die Kompetenzen-Liste einer Einheit als Fließtext."""
-        if isinstance(value, list):
-            cleaned = [str(item).strip() for item in value if str(item).strip()]
-            return "; ".join(cleaned)
-        return str(value or "").strip()
-
-    @classmethod
-    def _export_rows_for_run(
-        cls,
-        *,
-        day_columns: list[dict[str, object]],
-        run: TopicSequenceRun,
-    ) -> list[TopicUnitExportRow]:
-        """Baut die Exportzeilen ausschließlich aus den Mitgliedern eines Sequenz-Laufs.
-
-        Hospitations-Einheiten zählen als Kettenmitglied (siehe
-        `topic_sequence_runs`), erscheinen aber wie bisher nicht als eigene
-        Tabellenzeile, da `_ALLOWED_TYPES` nur Unterricht/LZK umfasst.
-        """
-        member_row_indices = set(run.member_row_indices)
-        rows: list[TopicUnitExportRow] = []
-        for day in day_columns:
-            if not isinstance(day, dict):
-                continue
-            try:
-                row_index = int(day.get("row_index", -1))  # type: ignore[arg-type]
-            except (TypeError, ValueError):
-                continue
-            if row_index not in member_row_indices:
-                continue
-            if row_lesson_type(day) not in cls._ALLOWED_TYPES:
-                continue
-
-            yaml_data = day.get("yaml")
-            if not isinstance(yaml_data, dict):
-                continue
-
-            rows.append(
-                TopicUnitExportRow(
-                    datum=format_day_date(day.get("datum", "")),
-                    stunden=str(day.get("stunden", "")).strip(),
-                    thema=str(yaml_data.get("Stundenthema", "")).strip(),
-                    stundenziel=str(yaml_data.get("Stundenziel", "")).strip(),
-                    prozesskompetenzen=cls._process_competencies_text(yaml_data.get("Kompetenzen", [])),
-                )
-            )
-        return rows
 
     def execute(
         self,
@@ -193,7 +132,7 @@ class ExportTopicUnitsPdfUseCase:
             raise RuntimeError("Es ist keine gueltige Einheit ausgewaehlt.")
 
         selected_type = row_lesson_type(selected_day)
-        if selected_type not in self._ALLOWED_TYPES:
+        if selected_type not in EXPORTABLE_LESSON_TYPES:
             raise RuntimeError("Der Export ist nur fuer Unterrichts- oder LZK-Einheiten verfuegbar.")
 
         runs = compute_topic_sequence_runs(day_columns)
@@ -201,7 +140,7 @@ class ExportTopicUnitsPdfUseCase:
         if run is None or not run.oberthema:
             raise RuntimeError("Die ausgewaehlte Einheit hat kein Oberthema.")
 
-        rows = self._export_rows_for_run(day_columns=day_columns, run=run)
+        rows = build_export_rows_for_run(day_columns, run)
         if not rows:
             raise RuntimeError("Keine Einheiten fuer das ausgewaehlte Oberthema gefunden.")
 
@@ -218,7 +157,7 @@ class ExportTopicUnitsPdfUseCase:
         sync_result = self._sequence_export_sync.execute(
             table=table,
             oberthema=run.oberthema,
-            headers=list(self._EXPORT_TABLE_HEADERS),
+            headers=list(EXPORT_TABLE_HEADERS),
             rows=export_rows,
         )
 

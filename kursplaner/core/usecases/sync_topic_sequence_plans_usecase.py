@@ -6,6 +6,12 @@ Sequenz-Dateiablage (`SequencePlanRepository`): für jeden erkannten Lauf von
 mindestens zwei benachbarten, gleichthematischen Einheiten wird sichergestellt,
 dass eine Sequenzdatei existiert, und deren aktuelles Sequenzziel/Leitkompetenz
 wird für die Grid-Anzeige geladen.
+
+Hält zusätzlich die `## Export`-Tabelle jeder Sequenzdatei aktuell (dieselbe
+Zeilenlogik wie beim manuellen "Exportieren als..." über
+`ExportTopicUnitsPdfUseCase`/`SyncSequenceExportTableUseCase`), damit eine
+Sequenz-md schon bei jedem automatischen Sync die aktuell zugehörigen
+Einheiten zeigt, statt nur nach einem manuell ausgelösten Export.
 """
 
 from __future__ import annotations
@@ -14,8 +20,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun, compute_topic_sequence_runs
+from kursplaner.core.domain.topic_sequence_runs import (
+    EXPORT_TABLE_HEADERS,
+    TopicSequenceRun,
+    build_export_rows_for_run,
+    compute_topic_sequence_runs,
+)
 from kursplaner.core.ports.repositories import SequencePlanRepository
+from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 
 MIN_SEQUENCE_MEMBER_COUNT = 2
 """Mindestanzahl an Kettenmitgliedern, ab der ein Lauf als "Sequenz" gilt."""
@@ -52,14 +64,22 @@ class SyncTopicSequencePlansUseCase:
     bereits existierender Datei ein günstiger Dateisystem-Check).
     """
 
-    def __init__(self, sequence_plan_repo: SequencePlanRepository) -> None:
-        """Initialisiert den Use Case mit dem Sequenzdatei-Repository.
+    def __init__(
+        self,
+        sequence_plan_repo: SequencePlanRepository,
+        sequence_export_sync: SyncSequenceExportTableUseCase,
+    ) -> None:
+        """Initialisiert den Use Case mit Sequenzdatei-Repository und Export-Sync.
 
         Args:
             sequence_plan_repo: Repository für Lebenszyklus und Inhalt der
                 persistenten Sequenz-Markdown-Dateien.
+            sequence_export_sync: Use Case, der die Export-Tabelle einer
+                Sequenzdatei mit derselben Zeilenlogik aktuell hält wie der
+                manuelle Sequenzplan-Export.
         """
         self._sequence_plan_repo = sequence_plan_repo
+        self._sequence_export_sync = sequence_export_sync
 
     def execute(
         self, *, table: PlanTableData, day_columns: list[dict[str, object]]
@@ -83,10 +103,28 @@ class SyncTopicSequencePlansUseCase:
         for run in runs:
             if run.member_count < MIN_SEQUENCE_MEMBER_COUNT:
                 continue
-            sequence_path = self._sequence_plan_repo.ensure_sequence_document(
-                table=table, sequence_name=run.oberthema
-            )
-            sequenzziel, leitkompetenz = self._sequence_plan_repo.read_goal_and_focus_competency(sequence_path)
+
+            export_rows = build_export_rows_for_run(day_columns, run)
+            if export_rows:
+                rows = [
+                    [row.datum, row.stunden, row.thema, row.stundenziel, row.prozesskompetenzen]
+                    for row in export_rows
+                ]
+                sync_result = self._sequence_export_sync.execute(
+                    table=table,
+                    oberthema=run.oberthema,
+                    headers=list(EXPORT_TABLE_HEADERS),
+                    rows=rows,
+                )
+                sequence_path = sync_result.sequence_path
+                sequenzziel = sync_result.sequenzziel
+                leitkompetenz = sync_result.leitkompetenz
+            else:
+                sequence_path = self._sequence_plan_repo.ensure_sequence_document(
+                    table=table, sequence_name=run.oberthema
+                )
+                sequenzziel, leitkompetenz = self._sequence_plan_repo.read_goal_and_focus_competency(sequence_path)
+
             views.append(
                 TopicSequencePlanView(
                     run=run,
