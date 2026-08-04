@@ -57,19 +57,29 @@ def row_lesson_type(day: dict[str, object]) -> str:
 
 
 def row_oberthema(day: dict[str, object]) -> str:
-    """Liest das Oberthema einer Tages-Spalte aus deren YAML-Daten.
+    """Liest das Oberthema einer Tages-Spalte.
+
+    Bevorzugt das YAML-Feld `Oberthema` der verlinkten Stunden-Datei. Existiert
+    noch keine verlinkte Datei (leere/ungeplante Einheit), fällt die Erkennung
+    auf `day["plan_oberthema"]` zurück — das aus der rohen `Thema/Ausfall`-Spalte
+    der Plantabelle geparste Oberthema (siehe
+    `load_plan_detail_usecase.build_day_columns`/`plan_table.extract_plan_oberthema`).
+    Damit zählen auch noch nicht angelegte Einheiten, die in der Plantabelle
+    bereits einem Oberthema zugeordnet sind, als Kettenmitglied.
 
     Args:
         day: Eintrag aus einer Tagesliste (z. B. `raw_day_columns`).
 
     Returns:
         Der getrimmte Oberthema-Text oder ein leerer String, wenn keines
-        gesetzt ist bzw. keine YAML-Daten vorliegen.
+        gesetzt ist.
     """
     yaml_data = day.get("yaml")
-    if not isinstance(yaml_data, dict):
-        return ""
-    return str(yaml_data.get("Oberthema", "")).strip()
+    if isinstance(yaml_data, dict):
+        oberthema = str(yaml_data.get("Oberthema", "")).strip()
+        if oberthema:
+            return oberthema
+    return str(day.get("plan_oberthema", "")).strip()
 
 
 def _row_index(day: dict[str, object]) -> int:

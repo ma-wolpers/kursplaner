@@ -13,7 +13,7 @@ from kursplaner.core.domain.content_markers import (
     resolve_row_cancel_state,
 )
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml, infer_stundentyp
-from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
+from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData, extract_plan_oberthema
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
@@ -181,6 +181,14 @@ class LoadPlanDetailUseCase:
         Der Spalten-Header (``header_content``) wird bevorzugt aus dem YAML-Feld
         ``Stundenthema`` befüllt, da Einheits-Dateinamen nun kryptische 6-Zeichen-
         Codes sind und keinen lesbaren Titel enthalten.
+
+        Jeder Eintrag trägt zusätzlich ``plan_oberthema``: das aus der rohen
+        ``Thema/Ausfall``-Zelle geparste Oberthema (siehe `extract_plan_oberthema`).
+        Das ist die einzige Oberthema-Quelle für Einheiten ohne verlinkte
+        Stunden-Datei (noch kein ``yaml["Oberthema"]`` vorhanden); Aufrufer, die
+        das angezeigte/fachliche Oberthema einer Spalte brauchen, sollen
+        ``yaml["Oberthema"]`` bevorzugen und erst dann auf ``plan_oberthema``
+        zurückfallen.
         """
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum", 0)
@@ -244,6 +252,8 @@ class LoadPlanDetailUseCase:
             if lesson_type == "Unterricht":
                 is_unterricht = True
 
+            plan_oberthema = extract_plan_oberthema(thema_ausfall, group_name)
+
             stundenthema = str(yaml_data.get("Stundenthema", "")).strip()
             thema_text = str(thema_ausfall).strip()
             if stundenthema:
@@ -270,6 +280,7 @@ class LoadPlanDetailUseCase:
                     "is_ub": bool(str(yaml_data.get("Unterrichtsbesuch", "")).strip()),
                     "is_valid_unterricht_file": valid_unterricht_link,
                     "yaml": yaml_data,
+                    "plan_oberthema": plan_oberthema,
                     "Stundentyp": lesson_type,
                     "content_marker_text": marker_text,
                     "header_content": header_content,
