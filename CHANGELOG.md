@@ -7,6 +7,10 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Fixed
+- Kursübersicht zeigt bei "Nächste Einheit" jetzt zuverlässig die tatsächlich nächste stattfindende Einheit statt gelegentlich ein Ferien-/Ausfalldatum: Ausfall-/Ferienerkennung liest wieder die richtige `Thema/Ausfall`-Spalte statt der seit der 4-Spalten-Migration nur noch Links tragenden `Inhalt`-Spalte. Betroffen war auch die "Als Ausfall markieren"-Aktion selbst (schrieb den Ausfallgrund in die falsche Spalte, sichtbar wurde das nur bei Einheiten ohne bereits verlinkte Stunden-Datei) sowie das Verschieben bestehender Einheiten (`shift_existing_lessons_forward` konnte eine Einheit versehentlich in eine Ferien-/Ausfallzeile schieben).
+- Sequenz-Markdown-Dateien tracken ihre zugehörigen Einheiten jetzt automatisch am Ende (`## Export`-Abschnitt) bei jedem Neuladen des Kursplans, nicht mehr nur nach manuellem "Exportieren als...".
+- Leere, noch nicht angelegte Einheiten zeigen jetzt ein Oberthema, wenn die Kurstabelle ihnen bereits eines zugeordnet hat, und zählen entsprechend zu ihrer Sequenz.
+- Rauszoomen im Kursplaner (Strg+Mausrad) baut das Grid nicht mehr bei jedem einzelnen Scroll-Tick sofort komplett neu auf; mehrfaches schnelles Scrollen sammelt sich jetzt zu einem einzigen Rebuild, sobald das Scrollen pausiert.
 - UB-Mark dialog now keeps at least one UB type selected: empty initial selections default to `Paedagogik`, and saving with no selected type is blocked with an error prompt.
 - Course selection no longer opens an empty mini popout: parent/transient dialog calls now resolve to the real Tk root path when the app runs through `TkRootHost`, so opening a course reliably switches to detail view.
 - Stundenziel/Kompetenzen popup dialogs are interactive again: popup-owner parent/transient resolution now points to a valid Tk window path, restoring typing, apply/save actions, and popup-local shortcut handling.
