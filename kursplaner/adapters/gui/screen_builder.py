@@ -638,8 +638,8 @@ class ScreenBuilder:
         self._bind_runtime_shortcut("<End>", self._on_end, binding_id="grid.end", intent=UiIntent.GRID_END, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<Delete>", self._on_grid_delete, binding_id="grid.delete", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<BackSpace>", self._on_grid_delete, binding_id="grid.delete.backspace", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Control-Return>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW,), allow_when_text_input=True)
-        self._bind_runtime_shortcut("<Control-KP_Enter>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter-numpad", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW,), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Control-Return>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Control-KP_Enter>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter-numpad", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
         self._bind_runtime_shortcut("<Escape>", self._on_escape, binding_id="global.escape", intent=UiIntent.SHORTCUT_ESCAPE, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG), allow_when_text_input=True)
         self._bind_runtime_shortcut("<Button-1>", self._on_global_click_commit_cell, binding_id="global.click-commit", intent=UiIntent.GLOBAL_CLICK_COMMIT_CELL, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW), add="+")
         self._bind_runtime_shortcut(

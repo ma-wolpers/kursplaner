@@ -475,7 +475,7 @@ class MainWindowUiIntentController:
         has_popup = ScrollablePopupWindow.has_active_popup()
         focused = self.app.focus_get()
         detail_active = bool(getattr(self.app, "is_detail_view", False))
-        has_inline_editor = detail_active or isinstance(focused, ui.Text)
+        has_inline_editor = self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_EDIT or isinstance(focused, ui.Text)
         has_parent_state = detail_active
 
         action = self._hsm_contract.resolve_escape_action(

@@ -22,6 +22,8 @@ The format is based on Keep a Changelog.
 - **UB-Dateinamen vereinfacht**: Unterrichtsbesuch-Dateien heißen jetzt ``ub yy-mm-dd.md`` statt ``UB yy-mm-dd Einheitstitel.md``. Der Titel wird nicht mehr im Dateinamen kodiert, um Link-Drift bei Titeländerungen zu verhindern. ``build_ub_stem`` nimmt nur noch das Datum als Argument. Alle ``Unterrichtsbesuch``-Links in Einheitendateien und die ``UB Übersicht`` wurden via ``tools/migrate_ub_filenames.py`` aktualisiert.
 
 ### Fixed
+- Strg+Enter verlässt jetzt zuverlässig den Bearbeitungsmodus einer Grid-Zelle (Inhalt wird gespeichert, Auswahl springt zurück auf einfache Zellselektion) — vorher hatte der Shortcut während des Tippens keine Wirkung.
+- Escape wird während des Ladens eines Kursplans nicht mehr verschluckt: vorher konnte ein Escape-Tastendruck, während der Lade-Hinweis sichtbar war, spurlos verpuffen, ohne die Auswahl (Zelle → Spalte → Kurs) eine Stufe zurückzusetzen.
 - Sequenzziel-/Leitkompetenz-Zeile wird durch ausgeblendete Spaltenarten ("Spaltenarten…") nicht mehr unterbrochen: die spannende Zelle zieht sich jetzt über die schmale Marker-Spalte hinweg statt in zwei getrennte Zellen zu zerfallen.
 - "Zeilenfelder…" blendet "Inhalt" jetzt auch bei Einheiten ohne verlinkte Stunden-Datei zuverlässig aus (vorher wurde der Zeilenfilter für "Inhalt"/"Stunden" bei solchen Tagen ignoriert).
 - Oberthema lässt sich bei leeren, noch nicht angelegten Einheiten jetzt direkt im Grid anzeigen und eingeben — der Wert wird in die `Thema/Ausfall`-Zelle der Kurstabelle geschrieben, ohne dass zuerst eine Stunden-Datei angelegt werden muss.
