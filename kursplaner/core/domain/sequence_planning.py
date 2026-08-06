@@ -67,6 +67,18 @@ def sequence_directory_for_plan(table: PlanTableData) -> Path:
     return table.markdown_path.parent / SEQUENCE_DIR_NAME
 
 
+def list_sequence_document_paths(directory: Path) -> list[Path]:
+    """Listet vorhandene Sequenz-Markdown-Dateien in einem Sequenzen-Verzeichnis.
+
+    Geteilte Enumerationslogik für `FileSystemSequencePlanRepository` und
+    `RebuildFileRelationRegistryUseCase`, die beide "welche Sequenzdateien
+    gehören zu diesem Kursplan" beantworten müssen.
+    """
+    if not directory.exists() or not directory.is_dir():
+        return []
+    return sorted((p for p in directory.glob("*.md") if p.is_file()), key=lambda p: p.name.lower())
+
+
 def course_plan_wiki_link(table: PlanTableData) -> str:
     """Build the ``Kursplan`` wiki-link value for sequence frontmatter."""
     return build_wiki_link(table.markdown_path.stem)

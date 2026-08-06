@@ -110,3 +110,82 @@ def test_auto_sync_writes_export_table_without_manual_export(tmp_path):
     assert "Vigenere" in content
     assert "13.02.2026" in content
     assert "20.02.2026" in content
+
+
+def test_cleared_oberthema_removes_unit_from_export_table(tmp_path):
+    """Regression: Löschen des Oberthemas einer Einheit muss sie aus der
+    Sequenz-md entfernen, auch wenn der Lauf dadurch unter die Mindestgröße
+    fällt (Bugreport: Einheit blieb bisher in der Export-Tabelle stehen)."""
+    repo = FileSystemSequencePlanRepository()
+    usecase = _usecase(repo)
+    table = _table(tmp_path)
+
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+    ]
+    first_views = usecase.execute(table=table, day_columns=day_columns)
+    sequence_path = first_views[0].sequence_path
+    repo.write_goal_and_focus_competency(
+        sequence_path=sequence_path, sequenzziel="Verschlüsselungen verstehen", leitkompetenz="Modellieren"
+    )
+    assert "Caesar" in sequence_path.read_text(encoding="utf-8")
+
+    # Oberthema der ersten Einheit wird gelöscht -> Lauf schrumpft auf 1 Mitglied.
+    day_columns_after_clear = [
+        _day(row_index=0, kind="Unterricht", obert="", datum="13-02-26", stunden="2", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+    ]
+
+    views = usecase.execute(table=table, day_columns=day_columns_after_clear)
+
+    assert views == []
+    content = sequence_path.read_text(encoding="utf-8")
+    assert "Caesar" not in content
+    assert "Vigenere" not in content
+    # Datei bleibt erhalten, da Sequenzziel/Leitkompetenz noch gesetzt sind (nicht trivial).
+    assert sequence_path.exists()
+
+
+def test_cleared_oberthema_deletes_file_when_it_becomes_fully_trivial(tmp_path):
+    """Wird eine Sequenzdatei durch das Bereinigen komplett inhaltsleer
+    (kein Sequenzziel/Leitkompetenz/Brainstorming), wird sie gelöscht."""
+    repo = FileSystemSequencePlanRepository()
+    usecase = _usecase(repo)
+    table = _table(tmp_path)
+
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+    ]
+    first_views = usecase.execute(table=table, day_columns=day_columns)
+    sequence_path = first_views[0].sequence_path
+
+    day_columns_after_clear = [
+        _day(row_index=0, kind="Unterricht", obert="", datum="13-02-26", stunden="2", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="", datum="20-02-26", stunden="2", thema="Vigenere"),
+    ]
+
+    views = usecase.execute(table=table, day_columns=day_columns_after_clear)
+
+    assert views == []
+    assert not sequence_path.exists()
+
+
+def test_sync_ignores_sequence_documents_whose_run_still_qualifies(tmp_path):
+    """Läuft ein Sequenzname weiterhin qualifiziert, darf die Bereinigung ihn
+    nicht anfassen (Abgrenzung: nur tatsächlich verwaiste Dateien werden geprüft)."""
+    repo = FileSystemSequencePlanRepository()
+    usecase = _usecase(repo)
+    table = _table(tmp_path)
+
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+    ]
+
+    views = usecase.execute(table=table, day_columns=day_columns)
+    sequence_path = views[0].sequence_path
+    content = sequence_path.read_text(encoding="utf-8")
+    assert "Caesar" in content
+    assert "Vigenere" in content

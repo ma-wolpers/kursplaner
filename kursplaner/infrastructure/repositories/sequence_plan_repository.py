@@ -10,6 +10,7 @@ from kursplaner.core.domain.sequence_planning import (
     build_sequence_stem,
     course_plan_wiki_link,
     extract_halfyear_token_from_table,
+    list_sequence_document_paths,
     sequence_directory_for_plan,
 )
 from kursplaner.core.domain.yaml_registry import SEQUENCE_PLAN_SCHEMA, parse_yaml_frontmatter
@@ -109,6 +110,24 @@ class FileSystemSequencePlanRepository:
         ]
         atomic_write_text(target_path, "\n".join(lines).rstrip() + "\n", encoding="utf-8")
         return target_path
+
+    def list_sequence_documents(self, table: PlanTableData) -> list[Path]:
+        """Listet alle vorhandenen Sequenz-Markdown-Dateien dieses Kursplans."""
+        return list_sequence_document_paths(sequence_directory_for_plan(table))
+
+    def read_sequence_name(self, sequence_path: Path) -> str:
+        """Liest den `Sequenzname`-Frontmatter-Wert einer Sequenzdatei.
+
+        Wirft wie die übrigen Lesemethoden dieser Klasse (`read_goal_and_focus_competency`,
+        `write_goal_and_focus_competency`) bei fehlendem/kaputtem Frontmatter durch —
+        kein abweichendes Fehlerverhalten nur für diese eine Methode einführen. Der
+        `Sequenzen/`-Ordner enthält per Konstruktion ausschließlich über
+        `ensure_sequence_document()` erzeugte, schema-konforme Dateien.
+        """
+        path = sequence_path.expanduser().resolve()
+        text = path.read_text(encoding="utf-8")
+        data, _ = parse_yaml_frontmatter(text, SEQUENCE_PLAN_SCHEMA, source_label=str(path))
+        return self._coerce_frontmatter_text(data.get("Sequenzname", ""))
 
     def read_brainstorming(self, sequence_path: Path) -> str:
         """Read the editable brainstorming section from a sequence markdown file."""
@@ -263,3 +282,48 @@ class FileSystemSequencePlanRepository:
 
         new_lines = ["---"] + frontmatter_body + lines[closing_index:]
         atomic_write_text(path, "\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
+
+    def is_trivial(self, sequence_path: Path) -> bool:
+        """Prüft, ob eine Sequenzdatei außer Struktur keinen echten Inhalt trägt.
+
+        "Inhalt" umfasst Brainstorming-Text, Sequenzziel, Leitkompetenz und
+        Export-Tabellenzeilen. Frontmatter-Metadaten (Sequenzname, Lerngruppe,
+        Halbjahr, Kursplan-Link) und die Titelzeile zählen nicht, da sie beim
+        Anlegen immer gesetzt werden und für sich keinen fachlichen Inhalt tragen.
+
+        Args:
+            sequence_path: Pfad der zu prüfenden Sequenz-Markdown-Datei.
+
+        Returns:
+            True, wenn die Datei existiert und keinen der obigen Inhalte trägt;
+            False bei nicht-existenter Datei oder vorhandenem Inhalt.
+        """
+        path = sequence_path.expanduser().resolve()
+        if not path.exists():
+            return False
+        if self.read_brainstorming(path).strip():
+            return False
+        sequenzziel, leitkompetenz = self.read_goal_and_focus_competency(path)
+        if sequenzziel.strip() or leitkompetenz.strip():
+            return False
+        lines = path.read_text(encoding="utf-8").splitlines()
+        blocks = self._extract_table_blocks(lines)
+        if blocks:
+            start, end = blocks[-1]
+            if end - start + 1 > 2:  # mehr als Header- + Trennzeile
+                return False
+        return True
+
+    def delete_if_trivial(self, sequence_path: Path) -> bool:
+        """Löscht eine Sequenzdatei, wenn `is_trivial()` keinen Inhalt mehr findet.
+
+        Args:
+            sequence_path: Pfad der zu prüfenden/ggf. zu löschenden Sequenzdatei.
+
+        Returns:
+            True, wenn die Datei gelöscht wurde.
+        """
+        if not self.is_trivial(sequence_path):
+            return False
+        sequence_path.expanduser().resolve().unlink(missing_ok=True)
+        return True

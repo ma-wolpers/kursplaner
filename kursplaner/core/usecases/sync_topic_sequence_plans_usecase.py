@@ -62,6 +62,16 @@ class SyncTopicSequencePlansUseCase:
     Sichtbarkeits-Toggles), damit neu entstandene Sequenzen sofort eine
     Sequenzdatei erhalten (`ensure_sequence_document` ist idempotent und bei
     bereits existierender Datei ein günstiger Dateisystem-Check).
+
+    Bereinigt außerdem bei jedem Durchlauf Sequenzdateien, deren Lauf nicht
+    mehr existiert oder unter `MIN_SEQUENCE_MEMBER_COUNT` gefallen ist (z. B.
+    weil das Oberthema einer Einheit gelöscht oder geändert wurde). Der
+    Abgleich prüft dafür zustandslos die tatsächlich im `Sequenzen/`-Ordner
+    vorhandenen Dateien gegen die aktuell berechneten Läufe — kein
+    gemerkter "letzter Zustand", der von der Realität abweichen könnte.
+    Das deckt jede Änderungsart ab (Zell-Edit, Merge, Split, Ausfall-
+    Konvertierung, Undo/Redo, …), da praktisch jede schreibende Aktion vor
+    dem nächsten Grid-Rebuild wieder hier landet.
     """
 
     def __init__(
@@ -100,9 +110,11 @@ class SyncTopicSequencePlansUseCase:
         """
         runs = compute_topic_sequence_runs(day_columns)
         views: list[TopicSequencePlanView] = []
+        synced_oberthemen: set[str] = set()
         for run in runs:
             if run.member_count < MIN_SEQUENCE_MEMBER_COUNT:
                 continue
+            synced_oberthemen.add(run.oberthema)
 
             export_rows = build_export_rows_for_run(day_columns, run)
             if export_rows:
@@ -133,4 +145,25 @@ class SyncTopicSequencePlansUseCase:
                     leitkompetenz=leitkompetenz,
                 )
             )
+
+        self._prune_stale_sequence_documents(table=table, synced_oberthemen=synced_oberthemen)
         return views
+
+    def _prune_stale_sequence_documents(self, *, table: PlanTableData, synced_oberthemen: set[str]) -> None:
+        """Leert/löscht Sequenzdateien, deren Lauf gerade nicht mehr qualifiziert.
+
+        Prüft jede tatsächlich im `Sequenzen/`-Ordner vorhandene Datei (nicht
+        einen gemerkten Vorherzustand) gegen `synced_oberthemen`: fehlt ihr
+        `Sequenzname` dort, hat ihr Lauf entweder aufgehört zu existieren oder
+        ist unter `MIN_SEQUENCE_MEMBER_COUNT` gefallen — die Export-Tabelle
+        wird geleert, und die Datei wird gelöscht, wenn sie danach laut
+        `is_trivial()` keinen Inhalt mehr trägt.
+        """
+        for sequence_path in self._sequence_plan_repo.list_sequence_documents(table):
+            sequence_name = self._sequence_plan_repo.read_sequence_name(sequence_path)
+            if not sequence_name or sequence_name in synced_oberthemen:
+                continue
+            self._sequence_export_sync.execute(
+                table=table, oberthema=sequence_name, headers=list(EXPORT_TABLE_HEADERS), rows=[]
+            )
+            self._sequence_plan_repo.delete_if_trivial(sequence_path)

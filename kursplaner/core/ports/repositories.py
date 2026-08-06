@@ -590,6 +590,22 @@ class SequencePlanRepository(Protocol):
         """Create a sequence markdown file when it is missing and return its path."""
         ...
 
+    def list_sequence_documents(self, table: PlanTableData) -> list[Path]:
+        """List all sequence markdown files that currently exist for one course plan."""
+        ...
+
+    def read_sequence_name(self, sequence_path: Path) -> str:
+        """Read the ``Sequenzname`` frontmatter field of a sequence file."""
+        ...
+
+    def is_trivial(self, sequence_path: Path) -> bool:
+        """Check whether a sequence file carries no content beyond its structural scaffolding."""
+        ...
+
+    def delete_if_trivial(self, sequence_path: Path) -> bool:
+        """Delete a sequence file if ``is_trivial`` finds no content left; return whether deleted."""
+        ...
+
     def read_brainstorming(self, sequence_path: Path) -> str:
         """Read the editable brainstorming section from a sequence markdown file."""
         ...

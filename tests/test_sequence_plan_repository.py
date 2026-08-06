@@ -124,3 +124,85 @@ def test_write_goal_and_focus_competency_round_trips_and_preserves_rest_of_file(
     updated_sequenzziel, _ = repo.read_goal_and_focus_competency(sequence_path)
     assert updated_sequenzziel == "Geänderter Text"
     assert sequence_path.read_text(encoding="utf-8").count("Sequenzziel:") == 1
+
+
+def _plan_with_two_sequences(tmp_path):
+    plan_dir = tmp_path / "Unterricht" / "M GK blau-1 26-2"
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    plan_path = plan_dir / "M GK blau-1 26-2.md"
+    plan_path.write_text("# Kursplan\n", encoding="utf-8")
+    table = _build_table(plan_path)
+    repo = FileSystemSequencePlanRepository()
+    return repo, table
+
+
+def test_list_sequence_documents_and_read_sequence_name(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+
+    path_a = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
+    path_b = repo.ensure_sequence_document(table=table, sequence_name="Kodierung")
+
+    documents = repo.list_sequence_documents(table)
+    assert sorted(documents) == sorted([path_a, path_b])
+    assert repo.read_sequence_name(path_a) == "Lineare Funktionen"
+    assert repo.read_sequence_name(path_b) == "Kodierung"
+
+
+def test_list_sequence_documents_returns_empty_list_when_directory_missing(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+
+    assert repo.list_sequence_documents(table) == []
+
+
+def test_freshly_created_sequence_document_is_trivial(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+    sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
+
+    assert repo.is_trivial(sequence_path) is True
+
+
+def test_sequence_document_with_export_rows_is_not_trivial(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+    sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
+
+    table_lines = repo.render_markdown_table(headers=["Datum"], rows=[["10-03-26"]])
+    repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
+
+    assert repo.is_trivial(sequence_path) is False
+
+
+def test_sequence_document_with_only_brainstorming_is_not_trivial(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+    sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
+
+    repo.write_brainstorming(sequence_path=sequence_path, brainstorming_text="Idee A")
+
+    assert repo.is_trivial(sequence_path) is False
+
+
+def test_sequence_document_with_only_goal_is_not_trivial(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+    sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
+
+    repo.write_goal_and_focus_competency(sequence_path=sequence_path, sequenzziel="Ziel", leitkompetenz="")
+
+    assert repo.is_trivial(sequence_path) is False
+
+
+def test_delete_if_trivial_removes_empty_file_but_keeps_non_trivial_one(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+    trivial_path = repo.ensure_sequence_document(table=table, sequence_name="Leerlauf")
+    non_trivial_path = repo.ensure_sequence_document(table=table, sequence_name="Belegt")
+    repo.write_brainstorming(sequence_path=non_trivial_path, brainstorming_text="Idee A")
+
+    assert repo.delete_if_trivial(trivial_path) is True
+    assert not trivial_path.exists()
+
+    assert repo.delete_if_trivial(non_trivial_path) is False
+    assert non_trivial_path.exists()
+
+
+def test_delete_if_trivial_on_missing_file_returns_false(tmp_path):
+    repo, table = _plan_with_two_sequences(tmp_path)
+
+    assert repo.delete_if_trivial(table.markdown_path.parent / "Sequenzen" / "Ghost.md") is False

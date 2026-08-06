@@ -10,7 +10,7 @@ from kursplaner.core.domain.file_relation_registry import (
     unique_sorted_paths,
     utc_timestamp,
 )
-from kursplaner.core.domain.sequence_planning import SEQUENCE_DIR_NAME
+from kursplaner.core.domain.sequence_planning import SEQUENCE_DIR_NAME, list_sequence_document_paths
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_ROOT_RELATIVE_PARTS
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import (
@@ -48,12 +48,7 @@ class RebuildFileRelationRegistryUseCase:
     @staticmethod
     def _sequence_paths_for_plan(plan_markdown_path: Path) -> list[Path]:
         sequence_dir = plan_markdown_path.parent / SEQUENCE_DIR_NAME
-        if not sequence_dir.exists() or not sequence_dir.is_dir():
-            return []
-        return sorted(
-            [path.resolve() for path in sequence_dir.glob("*.md") if path.is_file()],
-            key=lambda item: item.name.lower(),
-        )
+        return [path.resolve() for path in list_sequence_document_paths(sequence_dir)]
 
     @staticmethod
     def _ub_path_from_stem(*, plan_markdown_path: Path, ub_stem: str) -> Path:
