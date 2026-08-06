@@ -112,7 +112,7 @@ class MarkUnitAsUbUseCase:
 
         ub_path = self._resolve_existing_ub_path(workspace_root, lesson_data)
         if ub_path is None:
-            desired_stem = build_ub_stem(date_text, unit_title)
+            desired_stem = build_ub_stem(date_text)
             ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_stem)
 
         existing_steps: list[str] = []

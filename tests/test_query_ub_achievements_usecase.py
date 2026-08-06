@@ -8,7 +8,7 @@ from kursplaner.core.usecases.query_ub_achievements_usecase import QueryUbAchiev
 
 class _FakeUbRepo:
     def __init__(self, rows: list[tuple[list[str], bool]], paths: list[Path] | None = None):
-        self._paths = paths or [Path(f"UB 20-01-{idx + 1:02d} Test.md") for idx, _ in enumerate(rows)]
+        self._paths = paths or [Path(f"ub 20-01-{idx + 1:02d}.md") for idx, _ in enumerate(rows)]
         self._rows = rows
 
     def list_ub_markdown_files(self, _workspace_root: Path) -> list[Path]:
@@ -99,8 +99,8 @@ def test_query_ub_achievements_counts_only_strict_past_dates():
         (["Pädagogik", "Mathematik"], False),
     ]
     paths = [
-        Path("UB 26-03-30 Bereits durchgeführt.md"),
-        Path("UB 26-04-01 Zukünftig.md"),
+        Path("ub 26-03-30.md"),
+        Path("ub 26-04-01.md"),
     ]
     repo = _FakeUbRepo(rows, paths=paths)
     usecase = QueryUbAchievementsUseCase(ub_repo=cast(UbRepository, repo))
@@ -118,7 +118,7 @@ def test_query_ub_achievements_excludes_same_day_before_cutoff():
     rows = [
         (["Pädagogik", "Mathematik"], False),
     ]
-    paths = [Path("UB 26-04-10 Heute.md")]
+    paths = [Path("ub 26-04-10.md")]
     repo = _FakeUbRepo(rows, paths=paths)
     usecase = QueryUbAchievementsUseCase(
         ub_repo=cast(UbRepository, repo),
@@ -136,7 +136,7 @@ def test_query_ub_achievements_includes_same_day_after_cutoff():
     rows = [
         (["Pädagogik", "Mathematik"], False),
     ]
-    paths = [Path("UB 26-04-10 Heute.md")]
+    paths = [Path("ub 26-04-10.md")]
     repo = _FakeUbRepo(rows, paths=paths)
     usecase = QueryUbAchievementsUseCase(
         ub_repo=cast(UbRepository, repo),

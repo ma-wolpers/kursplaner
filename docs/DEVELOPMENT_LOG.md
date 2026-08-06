@@ -8,6 +8,15 @@ Regel:
 
 ## [Unreleased]
 
+### Changed
+
+- **UB-Dateinamen-Format vereinfacht** (2026-08-06): Unterrichtsbesuch-Dateien verwenden jetzt das Format ``ub yy-mm-dd`` (ohne Titel, Kleinbuchstaben). Motivation: Titeländerungen einer Unterrichtseinheit führten bisher zur Namens-Drift zwischen dem Einheitenstamm und dem zugehörigen UB-Stamm.
+  - `kursplaner/core/domain/unterrichtsbesuch_policy.py`: Neuer `UbStem`-Dataclass als Value Object (Single Source of Truth für das UB-Stemformat). `build_ub_stem(date_text)` ist nun einparametrig (ohne Titel). `parse_ub_date_from_stem` delegiert an `UbStem.parse()` und akzeptiert nur noch das neue Kleinbuchstaben-Format.
+  - `kursplaner/core/usecases/mark_unit_as_ub_usecase.py`, `paste_lesson_usecase.py`, `rename_linked_file_for_row_usecase.py`: `build_ub_stem`-Aufrufe um den Titelparameter bereinigt. `_topic_from_lesson_stem` in `RenameLinkedFileForRowUseCase` entfernt (war nur für den UB-Titelextrakt nötig).
+  - `kursplaner/infrastructure/repositories/ub_repository.py`: Fallback-Stem in `unique_ub_markdown_path` auf `"ub 00-00-00"` angepasst.
+  - `tools/migrate_ub_filenames.py` (neu): Einmaliges Migrationsskript, das 10 bestehende UB-Dateien umbenennt, alle ``Unterrichtsbesuch``-YAML-Links in Einheitendateien mit Pflicht-Anführungszeichen aktualisiert und die UB-Übersicht neu generiert. Idempotent (zweiter Lauf findet nichts mehr).
+  - Tests: Alle betroffenen Testdateien (`test_course_subject_and_ub_policy.py`, `test_mark_unit_as_ub_usecase.py`, `test_paste_lesson_usecase_ub_copy.py`, `test_rename_linked_file_for_row_usecase.py`, `test_query_ub_achievements_usecase.py`, `test_query_ub_plan_usecase.py`) auf neues Format angepasst; 14 neue Tests für `UbStem`-Verhalten.
+
 ### Added
 
 - **Stundenplanänderung-Feature** (2026-08-06): Neue Aktion im Aktion-Menü ("Stundenplanänderung…") zum Umverteilender Unterrichtseinheiten auf einen veränderten Stundenplan.

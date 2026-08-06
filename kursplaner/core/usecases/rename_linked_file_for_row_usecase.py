@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.lesson_naming import row_mmdd
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_YAML_KEY_EINHEIT, build_ub_stem
 from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
@@ -51,18 +50,6 @@ class RenameLinkedFileForRowUseCase:
         return str(row[idx_datum]).strip()
 
     @staticmethod
-    def _topic_from_lesson_stem(table: PlanTableData, row_index: int, lesson_stem: str) -> str:
-        group = strip_wiki_link(str(table.metadata.get("Lerngruppe", "gruppe")))
-        mmdd = row_mmdd(table, row_index)
-        prefix = f"{group} {mmdd} "
-        stem = str(lesson_stem or "").strip()
-        if stem.lower().startswith(prefix.lower()):
-            topic = stem[len(prefix) :].strip()
-            if topic:
-                return topic
-        return stem
-
-    @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
         return infer_workspace_root_from_path(table.markdown_path)
 
@@ -89,9 +76,8 @@ class RenameLinkedFileForRowUseCase:
         except Exception:
             return
 
-        new_topic = self._topic_from_lesson_stem(table, row_index, lesson_path.stem)
         date_text = self._row_date_text(table, row_index)
-        desired_ub_stem = build_ub_stem(date_text, new_topic)
+        desired_ub_stem = build_ub_stem(date_text)
         desired_ub_path = ub_root / f"{desired_ub_stem}.md"
         if desired_ub_path.exists() and desired_ub_path.resolve() != ub_path.resolve():
             desired_ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_ub_stem)

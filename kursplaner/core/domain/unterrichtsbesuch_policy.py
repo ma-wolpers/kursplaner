@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, time
 
-from kursplaner.core.domain.plan_table import sanitize_hour_title
 
 UB_KIND_PAEDAGOGIK = "Pädagogik"
 UB_KIND_FACH = "Fach"
@@ -16,6 +16,10 @@ UB_YAML_KEY_BEREICH = "Bereich"
 UB_YAML_KEY_LANGENTWURF = "Langentwurf"
 UB_YAML_KEY_BEOBACHTUNG = "Beobachtungsschwerpunkt"
 UB_YAML_KEY_EINHEIT = "Einheit"
+
+_UB_STEM_PREFIX = "ub"
+_UB_STEM_DATE_FORMAT = "%y-%m-%d"
+_UB_STEM_FALLBACK = f"{_UB_STEM_PREFIX} 00-00-00"
 
 
 def normalize_ub_kinds(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
@@ -47,26 +51,106 @@ def parse_ub_yy_mm_dd(date_text: str) -> str:
     return "00-00-00"
 
 
-def build_ub_stem(date_text: str, lesson_title: str) -> str:
-    """Baut den kanonischen UB-Dateistamm UB yy-mm-dd Einheitstitel."""
-    token = parse_ub_yy_mm_dd(date_text)
-    title = sanitize_hour_title(lesson_title) or "Einheit"
-    return f"UB {token} {title}".strip()
+@dataclass(frozen=True)
+class UbStem:
+    """Value object for the canonical UB filename stem `ub yy-mm-dd`.
+
+    Centralises the stem format so that build, parse, and format logic
+    live in one place.  Any future change to the naming convention only
+    requires touching this class and its three helpers below.
+
+    Attributes:
+        date_token: Two-digit-year date token in the form ``yy-mm-dd``,
+            e.g. ``"26-03-31"``.
+
+    Example::
+
+        stem = UbStem.from_date_text("31-03-26")
+        assert str(stem) == "ub 26-03-31"
+        assert stem.date() == date(2026, 3, 31)
+    """
+
+    date_token: str
+
+    @classmethod
+    def from_date_text(cls, date_text: str) -> "UbStem":
+        """Erstellt einen UbStem aus einem beliebigen unterstützten Datumsformat.
+
+        Args:
+            date_text: Datumstext in einem der von ``parse_ub_yy_mm_dd``
+                unterstützten Formate (z. B. ``"31-03-26"`` oder ``"2026-03-31"``).
+
+        Returns:
+            UbStem mit dem kanonischen Datumstoken.
+        """
+        return cls(date_token=parse_ub_yy_mm_dd(date_text))
+
+    @classmethod
+    def parse(cls, raw_stem: str) -> "UbStem | None":
+        """Liest einen UbStem aus einem bestehenden Dateistamm.
+
+        Akzeptiert nur das aktuelle Format ``ub yy-mm-dd`` (Kleinbuchstaben).
+        Alte Stämme im Format ``UB yy-mm-dd Titel`` geben ``None`` zurück,
+        damit der Caller sie als migrationspflichtig erkennt.
+
+        Args:
+            raw_stem: Dateistamm ohne Erweiterung, z. B. ``"ub 26-03-31"``.
+
+        Returns:
+            UbStem wenn das Format passt, sonst None.
+        """
+        text = str(raw_stem or "").strip()
+        if not text.startswith(f"{_UB_STEM_PREFIX} "):
+            return None
+        parts = text.split(" ", 1)
+        if len(parts) < 2:
+            return None
+        token = parts[1].strip()[:8]
+        try:
+            datetime.strptime(token, _UB_STEM_DATE_FORMAT)
+            return cls(date_token=token)
+        except ValueError:
+            return None
+
+    def __str__(self) -> str:
+        """Liefert den kanonischen Dateistamm, z. B. ``"ub 26-03-31"``."""
+        return f"{_UB_STEM_PREFIX} {self.date_token}"
+
+    def date(self) -> date | None:
+        """Konvertiert den Datumstoken zu einem ``datetime.date``-Objekt."""
+        try:
+            return datetime.strptime(self.date_token, _UB_STEM_DATE_FORMAT).date()
+        except ValueError:
+            return None
+
+
+def build_ub_stem(date_text: str) -> str:
+    """Baut den kanonischen UB-Dateistamm ``ub yy-mm-dd``.
+
+    Der Titel der Unterrichtseinheit wird bewusst nicht mehr im Dateinamen
+    kodiert, um Datei-Link-Drift zu vermeiden wenn ein Titel nachträglich
+    geändert wird.
+
+    Args:
+        date_text: Datumstext in einem beliebigen unterstützten Format.
+
+    Returns:
+        Kanonischer Stamm, z. B. ``"ub 26-03-31"``.
+    """
+    return str(UbStem.from_date_text(date_text))
 
 
 def parse_ub_date_from_stem(stem: str) -> date | None:
-    """Liest das UB-Datum aus dem Dateistamm `UB yy-mm-dd ...` aus."""
-    text = str(stem or "").strip()
-    if not text.startswith("UB "):
-        return None
-    parts = text.split(" ", 2)
-    if len(parts) < 3:
-        return None
-    token = str(parts[1]).strip()
-    try:
-        return datetime.strptime(token, "%y-%m-%d").date()
-    except ValueError:
-        return None
+    """Liest das UB-Datum aus dem Dateistamm ``ub yy-mm-dd`` aus.
+
+    Args:
+        stem: Dateistamm ohne Erweiterung, z. B. ``"ub 26-03-31"``.
+
+    Returns:
+        ``datetime.date``-Objekt oder None wenn das Format nicht passt.
+    """
+    ub = UbStem.parse(stem)
+    return ub.date() if ub is not None else None
 
 
 def ub_date_counts_as_past(

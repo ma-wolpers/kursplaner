@@ -44,7 +44,7 @@ class FileSystemUbRepository:
     def unique_ub_markdown_path(self, workspace_root: Path, stem: str) -> Path:
         """Ermittelt einen kollisionsfreien UB-Dateipfad mit .md-Endung."""
         root = self.ensure_ub_root(workspace_root)
-        cleaned = str(stem or "").strip() or "UB 00-00-00 Einheit"
+        cleaned = str(stem or "").strip() or "ub 00-00-00"
         base = root / f"{cleaned}.md"
         if not base.exists():
             return base

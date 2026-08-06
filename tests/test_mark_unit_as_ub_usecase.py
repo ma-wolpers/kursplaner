@@ -70,7 +70,7 @@ def test_mark_unit_as_ub_creates_ub_file_updates_lesson_and_overview(tmp_path):
     assert result.overview_path.exists()
 
     lesson_text = lesson_path.read_text(encoding="utf-8")
-    assert 'Unterrichtsbesuch: "[[UB 26-03-31 Funktionen]]"' in lesson_text
+    assert 'Unterrichtsbesuch: "[[ub 26-03-31]]"' in lesson_text
 
     ub_text = result.ub_path.read_text(encoding="utf-8")
     assert "Bereich:" in ub_text
@@ -82,7 +82,7 @@ def test_mark_unit_as_ub_creates_ub_file_updates_lesson_and_overview(tmp_path):
 
     overview_text = result.overview_path.read_text(encoding="utf-8")
     assert "# UB Übersicht" in overview_text
-    assert "[[UB 26-03-31 Funktionen]]" in overview_text
+    assert "[[ub 26-03-31]]" in overview_text
 
 
 def test_mark_unit_as_ub_rejects_non_unterricht(tmp_path):
@@ -143,7 +143,7 @@ def test_mark_unit_as_ub_uses_lesson_file_title_for_ub_stem(tmp_path):
 
     assert result.proceed is True
     assert isinstance(result.ub_path, Path)
-    assert result.ub_path.stem == "UB 26-02-06 Fach-Diagnose"
+    assert result.ub_path.stem == "ub 26-02-06"
 
 
 def test_mark_unit_as_ub_allows_zusatzbesuch_without_domain_selection(tmp_path):

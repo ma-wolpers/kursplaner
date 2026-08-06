@@ -122,7 +122,7 @@ def test_paste_usecase_copies_linked_ub_when_requested(tmp_path):
     assert result.ub_path != source_ub_path
     assert result.ub_path.exists()
     saved_target = lesson_repo.load_lesson_yaml(target_path)
-    assert str(saved_target.data.get("Unterrichtsbesuch", "")).startswith("[[UB ")
-    assert saved_target.data.get("Unterrichtsbesuch") != "[[UB 26-04-28 Thema]]"
+    assert str(saved_target.data.get("Unterrichtsbesuch", "")).startswith("[[ub ")
+    assert saved_target.data.get("Unterrichtsbesuch") != "[[ub 26-04-28]]"
     assert isinstance(result.overview_path, Path)
     assert result.overview_path.exists()

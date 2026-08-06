@@ -129,7 +129,7 @@ class PasteLessonUseCase:
             date_text = str(table.rows[row_index][date_idx]).strip()
 
         unit_title = self._unit_title_from_lesson_stem(created_path)
-        desired_stem = build_ub_stem(date_text, unit_title)
+        desired_stem = build_ub_stem(date_text)
         target_ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_stem)
 
         ub_yaml = dict(ub_yaml)

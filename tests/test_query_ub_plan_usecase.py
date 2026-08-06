@@ -40,13 +40,13 @@ def test_query_ub_plan_splits_upcoming_and_past(tmp_path, monkeypatch):
     unterricht_root.mkdir(parents=True)
 
     _write_ub(
-        ub_root / "UB 26-05-18 Funktionen.md",
+        ub_root / "ub 26-05-18.md",
         domains=["Pädagogik", "Mathematik"],
         langentwurf=True,
         einheit="gruen-6 05-18 Funktionen",
     )
     _write_ub(
-        ub_root / "UB 26-04-01 Wiederholung.md",
+        ub_root / "ub 26-04-01.md",
         domains=["Informatik"],
         langentwurf=False,
         einheit="gruen-6 04-01 Wiederholung",

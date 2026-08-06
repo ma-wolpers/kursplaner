@@ -61,10 +61,10 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"
-    _write_lesson(lesson_path, "[[UB 26-03-31 Funktionen]]")
+    _write_lesson(lesson_path, "[[ub 26-03-31]]")
 
     ub_repo = FileSystemUbRepository()
-    ub_path = ub_repo.unique_ub_markdown_path(workspace_root, "UB 26-03-31 Funktionen")
+    ub_path = ub_repo.unique_ub_markdown_path(workspace_root, "ub 26-03-31")
     ub_repo.save_ub_markdown(
         ub_path,
         {
@@ -109,11 +109,11 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
     assert result.target_path.name == "gruen-6 03-31 Neue Funktionen.md"
     assert result.target_path.exists()
 
-    expected_ub = ub_repo.ensure_ub_root(workspace_root) / "UB 26-03-31 Neue Funktionen.md"
+    expected_ub = ub_repo.ensure_ub_root(workspace_root) / "ub 26-03-31.md"
     assert expected_ub.exists()
 
     lesson_after = FileSystemLessonRepository().load_lesson_yaml(result.target_path)
-    assert lesson_after.data.get("Unterrichtsbesuch") == "[[UB 26-03-31 Neue Funktionen]]"
+    assert lesson_after.data.get("Unterrichtsbesuch") == "[[ub 26-03-31]]"
 
     ub_yaml, ub_body = ub_repo.load_ub_markdown(expected_ub)
     assert ub_yaml.get("Einheit") == "[[gruen-6 03-31 Neue Funktionen]]"
@@ -121,7 +121,7 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
     assert "Ressource 1" in ub_body
 
     overview = ub_repo.load_ub_overview(workspace_root)
-    assert "[[UB 26-03-31 Neue Funktionen]]" in overview
+    assert "[[ub 26-03-31]]" in overview
 
 
 def test_rename_without_plan_save_succeeds_for_intermediate_flow(tmp_path):

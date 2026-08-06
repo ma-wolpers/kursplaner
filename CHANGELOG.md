@@ -18,6 +18,9 @@ The format is based on Keep a Changelog.
   - `adapters/bootstrap/wiring.py`: `TimetableChangeUseCase` und `ApplyTimetableChangeUseCase` verdrahtet.
   - Tests: `tests/test_timetable_change_usecase.py` (15 Tests), `tests/test_apply_timetable_change_usecase.py` (7 Tests).
 
+### Changed
+- **UB-Dateinamen vereinfacht**: Unterrichtsbesuch-Dateien heißen jetzt ``ub yy-mm-dd.md`` statt ``UB yy-mm-dd Einheitstitel.md``. Der Titel wird nicht mehr im Dateinamen kodiert, um Link-Drift bei Titeländerungen zu verhindern. ``build_ub_stem`` nimmt nur noch das Datum als Argument. Alle ``Unterrichtsbesuch``-Links in Einheitendateien und die ``UB Übersicht`` wurden via ``tools/migrate_ub_filenames.py`` aktualisiert.
+
 ### Fixed
 - Kursübersicht zeigt bei "Nächste Einheit" jetzt zuverlässig die tatsächlich nächste stattfindende Einheit statt gelegentlich ein Ferien-/Ausfalldatum: Ausfall-/Ferienerkennung liest wieder die richtige `Thema/Ausfall`-Spalte statt der seit der 4-Spalten-Migration nur noch Links tragenden `Inhalt`-Spalte. Betroffen war auch die "Als Ausfall markieren"-Aktion selbst (schrieb den Ausfallgrund in die falsche Spalte, sichtbar wurde das nur bei Einheiten ohne bereits verlinkte Stunden-Datei) sowie das Verschieben bestehender Einheiten (`shift_existing_lessons_forward` konnte eine Einheit versehentlich in eine Ferien-/Ausfallzeile schieben).
 - Sequenz-Markdown-Dateien tracken ihre zugehörigen Einheiten jetzt automatisch am Ende (`## Export`-Abschnitt) bei jedem Neuladen des Kursplans, nicht mehr nur nach manuellem "Exportieren als...".
