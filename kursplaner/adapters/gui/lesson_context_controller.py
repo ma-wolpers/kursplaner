@@ -49,8 +49,16 @@ class MainWindowLessonContextController:
 
         yaml_data_obj = day.get("yaml")
         yaml_data: dict[str, object] = yaml_data_obj if isinstance(yaml_data_obj, dict) else {}
+        if field_key == "Oberthema":
+            # Solange keine verlinkte Stunden-Datei existiert, hat `yaml` kein
+            # eigenes "Oberthema"-Feld; die Plantabelle (Thema/Ausfall-Spalte)
+            # kann das Oberthema aber schon vorab tragen (siehe
+            # `extract_plan_oberthema`/`build_day_columns`).
+            oberthema = str(yaml_data.get("Oberthema", "")).strip()
+            if oberthema:
+                return oberthema
+            return str(day.get("plan_oberthema", "")).strip()
         if field_key in {
-            "Oberthema",
             "Stundenziel",
             "Inhaltsübersicht",
             "Beobachtungsschwerpunkte",

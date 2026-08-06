@@ -22,22 +22,27 @@ def _unlinked_day() -> dict[str, object]:
     return {"link": None}
 
 
-def test_unlinked_day_only_shows_inhalt_and_stunden():
+def _unlinked_ausfall_day() -> dict[str, object]:
+    return {"link": None, "is_cancel": True}
+
+
+def test_unlinked_day_only_shows_inhalt_stunden_and_oberthema():
     app = _make_app()
     renderer = GridRenderer(app)
     day = _unlinked_day()
 
     assert renderer._field_is_visible_for_day("inhalt", day) is True
     assert renderer._field_is_visible_for_day("stunden", day) is True
+    assert renderer._field_is_visible_for_day("Oberthema", day) is True
     assert renderer._field_is_visible_for_day("Stundenthema", day) is False
 
 
-def test_unlinked_day_ignores_row_filter(tmp_path):
+def test_unlinked_day_respects_row_filter(tmp_path):
     app = _make_app(hidden_fields=frozenset({"inhalt"}))
     renderer = GridRenderer(app)
     day = _unlinked_day()
 
-    assert renderer._field_is_visible_for_day("inhalt", day) is True
+    assert renderer._field_is_visible_for_day("inhalt", day) is False
 
 
 def test_hidden_field_invisible_on_linked_day(tmp_path):
@@ -78,3 +83,17 @@ def test_filter_does_not_hide_other_fields(tmp_path):
     day = _linked_day(tmp_path)
 
     assert renderer._field_is_visible_for_day("Stundenthema", day) is True
+
+
+def test_oberthema_is_editable_on_unlinked_unterricht_day():
+    use_case = RowDisplayModeUseCase()
+    day = _unlinked_day()
+
+    assert use_case.is_editable("Oberthema", day) is True
+
+
+def test_oberthema_is_not_editable_on_unlinked_ausfall_day():
+    use_case = RowDisplayModeUseCase()
+    day = _unlinked_ausfall_day()
+
+    assert use_case.is_editable("Oberthema", day) is False

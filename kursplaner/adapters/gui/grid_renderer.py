@@ -5,7 +5,6 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 from datetime import datetime
-from pathlib import Path
 
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from bw_gui.theming import (
@@ -248,21 +247,18 @@ class GridRenderer:
         else:
             self._row_layout_cache.pop(field_key, None)
 
-    @staticmethod
-    def _is_linked_day(day: dict[str, object]) -> bool:
-        """Prüft, ob eine Spalte auf eine existierende Einheitsdatei verlinkt ist."""
-        link_obj = day.get("link") if isinstance(day, dict) else None
-        return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
-
     def _field_is_visible_for_day(self, field_key: str, day: dict[str, object]) -> bool:
         """Bestimmt, ob ein Feld für eine Spalte als Widget aufgebaut werden soll.
 
-        Reihenfolge: Unlinked-Guard → Zeilenfilter → Modus-Check.
+        Reihenfolge: Zeilenfilter → Unlinked-Guard → Modus-Check. Der
+        Zeilenfilter muss vor dem Unlinked-Guard geprüft werden, sonst lässt
+        sich z. B. "Inhalt" bei Einheiten ohne verlinkte Datei nie ausblenden,
+        weil dieser Fall sonst den Filter komplett umgeht.
         """
-        if not self._is_linked_day(day):
-            return field_key in {"inhalt", "stunden"}
         if not self.app.row_filter_settings.is_visible(field_key):
             return False
+        if not self.app.row_display_mode_usecase.is_linked_day(day):
+            return field_key in {"inhalt", "stunden", "Oberthema"}
         return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day)
 
     def _apply_cell_state(

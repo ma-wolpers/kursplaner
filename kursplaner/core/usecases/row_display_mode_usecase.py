@@ -191,16 +191,34 @@ class RowDisplayModeUseCase:
                 seen[field_key][1].append(abbrev)
         return [(k, seen[k][0], " ".join(seen[k][1])) for k in order]
 
+    @staticmethod
+    def is_linked_day(day: dict[str, object]) -> bool:
+        """Prüft, ob eine Spalte auf eine existierende, verlinkte Stunden-Datei zeigt.
+
+        Einzige Quelle der Wahrheit für diese Prüfung; vorher unabhängig in
+        `grid_renderer.py`, `is_editable()` und `save_cell_value_usecase.py`
+        dupliziert, was u. a. dazu führte, dass "Inhalt" bei unverlinkten
+        Tagen den Zeilenfilter umgehen konnte.
+        """
+        link_obj = day.get("link") if isinstance(day, dict) else None
+        return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
+
     def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
-        """Ermittelt fachlich, ob ein Feld für eine Spalte editierbar sein darf."""
+        """Ermittelt fachlich, ob ein Feld für eine Spalte editierbar sein darf.
+
+        Oberthema ist als einziges Feld auch ohne verlinkte Stunden-Datei
+        editierbar: der Wert wird dann direkt in die `Thema/Ausfall`-Zelle
+        der Plantabelle geschrieben (siehe `SaveCellValueUseCase.execute`).
+        """
         if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
             return False
         if field_key == "Kompetenzhorizont" and bool(day.get("is_lzk", False)):
             return False
         if not self.field_is_relevant_for_day(field_key, day):
             return False
-        link_obj = day.get("link") if isinstance(day, dict) else None
-        return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
+        if self.is_linked_day(day):
+            return True
+        return field_key == "Oberthema"
 
 
 @dataclass(frozen=True)

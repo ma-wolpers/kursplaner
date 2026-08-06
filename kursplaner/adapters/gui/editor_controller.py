@@ -202,7 +202,7 @@ class MainWindowEditorController:
         runtime = self.save_cell_value.build_runtime_context(field_key=field_key, day=day)
         if not runtime.proceed or runtime.row_index is None:
             raise RuntimeError(runtime.message_text or "Zelle kann nicht gespeichert werden.")
-        if field_key != "inhalt" and runtime.lesson_path is None:
+        if field_key not in {"inhalt", "Oberthema"} and runtime.lesson_path is None:
             raise RuntimeError(runtime.message_text or "Zelle kann nicht gespeichert werden.")
 
         # For UI-driven flow we allow all confirmations here (adapter already confirmed earlier if needed).

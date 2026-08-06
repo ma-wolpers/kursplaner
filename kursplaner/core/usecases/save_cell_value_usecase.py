@@ -16,6 +16,9 @@ from kursplaner.core.usecases.rename_linked_file_for_row_usecase import (
 )
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
+from kursplaner.infrastructure.repositories.plan_table_file_repository import (
+    sync_thema_ausfall_to_plan_row,
+)
 
 
 @dataclass(frozen=True)
@@ -207,8 +210,17 @@ class SaveCellValueUseCase:
             row_index = int(raw_row_index)
         except (TypeError, ValueError):
             row_index = 0
-        has_known_lesson = isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
+        has_known_lesson = self.row_display_mode_usecase.is_linked_day(day)
         if not has_known_lesson:
+            if field_key == "Oberthema":
+                return SaveCellRuntimeContext(
+                    proceed=True,
+                    row_index=row_index,
+                    lesson_path=None,
+                    message_kind=None,
+                    message_title=None,
+                    message_text=None,
+                )
             return SaveCellRuntimeContext(
                 proceed=False,
                 row_index=row_index,
@@ -331,6 +343,17 @@ class SaveCellValueUseCase:
             if allow_duration_save:
                 self.lesson_edit.set_lesson_duration(lesson_path, value)
             return SaveCellValueResult(proceed=True, lesson_path=lesson_path)
+
+        if field_key == "Oberthema" and lesson_path is None:
+            group_name = str(table.metadata.get("Lerngruppe", ""))
+            sync_thema_ausfall_to_plan_row(
+                table,
+                row_index,
+                yaml_data={"Stundentyp": "Unterricht", "Oberthema": value},
+                group_name=group_name,
+            )
+            self.plan_repo.save_plan_table(table)
+            return SaveCellValueResult(proceed=True, lesson_path=None)
 
         if lesson_path is None:
             return SaveCellValueResult(
