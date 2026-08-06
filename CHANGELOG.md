@@ -6,6 +6,18 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+### Added
+- **Stundenplanänderung**: Neues Popup (Aktion → Stundenplanänderung…) für die Umverteilung eines Kursplans auf einen geänderten Stundenrhythmus. Spalten der linken Seite zeigen den bisherigen Plan im gewählten Datumsbereich; die rechte Seite enthält den editierbaren Entwurf des neuen Plans. Aktionen: Ausfall/Stattfinden-Toggle, ↑/↓-Tausch, Entfernen, Strg+Z (dialog-intern). Klick auf Übernehmen erzeugt einen einzelnen Undo-Eintrag in der Hauptansicht.
+  - `core/usecases/timetable_change_usecase.py`: `TimetableChangeUseCase.compute()`, `DraftSlot`-Dataclass, Prädikat-Wrapper `column_is_ferien`, `column_is_manual_ausfall`, `column_is_stattfindend`, Wochenvergleich für `was_recovered_week`.
+  - `core/usecases/apply_timetable_change_usecase.py`: `ApplyTimetableChangeUseCase.execute()` spliced neuen Datumsblock in `table.rows` und speichert via `PlanRepository`.
+  - `adapters/gui/timetable_change_dialog.py`: `TimetableChangeDialog(ScrollablePopupWindow)`, PanedWindow-Splitansicht mit zwei Treeviews, Header (Von/Bis-Eingabe, Wochentagsauswahl, Berechnen), Footer (Aktionsknöpfe, Übernehmen/Abbrechen), dialog-interner Undo-Stack.
+  - `adapters/gui/ui_intents.py`: `OPEN_TIMETABLE_CHANGE = "detail.open_timetable_change"`.
+  - `adapters/gui/screen_builder.py`: Menüpunkt „Stundenplanänderung…" im Aktion-Menü.
+  - `adapters/gui/ui_intent_controller.py`: Dispatch für `OPEN_TIMETABLE_CHANGE`.
+  - `adapters/gui/action_controller.py`: `open_timetable_change()`.
+  - `adapters/bootstrap/wiring.py`: `TimetableChangeUseCase` und `ApplyTimetableChangeUseCase` verdrahtet.
+  - Tests: `tests/test_timetable_change_usecase.py` (15 Tests), `tests/test_apply_timetable_change_usecase.py` (7 Tests).
+
 ### Fixed
 - Kursübersicht zeigt bei "Nächste Einheit" jetzt zuverlässig die tatsächlich nächste stattfindende Einheit statt gelegentlich ein Ferien-/Ausfalldatum: Ausfall-/Ferienerkennung liest wieder die richtige `Thema/Ausfall`-Spalte statt der seit der 4-Spalten-Migration nur noch Links tragenden `Inhalt`-Spalte. Betroffen war auch die "Als Ausfall markieren"-Aktion selbst (schrieb den Ausfallgrund in die falsche Spalte, sichtbar wurde das nur bei Einheiten ohne bereits verlinkte Stunden-Datei) sowie das Verschieben bestehender Einheiten (`shift_existing_lessons_forward` konnte eine Einheit versehentlich in eine Ferien-/Ausfallzeile schieben).
 - Sequenz-Markdown-Dateien tracken ihre zugehörigen Einheiten jetzt automatisch am Ende (`## Export`-Abschnitt) bei jedem Neuladen des Kursplans, nicht mehr nur nach manuellem "Exportieren als...".

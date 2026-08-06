@@ -517,6 +517,12 @@ class ScreenBuilder:
                 label="Als Hospitation markieren",
                 command=lambda: self._emit_intent(UiIntent.TOOLBAR_HOSPITATION),
             ),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(
+                type="command",
+                label="Stundenplanänderung…",
+                command=lambda: self._emit_intent(UiIntent.OPEN_TIMETABLE_CHANGE),
+            ),
         )
 
     def _menu_items_view(self):

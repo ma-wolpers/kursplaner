@@ -24,7 +24,9 @@ from kursplaner.core.usecases.daily_log_state_usecase import DailyLogStateUseCas
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicUnitsPdfUseCase
+from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.extend_plan_to_next_vacation_usecase import ExtendPlanToNextVacationUseCase
+from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
 from kursplaner.core.usecases.find_markdown_for_selected_usecase import FindMarkdownForSelectedUseCase
 from kursplaner.core.usecases.grid_cell_policy_usecase import GridCellPolicyUseCase
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
@@ -159,6 +161,8 @@ class GuiDependencies:
     new_lesson_form_usecase: NewLessonFormUseCase
     new_lesson_usecase: NewLessonUseCase
     extend_plan_to_next_vacation_usecase: ExtendPlanToNextVacationUseCase
+    timetable_change_usecase: TimetableChangeUseCase
+    apply_timetable_change_usecase: ApplyTimetableChangeUseCase
     export_topic_units_pdf_usecase: ExportTopicUnitsPdfUseCase
     export_topic_units_markdown_usecase: ExportTopicUnitsPdfUseCase
     export_expected_horizon_pdf_usecase: ExportExpectedHorizonUseCase
@@ -342,6 +346,8 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         plan_repo=plan_repo,
         create_plan_usecase=create_plan_usecase,
     )
+    timetable_change_usecase = TimetableChangeUseCase(calendar_repo=calendar_repo)
+    apply_timetable_change_usecase = ApplyTimetableChangeUseCase(plan_repo=plan_repo)
     sequence_plan_repo = FileSystemSequencePlanRepository()
     sync_sequence_export_table_usecase = SyncSequenceExportTableUseCase(sequence_plan_repo=sequence_plan_repo)
     sync_topic_sequence_plans_usecase = SyncTopicSequencePlansUseCase(
@@ -445,6 +451,8 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         new_lesson_form_usecase=new_lesson_form_usecase,
         new_lesson_usecase=new_lesson_usecase,
         extend_plan_to_next_vacation_usecase=extend_plan_to_next_vacation_usecase,
+        timetable_change_usecase=timetable_change_usecase,
+        apply_timetable_change_usecase=apply_timetable_change_usecase,
         export_topic_units_pdf_usecase=export_topic_units_pdf_usecase,
         export_topic_units_markdown_usecase=export_topic_units_markdown_usecase,
         export_expected_horizon_pdf_usecase=export_expected_horizon_pdf_usecase,

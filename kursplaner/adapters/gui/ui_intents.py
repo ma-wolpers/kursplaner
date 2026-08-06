@@ -74,6 +74,7 @@ class UiIntent:
     SHOW_SHORTCUT_OVERVIEW = "detail.show_shortcut_overview"
     OPEN_COLUMN_VISIBILITY_SETTINGS = "detail.open_column_visibility_settings"
     OPEN_ROW_FILTER_SETTINGS = "detail.open_row_filter_settings"
+    OPEN_TIMETABLE_CHANGE = "detail.open_timetable_change"
 
     # Global shortcut and pointer intents
     SHORTCUT_DETAIL_LEFT = "shortcut.detail_left"

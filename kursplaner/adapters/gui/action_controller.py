@@ -18,6 +18,7 @@ from typing import Callable
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
 from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
+from kursplaner.adapters.gui.timetable_change_dialog import TimetableChangeDialog
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
@@ -99,6 +100,8 @@ class MainWindowActionController:
         self._query_ub_achievements_uc = deps.query_ub_achievements_usecase
         self._query_ub_plan_uc = deps.query_ub_plan_usecase
         self._load_last_ub_insights_uc = deps.load_last_ub_insights_usecase
+        self._timetable_change_uc = deps.timetable_change_usecase
+        self._apply_timetable_change_uc = deps.apply_timetable_change_usecase
         self._action_controls_after_id: str | None = None
 
     @staticmethod
@@ -1857,5 +1860,55 @@ class MainWindowActionController:
             "Plan erweitert",
             f"Es wurden {result.rows_added} Zeilen ergänzt.\nZeitraum: {result.range_start} bis {result.range_end}",
             parent=self.app,
+        )
+
+    def open_timetable_change(self) -> None:
+        """Öffnet den Stundenplanänderungs-Dialog für den aktiven Kursplan."""
+        if self.app.current_table is None:
+            messagebox.showinfo("Stundenplanänderung", "Kein Kursplan geladen.", parent=self.app)
+            return
+
+        calendar_raw = str(self.app.path_values.get(CALENDAR_DIR_KEY, "")).strip()
+        if not calendar_raw:
+            messagebox.showerror(
+                "Stundenplanänderung", "Kein Kalenderordner konfiguriert.", parent=self.app
+            )
+            return
+
+        calendar_dir = resolve_path_value(calendar_raw)
+
+        def _on_accept(date_from, date_to, draft_slots):
+            try:
+                result = self._run_tracked_write(
+                    label="Stundenplanänderung übernehmen",
+                    action=lambda: self._apply_timetable_change_uc.execute(
+                        self.app.current_table,
+                        date_from=date_from,
+                        date_to=date_to,
+                        draft_slots=draft_slots,
+                    ),
+                    extra_after=[self.app.current_table.markdown_path],
+                )
+            except Exception as exc:
+                messagebox.showerror("Stundenplanänderung", str(exc), parent=self.app)
+                return
+            self._refresh_after_write()
+            dropped = getattr(result, "dropped_contents", [])
+            if dropped:
+                messagebox.showinfo(
+                    "Stundenplanänderung",
+                    f"Plan übernommen.\n\n{len(dropped)} Einheit(en) sind nicht mehr verlinkt "
+                    "(Schatteneinheiten).",
+                    parent=self.app,
+                )
+
+        TimetableChangeDialog(
+            self.app,
+            table=self.app.current_table,
+            day_columns=list(getattr(self.app, "day_columns", [])),
+            calendar_dir=calendar_dir,
+            timetable_change_uc=self._timetable_change_uc,
+            on_accept=_on_accept,
+            theme_key=self.app.theme_var.get(),
         )
 
