@@ -1,9 +1,9 @@
-import json
 from dataclasses import dataclass
 from datetime import time
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_json
+from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilitySettings
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
@@ -33,10 +33,7 @@ def _load_payload() -> dict[str, object]:
     path = _preferences_file()
     if not path.exists():
         return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    payload = read_json_or_default(path, default=None)
     if isinstance(payload, dict):
         return payload
     return {}

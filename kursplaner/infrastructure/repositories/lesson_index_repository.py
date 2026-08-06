@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
+from bw_libs.safe_read import read_or_default, read_text_or_default
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
 from kursplaner.core.domain.plan_table import PlanTableData
@@ -63,16 +64,14 @@ class FileSystemLessonIndexRepository:
         Bei Lesefehlern oder ungültigem Frontmatter wird ein leeres Mapping
         zurückgegeben (best-effort Read-Pfad).
         """
-        try:
-            text = path.read_text(encoding="utf-8")
-        except Exception:
+        text = read_text_or_default(path, default=None)
+        if text is None:
             return {}
 
-        try:
-            data, _ = parse_yaml_frontmatter(text, LESSON_SCHEMA, source_label=str(path))
-            return {k: v for k, v in data.items()}
-        except Exception:
-            return {}
+        return read_or_default(
+            lambda: {k: v for k, v in parse_yaml_frontmatter(text, LESSON_SCHEMA, source_label=str(path))[0].items()},
+            default={},
+        )
 
     def _ensure_index_for_path(self, lesson_path: Path) -> None:
         """Aktualisiert den Cache-Eintrag einer Datei bei fehlendem/veraltetem Zustand."""

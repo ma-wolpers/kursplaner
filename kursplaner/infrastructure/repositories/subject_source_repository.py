@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_json
+from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.path_store import (
     BAUKASTEN_DIR_KEY,
     FACHDIDAKTIK_DIR_KEY,
@@ -69,11 +69,7 @@ class FileSystemSubjectSourceRepository:
         if not manifest_path.exists() or not manifest_path.is_file():
             return None
 
-        try:
-            raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
-            return None
-
+        raw = read_json_or_default(manifest_path, default=None)
         if not isinstance(raw, dict):
             return None
         if raw.get("version") != 1:
@@ -114,7 +110,7 @@ class FileSystemSubjectSourceRepository:
         return sorted(set(stems), key=lambda text: text.lower())
 
     def _write_manifest(self, folder: Path, files: dict[str, int], dirs: dict[str, int]) -> None:
-        """Schreibt Manifestdaten robust; I/O-Fehler werden toleriert."""
+        """Schreibt Manifestdaten atomar; I/O-Fehler propagieren."""
         payload = {
             "version": 1,
             "root_mtime_ns": self._mtime_ns(folder),
@@ -122,10 +118,7 @@ class FileSystemSubjectSourceRepository:
             "files": files,
             "stems": self._stems_from_files(files),
         }
-        try:
-            atomic_write_json(self._manifest_path(folder), payload)
-        except Exception:
-            return
+        atomic_write_json(self._manifest_path(folder), payload)
 
     def _load_stems_incremental(self, folder: Path) -> tuple[list[str], int | None]:
         """Lädt Themenstämme inkrementell über Manifest + Verzeichnisänderungen."""

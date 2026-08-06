@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_json
+from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.domain.file_relation_registry import (
     CourseFileRelations,
@@ -28,11 +28,7 @@ class FileSystemFileRelationRegistryRepository:
         if not path.exists() or not path.is_file():
             return empty_relation_registry()
 
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return empty_relation_registry()
-
+        payload = read_json_or_default(path, default=None)
         if not isinstance(payload, dict):
             return empty_relation_registry()
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 from datetime import date
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_json
+from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.settings import SCRIPT_DIR
 
 LAST_DAILY_LOG_DATE_KEY = "last_daily_log_date"
@@ -21,11 +21,7 @@ def load_app_state() -> dict[str, str]:
     if not path.exists():
         return {}
 
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
+    payload = read_json_or_default(path, default=None)
     if not isinstance(payload, dict):
         return {}
 

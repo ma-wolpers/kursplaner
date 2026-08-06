@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from bw_libs.safe_read import read_text_or_default
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument
 
 
@@ -62,9 +63,8 @@ class ExpectedHorizonMarkdownRenderer:
         if not output_path.exists() or not output_path.is_file():
             return []
 
-        try:
-            text = output_path.read_text(encoding="utf-8")
-        except Exception:
+        text = read_text_or_default(output_path, default=None)
+        if text is None:
             return []
 
         lines = text.splitlines()

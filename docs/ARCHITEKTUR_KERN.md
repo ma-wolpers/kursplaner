@@ -229,6 +229,7 @@ Die folgenden Regeln konkretisieren Abschnitt 7 und sind automatisierbar/prüfba
 - **Index- oder Metadaten-Repositories sind Pflicht für häufige Queries.** Wenn ein Use Case regelmäßig viele Stunden-Metadaten benötigt (z. B. Übersicht/Reporting), muss ein `LessonIndexRepository` (Port) existieren, das nur metadata (z. B. `Stundenthema`, `mtime`) liefert, damit UI/UseCase keine Voll-Loads durchführen.
 - **Keine wiederholten I/O-Zugriffe im selben Request.** Use Cases müssen Batch-Aufrufe an Repositories planen; Adapter dürfen nicht in Schleifen über Zeilen einzelne Repository-Aufrufe initiieren.
 - **Dedizierte Rebuild-UseCases für Vollscan.** Vollständige Index-/Rebuild-Operationen sind ausdrücklich eigene Use Cases, mit klarer Kostenkennzeichnung und UI-Trigger (kein stiller Nebeneffekt).
+- **Zentralisierte Datei-I/O-Helfer statt lokaler try/except-Duplikate.** Schreibzugriffe laufen über `bw_libs/app_paths.py` (`atomic_write_text`/`atomic_write_json`), tolerante Lesezugriffe (Best-Effort, Default bei fehlender/korrupter Datei) über `bw_libs/safe_read.py` (`read_text_or_default`, `read_json_or_default`, `read_or_default`). Repositories implementieren kein eigenes `except Exception:` um Datei-Reads mehr; Schreibfehler propagieren immer.
 
 Diese konkreten Regeln machen Abschnitt 7 prüfbar: Code, der `iterdir()` oder `open()` außerhalb von Infrastructure-Dateien verwendet, ist ein Architektur-Verstoß.
 

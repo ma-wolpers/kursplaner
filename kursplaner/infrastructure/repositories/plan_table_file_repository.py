@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
+from bw_libs.safe_read import read_or_default
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.lesson_directory import (
     managed_lesson_dir_names,
@@ -315,16 +316,14 @@ def save_linked_lesson_yaml(lesson: LessonYamlData):
     if lesson.lesson_path.exists():
         raw = lesson.lesson_path.read_text(encoding="utf-8")
         body = raw
-        try:
-            _, parsed_raw = _parse_yaml_frontmatter(lesson.lesson_path)
+        parsed_raw = read_or_default(lambda: _parse_yaml_frontmatter(lesson.lesson_path)[1], default=None)
+        if parsed_raw is not None:
             body = parsed_raw
             if parsed_raw.startswith("---\n"):
                 end = parsed_raw.find("\n---", 4)
                 if end != -1:
                     body = parsed_raw[end + 4 :]
                     body = body.lstrip("\n")
-        except Exception:
-            body = raw
 
     normalized = canonicalize_lesson_yaml(lesson.data, topic_hint=lesson.lesson_path.stem)
     frontmatter = _render_yaml_frontmatter(normalized)

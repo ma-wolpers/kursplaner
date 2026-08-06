@@ -1,9 +1,9 @@
-import json
 from dataclasses import dataclass
 from os.path import relpath
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_json
+from bw_libs.safe_read import read_json_or_default
 
 from .settings import (
     DEFAULT_BAUKASTEN_DIR,
@@ -248,11 +248,7 @@ def load_path_values() -> dict[str, str]:
     if not path.exists():
         return values
 
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return values
-
+    payload = read_json_or_default(path, default=None)
     if not isinstance(payload, dict):
         return values
 
