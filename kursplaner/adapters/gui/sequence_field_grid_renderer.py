@@ -4,7 +4,6 @@ from typing import Callable
 
 from bw_gui.runtime import ui
 from bw_gui.theming import theme_label_token
-from bw_gui.widgets import compute_contiguous_spans
 
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
@@ -87,6 +86,33 @@ class SequenceFieldGridRenderer:
             )
         return row_idx
 
+    @staticmethod
+    def _run_span(row_index_to_grid_col: dict[int, int], first_row_index: int, last_row_index: int) -> range | None:
+        """Berechnet die volle Grid-Spaltenspanne eines Sequenzlaufs.
+
+        `grid_col` wird in `_rebuild_grid()` streng monoton in `row_index`-
+        Reihenfolge vergeben (ein Zähler über die geordnete `layout_items`-
+        Liste, Marker- wie Tages-Elemente inklusive). Für eine
+        zusammenhängende `row_index`-Spanne deckt deshalb
+        `[min(grid_cols), max(grid_cols)]` immer die volle Spanne ab —
+        inklusive dazwischenliegender Marker-Spalten (ausgeblendete
+        Spaltenarten) und übersprungener Ausfall-Zeilen. Kein Fall für
+        `compute_contiguous_spans()` (das wäre nur nötig, wenn Mitglieder
+        unabhängig voneinander lückenhaft sein könnten).
+
+        Returns:
+            `range(min_grid_col, max_grid_col + 1)`, oder `None`, wenn kein
+            Mitglied des Laufs eine sichtbare Grid-Spalte hat.
+        """
+        grid_cols = [
+            row_index_to_grid_col[row_index]
+            for row_index in range(first_row_index, last_row_index + 1)
+            if row_index in row_index_to_grid_col
+        ]
+        if not grid_cols:
+            return None
+        return range(min(grid_cols), max(grid_cols) + 1)
+
     def _render_one_row(
         self,
         *,
@@ -98,6 +124,10 @@ class SequenceFieldGridRenderer:
         row_pixel_heights: dict[int, int],
     ) -> int:
         """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz).
+
+        Ein Lauf spannt sich immer über genau eine zusammenhängende Zelle
+        (siehe `_run_span()`) — auch über dazwischenliegende Marker-Spalten
+        (ausgeblendete Spaltenarten) hinweg.
 
         Args:
             grid_col_is_cancel: Abbildung von Tk-Grid-Spalte auf `is_cancel`,
@@ -122,33 +152,25 @@ class SequenceFieldGridRenderer:
 
         covered_grid_cols: set[int] = set()
         for view in self.app.topic_sequence_plans:
-            # Der volle Zahlenbereich statt nur member_row_indices, damit übersprungene
-            # Ausfall-Zeilen innerhalb des Laufs visuell mit überspannt werden: jede
-            # andere Zeile in dieser Spanne hätte die Kette bereits beendet.
-            grid_cols = sorted(
-                row_index_to_grid_col[row_index]
-                for row_index in range(view.run.first_row_index, view.run.last_row_index + 1)
-                if row_index in row_index_to_grid_col
-            )
-            if not grid_cols:
+            full_span = self._run_span(row_index_to_grid_col, view.run.first_row_index, view.run.last_row_index)
+            if full_span is None:
                 continue
-            covered_grid_cols.update(grid_cols)
+            covered_grid_cols.update(full_span)
             value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
             widget_key = (field_key, view.run.first_row_index)
 
-            for segment in compute_contiguous_spans(grid_cols):
-                cell = self._create_text_cell(
-                    self.app.grid_inner,
-                    value,
-                    editable=True,
-                    canceled=False,
-                    unresolved_link=False,
-                    height_lines=self.app.collapsed_row_lines,
-                )
-                cell.grid(row=row_idx, column=segment.start_column, columnspan=segment.column_span, sticky="nsew")
-                self._bind_events(cell, field_key=field_key, first_row_index=view.run.first_row_index)
-                self.app.sequence_field_widgets[widget_key] = cell
-                row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(cell.winfo_reqheight()))
+            cell = self._create_text_cell(
+                self.app.grid_inner,
+                value,
+                editable=True,
+                canceled=False,
+                unresolved_link=False,
+                height_lines=self.app.collapsed_row_lines,
+            )
+            cell.grid(row=row_idx, column=full_span.start, columnspan=len(full_span), sticky="nsew")
+            self._bind_events(cell, field_key=field_key, first_row_index=view.run.first_row_index)
+            self.app.sequence_field_widgets[widget_key] = cell
+            row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(cell.winfo_reqheight()))
 
         for grid_col in sorted(set(row_index_to_grid_col.values()) - covered_grid_cols):
             blank_cell = self._create_text_cell(
