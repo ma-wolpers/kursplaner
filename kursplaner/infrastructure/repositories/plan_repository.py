@@ -12,6 +12,7 @@ from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yam
 from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     load_last_plan_table,
     save_plan_table,
+    sync_thema_ausfall_to_plan_row,
 )
 
 
@@ -75,6 +76,16 @@ class FileSystemPlanRepository:
     def save_plan_table(self, table: PlanTableData) -> None:
         """Persistiert eine Planungstabelle in ihre zugehörige Datei."""
         save_plan_table(table)
+
+    def sync_thema_ausfall_to_plan_row(
+        self,
+        table: PlanTableData,
+        row_index: int,
+        yaml_data: dict[str, object],
+        group_name: str,
+    ) -> None:
+        """Aktualisiert die Thema/Ausfall-Spalte einer Planzeile anhand YAML-Stundendaten."""
+        sync_thema_ausfall_to_plan_row(table, row_index, yaml_data=yaml_data, group_name=group_name)
 
     def list_plan_markdown_files(self, base_dir: Path) -> list[Path]:
         """Listet Plan-Markdowndateien und nutzt einen Frische-Cache pro Basisordner."""

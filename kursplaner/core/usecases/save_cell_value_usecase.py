@@ -16,9 +16,6 @@ from kursplaner.core.usecases.rename_linked_file_for_row_usecase import (
 )
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
-from kursplaner.infrastructure.repositories.plan_table_file_repository import (
-    sync_thema_ausfall_to_plan_row,
-)
 
 
 @dataclass(frozen=True)
@@ -346,7 +343,7 @@ class SaveCellValueUseCase:
 
         if field_key == "Oberthema" and lesson_path is None:
             group_name = str(table.metadata.get("Lerngruppe", ""))
-            sync_thema_ausfall_to_plan_row(
+            self.plan_repo.sync_thema_ausfall_to_plan_row(
                 table,
                 row_index,
                 yaml_data={"Stundentyp": "Unterricht", "Oberthema": value},

@@ -48,6 +48,23 @@ class PlanRepository(Protocol):
         """
         ...
 
+    def sync_thema_ausfall_to_plan_row(
+        self,
+        table: PlanTableData,
+        row_index: int,
+        yaml_data: dict[str, object],
+        group_name: str,
+    ) -> None:
+        """Aktualisiert die Thema/Ausfall-Spalte einer Planzeile anhand YAML-Stundendaten.
+
+        Args:
+            table: Planungstabelle, deren Zeile aktualisiert wird.
+            row_index: Index der zu aktualisierenden Zeile in ``table.rows``.
+            yaml_data: Normalisiertes YAML-Dictionary der verlinkten Stundendatei.
+            group_name: Lerngruppen-Bezeichnung.
+        """
+        ...
+
     def list_plan_markdown_files(self, base_dir: Path) -> list[Path]:
         """Listet alle verwalteten Plan-Markdown-Dateien unterhalb eines Basisordners.
 
