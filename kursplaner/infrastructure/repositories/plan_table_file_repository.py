@@ -363,7 +363,7 @@ def create_linked_lesson_file(
     candidate = stunden_dir / f"{new_stem}.md"
     title = sanitize_hour_title(lesson_topic) or "einheit"
 
-    initial = {
+    initial: dict[str, object] = {
         "Stundentyp": "Unterricht",
         "Dauer": str(default_hours),
         "Stundenthema": title,
