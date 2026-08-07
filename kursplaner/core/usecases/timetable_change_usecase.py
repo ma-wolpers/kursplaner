@@ -3,12 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from kursplaner.core.domain.planner import PlanRow, generate_rows
-
-if TYPE_CHECKING:
-    from kursplaner.infrastructure.repositories.calendar_repository import FileSystemCalendarRepository
+from kursplaner.core.ports.repositories import CalendarRepository
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +94,7 @@ class TimetableChangeUseCase:
     kennzeichnet Wochen, die zuvor manuell als Ausfall markiert waren.
     """
 
-    def __init__(self, calendar_repo: "FileSystemCalendarRepository") -> None:
+    def __init__(self, calendar_repo: CalendarRepository) -> None:
         """Nimmt das Kalender-Repository für Ferien-/Feiertagsdaten entgegen."""
         self._calendar_repo = calendar_repo
 
