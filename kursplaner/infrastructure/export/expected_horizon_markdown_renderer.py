@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict
 
 from bw_libs.safe_read import read_text_or_default
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument
@@ -15,6 +16,11 @@ class _ExistingEhRow:
     afb: str
     aufg: str
     pkte: str
+
+
+class _PlannedRow(TypedDict):
+    old_index: int | None
+    row: tuple[str, str, bool, str, str, str]
 
 
 class ExpectedHorizonMarkdownRenderer:
@@ -118,7 +124,7 @@ class ExpectedHorizonMarkdownRenderer:
             key = cls._normalize_key(old.datum, old.ich_kann)
             by_key.setdefault(key, []).append(index)
 
-        planned_rows: list[dict[str, object]] = []
+        planned_rows: list[_PlannedRow] = []
         for row in document.rows:
             key = cls._normalize_key(row.datum, row.ich_kann)
             old_index: int | None = None
