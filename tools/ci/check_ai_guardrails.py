@@ -597,14 +597,20 @@ def _check_runtime_shortcut_integration(errors: list[str]) -> None:
 
 
 def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
-    """Erzwingt Shared-UI-Vertraege in ScreenBuilder und HoverTooltip-Bridge."""
+    """Erzwingt Shared-UI-Vertraege in ScreenBuilder/MainWindow und HoverTooltip-Bridge.
+
+    Das Menue wird seit KursplanerApp.build_menu() (main_window.py) zentral von
+    BwBaseWindow via bw_gui.menu.CustomMenuBar aufgebaut, nicht mehr lokal in
+    ScreenBuilder (siehe docs/DEVELOPMENT_LOG.md). Die Pruefung verifiziert
+    diese Verdrahtung an ihrem tatsaechlichen Ort statt an der 2026-07-26
+    absichtlich entfernten Stelle.
+    """
 
     screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
     for snippet in (
-        "from bw_gui.menu import CustomMenuBar as SharedCustomMenuBar",
+        "from bw_gui.menu import MenuItem as SharedMenuItem",
         "from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent",
         "from kursplaner.adapters.gui.hover_tooltip import HoverTooltip",
-        "self._shared_menu_bar = SharedCustomMenuBar(",
         "rendered_text = compose_shared_hover_text_for_intent(",
         "tooltip = HoverTooltip(widget, rendered_text)",
     ):
@@ -615,8 +621,17 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
         "def _build_native_menu(",
         "if SharedCustomMenuBar is None",
         "if compose_shared_hover_text_for_intent is None",
+        "self._shared_menu_bar = SharedCustomMenuBar(",
     ):
         _forbid_substring(screen_builder, snippet, "kursplaner/adapters/gui/screen_builder.py", errors)
+
+    main_window = _read("kursplaner/adapters/gui/main_window.py")
+    for snippet in (
+        "from bw_gui.menu import section_spec",
+        "class KursplanerApp(BwBaseWindow)",
+        "def build_menu(self)",
+    ):
+        _require_substring(main_window, snippet, "kursplaner/adapters/gui/main_window.py", errors)
 
     hover_tooltip = _read("kursplaner/adapters/gui/hover_tooltip.py")
     _require_substring(
