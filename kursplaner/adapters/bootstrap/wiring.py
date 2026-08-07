@@ -25,6 +25,7 @@ from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpec
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicUnitsPdfUseCase
 from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
+from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.core.usecases.extend_plan_to_next_vacation_usecase import ExtendPlanToNextVacationUseCase
 from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
 from kursplaner.core.usecases.find_markdown_for_selected_usecase import FindMarkdownForSelectedUseCase
@@ -178,6 +179,7 @@ class GuiDependencies:
     query_ub_achievements_usecase: QueryUbAchievementsUseCase
     query_ub_plan_usecase: QueryUbPlanUseCase
     load_last_ub_insights_usecase: LoadLastUbInsightsUseCase
+    archive_past_lesson_files_usecase: ArchivePastLessonFilesUseCase
     app_info: AppInfo
     shell_config: AppShellConfig
 
@@ -397,6 +399,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
+    archive_past_lesson_files_usecase = ArchivePastLessonFilesUseCase(lesson_repo=lesson_repo)
     file_relation_registry_repo = FileSystemFileRelationRegistryRepository()
     rebuild_file_relation_registry_usecase = RebuildFileRelationRegistryUseCase(
         plan_repo=plan_repo,
@@ -468,6 +471,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         query_ub_achievements_usecase=query_ub_achievements_usecase,
         query_ub_plan_usecase=query_ub_plan_usecase,
         load_last_ub_insights_usecase=load_last_ub_insights_usecase,
+        archive_past_lesson_files_usecase=archive_past_lesson_files_usecase,
         app_info=APP_INFO,
         shell_config=AppShellConfig(
             title=APP_INFO.window_title,

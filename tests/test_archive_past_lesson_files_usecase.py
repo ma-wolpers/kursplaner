@@ -9,6 +9,7 @@ import pytest
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
+from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository
 
 _TODAY = date(2026, 3, 20)
 _PAST = "10-03-26"  # 10 March 2026 → in der Vergangenheit
@@ -56,7 +57,7 @@ class TestArchivePastLessonFilesUseCase:
         lesson = _make_lesson(einheiten, "ab12cd")
         table = _make_table(plan_dir, [[_PAST, "2", f"[[ab12cd]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert moved == 1
         assert not lesson.exists()
@@ -69,7 +70,7 @@ class TestArchivePastLessonFilesUseCase:
         lesson = _make_lesson(einheiten, "zz99aa")
         table = _make_table(plan_dir, [[_FUTURE, "2", "[[zz99aa]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert moved == 0
         assert lesson.exists()
@@ -83,7 +84,7 @@ class TestArchivePastLessonFilesUseCase:
         lesson = _make_lesson(einheiten, "tt0day")
         table = _make_table(plan_dir, [[today_str, "2", "[[tt0day]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert moved == 0
         assert lesson.exists()
@@ -93,7 +94,7 @@ class TestArchivePastLessonFilesUseCase:
         plan_dir = tmp_path / "M li2 26-1"
         table = _make_table(plan_dir, [[_PAST, "0", "", "X Ferien"]])
 
-        moved = ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert moved == 0
 
@@ -106,7 +107,7 @@ class TestArchivePastLessonFilesUseCase:
         (plan_dir / "Einheiten").mkdir(parents=True, exist_ok=True)
         table = _make_table(plan_dir, [[_PAST, "2", "[[already]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert moved == 0
         assert (alteinheiten / "already.md").exists()
@@ -118,7 +119,7 @@ class TestArchivePastLessonFilesUseCase:
         _make_lesson(einheiten, "new001")
         table = _make_table(plan_dir, [[_PAST, "2", "[[new001]]", ""]])
 
-        ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert (plan_dir / "Alteinheiten").is_dir()
 
@@ -137,7 +138,7 @@ class TestArchivePastLessonFilesUseCase:
             ],
         )
 
-        moved = ArchivePastLessonFilesUseCase().execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
 
         assert moved == 2
         assert (plan_dir / "Alteinheiten" / "aa1111.md").exists()

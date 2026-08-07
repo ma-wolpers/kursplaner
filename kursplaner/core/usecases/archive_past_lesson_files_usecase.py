@@ -15,7 +15,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.lesson_directory import LESSON_DIR_ARCHIVE, LESSON_DIR_PRIMARY
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.infrastructure.repositories.plan_table_file_repository import get_row_link_path
+from kursplaner.core.ports.repositories import LessonRepository
 
 
 def _parse_plan_date(date_text: str) -> date | None:
@@ -48,6 +48,10 @@ class ArchivePastLessonFilesUseCase:
     beide Ordner als Suchpfade aufführt.
     """
 
+    def __init__(self, lesson_repo: LessonRepository) -> None:
+        """Nimmt das Lesson-Repository für Zeilen-Link-Auflösung entgegen."""
+        self._lesson_repo = lesson_repo
+
     def execute(self, table: PlanTableData, *, reference_date: date | None = None) -> int:
         """Archiviert vergangene Stundendateien für eine Planungstabelle.
 
@@ -74,7 +78,7 @@ class ArchivePastLessonFilesUseCase:
             if row_date is None or row_date >= today:
                 continue
 
-            lesson_path = get_row_link_path(table, row_index)
+            lesson_path = self._lesson_repo.resolve_row_link_path(table, row_index)
             if lesson_path is None:
                 continue
             if lesson_path.parent.resolve() != einheiten_dir.resolve():

@@ -27,7 +27,6 @@ from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.toolbar_icon_styler import ToolbarIconStyler
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
-from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.adapters.gui.ui_theme import DEFAULT_THEME, normalize_theme_key
 from kursplaner.adapters.gui.window_identity import (
     apply_window_icon,
@@ -663,7 +662,7 @@ def main():
                 dependencies.path_settings_usecase.load_values()
             )
             tables = dependencies.plan_repo.load_plan_tables(managed_paths.unterricht_dir)
-            archiver = ArchivePastLessonFilesUseCase()
+            archiver = dependencies.archive_past_lesson_files_usecase
             for table in tables:
                 archiver.execute(table)
         except Exception as exc:
