@@ -7,10 +7,10 @@ from bw_libs.app_paths import atomic_write_text
 from bw_libs.safe_read import read_or_default
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.lesson_directory import (
+    LESSON_DIR_ARCHIVE,
     managed_lesson_dir_names,
     resolve_lesson_dir,
 )
-from kursplaner.core.domain.lesson_directory import LESSON_DIR_ARCHIVE
 from kursplaner.core.domain.lesson_naming import generate_random_lesson_stem
 from kursplaner.core.domain.lesson_yaml_policy import (
     allowed_keys_for_type,
