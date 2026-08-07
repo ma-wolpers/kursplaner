@@ -197,12 +197,14 @@ class FileSystemSubjectSourceRepository:
             baukasten_dir = unterricht_dir.parent / "30 Baukasten"
 
         fachinhalte_candidate = resolve_path_value(values.get(FACHINHALTE_DIR_KEY, ""))
+        fachinhalte_root: Path | None
         if fachinhalte_candidate.exists() and fachinhalte_candidate.is_dir():
             fachinhalte_root = fachinhalte_candidate
         else:
             fachinhalte_root = self._find_named_child(baukasten_dir, ("34 fachinhalte", "34 fachenhalte"))
 
         fachdidaktik_candidate = resolve_path_value(values.get(FACHDIDAKTIK_DIR_KEY, ""))
+        fachdidaktik_root: Path | None
         if fachdidaktik_candidate.exists() and fachdidaktik_candidate.is_dir():
             fachdidaktik_root = fachdidaktik_candidate
         else:
