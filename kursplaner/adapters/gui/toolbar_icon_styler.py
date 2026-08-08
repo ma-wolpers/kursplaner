@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
-from bw_gui.theming import icon_button, recolor_photo, recolor_photo_token
+from bw_gui.theming import icon_button, recolor_photo, recolor_photo_token, retain_icon_override
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
-
 
 # Maps ttk style name → bw_gui color_tint seed for icon recoloring.
 # None means no tint: icon pixels are recolored to fg_primary (the neutral
@@ -186,7 +186,8 @@ class ToolbarIconStyler:
             is_disabled = bool(button.instate(["disabled"]))
             if is_disabled:
                 img = recolor_photo_token(base, "fg_muted")
-                button.configure(image=img, text="", compound="center")
+                retain_icon_override(button, img)
+                button.configure(text="", compound="center")
             elif icon_key != spec.key:
                 # State-swapped alternate icon: apply the correct tint seed
                 tint = _STYLE_TINT.get(icon_style)
@@ -194,5 +195,6 @@ class ToolbarIconStyler:
                     img = recolor_photo(base, tint)
                 else:
                     img = recolor_photo_token(base, "fg_primary")
-                button.configure(image=img, text="", compound="center")
+                retain_icon_override(button, img)
+                button.configure(text="", compound="center")
             # Normal case: _reapply_icon_buttons already applied the right color.
