@@ -24,9 +24,21 @@ class _ThemeVar:
 class _ActionControllerSpy:
     def __init__(self):
         self.update_calls = 0
+        self.schedule_calls = 0
 
     def update_action_controls(self):
         self.update_calls += 1
+
+    def schedule_action_controls_update(self):
+        self.schedule_calls += 1
+
+
+class _GridRendererStub:
+    def __init__(self):
+        self.style_calls: list[tuple[str, int]] = []
+
+    def _apply_cell_selection_style(self, _widget, *, field_key: str, day_index: int):
+        self.style_calls.append((field_key, day_index))
 
 
 class _GridCanvasStub:
@@ -128,7 +140,9 @@ class _SelectionAppStub(SimpleNamespace):
             action_controller=_ActionControllerSpy(),
             grid_canvas=_GridCanvasStub(),
             grid_window=object(),
+            grid_renderer=_GridRendererStub(),
             cell_widgets={},
+            _is_rebuilding_grid=False,
             overview_controller=SimpleNamespace(_next_lesson_column_index=lambda: 0),
         )
         self.viewport_sync = _ViewportSyncStub(self.grid_canvas)

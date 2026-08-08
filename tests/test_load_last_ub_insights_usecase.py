@@ -63,8 +63,8 @@ def test_execute_keeps_subject_and_paedagogik_fields_for_existing_callers():
 
 def test_execute_ignores_same_day_ub_before_configured_cutoff():
     today = datetime(2026, 4, 10, 14, 30)
-    today_inf = Path("UB 26-04-10 Heute Inf.md")
-    yesterday_inf = Path("UB 26-04-09 Gestern Inf.md")
+    today_inf = Path("ub 26-04-10.md")
+    yesterday_inf = Path("ub 26-04-09.md")
     ordered = [yesterday_inf, today_inf]
     content: dict[Path, tuple[dict[str, object], str]] = {
         today_inf: ({"Bereich": ["Informatik"]}, _body("I-heute", "IR-heute")),
@@ -84,8 +84,8 @@ def test_execute_ignores_same_day_ub_before_configured_cutoff():
 
 def test_execute_counts_same_day_ub_after_configured_cutoff():
     today = datetime(2026, 4, 10, 15, 1)
-    today_inf = Path("UB 26-04-10 Heute Inf.md")
-    yesterday_inf = Path("UB 26-04-09 Gestern Inf.md")
+    today_inf = Path("ub 26-04-10.md")
+    yesterday_inf = Path("ub 26-04-09.md")
     ordered = [yesterday_inf, today_inf]
     content: dict[Path, tuple[dict[str, object], str]] = {
         today_inf: ({"Bereich": ["Informatik"]}, _body("I-heute", "IR-heute")),
