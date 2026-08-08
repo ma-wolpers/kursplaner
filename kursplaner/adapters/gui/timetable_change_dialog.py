@@ -14,7 +14,7 @@ from bw_gui.theming import tinted_color
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import PlanTableData, extract_plan_oberthema
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.usecases.timetable_change_usecase import (
     DraftSlot,
@@ -64,6 +64,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
             theme_key=theme_key,
         )
         self._table = table
+        self._group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
         self._day_columns = day_columns
         self._calendar_dir = calendar_dir
         self._timetable_change_uc = timetable_change_uc
@@ -321,7 +322,15 @@ class TimetableChangeDialog(ScrollablePopupWindow):
                 art, inhalt_text, tag = "Ausfall", slot.ausfall_reason, "cancel"
             else:
                 art = ""
-                inhalt_text = strip_wiki_link(slot.content)
+                if slot.content:
+                    inhalt_text = strip_wiki_link(slot.content)
+                elif slot.oberthema_cell:
+                    oberthema_text = extract_plan_oberthema(slot.oberthema_cell, self._group_name)
+                    inhalt_text = f"Oberthema: {oberthema_text}" if oberthema_text else strip_wiki_link(
+                        slot.oberthema_cell
+                    )
+                else:
+                    inhalt_text = ""
                 tag = "recovered" if slot.was_recovered_week else ""
             self._right_tree.insert("", "end", values=(datum_str, art, inhalt_text), tags=(tag,))
 
@@ -397,7 +406,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         """Platziert verdrängten Inhalt im nächsten leeren Stattfindend-Slot."""
         for i in range(start_after + 1, len(self._draft_slots)):
             s = self._draft_slots[i]
-            if not s.is_ferien and not s.is_user_ausfall and not s.content:
+            if not s.is_ferien and not s.is_user_ausfall and not s.content and not s.oberthema_cell:
                 self._draft_slots[i] = dataclasses.replace(s, content=content)
                 return
         messagebox.showwarning(
@@ -421,8 +430,8 @@ class TimetableChangeDialog(ScrollablePopupWindow):
 
         self._save_undo_snapshot()
         a, b = self._draft_slots[idx], self._draft_slots[partner_idx]
-        self._draft_slots[idx] = dataclasses.replace(a, content=b.content)
-        self._draft_slots[partner_idx] = dataclasses.replace(b, content=a.content)
+        self._draft_slots[idx] = dataclasses.replace(a, content=b.content, oberthema_cell=b.oberthema_cell)
+        self._draft_slots[partner_idx] = dataclasses.replace(b, content=a.content, oberthema_cell=a.oberthema_cell)
         self._refresh_right_tree()
         new_sel_idx = partner_idx
         children = self._right_tree.get_children()
@@ -447,10 +456,10 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         if idx is None or not self._draft_slots:
             return
         slot = self._draft_slots[idx]
-        if slot.is_ferien or not slot.content:
+        if slot.is_ferien or (not slot.content and not slot.oberthema_cell):
             return
         self._save_undo_snapshot()
-        self._draft_slots[idx] = dataclasses.replace(slot, content="")
+        self._draft_slots[idx] = dataclasses.replace(slot, content="", oberthema_cell="")
         self._refresh_right_tree()
 
     def _on_accept_click(self) -> None:

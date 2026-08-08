@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.topic_sequence_runs import row_oberthema
+
 
 @dataclass(frozen=True)
 class ColumnVisibilitySettings:
@@ -73,11 +75,19 @@ class ColumnVisibilityProjectionUseCase:
 
     @staticmethod
     def _is_empty_day(day: dict[str, object]) -> bool:
+        """Prüft, ob eine Tages-Spalte als `KIND_LEER` gilt.
+
+        Eine Spalte ist nur dann leer, wenn sie weder Inhalt, Link, YAML-Payload
+        noch ein Oberthema trägt. Der Oberthema-Check (`row_oberthema`) ist nötig,
+        damit noch nicht angelegte Einheiten, die in der Plantabelle bereits einem
+        Oberthema zugeordnet sind, nicht fälschlich als leer gefiltert werden.
+        """
         inhalt = str(day.get("inhalt", "")).strip()
         has_link = day.get("link") is not None
         yaml_obj = day.get("yaml")
         has_yaml_payload = isinstance(yaml_obj, dict) and bool(yaml_obj)
-        return not inhalt and not has_link and not has_yaml_payload
+        has_oberthema = bool(row_oberthema(day))
+        return not inhalt and not has_link and not has_yaml_payload and not has_oberthema
 
     @classmethod
     def _is_hidden(cls, kind: str, settings: ColumnVisibilitySettings) -> bool:

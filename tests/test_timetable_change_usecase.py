@@ -80,8 +80,16 @@ def _make_uc(repo=None) -> TimetableChangeUseCase:
     return TimetableChangeUseCase(calendar_repo=repo or _FakeCalendarRepo())
 
 
-def _stattfindend_day(datum_str: str, inhalt: str = "[[abc123]]") -> dict[str, object]:
-    return {"datum": datum_str, "stunden": "2", "is_cancel": False, "inhalt": inhalt}
+def _stattfindend_day(
+    datum_str: str, inhalt: str = "[[abc123]]", thema_ausfall: str = ""
+) -> dict[str, object]:
+    return {
+        "datum": datum_str,
+        "stunden": "2",
+        "is_cancel": False,
+        "inhalt": inhalt,
+        "thema_ausfall": thema_ausfall,
+    }
 
 
 def _ausfall_day(datum_str: str) -> dict[str, object]:
@@ -205,6 +213,23 @@ def test_compute_more_old_than_new_truncates():
     stattfindend = [s for s in result.draft_slots if not s.is_ferien]
     assert len(stattfindend) == 1
     assert stattfindend[0].content == "[[abc]]"
+
+
+def test_compute_carries_oberthema_of_not_yet_created_unit():
+    """Eine alte Einheit ohne Inhalt, aber mit Oberthema in Thema/Ausfall, wird nicht verworfen."""
+    day_columns = [_stattfindend_day("05-01-26", inhalt="", thema_ausfall="[[li2 Kodierung]]")]
+    uc = _make_uc()
+    result = uc.compute(
+        day_columns=day_columns,
+        date_from=date(2026, 1, 5),
+        date_to=date(2026, 1, 5),
+        new_day_hours={0: 2},
+        calendar_dir=Path("."),
+    )
+    stattfindend = [s for s in result.draft_slots if not s.is_ferien]
+    assert len(stattfindend) == 1
+    assert stattfindend[0].content == ""
+    assert stattfindend[0].oberthema_cell == "[[li2 Kodierung]]"
 
 
 def test_compute_more_new_than_old_leaves_empty_slots():

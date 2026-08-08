@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import date, datetime
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker
@@ -61,6 +61,10 @@ class ApplyTimetableChangeUseCase:
         """Baut eine Tabellenzeile aus einem DraftSlot.
 
         Respektiert die tatsächliche Spaltenanzahl und -reihenfolge der Tabelle.
+        Im Normalfall (weder Ferien noch Ausfall) wird zusätzlich zu `slot.content`
+        auch ein gesetztes `slot.oberthema_cell` in die Thema/Ausfall-Spalte
+        geschrieben — siehe `DraftSlot`-Docstring für die vollständige
+        Spalten-Zuordnung aller Felder.
         """
         row = [""] * n_cols
 
@@ -84,6 +88,8 @@ class ApplyTimetableChangeUseCase:
         else:
             if idx_inhalt is not None:
                 row[idx_inhalt] = slot.content
+            if idx_thema_ausfall is not None and slot.oberthema_cell:
+                row[idx_thema_ausfall] = slot.oberthema_cell
 
         return row
 

@@ -4,7 +4,14 @@ from kursplaner.core.usecases.column_visibility_projection_usecase import (
 )
 
 
-def _day(*, inhalt: str = "", is_cancel: bool = False, is_lzk: bool = False, is_hospitation: bool = False):
+def _day(
+    *,
+    inhalt: str = "",
+    is_cancel: bool = False,
+    is_lzk: bool = False,
+    is_hospitation: bool = False,
+    plan_oberthema: str = "",
+):
     return {
         "inhalt": inhalt,
         "is_cancel": is_cancel,
@@ -12,6 +19,7 @@ def _day(*, inhalt: str = "", is_cancel: bool = False, is_lzk: bool = False, is_
         "is_hospitation": is_hospitation,
         "link": None,
         "yaml": {},
+        "plan_oberthema": plan_oberthema,
     }
 
 

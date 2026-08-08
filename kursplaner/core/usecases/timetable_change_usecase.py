@@ -7,7 +7,6 @@ from pathlib import Path
 from kursplaner.core.domain.planner import PlanRow, generate_rows
 from kursplaner.core.ports.repositories import CalendarRepository
 
-
 # ---------------------------------------------------------------------------
 # Predicate wrappers for day_column classification
 # ---------------------------------------------------------------------------
@@ -59,6 +58,13 @@ class DraftSlot:
 
     Lebt ausschließlich im Dialog; wird nach Übernehmen in Tabellenzeilen
     konvertiert und danach verworfen.
+
+    Spalten-Zuordnung beim Zurückschreiben (siehe `ApplyTimetableChangeUseCase._build_row`):
+    - `content` → Spalte "Inhalt", nur im Normalfall (weder Ferien noch Ausfall).
+    - `ausfall_reason` → Spalte "Thema/Ausfall" bei Ferien/Ausfall, transformiert
+      über `format_outage_note`/`build_ausfall_marker` (editierbarer Freitext).
+    - `oberthema_cell` → Spalte "Thema/Ausfall" im Normalfall, unverändert aus
+      der alten Einheit übernommen (roher Zellwert, kein Freitext).
     """
 
     datum: date
@@ -68,6 +74,7 @@ class DraftSlot:
     ausfall_reason: str
     content: str
     was_recovered_week: bool
+    oberthema_cell: str
 
 
 @dataclass
@@ -184,10 +191,12 @@ class TimetableChangeUseCase:
         """Ordnet stattfindende alte Einheiten den neuen Slots zu.
 
         Ferien-Slots bekommen kein Content. Stattfindende neue Slots erhalten
-        der Reihe nach die Inhalte alter stattfindender Einheiten.
+        der Reihe nach Inhalt und Thema/Ausfall-Zellwert (u. a. das Oberthema
+        noch nicht angelegter Einheiten, siehe `DraftSlot`) alter stattfindender
+        Einheiten.
         """
         pending_contents = [
-            str(day.get("inhalt", ""))
+            (str(day.get("inhalt", "")), str(day.get("thema_ausfall", "")))
             for day in old_units
             if column_is_stattfindend(day)
         ]
@@ -209,12 +218,14 @@ class TimetableChangeUseCase:
                         ausfall_reason=note,
                         content="",
                         was_recovered_week=False,
+                        oberthema_cell="",
                     )
                 )
             else:
                 content = ""
+                oberthema_cell = ""
                 if content_index < len(pending_contents):
-                    content = pending_contents[content_index]
+                    content, oberthema_cell = pending_contents[content_index]
                     content_index += 1
 
                 was_recovered = (iso.year, iso.week) in weeks_with_manual_ausfall
@@ -227,6 +238,7 @@ class TimetableChangeUseCase:
                         ausfall_reason="",
                         content=content,
                         was_recovered_week=was_recovered,
+                        oberthema_cell=oberthema_cell,
                     )
                 )
 

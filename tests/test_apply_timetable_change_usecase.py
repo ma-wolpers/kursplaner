@@ -7,7 +7,6 @@ from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.timetable_change_usecase import DraftSlot
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -48,6 +47,7 @@ def _slot(
     ausfall_reason: str = "",
     content: str = "",
     was_recovered_week: bool = False,
+    oberthema_cell: str = "",
 ) -> DraftSlot:
     return DraftSlot(
         datum=d,
@@ -57,6 +57,7 @@ def _slot(
         ausfall_reason=ausfall_reason,
         content=content,
         was_recovered_week=was_recovered_week,
+        oberthema_cell=oberthema_cell,
     )
 
 
@@ -134,6 +135,18 @@ def test_empty_content_slot_has_empty_inhalt():
     row = repo.saved.rows[0]
     assert row[2] == ""
     assert row[3] == ""
+
+
+def test_stattfindend_slot_with_oberthema_writes_thema_ausfall_cell():
+    """Oberthema-Zellwert (noch nicht angelegte Einheit) wird in Thema/Ausfall geschrieben."""
+    rows = [["06-01-26", "2", "", "[[li2 Kodierung]]"]]
+    uc, repo = _make_uc()
+    draft = [_slot(date(2026, 1, 6), content="", oberthema_cell="[[li2 Kodierung]]")]
+    uc.execute(_table(rows), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6), draft_slots=draft)
+
+    row = repo.saved.rows[0]
+    assert row[2] == ""
+    assert row[3] == "[[li2 Kodierung]]"
 
 
 def test_dropped_contents_detected():
