@@ -52,7 +52,7 @@ class PathSettingsUseCase:
     @staticmethod
     def validate_values(values: dict[str, str]) -> list[PathIssue]:
         """Validiert Pfadwerte und liefert strukturierte Issues zurück."""
-        return validate_paths(get_managed_paths(values))
+        return validate_paths(get_managed_paths(values), values)
 
     @staticmethod
     def path_field_definitions() -> tuple[PathFieldDefinition, ...]:

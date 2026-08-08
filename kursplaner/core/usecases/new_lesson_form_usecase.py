@@ -90,7 +90,7 @@ class NewLessonFormUseCase:
         return value
 
     def _ferien_starts(self, start_date: date, calendar_dir: Path) -> list[date]:
-        years = {start_date.year - 1, start_date.year, start_date.year + 1, start_date.year + 2}
+        years = {start_date.year, start_date.year + 1, start_date.year + 2}
         _, blocks, _ = self.calendar_repo.load_calendar_data(calendar_dir, years)
         ferien_blocks = [item for item in blocks if "ferien" in item[0].lower()]
         boundary = find_next_halfyear_boundary_start(start_date, ferien_blocks)

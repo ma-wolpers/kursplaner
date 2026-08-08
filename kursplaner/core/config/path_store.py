@@ -5,9 +5,38 @@ from pathlib import Path
 from bw_libs.app_paths import atomic_write_json
 from bw_libs.safe_read import read_json_or_default
 
+from .path_field_definitions import (
+    BAUKASTEN_DIR_KEY as BAUKASTEN_DIR_KEY,
+)
+from .path_field_definitions import (
+    CALENDAR_DIR_KEY as CALENDAR_DIR_KEY,
+)
+from .path_field_definitions import (
+    FACHDIDAKTIK_DIR_KEY as FACHDIDAKTIK_DIR_KEY,
+)
+from .path_field_definitions import (
+    FACHINHALTE_DIR_KEY as FACHINHALTE_DIR_KEY,
+)
+from .path_field_definitions import (
+    KOMPETENZ_MANIFEST_PATH_KEY as KOMPETENZ_MANIFEST_PATH_KEY,
+)
+from .path_field_definitions import (
+    MATERIALIEN_DIR_KEY as MATERIALIEN_DIR_KEY,
+)
+from .path_field_definitions import (
+    PATH_FIELD_BY_KEY as PATH_FIELD_BY_KEY,
+)
+from .path_field_definitions import (
+    PATH_FIELD_DEFINITIONS as PATH_FIELD_DEFINITIONS,
+)
+from .path_field_definitions import (
+    UNTERRICHT_DIR_KEY as UNTERRICHT_DIR_KEY,
+)
+from .path_field_definitions import (
+    PathFieldDefinition as PathFieldDefinition,
+)
 from .settings import (
     DEFAULT_BAUKASTEN_DIR,
-    DEFAULT_CALENDAR_DIR,
     DEFAULT_FACHDIDAKTIK_DIR,
     DEFAULT_FACHINHALTE_DIR,
     DEFAULT_KOMPETENZ_MANIFEST_PATH,
@@ -16,26 +45,6 @@ from .settings import (
     SCRIPT_DIR,
     WORKSPACE_ROOT,
 )
-
-UNTERRICHT_DIR_KEY = "unterricht_dir"
-CALENDAR_DIR_KEY = "calendar_dir"
-BAUKASTEN_DIR_KEY = "baukasten_dir"
-FACHINHALTE_DIR_KEY = "fachinhalte_dir"
-FACHDIDAKTIK_DIR_KEY = "fachdidaktik_dir"
-MATERIALIEN_DIR_KEY = "materialien_dir"
-KOMPETENZ_MANIFEST_PATH_KEY = "kompetenz_manifest_path"
-
-
-@dataclass(frozen=True)
-class PathFieldDefinition:
-    """Beschreibt ein konfigurierbares Pfadfeld der Anwendung."""
-
-    key: str
-    label: str
-    pick_title: str
-    kind: str
-    requires_markdown: bool = False
-    help_text: str = ""
 
 
 def _resolve_workspace_path(raw: str | Path) -> Path:
@@ -110,96 +119,15 @@ def serialize_workspace_relative_path(path: Path) -> str:
 
 DEFAULT_PATH_VALUES = {
     UNTERRICHT_DIR_KEY: normalize_path_value(str(DEFAULT_UNTERRICHT_DIR)),
-    CALENDAR_DIR_KEY: normalize_path_value(str(DEFAULT_CALENDAR_DIR)),
+    # Kein geratener Default: der Kalenderordner ist rein lokale Konfiguration
+    # (siehe validate_paths) und wird beim ersten Start interaktiv erfragt.
+    CALENDAR_DIR_KEY: "",
     BAUKASTEN_DIR_KEY: normalize_path_value(str(DEFAULT_BAUKASTEN_DIR)),
     FACHINHALTE_DIR_KEY: normalize_path_value(str(DEFAULT_FACHINHALTE_DIR)),
     FACHDIDAKTIK_DIR_KEY: normalize_path_value(str(DEFAULT_FACHDIDAKTIK_DIR)),
     MATERIALIEN_DIR_KEY: normalize_path_value(str(DEFAULT_MATERIALIEN_DIR)),
     KOMPETENZ_MANIFEST_PATH_KEY: normalize_path_value(str(DEFAULT_KOMPETENZ_MANIFEST_PATH)),
 }
-
-PATH_FIELD_DEFINITIONS: tuple[PathFieldDefinition, ...] = (
-    PathFieldDefinition(
-        key=UNTERRICHT_DIR_KEY,
-        label="Unterrichtsordner",
-        pick_title="Unterrichtsordner auswählen",
-        kind="dir",
-        requires_markdown=True,
-        help_text=(
-            "Hier liegt dein eigentlicher Unterrichtsbereich mit Kursplänen und Einheiten.\n"
-            "Diesen Ordner nutzt die Übersicht links und fast alle Bearbeitungsfunktionen."
-        ),
-    ),
-    PathFieldDefinition(
-        key=CALENDAR_DIR_KEY,
-        label="Kalenderordner (.ics)",
-        pick_title="Kalenderordner auswählen",
-        kind="dir",
-        requires_markdown=False,
-        help_text=(
-            "Ordner mit deinen .ics-Kalenderdateien (z. B. Ferien/Feiertage).\n"
-            "Beim Anlegen neuer Unterrichte werden daraus Zeitraum und Halbjahr unterstützt berechnet."
-        ),
-    ),
-    PathFieldDefinition(
-        key=BAUKASTEN_DIR_KEY,
-        label="Baukastenordner",
-        pick_title="Baukastenordner auswählen",
-        kind="dir",
-        requires_markdown=False,
-        help_text=(
-            "Überordner für deine Sammlungen (z. B. Fachinhalte und Fachdidaktik).\n"
-            "Wenn die speziellen Ordner unten nicht passen, sucht das Programm hier automatisch nach passenden Unterordnern."
-        ),
-    ),
-    PathFieldDefinition(
-        key=FACHINHALTE_DIR_KEY,
-        label="Fachinhalte-Root",
-        pick_title="Fachinhalte-Root auswählen",
-        kind="dir",
-        requires_markdown=True,
-        help_text=(
-            "Ordner mit fachlichen Themen- und Inhaltsnotizen je Fach.\n"
-            "Diese Einträge erscheinen im Dialog Einheit planen als Inhalts-Vorschläge."
-        ),
-    ),
-    PathFieldDefinition(
-        key=FACHDIDAKTIK_DIR_KEY,
-        label="Fachdidaktik-Root",
-        pick_title="Fachdidaktik-Root auswählen",
-        kind="dir",
-        requires_markdown=True,
-        help_text=(
-            "Ordner mit methodischen/didaktischen Notizen je Fach.\n"
-            "Diese Einträge erscheinen im Dialog Einheit planen als Methodik-Vorschläge."
-        ),
-    ),
-    PathFieldDefinition(
-        key=MATERIALIEN_DIR_KEY,
-        label="Materialien-Root",
-        pick_title="Materialien-Root auswählen",
-        kind="dir",
-        requires_markdown=True,
-        help_text=(
-            "Zentraler Ordner für Materialsammlungen und Materialnotizen.\n"
-            "Der Pfad ist bereits hinterlegt, damit Materialfunktionen ihn konsistent verwenden können."
-        ),
-    ),
-    PathFieldDefinition(
-        key=KOMPETENZ_MANIFEST_PATH_KEY,
-        label="Kompetenz-Manifest (JSON)",
-        pick_title="Kompetenz-Manifest auswählen",
-        kind="file",
-        requires_markdown=False,
-        help_text=(
-            "JSON-Datei, die festlegt, welche Kompetenzkataloge verfügbar sind.\n"
-            "Im Dialog Neuer Unterricht werden daraus KC-Profile und Kompetenzlisten geladen."
-        ),
-    ),
-)
-
-PATH_FIELD_BY_KEY = {item.key: item for item in PATH_FIELD_DEFINITIONS}
-
 
 @dataclass(frozen=True)
 class ManagedPaths:
@@ -323,8 +251,16 @@ def _contains_markdown_files(path: Path) -> bool:
         return False
 
 
-def validate_paths(paths: ManagedPaths) -> list[PathIssue]:
-    """Prüft alle verwalteten Pfade auf Existenz, Typ und Inhaltsregeln."""
+def validate_paths(paths: ManagedPaths, raw_values: dict[str, str] | None = None) -> list[PathIssue]:
+    """Prüft alle verwalteten Pfade auf Existenz, Typ und Inhaltsregeln.
+
+    Args:
+        paths: Aufgelöste Pfade (siehe `get_managed_paths`).
+        raw_values: Optional die rohen, unaufgelösten Werte (siehe `load_path_values`).
+            Ein leerer Rohwert gilt als "nicht konfiguriert" und wird als eigener
+            Issue gemeldet, statt über die (dann ggf. zufällig existierende)
+            aufgelöste Pfadauflösung stillschweigend als gültig durchzugehen.
+    """
     issues: list[PathIssue] = []
 
     value_by_key: dict[str, Path] = {
@@ -338,6 +274,18 @@ def validate_paths(paths: ManagedPaths) -> list[PathIssue]:
     }
 
     for field in PATH_FIELD_DEFINITIONS:
+        if raw_values is not None and not raw_values.get(field.key, "").strip():
+            issues.append(
+                PathIssue(
+                    key=field.key,
+                    label=field.label,
+                    path=value_by_key[field.key],
+                    message=f"{field.label} ist nicht konfiguriert.",
+                    pick_title=field.pick_title,
+                )
+            )
+            continue
+
         path = value_by_key[field.key]
         if not path.exists():
             issues.append(

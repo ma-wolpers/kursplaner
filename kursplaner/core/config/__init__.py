@@ -1,7 +1,4 @@
 from .settings import (
-    DEFAULT_CALENDAR_DIR as DEFAULT_CALENDAR_DIR,
-)
-from .settings import (
     DEFAULT_UNTERRICHT_DIR as DEFAULT_UNTERRICHT_DIR,
 )
 from .settings import (
@@ -15,7 +12,6 @@ from .settings import (
 )
 
 __all__ = [
-    "DEFAULT_CALENDAR_DIR",
     "DEFAULT_UNTERRICHT_DIR",
     "WEEKDAY_MAP",
     "WEEKDAY_ORDER",

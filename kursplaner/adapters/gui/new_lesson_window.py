@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Callable
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -304,6 +305,20 @@ class NewLessonWindow(ScrollablePopupWindow):
             messagebox.showerror("Neuer Unterricht", f"Unerwarteter Fehler:\n{exc}", parent=self)
             return
 
+        if result.warnings:
+            messagebox.showwarning(
+                "Kalenderdaten unvollständig",
+                "Beim Anlegen wurden Lücken in den Kalenderdaten festgestellt:\n\n"
+                + "\n".join(f"- {warning}" for warning in result.warnings)
+                + "\n\nFerien- und Feiertage für fehlende Jahre werden im Terminplan "
+                "nicht berücksichtigt.\n\n"
+                "Aktuelle .ics-Dateien gibt es z. B. auf ferienwiki.de (pro Bundesland, "
+                "Ferien- und Feiertagskalender einzeln exportierbar). Die Dateien gehören "
+                "in den konfigurierten Kalenderordner, benannt nach dem Muster "
+                "'ferien_<bundesland>_<jahr>.ics' bzw. 'feiertage_<bundesland>_<jahr>.ics'.",
+                parent=self,
+            )
+
         message = (
             f"Unterricht erfolgreich angelegt.\n\n"
             f"Ordner: {result.lesson_dir}\n"
@@ -311,9 +326,6 @@ class NewLessonWindow(ScrollablePopupWindow):
             f"Terminzeilen: {result.planned_rows}\n"
             f"Zeitraum: {result.range_start} bis {result.range_end}"
         )
-
-        if result.warnings:
-            message += "\n\nWarnungen:\n- " + "\n- ".join(result.warnings)
 
         messagebox.showinfo("Neuer Unterricht", message, parent=self)
         if self.on_success:
