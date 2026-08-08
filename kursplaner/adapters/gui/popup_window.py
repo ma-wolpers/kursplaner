@@ -75,14 +75,3 @@ class ScrollablePopupWindow(SharedScrollablePopupWindow):
         except ui.TclError:
             return
 
-    def _handle_escape_request(self) -> str:
-        """Keep class-hook resolution on the local wrapper for test/runtime parity."""
-        focused = self.focus_get()
-        if self._is_descendant_of_popup(focused) and ScrollablePopupWindow._is_editable_widget(focused):
-            try:
-                self.focus_force()
-            except ui.TclError:
-                return "break"
-            return "break"
-        return self._request_close()
-

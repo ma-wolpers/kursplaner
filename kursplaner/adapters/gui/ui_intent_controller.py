@@ -873,6 +873,20 @@ class MainWindowUiIntentController:
         return "break"
 
     def intent_global_click_commit_cell(self, event):
+        """Committet eine aktive Zellbearbeitung, wenn irgendwo anders hin geklickt wird.
+
+        Global an ``<Button-1>`` gebunden (``add="+"``), damit ein Klick auf ein
+        beliebiges anderes Widget (Button, andere Zelle, Dialogfeld) die noch offene
+        Bearbeitung speichert, bevor der Klick sein eigentliches Ziel erreicht.
+
+        Der Tastaturfokus wandert nach dem Commit nur dann zurück aufs Grid, wenn das
+        angeklickte Widget selbst nicht editierbar ist. Bei einem Klick in ein anderes
+        Eingabefeld bleibt dessen eigene Fokussierung unangetastet. Bei einem Klick auf
+        alles andere (z. B. einen Toolbar-Button) verhindert das Zurücksetzen, dass der
+        Fokus auf dem bereits committeten, nicht mehr editierten Zellen-Widget hängen
+        bleibt — genau das führte sonst dazu, dass nachfolgende Tastenkürzel wie
+        Strg+Z fälschlich als "Fokus in Textfeld" blockiert wurden.
+        """
         active_editor = self.app.ui_state.active_editor
         if active_editor is None:
             return None
@@ -884,7 +898,9 @@ class MainWindowUiIntentController:
         if event is not None and getattr(event, "widget", None) is focused:
             return None
 
-        self._leave_edit_mode_to_cell(set_grid_focus=False)
+        clicked_widget = getattr(event, "widget", None) if event is not None else None
+        set_grid_focus = not self._is_editable_widget(clicked_widget)
+        self._leave_edit_mode_to_cell(set_grid_focus=set_grid_focus)
         return None
 
     def _leave_edit_mode_to_cell(self, *, set_grid_focus: bool) -> bool:

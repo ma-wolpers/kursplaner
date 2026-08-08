@@ -597,7 +597,6 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
         )
         self._bind_overlay_field(self.kompetenzen_field, "kompetenzen")
         self._bind_tab_navigation([self.kompetenzen_field])
-        self.bind("<Escape>", self._on_escape)
         self.bind("<Control-Return>", self._on_ctrl_enter_accept)
         self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
 
@@ -680,10 +679,6 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
             else:
                 values.append(value)
             self.kompetenzen_field.set(" | ".join(values))
-
-    def _on_escape(self, _event=None):
-        self._request_close()
-        return "break"
 
     def _on_ctrl_enter_accept(self, _event=None):
         self.overlay_controller.close()
@@ -799,7 +794,6 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
         )
         self._bind_overlay_field(self.stundenziel_field, "stundenziel")
         self._bind_tab_navigation([self.stundenziel_field])
-        self.bind("<Escape>", self._on_escape)
         self.bind("<Control-Return>", self._on_ctrl_enter_accept)
         self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
 
@@ -907,10 +901,6 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
             return None
         self.overlay_controller.close()
         return None
-
-    def _on_escape(self, _event=None):
-        self._request_close()
-        return "break"
 
     def _on_ctrl_enter_accept(self, _event=None):
         self.overlay_controller.close()
