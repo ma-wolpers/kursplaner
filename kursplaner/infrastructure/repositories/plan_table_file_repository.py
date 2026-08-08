@@ -210,13 +210,11 @@ def _render_yaml_frontmatter(data: dict[str, object]) -> str:
     return "\n".join(lines) + "\n\n"
 
 
-def load_last_plan_table(markdown_path: Path) -> PlanTableData:
-    text = markdown_path.read_text(encoding="utf-8")
-    had_trailing_newline = text.endswith("\n")
-    lines = text.splitlines()
+def _locate_plan_table_block(lines: list[str], markdown_path: Path) -> tuple[int, int, list[str]]:
+    """Findet Zeilenbereich und Header der Planungstabelle in `lines`.
 
-    metadata = _parse_plan_metadata(markdown_path)
-
+    Wirft RuntimeError, falls keine gültige Planungstabelle gefunden wird.
+    """
     blocks = _extract_table_blocks(lines)
     if not blocks:
         raise RuntimeError("Keine Markdown-Tabelle in der Datei gefunden.")
@@ -241,6 +239,24 @@ def load_last_plan_table(markdown_path: Path) -> PlanTableData:
         )
 
     start, end = selected
+    return start, end, headers
+
+
+def _file_signature(path: Path) -> tuple[int, int]:
+    """Liefert `(mtime_ns, size)` einer Datei als billig vergleichbare Änderungssignatur."""
+    stat = path.stat()
+    return getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1_000_000_000)), stat.st_size
+
+
+def load_last_plan_table(markdown_path: Path) -> PlanTableData:
+    text = markdown_path.read_text(encoding="utf-8")
+    had_trailing_newline = text.endswith("\n")
+    lines = text.splitlines()
+
+    metadata = _parse_plan_metadata(markdown_path)
+
+    start, end, headers = _locate_plan_table_block(lines, markdown_path)
+
     body_lines = lines[start + 2 : end + 1]
     rows = [_split_row(line) for line in body_lines]
 
@@ -255,6 +271,8 @@ def load_last_plan_table(markdown_path: Path) -> PlanTableData:
 
     _validate_plan_rows(normalized_rows, str(markdown_path))
 
+    mtime_ns, size = _file_signature(markdown_path)
+
     return PlanTableData(
         markdown_path=markdown_path,
         headers=headers,
@@ -264,6 +282,8 @@ def load_last_plan_table(markdown_path: Path) -> PlanTableData:
         source_lines=lines,
         had_trailing_newline=had_trailing_newline,
         metadata=metadata,
+        source_mtime_ns=mtime_ns,
+        source_size=size,
     )
 
 
@@ -284,13 +304,37 @@ def _render_table(table: PlanTableData) -> list[str]:
 
 
 def save_plan_table(table: PlanTableData):
+    """Persistiert eine Planungstabelle; erkennt externe Datei-Änderungen seit dem Laden.
+
+    Vergleicht `(mtime_ns, size)` der Datei mit der beim Laden gemerkten Signatur
+    (billiger als ein erneutes Volleinlesen bei jedem Speichern). Weicht sie ab
+    – die Datei wurde also außerhalb dieser Session verändert –, werden
+    `source_lines`/`start_line`/`end_line`/`had_trailing_newline` frisch von der
+    Platte übernommen, bevor gerendert wird. So bleibt Text vor/nach der Tabelle,
+    der extern hinzugefügt wurde, erhalten; nur die im Speicher editierten `rows`
+    (die eigentliche Nutzeraktion) werden übernommen, nicht der frische Tabelleninhalt.
+    """
     _validate_plan_rows(table.rows, str(table.markdown_path))
+
+    if table.markdown_path.exists():
+        current_mtime_ns, current_size = _file_signature(table.markdown_path)
+        if (current_mtime_ns, current_size) != (table.source_mtime_ns, table.source_size):
+            fresh_text = table.markdown_path.read_text(encoding="utf-8")
+            fresh_lines = fresh_text.splitlines()
+            start, end, _headers = _locate_plan_table_block(fresh_lines, table.markdown_path)
+            table.source_lines = fresh_lines
+            table.start_line = start
+            table.end_line = end
+            table.had_trailing_newline = fresh_text.endswith("\n")
+
     rendered = _render_table(table)
     updated_lines = table.source_lines[: table.start_line] + rendered + table.source_lines[table.end_line + 1 :]
     output = "\n".join(updated_lines)
     if table.had_trailing_newline:
         output += "\n"
     atomic_write_text(table.markdown_path, output, encoding="utf-8")
+
+    table.source_mtime_ns, table.source_size = _file_signature(table.markdown_path)
 
 
 def get_row_link_path(table: PlanTableData, row_index: int) -> Path | None:

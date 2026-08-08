@@ -13,6 +13,13 @@ class PlanTableData:
 
     Enthält den ursprünglichen Quellkontext (Dateipfad, Zeilenbereich, Originalzeilen)
     und die editierbaren Tabellenwerte (`headers`, `rows`).
+
+    `source_mtime_ns`/`source_size` sind ausschließlich für
+    `plan_table_file_repository.load_last_plan_table()`/`save_plan_table()`
+    gedacht: sie halten die Datei-Signatur zum Ladezeitpunkt fest, damit
+    `save_plan_table()` externe Änderungen an der Datei erkennen und Text
+    vor/nach der Tabelle vor dem Überschreiben frisch nachladen kann. Andere
+    Aufrufer sollten diese Felder nicht lesen oder setzen.
     """
 
     markdown_path: Path
@@ -23,6 +30,8 @@ class PlanTableData:
     source_lines: list[str]
     had_trailing_newline: bool
     metadata: dict[str, str]
+    source_mtime_ns: int | None = None
+    source_size: int | None = None
 
 
 @dataclass

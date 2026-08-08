@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (technische Details, 2026-08-08)
+
+- **Externe Änderungen vor/nach der Einheitentabelle gingen beim nächsten Speichern aus Kursplaner verloren**: `self.app.current_table` wird beim Auswählen eines Kurses einmalig geladen (`overview_controller.load_selected_table` → `load_last_plan_table`), inklusive `source_lines`/`start_line`/`end_line` als Snapshot des kompletten Dateiinhalts. Jede Speicherung aus der App (`save_plan_table`) schrieb bisher `source_lines[:start_line] + neue_tabelle + source_lines[end_line+1:]` zurück — basierend auf diesem beim Laden eingefrorenen Snapshot, unabhängig davon, ob sich die Datei seitdem extern geändert hatte. Bearbeitete der Nutzer die `.md`-Datei direkt (z. B. in einem externen Editor), während Kursplaner den Kurs schon geladen hatte, überschrieb die nächste beliebige Zell-Speicherung (Inhalt, Stunden, Oberthema, …) die externe Änderung wieder — nicht spezifisch für eine Feld-Art, sondern jede Speicherung war betroffen.
+  - Fix: `PlanTableData` bekommt zwei neue Felder `source_mtime_ns`/`source_size` (Datei-Signatur zum Ladezeitpunkt, ausschließlich für `plan_table_file_repository.py` gedacht, siehe Docstring dort). `load_last_plan_table()` setzt sie beim Laden. `save_plan_table()` vergleicht sie vor dem Schreiben billig gegen den aktuellen Datei-Stand (`_file_signature()` – nur `stat()`, kein Volleinlesen); weichen sie ab, liest sie die Datei frisch ein und übernimmt `source_lines`/`start_line`/`end_line`/`had_trailing_newline` neu (per `_locate_plan_table_block()`, aus `load_last_plan_table()` herausgezogen, um die Tabellen-Lokalisierung nicht zu duplizieren) – die im Speicher editierten `rows` bleiben dabei unangetastet, da sie die eigentliche Nutzeraktion sind. Nach dem Schreiben wird die Signatur auf den neuen Datei-Stand aktualisiert, damit die nächste Speicherung nicht fälschlich wieder als "extern geändert" gilt.
+  - Kapselung: Nur `plan_table_file_repository.py` kennt das Signatur-Konzept; alle anderen Aufrufer (`FileSystemPlanRepository`, `SaveCellValueUseCase`, GUI-Controller) rufen `save_plan_table(table)` unverändert auf.
+  - Tests: `tests/test_save_plan_table_stale_file.py` (neu) – Regressionstest für den gemeldeten Fall (externe Notiz vor der Tabelle bleibt nach Zell-Speicherung erhalten) sowie ein Test, der belegt, dass bei unveränderter Datei kein unnötiges Neu-Einlesen stattfindet (`source_lines`-Objektidentität).
+  - `CHANGELOG.md`: Eintrag ergänzt, da nutzersichtbarer Datenverlust betroffen war.
+
 ### Fixed (technische Details, 2026-08-07)
 
 - **6 vorbestehende, unabhängige Lint-/Architektur-Befunde behoben** (aufgefallen bei der Verifikation des safe_read-Refactorings vom Vortag, jeweils eigener Commit):
