@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib
 import re
 from datetime import date, datetime
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -33,20 +34,22 @@ class MainWindowOverviewController:
         self.reconcile_ub_overview_usecase = deps.reconcile_ub_overview_usecase
         self.cleanup_lzk_expected_horizon_links_usecase = deps.cleanup_lzk_expected_horizon_links_usecase
         self.sync_topic_sequence_plans_usecase = deps.sync_topic_sequence_plans_usecase
+        self.archive_former_courses_usecase = deps.archive_former_courses_usecase
         self.path_settings_usecase = app.path_settings_usecase
 
-    @staticmethod
-    def _is_former_course(lesson) -> bool:
-        if bool(getattr(lesson, "load_error", None)):
-            return False
-        if not bool(getattr(lesson, "has_any_dated_unit", False)):
-            return False
-        return not bool(getattr(lesson, "has_upcoming_unit", False))
-
     def _should_show_course(self, lesson) -> bool:
+        """Filtert die Kursübersicht nach Archiv-Status.
+
+        Basiert auf ``lesson.is_archived`` (physische Lage im Kurs-Archiv,
+        siehe `course_lifecycle.is_archived_course_path`), nicht mehr auf
+        einer eigenen "kein anstehender Termin"-Heuristik — die einzige
+        Definition von "ehemaliger Kurs" lebt in
+        `course_lifecycle.is_former_course` und steuert bereits, ob ein Kurs
+        überhaupt im Archiv liegt (siehe `ArchiveFormerCoursesUseCase`).
+        """
         if bool(getattr(self.app, "show_former_courses", False)):
             return True
-        return not self._is_former_course(lesson)
+        return not bool(getattr(lesson, "is_archived", False))
 
     @staticmethod
     def _is_soon_upcoming(lesson, *, days_window: int) -> bool:
@@ -227,7 +230,22 @@ class MainWindowOverviewController:
             self.app.lesson_tree.delete(item)
         self.app.lesson_load_errors = {}
 
-        result = self.list_lessons_usecase.execute(pathlib.Path(base_dir).expanduser().resolve()) if base_dir else None
+        resolved_base_dir = pathlib.Path(base_dir).expanduser().resolve() if base_dir else None
+        if resolved_base_dir is not None:
+            current_table = getattr(self.app, "current_table", None)
+            skip_paths = (
+                frozenset({current_table.markdown_path.resolve()}) if current_table is not None else frozenset()
+            )
+            archive_result = self.archive_former_courses_usecase.execute(resolved_base_dir, skip_paths=skip_paths)
+            if archive_result.errors:
+                messagebox.showwarning(
+                    "Markierte Einträge",
+                    "Einige Kurse konnten nicht auf Archivierung geprüft werden:\n\n"
+                    + "\n".join(f"- {error}" for error in archive_result.errors),
+                    parent=self.app,
+                )
+
+        result = self.list_lessons_usecase.execute(resolved_base_dir) if resolved_base_dir is not None else None
         all_lessons = result.lessons if result is not None else []
         lessons = [lesson for lesson in all_lessons if self._should_show_course(lesson)]
         self.app.count_var.set(self._formatted_count(visible_count=len(lessons), total_count=len(all_lessons)))

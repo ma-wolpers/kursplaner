@@ -11,6 +11,9 @@ from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlow
 from kursplaner.core.flows.plan_lesson_flow import PlanLessonFlow
 from kursplaner.core.ports.repositories import LessonIndexRepository, PlanRepository
 from kursplaner.core.usecases.action_button_state_usecase import ActionButtonStateUseCase
+from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
+from kursplaner.core.usecases.archive_former_courses_usecase import ArchiveFormerCoursesUseCase
+from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.core.usecases.cleanup_lzk_expected_horizon_links_usecase import CleanupLzkExpectedHorizonLinksUseCase
 from kursplaner.core.usecases.clear_selected_lesson_usecase import ClearSelectedLessonUseCase
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilityProjectionUseCase
@@ -24,10 +27,7 @@ from kursplaner.core.usecases.daily_log_state_usecase import DailyLogStateUseCas
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicUnitsPdfUseCase
-from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
-from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.core.usecases.extend_plan_to_next_vacation_usecase import ExtendPlanToNextVacationUseCase
-from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
 from kursplaner.core.usecases.find_markdown_for_selected_usecase import FindMarkdownForSelectedUseCase
 from kursplaner.core.usecases.grid_cell_policy_usecase import GridCellPolicyUseCase
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
@@ -68,16 +68,17 @@ from kursplaner.core.usecases.subject_sources_usecase import SubjectSourcesUseCa
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopicSequencePlansUseCase
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
+from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
 from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import ExpectedHorizonPdfRenderer
 from kursplaner.infrastructure.export.topic_units_markdown_renderer import TopicUnitsMarkdownRenderer
 from kursplaner.infrastructure.export.topic_units_pdf_renderer import TopicUnitsPdfRenderer
+from kursplaner.infrastructure.repositories import FileSystemLessonIndexRepository
 from kursplaner.infrastructure.repositories.file_relation_registry_repository import (
     FileSystemFileRelationRegistryRepository,
 )
-from kursplaner.infrastructure.repositories import FileSystemLessonIndexRepository
 from kursplaner.infrastructure.repositories.markdown_repositories import (
     FileSystemCalendarRepository,
     FileSystemCommandRepository,
@@ -181,6 +182,7 @@ class GuiDependencies:
     query_ub_plan_usecase: QueryUbPlanUseCase
     load_last_ub_insights_usecase: LoadLastUbInsightsUseCase
     archive_past_lesson_files_usecase: ArchivePastLessonFilesUseCase
+    archive_former_courses_usecase: ArchiveFormerCoursesUseCase
     app_info: AppInfo
     shell_config: AppShellConfig
 
@@ -399,6 +401,10 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
     archive_past_lesson_files_usecase = ArchivePastLessonFilesUseCase(lesson_repo=lesson_repo)
+    archive_former_courses_usecase = ArchiveFormerCoursesUseCase(
+        plan_repo=plan_repo,
+        lesson_file_repo=lesson_file_repo,
+    )
     file_relation_registry_repo = FileSystemFileRelationRegistryRepository()
     rebuild_file_relation_registry_usecase = RebuildFileRelationRegistryUseCase(
         plan_repo=plan_repo,
@@ -472,6 +478,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         query_ub_plan_usecase=query_ub_plan_usecase,
         load_last_ub_insights_usecase=load_last_ub_insights_usecase,
         archive_past_lesson_files_usecase=archive_past_lesson_files_usecase,
+        archive_former_courses_usecase=archive_former_courses_usecase,
         app_info=APP_INFO,
         shell_config=AppShellConfig(
             title=APP_INFO.window_title,

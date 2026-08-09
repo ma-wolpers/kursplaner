@@ -24,6 +24,16 @@ class FileSystemLessonFileRepository:
             shutil.move(str(source), str(target))
         return target
 
+    def move_directory(self, source: Path, target: Path) -> Path:
+        """Verschiebt ein komplettes Verzeichnis; verweigert das Zusammenführen zweier Ordner."""
+        if source.resolve() == target.resolve():
+            return target
+        if target.exists():
+            raise FileExistsError(f"Zielordner existiert bereits: {target}")
+        self.ensure_directory(target.parent)
+        shutil.move(str(source), str(target))
+        return target
+
     def read_file_content(self, path: Path) -> str:
         """Liest den UTF-8-Inhalt einer Datei."""
         return path.read_text(encoding="utf-8")

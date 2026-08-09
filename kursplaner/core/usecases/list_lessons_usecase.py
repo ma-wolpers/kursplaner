@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kursplaner.core.domain.course_lifecycle import is_archived_course_path
 from kursplaner.core.domain.models import LessonOverviewItem, ListLessonsResult
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
@@ -36,6 +37,7 @@ class ListLessonsUseCase:
         items: list[LessonOverviewItem] = []
         warnings: list[str] = []
         for markdown in self.plan_repo.list_plan_markdown_files(base_dir):
+            is_archived = is_archived_course_path(markdown, base_dir)
             try:
                 table = self.plan_repo.load_plan_table(markdown)
             except Exception as exc:
@@ -54,6 +56,7 @@ class ListLessonsUseCase:
                         days_until_next_unit=None,
                         has_upcoming_unit=False,
                         has_any_dated_unit=False,
+                        is_archived=is_archived,
                         load_error=str(exc),
                     )
                 )
@@ -90,6 +93,7 @@ class ListLessonsUseCase:
                         days_until_next_unit=None,
                         has_upcoming_unit=False,
                         has_any_dated_unit=False,
+                        is_archived=is_archived,
                         load_error=str(exc),
                     )
                 )
@@ -108,6 +112,7 @@ class ListLessonsUseCase:
                     days_until_next_unit=days_until_next_unit,
                     has_upcoming_unit=has_upcoming_unit,
                     has_any_dated_unit=has_any_dated_unit,
+                    is_archived=is_archived,
                     load_error=None,
                 )
             )
