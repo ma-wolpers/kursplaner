@@ -284,7 +284,6 @@ class MainWindowLessonConversionController:
 
     def _unterricht_prefill_values(self, *, day: dict[str, object], row_index: int) -> dict[str, object]:
         current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
-        title_initial = current_topic or "Unterrichtseinheit"
         topic_initial = current_topic or "Unterrichtseinheit"
         oberthema_initial = self.last_oberthema_before_row(row_index)
         stundenziel_initial = ""
@@ -294,7 +293,6 @@ class MainWindowLessonConversionController:
 
         existing_link = self.plan_regular_lesson.resolve_existing_link(self.app.current_table, row_index)
         if isinstance(existing_link, pathlib.Path) and existing_link.exists() and existing_link.is_file():
-            title_initial = existing_link.stem
             try:
                 lesson = self.lesson_commands.lesson_repo.load_lesson_yaml(existing_link)
                 yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
@@ -309,7 +307,6 @@ class MainWindowLessonConversionController:
             methodik_initial = self._extract_markdown_section_refs(existing_link, "Methodik")
 
         return {
-            "title_initial": title_initial,
             "topic_initial": topic_initial,
             "oberthema_initial": oberthema_initial,
             "stundenziel_initial": stundenziel_initial,
@@ -371,7 +368,6 @@ class MainWindowLessonConversionController:
         was_lzk = self.app._is_lzk_row(row_index)
         current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
         content_before = str(day.get("inhalt", "")).strip()
-        title = current_topic or "Unterrichtseinheit"
         topic = current_topic or "Unterrichtseinheit"
         oberthema_input = ""
         stundenziel_input = ""
@@ -383,7 +379,6 @@ class MainWindowLessonConversionController:
         should_open_builder = from_column_shortcut or not self.plan_regular_lesson.has_existing_link(existing_link)
 
         prefill_values = self._unterricht_prefill_values(day=day, row_index=row_index)
-        title = str(prefill_values["title_initial"])
         topic = str(prefill_values["topic_initial"])
         oberthema_input = str(prefill_values["oberthema_initial"])
         stundenziel_input = str(prefill_values["stundenziel_initial"])
@@ -399,7 +394,6 @@ class MainWindowLessonConversionController:
             builder = ask_lesson_builder(
                 parent=self.app,
                 date_label=str(day.get("datum", "")).strip(),
-                title_initial=title,
                 topic_initial=topic,
                 oberthema_initial=oberthema_input,
                 kompetenzen_options=kompetenzen_options,
@@ -422,7 +416,6 @@ class MainWindowLessonConversionController:
             )
             if builder is None:
                 return
-            title = builder.title
             topic = builder.topic
             oberthema_input = builder.oberthema
             stundenziel_input = builder.stundenziel
@@ -440,22 +433,11 @@ class MainWindowLessonConversionController:
                 return
             topic = topic_input.strip()
 
-            title_input = simpledialog.askstring(
-                "In Unterricht umwandeln",
-                "Titel (Dateiname):",
-                initialvalue=title,
-                parent=self.app,
-            )
-            if title_input is None or not title_input.strip():
-                return
-            title = title_input.strip()
-
         write_result = self._run_tracked_write(
             label="Als Unterricht markieren",
             action=lambda: self.plan_regular_lesson.execute_write(
                 table=self.app.current_table,
                 row_index=row_index,
-                title=title,
                 topic=topic,
                 stunden_raw=str(day.get("stunden", "")).strip(),
                 oberthema_input=oberthema_input,
@@ -468,7 +450,6 @@ class MainWindowLessonConversionController:
                 allow_create_link=True,
                 allow_yaml_save=True,
                 allow_sections_save=should_open_builder,
-                allow_rename=True,
                 allow_plan_save=True,
             ),
             extra_after_from_result=lambda item: [item.lesson_path]

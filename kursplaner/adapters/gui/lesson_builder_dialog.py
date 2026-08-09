@@ -16,7 +16,6 @@ from kursplaner.adapters.gui.wrapped_text_field import WrappedTextField
 class LessonBuildResult:
     """Rückgabedaten des Dialogs für die Erstellung einer Unterrichtseinheit."""
 
-    title: str
     topic: str
     oberthema: str
     stundenziel: str
@@ -39,7 +38,6 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self,
         master,
         date_label: str,
-        title_initial: str,
         topic_initial: str,
         oberthema_initial: str,
         kompetenzen_options: list[str],
@@ -100,7 +98,6 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
         self._apply_theme()
 
-        self.title_field.set(title_initial)
         self.topic_field.set(topic_initial)
         self.oberthema_field.set(oberthema_initial)
         if self.kompetenzen_field is not None:
@@ -124,28 +121,21 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(10, 4)
         )
 
-        title_label = widgets.Label(basics, text="Titel (Dateiname)")
-        title_label.grid(row=1, column=0, sticky="w", padx=(10, 8), pady=4)
-        self.title_field = WrappedTextField(basics, height=2)
-        self.title_field.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
-        self._tooltips.append(HoverTooltip(title_label, LESSON_BUILDER_HELP["title"]))
-        self._tooltips.append(HoverTooltip(self.title_field.text, LESSON_BUILDER_HELP["title"]))
-
         topic_label = widgets.Label(basics, text="Stundenthema")
-        topic_label.grid(row=2, column=0, sticky="w", padx=(10, 8), pady=4)
+        topic_label.grid(row=1, column=0, sticky="w", padx=(10, 8), pady=4)
         self.topic_field = WrappedTextField(basics, height=2)
-        self.topic_field.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
+        self.topic_field.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
         self._tooltips.append(HoverTooltip(topic_label, LESSON_BUILDER_HELP["topic"]))
         self._tooltips.append(HoverTooltip(self.topic_field.text, LESSON_BUILDER_HELP["topic"]))
 
         oberthema_label = widgets.Label(basics, text="Oberthema")
-        oberthema_label.grid(row=3, column=0, sticky="w", padx=(10, 8), pady=4)
+        oberthema_label.grid(row=2, column=0, sticky="w", padx=(10, 8), pady=4)
         self.oberthema_field = WrappedTextField(basics, height=2)
-        self.oberthema_field.grid(row=3, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
+        self.oberthema_field.grid(row=2, column=1, columnspan=2, sticky="ew", padx=(0, 10), pady=4)
         self._tooltips.append(HoverTooltip(oberthema_label, LESSON_BUILDER_HELP["oberthema"]))
         self._tooltips.append(HoverTooltip(self.oberthema_field.text, LESSON_BUILDER_HELP["oberthema"]))
 
-        row = 4
+        row = 3
         if self.show_kompetenzen_field:
             kompetenzen_label = widgets.Label(basics, text="Kompetenzen")
             kompetenzen_label.grid(row=row, column=0, sticky="w", padx=(10, 8), pady=4)
@@ -213,7 +203,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         ub_frame.pack(fill="x", pady=(0, 10))
         self._render_ub_sections(ub_frame)
 
-        tab_fields = [self.title_field, self.topic_field, self.oberthema_field]
+        tab_fields = [self.topic_field, self.oberthema_field]
         if self.kompetenzen_field is not None:
             tab_fields.append(self.kompetenzen_field)
         if self.stundenziel_field is not None:
@@ -452,11 +442,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
 
     def _accept(self):
         """Validiert die Eingabe und übernimmt das Ergebnis in `self.result`."""
-        title = self.title_field.get()
         topic = self.topic_field.get()
-        if not title:
-            messagebox.showerror("Einheit planen", "Bitte einen Titel (Dateiname) eingeben.", parent=self)
-            return
         if not topic:
             messagebox.showerror("Einheit planen", "Bitte ein Stundenthema eingeben.", parent=self)
             return
@@ -470,7 +456,6 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             ]
 
         self.result = LessonBuildResult(
-            title=title,
             topic=topic,
             oberthema=self.oberthema_field.get(),
             stundenziel=stundenziel,
@@ -484,7 +469,6 @@ class LessonBuilderDialog(ScrollablePopupWindow):
 def ask_lesson_builder(
     parent,
     date_label: str,
-    title_initial: str,
     topic_initial: str,
     oberthema_initial: str,
     kompetenzen_options: list[str],
@@ -509,7 +493,6 @@ def ask_lesson_builder(
     dialog = LessonBuilderDialog(
         master=parent,
         date_label=date_label,
-        title_initial=title_initial,
         topic_initial=topic_initial,
         oberthema_initial=oberthema_initial,
         kompetenzen_options=kompetenzen_options,
@@ -531,7 +514,7 @@ def ask_lesson_builder(
         theme_key=theme_key,
     )
     dialog.grab_set()
-    _activate_modal_focus(dialog, dialog.title_field.text)
+    _activate_modal_focus(dialog, dialog.topic_field.text)
     dialog.wait_window()
     return dialog.result
 

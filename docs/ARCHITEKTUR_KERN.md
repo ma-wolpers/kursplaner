@@ -865,8 +865,7 @@ Modulzuschnitt (wer ist wofuer zustaendig):
 	- ist die fachliche Orchestrierung fuer Einheiten-Verschiebung.
 	- Invariante: nur `Inhalt` wird zwischen zwei Zeilen getauscht; `Datum` und `Stunden` bleiben zeilengebunden.
 	- Ausfall-/Ferien-/Feiertags-Zeilen werden bei der Partnerwahl uebersprungen.
-	- fuehrt nach dem Inhaltstausch fuer jede aufloesbare verlinkte Markdown-Datei eine Umbenennung aus (0, 1 oder 2 Dateien; Datumsteil wechselt zur Zielzeile, Titel bleibt bei der Einheit).
-	- bei Namenskollisionen im Rename-Pfad wird atomar abgebrochen und in diesem Fall nichts persistiert.
+	- benennt verlinkte Markdown-Dateien beim Verschieben nicht um; Dateinamen behalten den bei Anlage vergebenen Zufallscode (Namensschema siehe `docs/EINHEITENDATEIEN_SCHEMA_GOVERNANCE.md`), nur die Zeilenverlinkung tauscht.
 
 7. `adapters/gui/ui_intents.py`
 	- definiert den stabilen Intent-Vertrag zwischen View und Orchestrierung.

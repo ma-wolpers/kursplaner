@@ -11,9 +11,6 @@ NEW_LESSON_HELP: dict[str, str] = {
 }
 
 LESSON_BUILDER_HELP: dict[str, str] = {
-    "title": (
-        "Dateiname der Einheit.\nSollte kurz, eindeutig und stabil sein, damit Verlinkungen zuverlässig bleiben."
-    ),
     "topic": "Konkretes Thema der Stunde, das später im Plan sichtbar ist.",
     "oberthema": "Größerer inhaltlicher Rahmen, zu dem die Stunde gehört.",
     "kompetenzen": (

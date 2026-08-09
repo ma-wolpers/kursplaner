@@ -3,9 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.lesson_naming import build_lesson_stem, row_mmdd
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
@@ -20,7 +18,6 @@ class PlanRegularLessonInput:
     Die Instanz bündelt validierte Nutzereingaben für einen fachlichen Verarbeitungsschritt.
     """
 
-    title: str
     row_index: int
     topic: str
     stunden_raw: str
@@ -249,7 +246,6 @@ class PlanRegularLessonUseCase:
         *,
         table: PlanTableData,
         row_index: int,
-        title: str,
         topic: str,
         stunden_raw: str,
         oberthema_input: str,
@@ -262,7 +258,6 @@ class PlanRegularLessonUseCase:
         allow_create_link: bool,
         allow_yaml_save: bool,
         allow_sections_save: bool,
-        allow_rename: bool,
         allow_plan_save: bool,
     ) -> PlanRegularLessonWriteResult:
         """Führt den vollständigen Write-Flow für "Einheit planen" als eine Transaktion aus."""
@@ -276,7 +271,7 @@ class PlanRegularLessonUseCase:
                     error_message="Anlegen der Stunden-Datei wurde nicht bestätigt.",
                 )
             default_hours = self.default_hours(stunden_raw)
-            link = self.ensure_link(table, row_index, title, default_hours)
+            link = self.ensure_link(table, row_index, topic, default_hours)
 
         if not isinstance(link, Path):
             return PlanRegularLessonWriteResult(
@@ -296,6 +291,9 @@ class PlanRegularLessonUseCase:
             was_lzk=was_lzk,
             content_before=content_before,
         )
+        lesson_data = self.lesson_repo.load_lesson_yaml(link).data
+        group_name = str(table.metadata.get("Lerngruppe", ""))
+        self.plan_repo.sync_thema_ausfall_to_plan_row(table, row_index, yaml_data=lesson_data, group_name=group_name)
 
         if kompetenzen_refs or stundenziel_input.strip():
             if not allow_sections_save:
@@ -314,13 +312,6 @@ class PlanRegularLessonUseCase:
             self.update_sections(link, inhalte_refs, methodik_refs)
 
         final_path = link
-        if allow_rename:
-            group_token = strip_wiki_link(str(table.metadata.get("Lerngruppe", "gruppe")))
-            mmdd_token = row_mmdd(table, row_index)
-            desired_stem = build_lesson_stem(group_token, mmdd_token, title)
-            rename_target = self.lesson_transfer.compute_rename_target(final_path, desired_stem)
-            if rename_target != final_path:
-                final_path = self.lesson_transfer.rename_lesson_file(final_path, rename_target)
         self.lesson_transfer.relink_row_to_stem(table, row_index, final_path.stem, preserve_alias=False)
 
         if not allow_plan_save:

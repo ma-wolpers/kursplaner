@@ -17,7 +17,6 @@ class PlanLessonFlowWriteRequest:
 
     table: PlanTableData
     row_index: int
-    title: str
     topic: str
     stunden_raw: str
     oberthema_input: str
@@ -30,7 +29,6 @@ class PlanLessonFlowWriteRequest:
     allow_create_link: bool
     allow_yaml_save: bool
     allow_sections_save: bool
-    allow_rename: bool
     allow_plan_save: bool
 
 
@@ -60,7 +58,6 @@ class PlanLessonFlow:
         return self._plan_regular_lesson.execute_write(
             table=request.table,
             row_index=request.row_index,
-            title=request.title,
             topic=request.topic,
             stunden_raw=request.stunden_raw,
             oberthema_input=request.oberthema_input,
@@ -73,6 +70,5 @@ class PlanLessonFlow:
             allow_create_link=request.allow_create_link,
             allow_yaml_save=request.allow_yaml_save,
             allow_sections_save=request.allow_sections_save,
-            allow_rename=request.allow_rename,
             allow_plan_save=request.allow_plan_save,
         )
