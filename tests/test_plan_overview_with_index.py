@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
 
+from kursplaner.core.domain.course_rhythm import weekday_token
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
 from kursplaner.infrastructure.repositories.lesson_index_repository import FileSystemLessonIndexRepository
@@ -336,7 +337,7 @@ def test_plan_overview_counts_today_as_upcoming_before_cutoff(tmp_path):
         end_line=0,
         source_lines=[],
         had_trailing_newline=False,
-        metadata={},
+        metadata={"Rhythmus": [f"{weekday_token(date.today().weekday())} 08:00 2"]},
     )
 
     (

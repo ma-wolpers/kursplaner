@@ -4,6 +4,7 @@ from pathlib import Path
 
 from kursplaner.core.config.path_store import resolve_path_value
 from kursplaner.core.config.settings import WEEKDAY_MAP
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.course_subject import short_subject_for_course_subject
 
 
@@ -70,27 +71,49 @@ def normalize_weekdays(labels: list[str]) -> list[int]:
     return sorted(set(numbers))
 
 
-def normalize_day_hours(entries: dict[int, str]) -> dict[int, int]:
-    """Validiert Stundenangaben je Wochentag und gibt nur aktive Tage zurück."""
-    selected: dict[int, int] = {}
-    for weekday, raw_hours in entries.items():
-        value = raw_hours.strip()
-        if not value:
+def normalize_day_rhythm(
+    entries: dict[int, tuple[str, str]], *, valid_from: date | None = None
+) -> tuple[WeekdayRhythm, ...]:
+    """Validiert Startzeit-/Stundenangaben je Wochentag und baut Rhythmus-Einträge.
+
+    Args:
+        entries: Rohe Formulareingaben je Wochentag als
+            ``{weekday: (start_time_raw, hours_raw)}``. Wochentage mit leerer
+            Startzeit UND leerer Stundenangabe werden als deaktiviert übersprungen.
+        valid_from: Optionales Gültig-ab-Datum für alle erzeugten Einträge
+            (z. B. bei einer Stundenplanänderung ab einem Stichtag).
+
+    Returns:
+        Nach Wochentag sortierte Rhythmus-Einträge.
+
+    Raises:
+        ValidationError: Bei ungültiger Stundenzahl, ungültiger Startzeit oder
+            wenn kein Wochentag ausgewählt wurde.
+    """
+    selected: list[WeekdayRhythm] = []
+    for weekday, (start_raw, hours_raw) in entries.items():
+        start_value = start_raw.strip()
+        hours_value = hours_raw.strip()
+        if not start_value and not hours_value:
             continue
 
-        if not value.isdigit():
+        if not hours_value.isdigit():
             raise ValidationError("Stundenzahl muss zwischen 1 und 4 liegen.")
-
-        hours = int(value)
+        hours = int(hours_value)
         if hours < 1 or hours > 4:
             raise ValidationError("Stundenzahl muss zwischen 1 und 4 liegen.")
 
-        selected[weekday] = hours
+        try:
+            datetime.strptime(start_value, "%H:%M")
+        except ValueError as exc:
+            raise ValidationError("Startzeit muss im Format HH:MM angegeben werden.") from exc
+
+        selected.append(WeekdayRhythm(weekday=weekday, start_time=start_value, hours=hours, valid_from=valid_from))
 
     if not selected:
-        raise ValidationError("Bitte mindestens einen Unterrichtstag mit Stunden angeben.")
+        raise ValidationError("Bitte mindestens einen Unterrichtstag mit Startzeit und Stunden angeben.")
 
-    return dict(sorted(selected.items()))
+    return tuple(sorted(selected, key=lambda entry: entry.weekday))
 
 
 def normalize_base_dir(path_raw: str) -> Path:

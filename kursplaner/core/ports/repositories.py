@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Protocol
 
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.file_relation_registry import FileRelationRegistrySnapshot
 from kursplaner.core.domain.kompetenzkatalog import Kompetenzkatalog, KompetenzkatalogManifestEntry
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
@@ -106,14 +107,14 @@ class PlanRepository(Protocol):
     def append_plan_rows(
         self,
         markdown_path: Path,
-        rows: list[tuple[date, int, str]],
+        rows: list[tuple[date, str]],
         confirm_change: ConfirmChange | None = None,
     ) -> None:
         """Hängt Planzeilen als Markdown-Tabelle an eine bestehende Plan-Datei an.
 
         Args:
             markdown_path: Zielpfad der Plan-Markdown-Datei.
-            rows: Zu schreibende Terminzeilen.
+            rows: Zu schreibende Terminzeilen als ``(datum, thema_ausfall)``.
             confirm_change: Optionale Bestätigung vor dem Schreibvorgang.
         """
         ...
@@ -121,7 +122,7 @@ class PlanRepository(Protocol):
     def write_plan_rows(
         self,
         markdown_path: Path,
-        rows: list[tuple[date, int, str]],
+        rows: list[tuple[date, str]],
         confirm_change: ConfirmChange | None = None,
     ) -> None:
         """Schreibt Planzeilen als initiale oder ersetzte Haupttabelle.
@@ -130,7 +131,7 @@ class PlanRepository(Protocol):
 
         Args:
             markdown_path: Zielpfad der Plan-Markdown-Datei.
-            rows: Zu schreibende Terminzeilen.
+            rows: Zu schreibende Terminzeilen als ``(datum, thema_ausfall)``.
             confirm_change: Optionale Bestätigung vor dem Schreibvorgang.
         """
         ...
@@ -141,6 +142,7 @@ class PlanRepository(Protocol):
         group_name: str,
         course_subject: str,
         grade_level: int,
+        rhythm: tuple[WeekdayRhythm, ...],
         kc_profile_label: str | None = None,
         process_competencies: tuple[str, ...] = (),
         content_competency: str | None = None,
@@ -152,9 +154,19 @@ class PlanRepository(Protocol):
             group_name: Lerngruppenname.
             course_subject: Standardisiertes Kursfach (z. B. ``Informatik``).
             grade_level: Jahrgangsstufe.
+            rhythm: Wochentags-Rhythmus (Startzeit + Stundenzahl) des Kurses.
             kc_profile_label: Optionales KC-Profil fuer die Unterrichtseinheit.
             process_competencies: Optional gewaehlte prozessbezogene Kompetenzen.
             content_competency: Optional gewaehltes inhaltsbezogenes Stundenziel.
+        """
+        ...
+
+    def update_plan_rhythm(self, markdown_path: Path, rhythm: tuple[WeekdayRhythm, ...]) -> None:
+        """Ersetzt chirurgisch nur den ``Rhythmus``-Block der Plan-Datei-Frontmatter.
+
+        Args:
+            markdown_path: Zielpfad der Plan-Markdown-Datei.
+            rhythm: Vollstaendige, neue Rhythmus-Eintragsliste (alle Segmente).
         """
         ...
 
@@ -371,6 +383,22 @@ class LessonFileRepository(Protocol):
 
         Returns:
             Tatsächlicher Zielpfad nach der Verschiebung.
+        """
+        ...
+
+    def move_directory(self, source: Path, target: Path) -> Path:
+        """Verschiebt ein komplettes Verzeichnis (z. B. einen Kursordner).
+
+        Args:
+            source: Quellordner.
+            target: Zielordner; darf nicht bereits existieren.
+
+        Returns:
+            Tatsächlicher Zielpfad nach der Verschiebung.
+
+        Raises:
+            FileExistsError: Wenn am Zielpfad bereits ein Ordner existiert
+                (Kursordner werden nie automatisch zusammengeführt).
         """
         ...
 

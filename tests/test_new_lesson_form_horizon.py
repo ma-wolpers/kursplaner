@@ -38,7 +38,7 @@ def _form(base: Path) -> NewLessonFormData:
         period_raw="2026-03-20",
         base_dir_raw=str(base),
         calendar_dir_raw=str(base),
-        day_hours_raw={0: "2", 2: "2"},
+        day_rhythm_raw={0: ("08:00", "2"), 2: ("08:00", "2")},
         vacation_break_horizon_raw="2",
     )
 
@@ -74,7 +74,7 @@ def test_build_start_request_rejects_horizon_beyond_halfyear_boundary(tmp_path):
         period_raw="2026-03-20",
         base_dir_raw=str(tmp_path),
         calendar_dir_raw=str(tmp_path),
-        day_hours_raw={0: "2", 2: "2"},
+        day_rhythm_raw={0: ("08:00", "2"), 2: ("08:00", "2")},
         vacation_break_horizon_raw="3",
     )
 

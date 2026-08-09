@@ -41,8 +41,6 @@ class SaveCellEditPlan:
 class SaveCellConfirmationPlan:
     """Beschreibt, welche Bestätigungen im UI-Flow einzuholen sind."""
 
-    require_plan_hours_save: bool
-    require_duration_save: bool
     require_yaml_save: bool
     require_rename: bool
     require_plan_save_for_rename: bool
@@ -182,7 +180,7 @@ class SaveCellValueUseCase:
         row_filter_settings: RowFilterSettings | None = None,
     ) -> SaveCellRuntimeContext:
         """Prüft fachliche Editierbarkeit und liefert Laufzeitdaten für den Save-Flow."""
-        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall", "Ausfallgrund"}:
+        if field_key in {"datum", "stunden", "startzeit", "inhalt", "thema/ausfall", "Ausfallgrund"}:
             return SaveCellRuntimeContext(
                 proceed=False,
                 row_index=None,
@@ -262,20 +260,8 @@ class SaveCellValueUseCase:
         edit_plan: SaveCellEditPlan,
     ) -> SaveCellConfirmationPlan:
         """Leitet den fachlichen Bestätigungsbedarf des Save-Flows ab."""
-        if field_key == "stunden":
-            return SaveCellConfirmationPlan(
-                require_plan_hours_save=True,
-                require_duration_save=isinstance(lesson_path, Path) and lesson_path.exists(),
-                require_yaml_save=False,
-                require_rename=False,
-                require_plan_save_for_rename=False,
-                rename_target_preview=None,
-            )
-
         if field_key == "inhalt":
             return SaveCellConfirmationPlan(
-                require_plan_hours_save=False,
-                require_duration_save=False,
                 require_yaml_save=False,
                 require_rename=False,
                 require_plan_save_for_rename=False,
@@ -290,8 +276,6 @@ class SaveCellValueUseCase:
         )
 
         return SaveCellConfirmationPlan(
-            require_plan_hours_save=False,
-            require_duration_save=False,
             require_yaml_save=True,
             require_rename=requires_rename,
             require_plan_save_for_rename=edit_plan.should_rename_topic,
@@ -309,9 +293,7 @@ class SaveCellValueUseCase:
         list_entries: list[str] | None,
         should_rename_topic: bool,
         desired_stem: str,
-        allow_plan_hours_save: bool,
         allow_yaml_save: bool,
-        allow_duration_save: bool,
         allow_rename: bool,
         allow_plan_save_for_rename: bool,
     ) -> SaveCellValueResult:
@@ -321,25 +303,6 @@ class SaveCellValueUseCase:
         if field_key == "inhalt":
             self.lesson_edit.set_content_value(table, row_index, self._compose_inhalt_value(table, row_index, value))
             self.plan_repo.save_plan_table(table)
-            return SaveCellValueResult(proceed=True, lesson_path=lesson_path)
-
-        if field_key == "stunden":
-            if lesson_path is None:
-                return SaveCellValueResult(
-                    proceed=False,
-                    error_message="Keine verknüpfte Stunden-Datei für das Feld 'stunden'.",
-                )
-            if not allow_plan_hours_save:
-                return SaveCellValueResult(
-                    proceed=False,
-                    error_message="Speichern des Stundenwerts in der Planung abgebrochen.",
-                )
-
-            self.lesson_edit.set_hours_value(table, row_index, value)
-            self.plan_repo.save_plan_table(table)
-
-            if allow_duration_save:
-                self.lesson_edit.set_lesson_duration(lesson_path, value)
             return SaveCellValueResult(proceed=True, lesson_path=lesson_path)
 
         if field_key == "Oberthema" and lesson_path is None:

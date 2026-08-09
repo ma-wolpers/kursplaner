@@ -7,14 +7,8 @@ from pathlib import Path
 from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.config.settings import SCRIPT_DIR
-from kursplaner.core.domain.content_markers import (
-    is_ausfall_marker,
-    is_hospitation_marker,
-    normalize_marker_text,
-)
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
-from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 
 
@@ -66,18 +60,6 @@ class DailyCourseLogUseCase:
         return cls._log_dir() / f"{cls._LOG_FILENAME_PREFIX}{day.isoformat()}.json"
 
     @staticmethod
-    def _parse_plan_date(value: str) -> date | None:
-        text = str(value or "").strip()
-        if not text:
-            return None
-        for pattern in ("%d-%m-%y", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(text, pattern).date()
-            except ValueError:
-                continue
-        return None
-
-    @staticmethod
     def _parse_hours(raw: object) -> int:
         text = str(raw or "").strip()
         if text.isdigit():
@@ -98,7 +80,15 @@ class DailyCourseLogUseCase:
         return str(value).strip()
 
     @staticmethod
-    def _status_for_unit(day: dict[str, object], group_name: str) -> str:
+    def _status_for_unit(day: dict[str, object]) -> str:
+        """Klassifiziert den Status einer Einheit anhand der bereits von
+        ``load_plan_detail_usecase.build_day_columns`` berechneten Flags.
+
+        Ferien tragen weiterhin den Status ``"ausfall"`` (kein eigener
+        Statuswert, um das bestehende JSON-Format kompatibel zu halten);
+        ihre Ferien-Eigenschaft steht separat im Feld ``is_ferien`` (siehe
+        :meth:`_units_for_table`).
+        """
         if bool(day.get("is_cancel", False)):
             return "ausfall"
         if bool(day.get("is_hospitation", False)):
@@ -111,11 +101,6 @@ class DailyCourseLogUseCase:
             lesson_type = infer_stundentyp(yaml_data)
             return lesson_type.lower()
 
-        marker_text = normalize_marker_text(str(day.get("inhalt", "")))
-        if is_ausfall_marker(marker_text):
-            return "ausfall"
-        if is_hospitation_marker(marker_text, group_name):
-            return "hospitation"
         return "unterricht"
 
     @classmethod
@@ -150,10 +135,9 @@ class DailyCourseLogUseCase:
         except Exception:
             return []
 
-        group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
         units: list[dict[str, object]] = []
         for day in day_columns:
-            unit_day = self._parse_plan_date(str(day.get("datum", "")))
+            unit_day = parse_plan_row_date(str(day.get("datum", "")))
             if unit_day is None or unit_day < export_day:
                 continue
 
@@ -171,7 +155,8 @@ class DailyCourseLogUseCase:
             units.append(
                 {
                     "row_index": int(day.get("row_index", -1)),
-                    "status": self._status_for_unit(day, group_name),
+                    "status": self._status_for_unit(day),
+                    "is_ferien": bool(day.get("is_ferien", False)),
                     "cells": cells,
                     "link_path": (serialize_workspace_relative_path(link_path) if isinstance(link_path, Path) else ""),
                     "hour_entries": hour_entries,

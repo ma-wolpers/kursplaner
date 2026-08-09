@@ -20,6 +20,7 @@ class RowDisplayModeUseCase:
 
     COMMON_ROWS: tuple[RowDef, ...] = (
         ("inhalt", "Inhalt"),
+        ("startzeit", "Wann"),
         ("stunden", "Wie lange"),
     )
 
@@ -248,7 +249,7 @@ class RowDisplayModeUseCase:
         Ausfallgrund ist read-only: der Grund wird ausschließlich über "Als
         Ausfall markieren" gesetzt (Markertext in der `Thema/Ausfall`-Zelle).
         """
-        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall", "Ausfallgrund"}:
+        if field_key in {"datum", "stunden", "startzeit", "inhalt", "thema/ausfall", "Ausfallgrund"}:
             return False
         if field_key == "Kompetenzhorizont" and bool(day.get("is_lzk", False)):
             return False

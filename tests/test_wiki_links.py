@@ -1,7 +1,10 @@
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.infrastructure.repositories.plan_repository import FileSystemPlanRepository
 from kursplaner.infrastructure.repositories.plan_table_file_repository import create_linked_lesson_file
+
+_RHYTHM = (WeekdayRhythm(weekday=0, start_time="08:00", hours=2),)
 
 
 def test_build_wiki_link_formats_target_and_alias():
@@ -84,7 +87,7 @@ def test_write_plan_metadata_uses_valid_wiki_link(tmp_path):
     markdown_path.write_text("# Plan\n", encoding="utf-8")
 
     repo = FileSystemPlanRepository()
-    repo.write_plan_metadata(markdown_path, "gruen-6]", "Informatik", 6)
+    repo.write_plan_metadata(markdown_path, "gruen-6]", "Informatik", 6, rhythm=_RHYTHM)
 
     text = markdown_path.read_text(encoding="utf-8")
     assert 'Lerngruppe: "[[gruen-6]]"' in text
@@ -101,6 +104,7 @@ def test_write_plan_metadata_persists_competency_fields(tmp_path):
         "gruen-6",
         "Informatik",
         8,
+        rhythm=_RHYTHM,
         kc_profile_label="Informatik Sek I (5-9)",
         process_competencies=(
             "P 1.1 zerlegen Problemstellungen in geeignete Teilprobleme",

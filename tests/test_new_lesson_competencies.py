@@ -97,7 +97,7 @@ def test_build_start_request_persists_selected_competencies_for_informatik(tmp_p
         period_raw="26-1",
         base_dir_raw=str(base_dir),
         calendar_dir_raw=str(calendar_dir),
-        day_hours_raw={1: "2"},
+        day_rhythm_raw={1: ("08:00", "2")},
         kc_profile_id_raw=profile_id,
         process_competencies_raw=process_selected,
         content_competency_raw=content_selected,

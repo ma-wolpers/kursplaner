@@ -6,11 +6,11 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.adapters.gui.help_catalog import NEW_LESSON_HELP
+from kursplaner.adapters.gui.help_catalog import NEW_COURSE_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.weekday_rhythm_picker import WeekdayRhythmPicker
 from kursplaner.core.config.path_store import CALENDAR_DIR_KEY, UNTERRICHT_DIR_KEY
-from kursplaner.core.config.settings import WEEKDAY_SHORT_OPTIONS
 from kursplaner.core.usecases.new_lesson_form_usecase import NewLessonFormData, NewLessonFormUseCase
 from kursplaner.core.usecases.new_lesson_usecase import NewLessonUseCase
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 CreateLessonAction = Callable[["StartRequest", Callable[[str, str], bool]], "StartResult"]
 
 
-class NewLessonWindow(ScrollablePopupWindow):
-    """Stellt die GUI-Komponente New Lesson Window bereit.
+class NewCourseWindow(ScrollablePopupWindow):
+    """Stellt den Dialog zum Anlegen eines neuen Kurses bereit.
 
     Die Klasse kapselt Bedienlogik und delegiert fachliche Entscheidungen an Use Cases.
     """
@@ -38,10 +38,10 @@ class NewLessonWindow(ScrollablePopupWindow):
         path_settings_usecase: PathSettingsUseCase | None = None,
         create_lesson_action: CreateLessonAction | None = None,
     ):
-        """Initialisiert den Dialog für das Anlegen eines neuen Unterrichts."""
+        """Initialisiert den Dialog für das Anlegen eines neuen Kurses."""
         super().__init__(
             master,
-            title="Neuer Unterricht",
+            title="Neuer Kurs",
             geometry="980x760",
             minsize=(920, 560),
             theme_key=theme_key,
@@ -50,11 +50,11 @@ class NewLessonWindow(ScrollablePopupWindow):
         self.on_success = on_success
         self.on_paths_changed = on_paths_changed
         if form_usecase is None:
-            raise RuntimeError("NewLessonFormUseCase fehlt in NewLessonWindow-Verdrahtung.")
+            raise RuntimeError("NewLessonFormUseCase fehlt in NewCourseWindow-Verdrahtung.")
         if new_lesson_usecase is None:
-            raise RuntimeError("NewLessonUseCase fehlt in NewLessonWindow-Verdrahtung.")
+            raise RuntimeError("NewLessonUseCase fehlt in NewCourseWindow-Verdrahtung.")
         if path_settings_usecase is None:
-            raise RuntimeError("PathSettingsUseCase fehlt in NewLessonWindow-Verdrahtung.")
+            raise RuntimeError("PathSettingsUseCase fehlt in NewCourseWindow-Verdrahtung.")
         self.form_usecase = form_usecase
         self.new_lesson_usecase = new_lesson_usecase
         self.path_settings_usecase = path_settings_usecase
@@ -70,8 +70,7 @@ class NewLessonWindow(ScrollablePopupWindow):
         self.preview_var = ui.StringVar(value="Ordnervorschau: –")
         self.vacation_preview_var = ui.StringVar(value="Planende (Ferienbeginn): –")
 
-        self.day_enabled_vars: dict[int, ui.BooleanVar] = {}
-        self.day_hours_vars: dict[int, ui.StringVar] = {}
+        self._rhythm_picker: WeekdayRhythmPicker | None = None
         self._tooltips: list[HoverTooltip] = []
         self._focus_attempts = 0
 
@@ -82,7 +81,7 @@ class NewLessonWindow(ScrollablePopupWindow):
         self.after_idle(self._set_initial_focus)
 
     def _build_ui(self):
-        """Erzeugt Formularfelder für Stammdaten, Tage und Pfade."""
+        """Erzeugt Formularfelder für Stammdaten, Rhythmus und Pfade."""
         root = widgets.Frame(self.content, padding=16)
         root.pack(fill="both", expand=True)
 
@@ -110,8 +109,8 @@ class NewLessonWindow(ScrollablePopupWindow):
         period_entry = widgets.Entry(basics, textvariable=self.period_input_var)
         period_entry.grid(row=3, column=1, sticky="ew", pady=4)
         self._period_entry = period_entry
-        self._tooltips.append(HoverTooltip(period_label, NEW_LESSON_HELP["period_input"]))
-        self._tooltips.append(HoverTooltip(period_entry, NEW_LESSON_HELP["period_input"]))
+        self._tooltips.append(HoverTooltip(period_label, NEW_COURSE_HELP["period_input"]))
+        self._tooltips.append(HoverTooltip(period_entry, NEW_COURSE_HELP["period_input"]))
 
         self.vacation_horizon_frame = widgets.Frame(basics)
         self.vacation_horizon_frame.grid(row=4, column=1, sticky="w", pady=(0, 4))
@@ -122,8 +121,8 @@ class NewLessonWindow(ScrollablePopupWindow):
             self.vacation_horizon_frame, from_=1, to=99, textvariable=self.vacation_horizon_var, width=4
         )
         horizon_spin.pack(side="left", padx=(6, 0))
-        self._tooltips.append(HoverTooltip(vacation_label, NEW_LESSON_HELP["vacation_horizon"]))
-        self._tooltips.append(HoverTooltip(horizon_spin, NEW_LESSON_HELP["vacation_horizon"]))
+        self._tooltips.append(HoverTooltip(vacation_label, NEW_COURSE_HELP["vacation_horizon"]))
+        self._tooltips.append(HoverTooltip(horizon_spin, NEW_COURSE_HELP["vacation_horizon"]))
 
         widgets.Label(basics, text="Beispiele: 26-1 oder 2026-02-20").grid(row=5, column=1, sticky="w", pady=(0, 4))
         widgets.Label(basics, textvariable=self.preview_var).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 2))
@@ -134,31 +133,10 @@ class NewLessonWindow(ScrollablePopupWindow):
 
         self._refresh_vacation_horizon_visibility()
 
-        days_frame = widgets.LabelFrame(root, text="Stunden pro Tag (Mo–Fr)")
-        days_frame.pack(fill="x", pady=(0, 10))
-
-        row = widgets.Frame(days_frame)
-        row.pack(fill="x", padx=6, pady=6)
-
-        for short_label, weekday in WEEKDAY_SHORT_OPTIONS:
-            cell = widgets.Frame(row)
-            cell.pack(side="left", padx=(0, 12))
-
-            enabled_var = ui.BooleanVar(value=True)
-            hours_var = ui.StringVar(value="2")
-            self.day_enabled_vars[weekday] = enabled_var
-            self.day_hours_vars[weekday] = hours_var
-
-            widgets.Checkbutton(
-                cell,
-                text=short_label,
-                variable=enabled_var,
-                command=lambda w=weekday: self._toggle_day_input(w),
-            ).pack(side="left")
-
-            spin = widgets.Spinbox(cell, from_=1, to=4, textvariable=hours_var, width=3)
-            spin.pack(side="left", padx=(4, 0))
-            setattr(self, f"_spin_{weekday}", spin)
+        rhythm_frame = widgets.LabelFrame(root, text="Unterrichtsrhythmus (Mo–Fr)")
+        rhythm_frame.pack(fill="x", pady=(0, 10))
+        self._rhythm_picker = WeekdayRhythmPicker(rhythm_frame)
+        self._rhythm_picker.pack(fill="x")
 
         buttons = widgets.Frame(root)
         buttons.pack(fill="x", pady=(8, 0))
@@ -199,26 +177,9 @@ class NewLessonWindow(ScrollablePopupWindow):
         self.period_input_var.trace_add("write", lambda *_: self._refresh_vacation_horizon_visibility())
         self.vacation_horizon_var.trace_add("write", lambda *_: self._refresh_preview())
 
-    def _toggle_day_input(self, weekday: int):
-        """Aktiviert oder deaktiviert den Stunden-Spinner für einen Wochentag."""
-        spin = getattr(self, f"_spin_{weekday}")
-        if self.day_enabled_vars[weekday].get():
-            spin.configure(state="normal")
-            if not self.day_hours_vars[weekday].get().strip():
-                self.day_hours_vars[weekday].set("2")
-        else:
-            spin.configure(state="disabled")
-
-    def _collect_day_hours_raw(self) -> dict[int, str]:
-        """Sammelt Rohwerte der aktivierten Unterrichtstage für den Form-UseCase."""
-        raw: dict[int, str] = {}
-        for _, weekday in WEEKDAY_SHORT_OPTIONS:
-            if self.day_enabled_vars[weekday].get():
-                raw[weekday] = self.day_hours_vars[weekday].get()
-        return raw
-
     def _collect_form_data(self) -> NewLessonFormData:
         """Bündelt aktuelle GUI-Eingaben als formularnahe Rohdaten."""
+        assert self._rhythm_picker is not None
         return NewLessonFormData(
             subject_raw=self.subject_var.get(),
             group_raw=self.group_var.get(),
@@ -226,7 +187,7 @@ class NewLessonWindow(ScrollablePopupWindow):
             period_raw=self.period_input_var.get(),
             base_dir_raw=self.path_values[UNTERRICHT_DIR_KEY],
             calendar_dir_raw=self.path_values[CALENDAR_DIR_KEY],
-            day_hours_raw=self._collect_day_hours_raw(),
+            day_rhythm_raw=self._rhythm_picker.collect_raw(),
             vacation_break_horizon_raw=self.vacation_horizon_var.get(),
             kc_profile_id_raw="",
             process_competencies_raw=(),
@@ -285,7 +246,7 @@ class NewLessonWindow(ScrollablePopupWindow):
 
             should_create = messagebox.askyesno(
                 "Dateisystem-Änderung",
-                "Neuen Unterricht wirklich anlegen?\n\n"
+                "Neuen Kurs wirklich anlegen?\n\n"
                 f"Ordner: {request.base_dir / request.folder_name}\n"
                 f"Kalender: {request.calendar_dir}",
                 parent=self,
@@ -299,10 +260,10 @@ class NewLessonWindow(ScrollablePopupWindow):
                 result = self.create_lesson_action(request, self._confirm_fs_change)
 
         except (ValueError, FileNotFoundError, FileExistsError, RuntimeError) as exc:
-            messagebox.showerror("Neuer Unterricht", str(exc), parent=self)
+            messagebox.showerror("Neuer Kurs", str(exc), parent=self)
             return
         except Exception as exc:
-            messagebox.showerror("Neuer Unterricht", f"Unerwarteter Fehler:\n{exc}", parent=self)
+            messagebox.showerror("Neuer Kurs", f"Unerwarteter Fehler:\n{exc}", parent=self)
             return
 
         if result.warnings:
@@ -320,15 +281,14 @@ class NewLessonWindow(ScrollablePopupWindow):
             )
 
         message = (
-            f"Unterricht erfolgreich angelegt.\n\n"
+            f"Kurs erfolgreich angelegt.\n\n"
             f"Ordner: {result.lesson_dir}\n"
             f"Datei: {result.lesson_markdown}\n"
             f"Terminzeilen: {result.planned_rows}\n"
             f"Zeitraum: {result.range_start} bis {result.range_end}"
         )
 
-        messagebox.showinfo("Neuer Unterricht", message, parent=self)
+        messagebox.showinfo("Neuer Kurs", message, parent=self)
         if self.on_success:
             self.on_success()
         self.destroy()
-

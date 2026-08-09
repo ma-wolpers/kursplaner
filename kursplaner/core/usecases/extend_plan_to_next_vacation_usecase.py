@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
+from kursplaner.core.domain.course_lifecycle import last_plan_date
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, current_segment, parse_rhythm
 from kursplaner.core.domain.models import PlanResult
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.create_plan_usecase import ConfirmChange, CreatePlanUseCase
@@ -31,28 +33,6 @@ class ExtendPlanToNextVacationUseCase:
         self._plan_repo = plan_repo
         self._create_plan_usecase = create_plan_usecase
 
-    @staticmethod
-    def _parse_plan_date(value: str):
-        """Parst DD-MM-YY strikt in ein date-Objekt."""
-        return datetime.strptime(str(value).strip(), "%d-%m-%y").date()
-
-    @classmethod
-    def _infer_day_hours(cls, rows: list[list[str]]) -> dict[int, int]:
-        """Leitet den Unterrichtsrhythmus robust aus bestehenden Planzeilen ab."""
-        day_hours: dict[int, int] = {}
-        for row in rows:
-            if len(row) < 2:
-                continue
-            date_obj = cls._parse_plan_date(row[0])
-            hours_text = str(row[1]).strip()
-            if not hours_text.isdigit():
-                continue
-            hours = int(hours_text)
-            if hours <= 0:
-                continue
-            day_hours[date_obj.weekday()] = hours
-        return dict(sorted(day_hours.items()))
-
     def execute(
         self,
         *,
@@ -65,20 +45,20 @@ class ExtendPlanToNextVacationUseCase:
         if not table.rows:
             raise RuntimeError("Der Kursplan enthaelt keine Terminzeilen.")
 
-        try:
-            last_date = max(self._parse_plan_date(row[0]) for row in table.rows if row)
-        except ValueError as exc:
-            raise RuntimeError("Konnte kein gueltiges Enddatum aus dem Kursplan lesen.") from exc
+        last_date = last_plan_date(table)
+        if last_date is None:
+            raise RuntimeError("Konnte kein gueltiges Enddatum aus dem Kursplan lesen.")
 
         takeover_start = last_date + timedelta(days=1)
-        day_hours = self._infer_day_hours(table.rows)
-        if not day_hours:
-            raise RuntimeError("Keine unterrichtbaren Wochentage im bestehenden Plan gefunden.")
+        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+        active_rhythm = current_segment(rhythm, takeover_start)
+        if not active_rhythm:
+            raise RuntimeError("Keine unterrichtbaren Wochentage im bestehenden Plan (Rhythmus) gefunden.")
 
         plan_result: PlanResult = self._create_plan_usecase.execute(
             target_markdown=markdown_path,
             term=None,
-            day_hours=day_hours,
+            rhythm=active_rhythm,
             calendar_dir=calendar_dir,
             takeover_start=takeover_start,
             stop_at_next_break=True,

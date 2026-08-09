@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -52,7 +53,7 @@ class MainWindowUiIntentController:
             return None
 
         if intent == UiIntent.TOOLBAR_NEW:
-            self.app.action_controller.open_new_lesson_window()
+            self.app.action_controller.open_new_course_window()
             return None
         if intent == UiIntent.TOOLBAR_REFRESH:
             self.app.action_controller.refresh_overview()

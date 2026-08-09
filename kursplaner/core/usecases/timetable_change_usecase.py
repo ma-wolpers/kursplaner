@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
+from kursplaner.core.domain.content_markers import is_ferien_marker
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, active_weekdays, hours_for_date
+from kursplaner.core.domain.plan_table import parse_plan_row_date
 from kursplaner.core.domain.planner import PlanRow, generate_rows
 from kursplaner.core.ports.repositories import CalendarRepository
 
@@ -13,33 +16,29 @@ from kursplaner.core.ports.repositories import CalendarRepository
 
 
 def column_is_ferien(day: dict[str, object]) -> bool:
-    """Ferientag/Feiertag: Stunden == 0 (kalender-generiert, kein Unterricht).
+    """Ferientag/Feiertag: Zeile traegt einen Ferien-Marker (siehe `content_markers.is_ferien_marker`).
 
-    Wraps the raw stunden comparison to avoid inline heuristics at call sites.
+    Wraps the day-dict lookup to avoid inline heuristics at call sites.
     """
-    raw = str(day.get("stunden", "0") or "0").strip()
-    try:
-        return int(raw) == 0
-    except ValueError:
-        return True
+    return bool(day.get("is_ferien", False))
 
 
 def column_is_manual_ausfall(day: dict[str, object]) -> bool:
-    """Manuell markierter Ausfall: Stunden > 0 und is_cancel True.
+    """Manuell markierter Ausfall: is_cancel True, aber keine Ferien.
 
-    Distinct from Ferien (which are stunden=0). Use for week-comparison logic.
+    Distinct from Ferien. Use for week-comparison logic.
     """
     return not column_is_ferien(day) and bool(day.get("is_cancel", False))
 
 
 def column_is_stattfindend(day: dict[str, object]) -> bool:
-    """Stattfindende Einheit: Stunden > 0 und nicht storniert."""
-    return not column_is_ferien(day) and not bool(day.get("is_cancel", False))
+    """Stattfindende Einheit: nicht storniert (weder Ferien noch manueller Ausfall)."""
+    return not bool(day.get("is_cancel", False))
 
 
 def _new_row_is_ferien(row: PlanRow) -> bool:
-    """PlanRow-Tupel aus generate_rows mit stunden=0 → Ferien-/Feiertagsslot."""
-    return row[1] == 0
+    """PlanRow-Tupel aus generate_rows mit Ferien-Marker → Ferien-/Feiertagsslot."""
+    return is_ferien_marker(row[1])
 
 
 def _new_row_is_stattfindend(row: PlanRow) -> bool:
@@ -105,18 +104,13 @@ class TimetableChangeUseCase:
         """Nimmt das Kalender-Repository für Ferien-/Feiertagsdaten entgegen."""
         self._calendar_repo = calendar_repo
 
-    @staticmethod
-    def _parse_datum(value: str) -> date:
-        """Parst DD-MM-YY strikt in ein date-Objekt."""
-        return datetime.strptime(str(value).strip(), "%d-%m-%y").date()
-
     def compute(
         self,
         *,
         day_columns: list[dict[str, object]],
         date_from: date,
         date_to: date,
-        new_day_hours: dict[int, int],
+        new_rhythm: tuple[WeekdayRhythm, ...],
         calendar_dir: Path,
     ) -> TimetableChangeResult:
         """Berechnet old_units und draft_slots für den gewählten Bereich.
@@ -125,7 +119,7 @@ class TimetableChangeUseCase:
             day_columns: Alle Planzeilen des geladenen Kursplans.
             date_from: Erster Tag des Änderungsbereichs.
             date_to: Letzter Tag des Änderungsbereichs.
-            new_day_hours: Neuer Stundenrhythmus als {weekday: hours} (Mo=0…Fr=4).
+            new_rhythm: Neuer Wochentags-Rhythmus (Startzeit + Stunden je Wochentag).
             calendar_dir: Kalenderordner für Ferien-/Feiertagsdaten.
 
         Returns:
@@ -137,8 +131,8 @@ class TimetableChangeUseCase:
         years = {date_from.year, date_to.year}
         events, _blocks, _warnings = self._calendar_repo.load_calendar_data(calendar_dir, years)
 
-        new_rows = generate_rows(date_from, date_to, new_day_hours, events)
-        draft_slots = self._build_draft_slots(old_units, new_rows, weeks_with_manual_ausfall)
+        new_rows = generate_rows(date_from, date_to, active_weekdays(new_rhythm), events)
+        draft_slots = self._build_draft_slots(old_units, new_rows, weeks_with_manual_ausfall, new_rhythm)
 
         return TimetableChangeResult(old_units=old_units, draft_slots=draft_slots)
 
@@ -151,12 +145,8 @@ class TimetableChangeUseCase:
         """Filtert day_columns auf den gegebenen Datumsbereich."""
         result = []
         for day in day_columns:
-            raw_datum = str(day.get("datum", "")).strip()
-            if not raw_datum:
-                continue
-            try:
-                d = self._parse_datum(raw_datum)
-            except ValueError:
+            d = parse_plan_row_date(str(day.get("datum", "")))
+            if d is None:
                 continue
             if date_from <= d <= date_to:
                 result.append(day)
@@ -173,10 +163,8 @@ class TimetableChangeUseCase:
         for day in old_units:
             if not column_is_manual_ausfall(day):
                 continue
-            raw = str(day.get("datum", "")).strip()
-            try:
-                d = self._parse_datum(raw)
-            except ValueError:
+            d = parse_plan_row_date(str(day.get("datum", "")))
+            if d is None:
                 continue
             iso = d.isocalendar()
             weeks.add((iso.year, iso.week))
@@ -187,6 +175,7 @@ class TimetableChangeUseCase:
         old_units: list[dict[str, object]],
         new_rows: list[PlanRow],
         weeks_with_manual_ausfall: set[tuple[int, int]],
+        new_rhythm: tuple[WeekdayRhythm, ...],
     ) -> list[DraftSlot]:
         """Ordnet stattfindende alte Einheiten den neuen Slots zu.
 
@@ -205,7 +194,7 @@ class TimetableChangeUseCase:
         content_index = 0
 
         for row in new_rows:
-            row_date, stunden, note = row
+            row_date, note = row
             iso = row_date.isocalendar()
 
             if _new_row_is_ferien(row):
@@ -232,7 +221,7 @@ class TimetableChangeUseCase:
                 slots.append(
                     DraftSlot(
                         datum=row_date,
-                        stunden=stunden,
+                        stunden=hours_for_date(new_rhythm, row_date),
                         is_ferien=False,
                         is_user_ausfall=False,
                         ausfall_reason="",

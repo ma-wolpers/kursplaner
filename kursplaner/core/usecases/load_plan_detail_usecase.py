@@ -1,19 +1,34 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
 from kursplaner.core.domain.content_markers import (
+    is_ferien_marker,
     is_hospitation_marker,
     is_unterricht_marker,
     normalize_marker_text,
-    resolve_row_cancel_state,
+    resolve_cancel_state,
 )
+from kursplaner.core.domain.course_rhythm import (
+    RHYTHM_YAML_KEY,
+    distribute_hours_over_rows,
+    hours_for_date,
+    parse_rhythm,
+    start_time_for_date,
+)
+from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml, infer_stundentyp
-from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData, extract_plan_oberthema
+from kursplaner.core.domain.plan_table import (
+    LessonYamlData,
+    PlanTableData,
+    extract_plan_oberthema,
+    parse_plan_row_date,
+)
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
@@ -171,13 +186,25 @@ class LoadPlanDetailUseCase:
     def build_day_columns(self, table: PlanTableData) -> list[dict[str, object]]:
         """Erzeugt aufbereitete Tages-Spalten inkl. geladener YAML-Daten.
 
-        Liest aus dem 4-Spalten-Format (Datum | Stunden | Inhalt | Thema/Ausfall):
-        - Inhalt (col 2): Wiki-Link zur Stundendatei oder leer
-        - Thema/Ausfall (col 3): ``X Grund`` für Ausfall, ``[[gruppe thema]]`` für
-          Unterricht/Hospitation, ``LZK [[...]]`` für LZK, sonst leer
+        Liest aus dem 3-Spalten-Format (Datum | Inhalt | Thema/Ausfall):
+        - Inhalt (col 1): Wiki-Link zur Stundendatei oder leer
+        - Thema/Ausfall (col 2): ``X Grund`` für Ausfall, ``X Grund X`` für
+          Ferien/Feiertag, ``[[gruppe thema]]`` für Unterricht/Hospitation,
+          ``LZK [[...]]`` für LZK, sonst leer
 
-        Ausfall-Erkennung erfolgt ausschließlich über col 3 (``X ``-Präfix), nicht
-        mehr über den Inhalt-Text, der im neuen Schema nur noch Links enthält.
+        ``stunden``/``startzeit`` werden nicht mehr aus der Tabelle gelesen,
+        sondern aus dem kursweiten ``Rhythmus``-Feld abgeleitet (siehe
+        :mod:`kursplaner.core.domain.course_rhythm`): ``0``/leer für Ferien-
+        Zeilen, sonst die zum Wochentag und Datum passende Stundenzahl/
+        Startzeit. Teilen sich mehrere Zeilen dasselbe Datum (Split, siehe
+        ``core.usecases.plan_commands_usecase``), wird die Gesamtstundenzahl
+        des Wochentags über :func:`~kursplaner.core.domain.course_rhythm.
+        distribute_hours_over_rows` auf sie aufgeteilt.
+
+        Ausfall-Erkennung erfolgt über col 2 (``X ``-Präfix) plus einen
+        YAML-Override, falls die verlinkte Stunden-Datei
+        ``Stundentyp: Ausfall`` trägt (siehe
+        :func:`kursplaner.core.domain.content_markers.resolve_cancel_state`).
         Der Spalten-Header (``header_content``) wird bevorzugt aus dem YAML-Feld
         ``Stundenthema`` befüllt, da Einheits-Dateinamen nun kryptische 6-Zeichen-
         Codes sind und keinen lesbaren Titel enthalten.
@@ -192,15 +219,20 @@ class LoadPlanDetailUseCase:
         """
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum", 0)
-        idx_stunden = header_map.get("stunden", 1)
-        idx_inhalt = header_map.get("inhalt", 2)
+        idx_inhalt = header_map.get("inhalt", 1)
         idx_thema_ausfall = header_map.get("thema/ausfall")
         group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
+
+        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+        row_dates: list[date | None] = [
+            parse_plan_row_date(row[idx_datum]) if idx_datum < len(row) else None for row in table.rows
+        ]
+        rows_per_date: Counter[date] = Counter(row_date for row_date in row_dates if row_date is not None)
+        seen_per_date: Counter[date] = Counter()
 
         collected: list[dict[str, object]] = []
         for row_index, row in enumerate(table.rows):
             datum = row[idx_datum] if idx_datum < len(row) else ""
-            stunden = row[idx_stunden] if idx_stunden < len(row) else ""
             inhalt = row[idx_inhalt] if idx_inhalt < len(row) else ""
             thema_ausfall = (
                 row[idx_thema_ausfall]
@@ -208,6 +240,21 @@ class LoadPlanDetailUseCase:
                 else ""
             )
             marker_text = normalize_marker_text(inhalt)
+
+            row_date = row_dates[row_index]
+            is_ferien = is_ferien_marker(thema_ausfall)
+            if row_date is None:
+                stunden, startzeit = "", ""
+            elif is_ferien:
+                stunden, startzeit = "0", ""
+            else:
+                total_hours = hours_for_date(rhythm, row_date)
+                shares = distribute_hours_over_rows(total_hours, rows_per_date[row_date])
+                position = seen_per_date[row_date]
+                stunden = str(shares[position]) if position < len(shares) else "0"
+                startzeit = start_time_for_date(rhythm, row_date)
+            if row_date is not None:
+                seen_per_date[row_date] += 1
 
             link = self.lesson_repo.resolve_row_link_path(table, row_index)
             has_link_ref = self._contains_markdown_link(inhalt)
@@ -217,7 +264,6 @@ class LoadPlanDetailUseCase:
                 link_target=link_target,
                 group_name=group_name,
             )
-            is_cancel = resolve_row_cancel_state(table.headers, row)
             is_unresolved_link = bool(inhalt.strip() and has_link_ref and link is None)
             is_hospitation = is_hospitation_marker(marker_text, group_name)
             is_unterricht = is_unterricht_marker(marker_text, group_name)
@@ -242,11 +288,10 @@ class LoadPlanDetailUseCase:
                     yaml_data["Professionalisierungsschritte"] = steps
                     yaml_data["Nutzbare Ressourcen"] = resources
 
+            is_cancel = resolve_cancel_state(table.headers, row, yaml_data)
             is_lzk = lesson_type == "LZK"
             is_link_header = bool(has_link_ref)
 
-            if lesson_type == "Ausfall":
-                is_cancel = True
             if lesson_type == "Hospitation":
                 is_hospitation = True
             if lesson_type == "Unterricht":
@@ -269,10 +314,12 @@ class LoadPlanDetailUseCase:
                     "row_index": row_index,
                     "datum": datum,
                     "stunden": stunden,
+                    "startzeit": startzeit,
                     "inhalt": inhalt,
                     "thema_ausfall": thema_ausfall,
                     "link": link,
                     "is_cancel": is_cancel,
+                    "is_ferien": is_ferien,
                     "is_unresolved_link": is_unresolved_link,
                     "is_hospitation": is_hospitation,
                     "is_unterricht": is_unterricht,

@@ -12,7 +12,7 @@ from kursplaner.core.domain.planner import find_next_halfyear_boundary_start
 from kursplaner.core.domain.validators import (
     normalize_base_dir,
     normalize_calendar_dir,
-    normalize_day_hours,
+    normalize_day_rhythm,
     normalize_grade_level,
     normalize_group,
     normalize_subject,
@@ -31,7 +31,7 @@ class NewLessonFormData:
     period_raw: str
     base_dir_raw: str
     calendar_dir_raw: str
-    day_hours_raw: dict[int, str]
+    day_rhythm_raw: dict[int, tuple[str, str]]
     vacation_break_horizon_raw: str = "1"
     kc_profile_id_raw: str = ""
     process_competencies_raw: tuple[str, ...] = ()
@@ -142,7 +142,7 @@ class NewLessonFormUseCase:
         subject_short = normalize_subject(course_subject)
         group_name = normalize_group(form.group_raw)
         grade_level = normalize_grade_level(form.grade_raw)
-        day_hours = normalize_day_hours(form.day_hours_raw)
+        rhythm = normalize_day_rhythm(form.day_rhythm_raw)
         base_dir = normalize_base_dir(form.base_dir_raw)
         calendar_dir = normalize_calendar_dir(form.calendar_dir_raw)
 
@@ -188,7 +188,7 @@ class NewLessonFormUseCase:
             group_name=group_name,
             grade_level=grade_level,
             term=term_for_title,
-            day_hours=day_hours,
+            rhythm=rhythm,
             base_dir=base_dir,
             calendar_dir=calendar_dir,
             kc_profile_label=kc_profile_label,

@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable, Literal
 
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.models import PlanResult
 from kursplaner.core.domain.planner import create_plan_result, relevant_years
 from kursplaner.core.ports.repositories import CalendarRepository, PlanRepository
@@ -23,7 +24,7 @@ class CreatePlanUseCase:
         self,
         target_markdown: Path,
         term: str | None,
-        day_hours: dict[int, int],
+        rhythm: tuple[WeekdayRhythm, ...],
         calendar_dir: Path,
         takeover_start: date | None = None,
         stop_at_next_break: bool = False,
@@ -44,7 +45,7 @@ class CreatePlanUseCase:
         events, blocks, warnings = self._calendar_repo.load_calendar_data(calendar_dir, years)
         rows, result = create_plan_result(
             term=term,
-            day_hours=day_hours,
+            rhythm=rhythm,
             events=events,
             blocks=blocks,
             warnings=warnings,

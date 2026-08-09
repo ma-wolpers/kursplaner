@@ -1,8 +1,10 @@
 from datetime import date, timedelta
 
+from kursplaner.core.domain.content_markers import build_ferien_marker
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, active_weekdays
 from kursplaner.core.domain.models import PlanResult
 
-PlanRow = tuple[date, int, str]
+PlanRow = tuple[date, str]
 PlanCalendarEvent = tuple[str, date, date]
 
 
@@ -90,43 +92,35 @@ def find_next_halfyear_boundary_start(from_date: date, ferien_blocks: list[PlanC
 def generate_rows(
     start: date,
     end: date,
-    day_hours: dict[int, int],
+    weekdays: set[int],
     events: dict[date, str],
     include_end_even_if_not_weekday: bool = False,
 ) -> list[PlanRow]:
     """Erzeugt fachliche Planzeilen im Bereich ``start`` bis ``end``.
 
-    Pro konfiguriertem Wochentag wird eine Zeile erzeugt. Ferien/Feiertage werden
-    als 0-Stunden-Tage markiert, bleiben aber als Datumseintrag sichtbar.
+    Pro konfiguriertem Wochentag wird eine Zeile erzeugt. Ferien/Feiertage
+    bleiben als Datumseintrag mit Ferien-Marker (siehe
+    :func:`kursplaner.core.domain.content_markers.build_ferien_marker`)
+    sichtbar; die Stundenzahl selbst wird nicht mehr in der Zeile gefuehrt,
+    sondern spaeter aus dem persistenten Rhythmus abgeleitet
+    (siehe :mod:`kursplaner.core.domain.course_rhythm`).
     """
-
-    def format_outage_note(note: str) -> str:
-        cleaned = note.strip()
-        if not cleaned:
-            return "X"
-        if cleaned.lower().startswith("x ") or cleaned.lower() == "x":
-            return cleaned
-        return f"X {cleaned}"
-
     rows: list[PlanRow] = []
     current = start
 
     while current <= end:
         weekday = current.weekday()
-        if weekday in day_hours:
+        if weekday in weekdays:
             note = events.get(current, "")
             # Calendar events are loaded only from Ferien/Feiertag sources.
-            # Therefore, any event note marks a non-teaching day (Ausfall).
+            # Therefore, any event note marks a non-teaching day (Ferien/Feiertag).
             is_outage = bool(note)
-            hours = 0 if is_outage else day_hours[weekday]
-            if is_outage:
-                note = format_outage_note(note)
-            rows.append((current, hours, note))
+            rows.append((current, build_ferien_marker(note) if is_outage else ""))
         current += timedelta(days=1)
 
-    if include_end_even_if_not_weekday and not any(row_date == end for row_date, _, _ in rows):
-        note = format_outage_note(events.get(end, "Ferienbeginn"))
-        rows.append((end, 0, note))
+    if include_end_even_if_not_weekday and not any(row_date == end for row_date, _ in rows):
+        note = build_ferien_marker(events.get(end, "Ferienbeginn"))
+        rows.append((end, note))
         rows.sort(key=lambda item: item[0])
 
     return rows
@@ -159,7 +153,7 @@ def infer_term_from_ferien_blocks(start_date: date, ferien_blocks: list[PlanCale
 
 def create_plan_result(
     term: str | None,
-    day_hours: dict[int, int],
+    rhythm: tuple[WeekdayRhythm, ...],
     events: dict[date, str],
     blocks: list[PlanCalendarEvent],
     warnings: list[str],
@@ -176,6 +170,10 @@ def create_plan_result(
     if not ferien_blocks:
         raise RuntimeError("Keine Ferienblöcke in den Kalenderdaten gefunden.")
 
+    weekdays = active_weekdays(rhythm)
+    if not weekdays:
+        raise RuntimeError("Rhythmus enthält keine aktiven Unterrichtstage.")
+
     if stop_at_next_break:
         if takeover_start is None:
             raise RuntimeError("Für den Übernahme-Modus wird ein Startdatum benötigt.")
@@ -184,7 +182,7 @@ def create_plan_result(
         rows = generate_rows(
             start,
             end,
-            day_hours,
+            weekdays,
             events,
             include_end_even_if_not_weekday=True,
         )
@@ -195,7 +193,7 @@ def create_plan_result(
         start, end = determine_term_range(term, ferien_blocks)
         if takeover_start and takeover_start > start:
             start = takeover_start
-        rows = generate_rows(start, end, day_hours, events)
+        rows = generate_rows(start, end, weekdays, events)
 
     if not rows:
         raise RuntimeError("Terminplan lieferte keine Termine.")

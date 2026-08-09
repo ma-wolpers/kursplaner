@@ -7,9 +7,14 @@ import re
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.lesson_builder_dialog import ask_lesson_builder
 from kursplaner.adapters.gui.lzk_column_dialog import ask_lzk_column_dialog
-from kursplaner.core.config.path_store import infer_workspace_root_from_path
+from kursplaner.core.config.path_store import (
+    BAUKASTEN_DIR_KEY,
+    FACHDIDAKTIK_DIR_KEY,
+    FACHINHALTE_DIR_KEY,
+    infer_workspace_root_from_path,
+)
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
-from kursplaner.core.config.path_store import BAUKASTEN_DIR_KEY, FACHDIDAKTIK_DIR_KEY, FACHINHALTE_DIR_KEY
+from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
 
@@ -285,7 +290,9 @@ class MainWindowLessonConversionController:
     def _unterricht_prefill_values(self, *, day: dict[str, object], row_index: int) -> dict[str, object]:
         current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
         topic_initial = current_topic or "Unterrichtseinheit"
-        oberthema_initial = self.last_oberthema_before_row(row_index)
+        oberthema_initial = (
+            str(self.app._field_value(day, "Oberthema") or "").strip() or self.last_oberthema_before_row(row_index)
+        )
         stundenziel_initial = ""
         kompetenzen_initial: list[str] = []
         inhalte_initial: list[str] = []
@@ -481,7 +488,7 @@ class MainWindowLessonConversionController:
         title = self.convert_to_lzk.build_lzk_title(self.app.current_table, next_no)
         current_content = str(day.get("inhalt", "")).strip()
         existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
-        default_hours = int(str(day.get("stunden", "")).strip()) if str(day.get("stunden", "")).strip().isdigit() else 2
+        default_hours = coerce_lesson_hours(day.get("stunden"))
 
         if from_column_shortcut:
             dialog_result = ask_lzk_column_dialog(
@@ -557,7 +564,7 @@ class MainWindowLessonConversionController:
 
         day = self.app.day_columns[selected_index]
         row_index = self.app._to_int(day.get("row_index", 0), 0)
-        default_hours = int(str(day.get("stunden", "")).strip()) if str(day.get("stunden", "")).strip().isdigit() else 2
+        default_hours = coerce_lesson_hours(day.get("stunden"))
         focus_initial = ""
         if from_column_shortcut:
             existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)

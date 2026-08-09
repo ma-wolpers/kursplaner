@@ -1,12 +1,13 @@
 import pathlib
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import BwBaseWindow, ui
-from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
-from bw_gui.menu import section_spec
-from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker
-from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker
+from bw_gui.runtime import BwBaseWindow, ui  # noqa: F401,E402
+from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker  # noqa: F401,E402
+from bw_gui.menu import section_spec  # noqa: E402
+from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker  # noqa: F401,E402
+from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker  # noqa: F401,E402
 from datetime import date
 
 from bw_libs.ui_contract.laufkern import aggregate_completion, emit_tracking_artifact
@@ -23,9 +24,9 @@ from kursplaner.adapters.gui.path_bootstrap import ensure_paths_interactive
 from kursplaner.adapters.gui.path_settings_controller import MainWindowPathSettingsController
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
-from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.toolbar_icon_styler import ToolbarIconStyler
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
+from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.adapters.gui.ui_theme import DEFAULT_THEME, normalize_theme_key
 from kursplaner.adapters.gui.window_identity import (
@@ -34,16 +35,16 @@ from kursplaner.adapters.gui.window_identity import (
     configure_windows_process_identity,
 )
 from kursplaner.core.config.ui_preferences_store import (
-    load_course_overview_highlight_days,
     load_column_visibility_settings,
+    load_course_overview_highlight_days,
     load_row_filter_settings,
     load_theme_key,
     save_column_visibility_settings,
     save_row_filter_settings,
     save_theme_key,
 )
-from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 
 
@@ -399,9 +400,9 @@ class KursplanerApp(BwBaseWindow):
         """High-level Entry: lädt die linke Unterrichtsübersicht neu."""
         self.action_controller.refresh_overview()
 
-    def open_new_lesson_window(self):
-        """Öffnet den Dialog zur Erstellung einer neuen Unterrichtseinheit."""
-        self.action_controller.open_new_lesson_window()
+    def open_new_course_window(self):
+        """Öffnet den Dialog zur Erstellung eines neuen Kurses."""
+        self.action_controller.open_new_course_window()
 
     def _clear_plan_table(self, title: str):
         """Setzt die rechte Planansicht auf einen leeren Ausgangszustand."""

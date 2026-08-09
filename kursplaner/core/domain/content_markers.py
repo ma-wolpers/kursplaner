@@ -23,24 +23,87 @@ def _norm_prefix(text: str) -> str:
     return normalize_marker_text(text).lower()
 
 
+FERIEN_MARKER_TOKEN = "X"
+
+
 def is_ausfall_marker(text: str) -> bool:
-    """Erkennt Ausfall-Zeilen (neu: X..., kompatibel: Ausfall...)."""
+    """Erkennt Ausfall-Zeilen (neu: X..., kompatibel: Ausfall...).
+
+    Erkennt sowohl normalen Ausfall (`X <Grund>`) als auch Ferien
+    (`X <Grund> X`, siehe :func:`is_ferien_marker`) - Ferien sind eine
+    Teilmenge von Ausfall.
+    """
     lowered = _norm_prefix(text)
     return lowered == "x" or lowered.startswith("x ") or lowered.startswith("ausfall")
 
 
-def resolve_row_cancel_state(headers: list[str], row: list[str]) -> bool:
-    """Ermittelt robust und schema-übergreifend, ob eine Plantabellenzeile Ausfall ist.
+def is_ferien_marker(text: str) -> bool:
+    """Erkennt Ferien-/Feiertagszeilen am abschliessenden ``X``-Token.
 
-    Zentraler, "sturdy" Einstiegspunkt fuer die Ausfall-Erkennung, damit nicht
-    jede Aufrufstelle einzeln zwischen dem aktuellen 4-Spalten-Schema und alten
-    3-Spalten-Tabellen unterscheiden muss (genau das ist bei der Migration auf
-    die eigene `Thema/Ausfall`-Spalte an mehreren Stellen im Code auseinander-
-    gedriftet). Bevorzugt die `Thema/Ausfall`-Spalte; nur wenn diese in `headers`
-    komplett fehlt, wird ersatzweise der `Inhalt`-Zellwert auf einen eingebetteten
-    Legacy-Marker geprüft. Neue Aufrufstellen, die aus einer Planzeile einen
-    Ausfall-Status ableiten müssen, sollen diese Funktion nutzen statt eine eigene
-    spaltenspezifische Prüfung zu schreiben.
+    Ferien tragen zusaetzlich zum fuehrenden ``X`` (das sie als Ausfall
+    kennzeichnet) ein abschliessendes ``X``-Token, um sie von einem
+    manuellen Ausfall (z. B. Krankheit) textuell unterscheidbar zu machen -
+    das ersetzt den fruehreren impliziten ``Stunden == 0``-Sentinel.
+
+    Um Zufallstreffer zu vermeiden (z. B. ein Grund, der zufaellig auf ein
+    X-Wort endet), zaehlt nur ein **eigenstaendiges** letztes Token ``X``.
+
+    Example::
+
+        is_ferien_marker("X Sommerferien X")
+        # -> True
+        is_ferien_marker("X XLAB")
+        # -> False (letztes Token ist "XLAB", nicht "X")
+        is_ferien_marker("X X")
+        # -> True (Ferien ohne Grundangabe)
+    """
+    if not is_ausfall_marker(text):
+        return False
+    tokens = normalize_marker_text(text).split(" ")
+    return bool(tokens) and tokens[-1] == FERIEN_MARKER_TOKEN
+
+
+def marker_reason_text(text: str) -> str:
+    """Extrahiert den reinen Grundtext aus einem Ausfall-/Ferien-/Legacy-Marker.
+
+    Entfernt ein fuehrendes ``X``, ein ggf. vorhandenes abschliessendes
+    ``X`` (Ferien-Markierung) sowie den alten ``Ausfall``-Praefix.
+
+    Example::
+
+        marker_reason_text("X Sommerferien X")
+        # -> "Sommerferien"
+        marker_reason_text("X Lehrer krank")
+        # -> "Lehrer krank"
+    """
+    normalized = normalize_marker_text(text)
+    if not normalized:
+        return ""
+
+    lowered = normalized.lower()
+    if lowered == "x":
+        return ""
+    if lowered.startswith("x "):
+        remainder = normalized[2:].strip()
+    elif lowered.startswith("ausfall"):
+        remainder = normalized[len("ausfall") :].strip(" :–—-")
+    else:
+        return normalized
+
+    tokens = remainder.split(" ")
+    if tokens and tokens[-1] == FERIEN_MARKER_TOKEN:
+        remainder = " ".join(tokens[:-1]).strip()
+    return remainder
+
+
+def resolve_row_cancel_state(headers: list[str], row: list[str]) -> bool:
+    """Ermittelt robust, ob eine Plantabellenzeile (anhand ihres Textmarkers) Ausfall ist.
+
+    Zentraler, "sturdy" Einstiegspunkt fuer die textbasierte Ausfall-Erkennung.
+    Prueft ausschliesslich die `Thema/Ausfall`-Spalte (seit Entfernung der
+    `Stunden`-Spalte die einzige Marker-Quelle; jede migrierte Tabelle hat
+    diese Spalte). Fuer den vollstaendigen Ausfall-Status inkl. YAML-Override
+    (`Stundentyp: Ausfall` ohne Textmarker) siehe :func:`resolve_cancel_state`.
 
     Args:
         headers: Spaltenüberschriften der Planungstabelle (Groß-/Kleinschreibung
@@ -53,54 +116,107 @@ def resolve_row_cancel_state(headers: list[str], row: list[str]) -> bool:
     Example::
 
         resolve_row_cancel_state(
-            ["Datum", "Stunden", "Inhalt", "Thema/Ausfall"],
-            ["27-02-26", "2", "", "X XLAB"],
+            ["Datum", "Inhalt", "Thema/Ausfall"],
+            ["27-02-26", "", "X XLAB"],
         )
         # -> True
     """
     header_map = {str(name).strip().lower(): idx for idx, name in enumerate(headers)}
 
     idx_thema_ausfall = header_map.get("thema/ausfall")
-    if idx_thema_ausfall is not None:
-        cell = row[idx_thema_ausfall] if idx_thema_ausfall < len(row) else ""
-        return is_ausfall_marker(cell)
-
-    idx_inhalt = header_map.get("inhalt")
-    if idx_inhalt is None:
+    if idx_thema_ausfall is None:
         return False
-    cell = row[idx_inhalt] if idx_inhalt < len(row) else ""
-    return is_ausfall_marker(normalize_marker_text(cell))
+    cell = row[idx_thema_ausfall] if idx_thema_ausfall < len(row) else ""
+    return is_ausfall_marker(cell)
+
+
+def resolve_row_ferien_state(headers: list[str], row: list[str]) -> bool:
+    """Ermittelt, ob eine Plantabellenzeile als Ferien/Feiertag markiert ist.
+
+    Spiegelbild zu :func:`resolve_row_cancel_state`, aber fuer die engere
+    Ferien-Teilmenge (abschliessendes ``X``-Token, siehe :func:`is_ferien_marker`).
+    """
+    header_map = {str(name).strip().lower(): idx for idx, name in enumerate(headers)}
+    idx_thema_ausfall = header_map.get("thema/ausfall")
+    if idx_thema_ausfall is None:
+        return False
+    cell = row[idx_thema_ausfall] if idx_thema_ausfall < len(row) else ""
+    return is_ferien_marker(cell)
+
+
+def classify_row_marker(headers: list[str], row: list[str]) -> str:
+    """Klassifiziert den Marker einer Planzeile als ``"ferien"``, ``"ausfall"`` oder ``"none"``.
+
+    Bequemlichkeitsfunktion, die :func:`resolve_row_ferien_state` und
+    :func:`resolve_row_cancel_state` zu einer einzigen Drei-Werte-Klassifikation
+    zusammenfasst.
+    """
+    if resolve_row_ferien_state(headers, row):
+        return "ferien"
+    if resolve_row_cancel_state(headers, row):
+        return "ausfall"
+    return "none"
+
+
+def resolve_cancel_state(
+    headers: list[str], row: list[str], lesson_yaml: dict[str, object] | None = None
+) -> bool:
+    """Ermittelt den vollstaendigen Ausfall-Status inkl. YAML-Override.
+
+    Einzige Wahrheit fuer "ist diese Zeile Ausfall" ueber die reine
+    Textmarker-Pruefung (:func:`resolve_row_cancel_state`) hinaus: eine Zeile
+    gilt auch dann als Ausfall, wenn ihre verlinkte Stunden-Datei
+    ``Stundentyp: Ausfall`` traegt, selbst ohne Textmarker in der
+    `Thema/Ausfall`-Spalte. Konsolidiert zwei zuvor unabhaengige, teils
+    widerspruechliche Implementierungen (Detailansicht mit YAML-Override,
+    Kursuebersicht ohne).
+
+    Args:
+        headers: Spaltenüberschriften der Planungstabelle.
+        row: Zellwerte einer einzelnen Tabellenzeile.
+        lesson_yaml: Normalisiertes YAML-Dictionary der verlinkten
+            Stunden-Datei, falls vorhanden (sonst ``None``).
+
+    Returns:
+        `True`, wenn die Zeile als Ausfall gilt (Textmarker oder YAML-Typ).
+    """
+    if resolve_row_cancel_state(headers, row):
+        return True
+    if lesson_yaml is None:
+        return False
+    return str(lesson_yaml.get("Stundentyp", "")).strip() == "Ausfall"
 
 
 def build_ausfall_marker(reason_text: str) -> str:
-    """Baut die kanonische Ausfall-Markierung als `X <Grund>`."""
-    reason = normalize_marker_text(reason_text)
-    if not reason:
-        return "X Ohne Angabe"
+    """Baut die kanonische Ausfall-Markierung als `X <Grund>`.
 
-    lowered = reason.lower()
-    if lowered == "x":
+    Entfernt ein ggf. vorhandenes abschliessendes ``X`` (Ferien-Markierung),
+    damit eine zuvor als Ferien markierte Zeile beim erneuten Markieren als
+    normaler Ausfall nicht versehentlich `X ... X` behaelt.
+    """
+    reason = marker_reason_text(reason_text) or normalize_marker_text(reason_text)
+    if not reason or reason.lower() == "x":
         return "X Ohne Angabe"
-    if lowered.startswith("x "):
-        return f"X {reason[2:].strip()}".strip()
-    if lowered.startswith("ausfall"):
-        rest = reason[len("ausfall") :].strip(" :–—-")
-        return f"X {rest}".strip() if rest else "X Ausfall"
     return f"X {reason}".strip()
 
 
-def upgrade_legacy_ausfall_marker(text: str) -> str | None:
-    """Konvertiert alte `Ausfall...`-Marker zu `X ...`; liefert `None` falls unverändert."""
-    normalized = normalize_marker_text(text)
-    if not normalized:
-        return None
+def build_ferien_marker(reason_text: str) -> str:
+    """Baut die kanonische Ferien-Markierung als `X <Grund> X`.
 
-    lowered = normalized.lower()
-    if lowered == "x" or lowered.startswith("x "):
-        return None
-    if lowered.startswith("ausfall"):
-        return build_ausfall_marker(normalized)
-    return None
+    Das abschliessende ``X`` unterscheidet Ferien/Feiertage textuell von
+    einem normalen manuellen Ausfall (siehe :func:`is_ferien_marker`).
+
+    Example::
+
+        build_ferien_marker("Sommerferien")
+        # -> "X Sommerferien X"
+        build_ferien_marker("")
+        # -> "X Ohne Angabe X"
+    """
+    reason = marker_reason_text(reason_text) or normalize_marker_text(reason_text)
+    if not reason or reason.lower() == "x":
+        return "X Ohne Angabe X"
+    return f"X {reason} X".strip()
 
 
 def is_hospitation_marker(text: str, group_name: str) -> bool:

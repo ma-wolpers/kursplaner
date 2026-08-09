@@ -5,8 +5,8 @@ import re
 from datetime import datetime
 
 from kursplaner.core.domain.content_markers import normalize_marker_text
-from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
+from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import sanitize_hour_title
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
@@ -44,8 +44,8 @@ class MainWindowLessonContextController:
                 return topic
             return ""
 
-        if field_key == "stunden":
-            return str(day.get("stunden", ""))
+        if field_key in {"stunden", "startzeit"}:
+            return str(day.get(field_key, ""))
 
         if field_key == "Ausfallgrund":
             if not bool(day.get("is_cancel", False)):

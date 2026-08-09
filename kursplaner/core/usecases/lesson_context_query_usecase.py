@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.ports.repositories import LessonRepository
 
 
@@ -14,20 +15,23 @@ class LessonContextQueryUseCase:
 
     @staticmethod
     def selected_row_hours(table: PlanTableData | None, row_index: int) -> int:
-        """Liest die Stundenzahl einer Zeile robust aus der Planstruktur.
+        """Liest die Stundenzahl einer Zeile aus dem Wochentags-Rhythmus.
 
-        Liefert `0`, wenn Tabelle/Index ungültig sind oder der Stundenwert
-        nicht numerisch vorliegt.
+        Liefert `0`, wenn Tabelle/Index ungültig sind oder der Wochentag der
+        Zeile keinen Rhythmus-Eintrag hat.
         """
         if table is None or row_index < 0 or row_index >= len(table.rows):
             return 0
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
-        idx_stunden = header_map.get("stunden")
-        if idx_stunden is None:
+        idx_datum = header_map.get("datum")
+        if idx_datum is None:
             return 0
         row = table.rows[row_index]
-        raw = row[idx_stunden].strip() if idx_stunden < len(row) else ""
-        return int(raw) if raw.isdigit() else 0
+        row_date = parse_plan_row_date(row[idx_datum]) if idx_datum < len(row) else None
+        if row_date is None:
+            return 0
+        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+        return hours_for_date(rhythm, row_date)
 
     def next_lzk_number(self, table: PlanTableData) -> int:
         """Bestimmt die nächste freie laufende LZK-Nummer in der Planung.

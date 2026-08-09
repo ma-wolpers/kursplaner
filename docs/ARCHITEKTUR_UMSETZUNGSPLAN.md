@@ -19,7 +19,9 @@ Referenz fuer dauerhafte Leitplanken:
 
 ## Offene Arbeitspakete (priorisiert)
 
-Aktuell keine offenen Pakete.
+- **`NewLesson*UseCase`-Umbenennung** (2026-08-09 vermerkt): Der GUI-Dialog heißt seit dieser Session `NewCourseWindow`, die dahinterliegenden Use Cases (`NewLessonFormUseCase`, `NewLessonUseCase`, `new_lesson_form_usecase.py`, `new_lesson_usecase.py`) bewusst noch nicht mit umbenannt — größere, hier nicht angegangene Umbenennung mit vielen Importstellen.
+- **`lesson_conversion_controller.py`-Split** (2026-08-09 vermerkt, siehe `ARCHITEKTUR_KERN.md` §28 Ausnahme-Tabelle): Prefill-Hilfsfunktionen (`_unterricht_prefill_values`, `_coerce_string_list`, `_extract_markdown_section_refs`, `_prefill_ausfall_reason_from_content`) in ein eigenes `lesson_conversion_prefill.py` auslagern.
+- **`grid_cell_policy_usecase.py`/`lesson_context_controller.py`-Duplikation** (2026-08-09 vermerkt): `GridCellPolicyUseCase.field_value`/`is_editable` sind ein nahezu wortgleicher Klon von `MainWindowLessonContextController.field_value`/`RowDisplayModeUseCase.is_editable` — bereits vor dieser Session bestehend, durch die Rhythmus-Umstellung (`"startzeit"`-Feld musste an beiden Stellen ergänzt werden) erneut sichtbar geworden. Konsolidierung auf eine Quelle empfohlen.
 
 ---
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
@@ -115,6 +116,14 @@ class PlanRegularLessonUseCase:
             subject_name,
         )
 
+        yaml_obj = day.get("yaml")
+        yaml_data = yaml_obj if isinstance(yaml_obj, dict) else {}
+        oberthema_initial = (
+            str(yaml_data.get("Oberthema", "")).strip()
+            or str(day.get("plan_oberthema", "")).strip()
+            or self.lesson_context_query.last_oberthema_before_row(table, row_index)
+        )
+
         return RegularLessonDialogContext(
             row_index=row_index,
             was_lzk=was_lzk,
@@ -126,7 +135,7 @@ class PlanRegularLessonUseCase:
             has_existing_link=has_existing_link,
             title_initial=(current_topic or "Unterrichtseinheit"),
             topic_initial=(current_topic or "Unterrichtseinheit"),
-            oberthema_initial=self.lesson_context_query.last_oberthema_before_row(table, row_index),
+            oberthema_initial=oberthema_initial,
             kompetenzen_options=[],
             inhalte_options=inhalte_options,
             methodik_options=methodik_options,
@@ -168,19 +177,6 @@ class PlanRegularLessonUseCase:
             Thema für die anzulegende oder zu aktualisierende Stunde.
         """
         return current_topic or "Unterrichtseinheit"
-
-    @staticmethod
-    def default_hours(stunden_raw: str) -> int:
-        """Leitet die Stundenzahl aus dem Tabellenwert oder Default ab.
-
-        Args:
-            stunden_raw: Rohwert aus der Spalte ``stunden``.
-
-        Returns:
-            Positive Stundenanzahl, standardmäßig ``2``.
-        """
-        value = (stunden_raw or "").strip()
-        return int(value) if value.isdigit() else 2
 
     def ensure_link(self, table: PlanTableData, row_index: int, topic: str, default_hours: int) -> Path:
         """Stellt sicher, dass die Zielzeile auf eine Stunden-Datei verlinkt ist.
@@ -270,7 +266,7 @@ class PlanRegularLessonUseCase:
                     proceed=False,
                     error_message="Anlegen der Stunden-Datei wurde nicht bestätigt.",
                 )
-            default_hours = self.default_hours(stunden_raw)
+            default_hours = coerce_lesson_hours(stunden_raw)
             link = self.ensure_link(table, row_index, topic, default_hours)
 
         if not isinstance(link, Path):

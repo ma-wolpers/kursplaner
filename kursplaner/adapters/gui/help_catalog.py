@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-NEW_LESSON_HELP: dict[str, str] = {
+NEW_COURSE_HELP: dict[str, str] = {
     "period_input": (
         "Hier gibst du entweder ein Halbjahr (z. B. 26-1) oder ein Startdatum (YYYY-MM-DD) an.\n"
         "Bei einem Datum wird das Halbjahr automatisch aus den Kalenderdaten abgeleitet."
@@ -46,7 +46,7 @@ MAIN_WINDOW_HELP: dict[str, str] = {
     ),
     "course_overview_new": "Legt einen neuen Kurs an. - Strg+N (immer)",
     "toggle_former_courses": "Blendet ehemalige Kurse ein/aus. - Strg+Shift+E",
-    "new": "Legt einen neuen Unterricht an. - Strg+N (immer)",
+    "new": "Legt einen neuen Kurs an. - Strg+N (immer)",
     "refresh": "Lädt Kursübersicht/Status neu. - Strg+R (immer)",
     "column_visibility": "Blendet Spaltenarten aus oder zeigt sie als dünne Marker an. - Strg+L",
     "export_as": "Exportiert die aktuelle Sequenz als Sequenzplan oder Kompetenzhorizont (PDF/Markdown). - Strg+P",

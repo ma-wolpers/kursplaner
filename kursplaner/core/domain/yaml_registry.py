@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+from kursplaner.core.domain.course_rhythm import is_valid_rhythm_value
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.sequence_planning import SEQUENCE_YAML_COURSE_PLAN_KEY
 
@@ -50,14 +51,33 @@ def _is_valid_dauer(value: object) -> bool:
 
 PLAN_METADATA_SCHEMA = YamlSchema(
     label="Plan-Datei",
-    required_keys=("Lerngruppe", "Kursfach", "Stufe"),
-    non_empty_keys=("Lerngruppe", "Kursfach", "Stufe"),
+    required_keys=("Lerngruppe", "Kursfach", "Stufe", "Rhythmus"),
+    non_empty_keys=("Lerngruppe", "Kursfach", "Stufe", "Rhythmus"),
     value_validators={
         "Lerngruppe": _is_valid_lerngruppe,
         "Kursfach": _is_valid_kursfach,
         "Stufe": _is_valid_stufe,
+        "Rhythmus": is_valid_rhythm_value,
     },
 )
+"""Schema fuer die Plan-Datei-Frontmatter.
+
+``Rhythmus`` traegt den wochentagsbezogenen Startzeit-/Stundenrhythmus des
+Kurses als Liste von Zeilen im Format
+``["ab" DD-MM-YY] Wochentag HH:MM Stunden`` (siehe
+:mod:`kursplaner.core.domain.course_rhythm`), z. B.::
+
+    Rhythmus:
+      - "Mo 12:15 2"
+      - "Mi 08:00 1"
+      - "ab 20-04-26 Mo 14:00 1"
+
+Er ist seit der Entfernung der ``Stunden``-Spalte aus der Plantabelle die
+einzige Quelle fuer die Stundenzahl/Startzeit eines Kalendertags. Dateien im
+alten Format ohne dieses Feld muessen mit
+``tools/migrate_plan_table_schema.py`` migriert werden, bevor sie wieder
+ladbar sind.
+"""
 
 LESSON_SCHEMA = YamlSchema(
     label="Stunden-Datei",
@@ -142,7 +162,14 @@ def parse_yaml_frontmatter(
 
     missing = [yaml_key for yaml_key in schema.required_keys if yaml_key not in data]
     if missing:
-        raise RuntimeError(f"Fehlende YAML-Felder in {schema.label}: {source_label}\nFehlend: {', '.join(missing)}")
+        hint = (
+            "\nBitte 'python tools/migrate_plan_table_schema.py' ausführen, um alte Plan-Dateien zu migrieren."
+            if "Rhythmus" in missing
+            else ""
+        )
+        raise RuntimeError(
+            f"Fehlende YAML-Felder in {schema.label}: {source_label}\nFehlend: {', '.join(missing)}{hint}"
+        )
 
     empty_required = [yaml_key for yaml_key in schema.non_empty_keys if _is_empty_value(data.get(yaml_key, ""))]
     if empty_required:

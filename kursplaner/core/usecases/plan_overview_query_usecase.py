@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Callable
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.content_markers import normalize_marker_text, resolve_row_cancel_state
+from kursplaner.core.domain.content_markers import normalize_marker_text, resolve_cancel_state
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
@@ -154,11 +155,12 @@ class PlanOverviewQueryUseCase:
 
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum")
-        idx_stunden = header_map.get("stunden")
         idx_inhalt = header_map.get("inhalt")
 
-        if idx_datum is None or idx_stunden is None or idx_inhalt is None:
+        if idx_datum is None or idx_inhalt is None:
             return "—", 0, "—", "", "—", None, False, False
+
+        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
 
         next_theme = "—"
         next_lzk = "—"
@@ -177,7 +179,7 @@ class PlanOverviewQueryUseCase:
         row_markers: dict[int, str] = {}
 
         for row_index, row in enumerate(table.rows):
-            if idx_datum >= len(row) or idx_stunden >= len(row) or idx_inhalt >= len(row):
+            if idx_datum >= len(row) or idx_inhalt >= len(row):
                 continue
 
             row_date = self._parse_date(row[idx_datum])
@@ -194,17 +196,6 @@ class PlanOverviewQueryUseCase:
             row_dates[row_index] = row[idx_datum]
             row_date_values[row_index] = row_date
             candidate_rows.append(row_index)
-            is_cancel = resolve_row_cancel_state(table.headers, row)
-
-            if not is_cancel:
-                has_upcoming_unit = True
-                if earliest_upcoming_lesson_date is None or row_date < earliest_upcoming_lesson_date:
-                    earliest_upcoming_lesson_date = row_date
-                    next_unit = row[idx_datum].strip() or "—"
-                    days_until_next_unit = (row_date - current_now.date()).days
-                hours_raw = row[idx_stunden].strip()
-                if hours_raw.isdigit():
-                    remaining_hours += int(hours_raw)
 
         # Prefer index-based metadata load if available to avoid full YAML loads per row.
         if self.lesson_index_repo is not None:
@@ -233,16 +224,30 @@ class PlanOverviewQueryUseCase:
             content = row_contents.get(row_index, "")
             marker_text = row_markers.get(row_index, "")
             row_date_text = row_dates.get(row_index, "")
+            row_date = row_date_values.get(row_index)
             lesson = lessons_by_row.get(row_index)
             lesson_for_ub = lessons_for_ub.get(row_index)
 
-            if lesson is not None:
-                lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
-                lesson_topic = str(lesson_data.get("Stundenthema", "")).strip()
+            lesson_meta = lesson.data if lesson is not None and isinstance(lesson.data, dict) else {}
+            if lesson_meta:
+                lesson_topic = str(lesson_meta.get("Stundenthema", "")).strip()
                 if next_theme == "—" and lesson_topic:
                     next_theme = lesson_topic
-                if next_lzk == "—" and infer_stundentyp(lesson_data) == "LZK":
+                if next_lzk == "—" and infer_stundentyp(lesson_meta) == "LZK":
                     next_lzk = row_date_text
+
+            # Beruecksichtigt denselben YAML-Stundentyp-Override wie
+            # `load_plan_detail_usecase.build_day_columns`, damit eine Zeile
+            # nicht in der Uebersicht als stattfindend zaehlt, waehrend sie in
+            # der Detailansicht als Ausfall angezeigt wird.
+            is_cancel = resolve_cancel_state(table.headers, table.rows[row_index], lesson_meta or None)
+            if not is_cancel and row_date is not None:
+                has_upcoming_unit = True
+                if earliest_upcoming_lesson_date is None or row_date < earliest_upcoming_lesson_date:
+                    earliest_upcoming_lesson_date = row_date
+                    next_unit = row_date_text.strip() or "—"
+                    days_until_next_unit = (row_date - current_now.date()).days
+                remaining_hours += hours_for_date(rhythm, row_date)
 
             lesson_data = lesson_for_ub.data if lesson_for_ub is not None else {}
             if not isinstance(lesson_data, dict):

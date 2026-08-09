@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Callable
 
 from bw_libs.app_paths import atomic_write_text
+from kursplaner.core.domain.course_lifecycle import course_archive_root
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, format_rhythm
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
@@ -19,7 +21,7 @@ from kursplaner.infrastructure.repositories.plan_table_file_repository import (
 @dataclass(frozen=True)
 class _PlanListCacheEntry:
     paths: list[Path]
-    base_mtime_ns: int | None
+    root_mtime_ns: dict[str, int]
     child_mtime_ns: dict[str, int]
 
 
@@ -88,7 +90,13 @@ class FileSystemPlanRepository:
         sync_thema_ausfall_to_plan_row(table, row_index, yaml_data=yaml_data, group_name=group_name)
 
     def list_plan_markdown_files(self, base_dir: Path) -> list[Path]:
-        """Listet Plan-Markdowndateien und nutzt einen Frische-Cache pro Basisordner."""
+        """Listet Plan-Markdowndateien (aktiv und archiviert) mit Frische-Cache pro Basisordner.
+
+        Durchsucht sowohl `base_dir` als auch `base_dir/_ALT/Kursordner` (siehe
+        `course_lifecycle.course_archive_root`) - die zurückgelieferte Liste
+        umfasst also sowohl aktive als auch archivierte Kurse. Aufrufer, die
+        beide unterscheiden müssen, nutzen `course_lifecycle.is_archived_course_path`.
+        """
         if not base_dir.exists() or not base_dir.is_dir():
             return []
 
@@ -97,16 +105,29 @@ class FileSystemPlanRepository:
         if (
             cached is not None
             and key not in self._dirty_cache_keys
-            and self._plan_list_cache_is_fresh(base_dir, cached)
+            and self._plan_list_cache_is_fresh(cached)
         ):
             return list(cached.paths)
 
-        paths, child_mtimes = self._scan_plan_markdown_files(base_dir)
+        roots = [base_dir]
+        archive_root = course_archive_root(base_dir)
+        if archive_root.exists() and archive_root.is_dir():
+            roots.append(archive_root)
 
-        base_stat = base_dir.stat()
+        paths: list[Path] = []
+        child_mtimes: dict[str, int] = {}
+        root_mtimes: dict[str, int] = {}
+        for root in roots:
+            root_mtime = self._mtime_ns(root)
+            if root_mtime is not None:
+                root_mtimes[str(root.resolve()).lower()] = root_mtime
+            root_paths, root_child_mtimes = self._scan_plan_markdown_files(root)
+            paths.extend(root_paths)
+            child_mtimes.update(root_child_mtimes)
+
         self._plan_list_cache[key] = _PlanListCacheEntry(
-            paths=list(paths),
-            base_mtime_ns=getattr(base_stat, "st_mtime_ns", int(base_stat.st_mtime * 1_000_000_000)),
+            paths=paths,
+            root_mtime_ns=root_mtimes,
             child_mtime_ns=child_mtimes,
         )
         self._dirty_cache_keys.discard(key)
@@ -138,19 +159,14 @@ class FileSystemPlanRepository:
 
         return paths, child_mtimes
 
-    def _plan_list_cache_is_fresh(self, base_dir: Path, entry: _PlanListCacheEntry) -> bool:
-        """Prüft, ob Basisordner und beobachtete Kinder unverändert geblieben sind."""
-        current_base_mtime = self._mtime_ns(base_dir)
-        if current_base_mtime is None:
-            return False
-
-        if current_base_mtime != entry.base_mtime_ns:
-            return False
+    def _plan_list_cache_is_fresh(self, entry: _PlanListCacheEntry) -> bool:
+        """Prüft, ob alle beobachteten Wurzeln und Kinder unverändert geblieben sind."""
+        for root_key, expected_mtime in entry.root_mtime_ns.items():
+            if self._mtime_ns(Path(root_key)) != expected_mtime:
+                return False
 
         for child_key, expected_mtime in entry.child_mtime_ns.items():
-            child_path = Path(child_key)
-            current_child_mtime = self._mtime_ns(child_path)
-            if current_child_mtime is None or current_child_mtime != expected_mtime:
+            if self._mtime_ns(Path(child_key)) != expected_mtime:
                 return False
 
         return True
@@ -178,9 +194,9 @@ class FileSystemPlanRepository:
                 raise RuntimeError("Schreibvorgang für Plan-Tabelle abgebrochen.")
 
         table = load_last_plan_table(markdown_path)
-        for day, hours, note in rows:
+        for day, note in rows:
             note_str = str(note) if note else ""
-            table.rows.append([day.strftime("%d-%m-%y"), str(hours), "", note_str])
+            table.rows.append([day.strftime("%d-%m-%y"), "", note_str])
         save_plan_table(table)
 
     def write_plan_rows(
@@ -199,8 +215,7 @@ class FileSystemPlanRepository:
                 raise RuntimeError("Schreibvorgang für Plan-Tabelle abgebrochen.")
 
         normalized_rows = [
-            [day.strftime("%d-%m-%y"), str(hours), "", str(note) if note else ""]
-            for day, hours, note in rows
+            [day.strftime("%d-%m-%y"), "", str(note) if note else ""] for day, note in rows
         ]
 
         try:
@@ -213,13 +228,11 @@ class FileSystemPlanRepository:
             if prefix and not prefix.endswith("\n\n"):
                 prefix += "\n"
 
-            rendered_rows = [
-                f"| {row[0]} | {row[1]} | {row[2]} | {row[3]} |" for row in normalized_rows
-            ]
+            rendered_rows = [f"| {row[0]} | {row[1]} | {row[2]} |" for row in normalized_rows]
             table_text = "\n".join(
                 [
-                    "| Datum | Stunden | Inhalt | Thema/Ausfall |",
-                    "| --- | --- | --- | --- |",
+                    "| Datum | Inhalt | Thema/Ausfall |",
+                    "| --- | --- | --- |",
                     *rendered_rows,
                 ]
             )
@@ -241,6 +254,7 @@ class FileSystemPlanRepository:
         group_name: str,
         course_subject: str,
         grade_level: int,
+        rhythm: tuple[WeekdayRhythm, ...],
         kc_profile_label: str | None = None,
         process_competencies: tuple[str, ...] = (),
         content_competency: str | None = None,
@@ -263,7 +277,9 @@ class FileSystemPlanRepository:
             f"Lerngruppe: {self._yaml_quote(group_link)}",
             f"Kursfach: {self._yaml_quote(canonical_course_subject)}",
             f"Stufe: {grade_level}",
+            "Rhythmus:",
         ]
+        lines.extend(f"  - {self._yaml_quote(entry)}" for entry in format_rhythm(rhythm))
 
         normalized_process = tuple(item.strip() for item in process_competencies if item.strip())
         if kc_profile_label and kc_profile_label.strip():
@@ -278,3 +294,52 @@ class FileSystemPlanRepository:
         frontmatter = "\n".join(lines) + "\n---\n\n"
 
         atomic_write_text(markdown_path, frontmatter + body, encoding="utf-8")
+
+    def update_plan_rhythm(self, markdown_path: Path, rhythm: tuple[WeekdayRhythm, ...]) -> None:
+        """Ersetzt chirurgisch nur den ``Rhythmus``-Block der Plan-Datei-Frontmatter.
+
+        Im Gegensatz zu :meth:`write_plan_metadata` (vollstaendiger Rewrite bei
+        Kursanlage) bleiben alle anderen Frontmatter-Felder (z. B.
+        ``Kompetenzen``, ``Stundenziel``) unveraendert und in ihrer
+        urspruenglichen Reihenfolge erhalten - wird von einer
+        Stundenplanaenderung genutzt, die nur den Rhythmus ergaenzt.
+
+        Args:
+            markdown_path: Zielpfad der Plan-Markdown-Datei.
+            rhythm: Vollstaendige, neue Rhythmus-Eintragsliste (alle Segmente).
+
+        Raises:
+            RuntimeError: Wenn die Datei kein ``Rhythmus``-Feld in der
+                Frontmatter enthaelt (unmigrierte Datei).
+        """
+        text = markdown_path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        if not lines or lines[0].strip() != "---":
+            raise RuntimeError(f"Fehlendes YAML-Frontmatter in Plan-Datei: {markdown_path}")
+
+        start_idx: int | None = None
+        end_idx: int | None = None
+        for idx in range(1, len(lines)):
+            stripped = lines[idx].strip()
+            if stripped == "---":
+                break
+            if stripped.startswith("Rhythmus:"):
+                start_idx = idx
+                continue
+            if start_idx is not None and end_idx is None:
+                if stripped.startswith("- ") or stripped.startswith('- "'):
+                    continue
+                end_idx = idx
+
+        if start_idx is None:
+            raise RuntimeError(f"Plan-Datei hat kein 'Rhythmus'-Feld: {markdown_path}")
+        if end_idx is None:
+            end_idx = len(lines)
+
+        replacement = ["Rhythmus:"] + [f"  - {self._yaml_quote(entry)}" for entry in format_rhythm(rhythm)]
+        new_lines = lines[:start_idx] + replacement + lines[end_idx:]
+
+        output = "\n".join(new_lines)
+        if text.endswith("\n"):
+            output += "\n"
+        atomic_write_text(markdown_path, output, encoding="utf-8")

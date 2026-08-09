@@ -28,16 +28,21 @@ class _FakeLessonRepo:
         return LessonYamlData(lesson_path=path, data=dict(self.yaml_by_path[path]))
 
 
-def _table_for_rows(plan_path: Path, rows: list[list[str]]) -> PlanTableData:
+def _table_for_rows(plan_path: Path, rows: list[list[str]], rhythm: list[str]) -> PlanTableData:
     return PlanTableData(
         markdown_path=plan_path,
-        headers=["Datum", "Stunden", "Inhalt"],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
         rows=rows,
         start_line=1,
         end_line=1,
         source_lines=[],
         had_trailing_newline=True,
-        metadata={"Lerngruppe": "[[GK blau-1]]", "Kursfach": "Mathematik", "Stufe": "11"},
+        metadata={
+            "Lerngruppe": "[[GK blau-1]]",
+            "Kursfach": "Mathematik",
+            "Stufe": "11",
+            "Rhythmus": rhythm,
+        },
     )
 
 
@@ -48,8 +53,9 @@ def test_daily_export_includes_only_today_and_future_and_expands_hours(tmp_path,
     plan_path = unterricht_dir / "Mathematik" / "Mathematik.md"
     plan_path.write_text("# plan\n", encoding="utf-8")
 
-    today = date(2026, 3, 31)
-    yesterday = (today - timedelta(days=1)).strftime("%d-%m-%y")
+    today = date(2026, 3, 31)  # Tuesday
+    yesterday_date = today - timedelta(days=1)  # Monday
+    yesterday = yesterday_date.strftime("%d-%m-%y")
     today_text = today.strftime("%d-%m-%y")
 
     lesson_path = einheiten_dir / "GK blau-1 03-31 Algebra.md"
@@ -58,9 +64,10 @@ def test_daily_export_includes_only_today_and_future_and_expands_hours(tmp_path,
     table = _table_for_rows(
         plan_path,
         rows=[
-            [yesterday, "1", "[[GK blau-1 03-30 Alt]]"],
-            [today_text, "2", "[[GK blau-1 03-31 Algebra]]"],
+            [yesterday, "[[GK blau-1 03-30 Alt]]", ""],
+            [today_text, "[[GK blau-1 03-31 Algebra]]", ""],
         ],
+        rhythm=["Mo 08:00 1", "Di 08:00 2"],
     )
 
     plan_repo = _FakePlanRepo([table])
@@ -102,12 +109,13 @@ def test_daily_export_writes_max_one_file_per_day(tmp_path, monkeypatch):
     plan_path = unterricht_dir / "Mathematik" / "Mathematik.md"
     plan_path.write_text("# plan\n", encoding="utf-8")
 
-    today = date(2026, 3, 31)
+    today = date(2026, 3, 31)  # Tuesday
     lesson_path = einheiten_dir / "GK blau-1 03-31 Test.md"
     lesson_path.write_text("---\nStundentyp: Unterricht\n---\n", encoding="utf-8")
     table = _table_for_rows(
         plan_path,
-        rows=[[today.strftime("%d-%m-%y"), "1", "[[GK blau-1 03-31 Test]]"]],
+        rows=[[today.strftime("%d-%m-%y"), "[[GK blau-1 03-31 Test]]", ""]],
+        rhythm=["Di 08:00 1"],
     )
 
     usecase = DailyCourseLogUseCase(
@@ -134,10 +142,11 @@ def test_daily_export_includes_ausfall_without_lesson_link(tmp_path, monkeypatch
     plan_path = fach_dir / "Mathematik.md"
     plan_path.write_text("# plan\n", encoding="utf-8")
 
-    today = date(2026, 3, 31)
+    today = date(2026, 3, 31)  # Tuesday
     table = _table_for_rows(
         plan_path,
-        rows=[[today.strftime("%d-%m-%y"), "1", "X Krank"]],
+        rows=[[today.strftime("%d-%m-%y"), "", "X Krank"]],
+        rhythm=["Di 08:00 1"],
     )
     usecase = DailyCourseLogUseCase(
         plan_repo=_FakePlanRepo([table]),
@@ -150,8 +159,37 @@ def test_daily_export_includes_ausfall_without_lesson_link(tmp_path, monkeypatch
     payload = json.loads(result.log_path.read_text(encoding="utf-8"))
     unit = payload["courses"][0]["units"][0]
     assert unit["status"] == "ausfall"
+    assert unit["is_ferien"] is False
     assert unit["link_path"] == ""
     assert len(unit["hour_entries"]) == 1
+
+
+def test_daily_export_marks_ferien_rows(tmp_path, monkeypatch):
+    """Ferien-Zeilen (X ... X) tragen weiterhin Status 'ausfall', zusätzlich is_ferien=True."""
+    unterricht_dir = tmp_path / "unterricht"
+    fach_dir = unterricht_dir / "Mathematik"
+    fach_dir.mkdir(parents=True)
+    plan_path = fach_dir / "Mathematik.md"
+    plan_path.write_text("# plan\n", encoding="utf-8")
+
+    today = date(2026, 3, 31)  # Tuesday
+    table = _table_for_rows(
+        plan_path,
+        rows=[[today.strftime("%d-%m-%y"), "", "X Osterferien X"]],
+        rhythm=["Di 08:00 1"],
+    )
+    usecase = DailyCourseLogUseCase(
+        plan_repo=_FakePlanRepo([table]),
+        lesson_repo=_FakeLessonRepo(links_by_row={}, yaml_by_path={}),
+    )
+    monkeypatch.setattr(DailyCourseLogUseCase, "_log_dir", staticmethod(lambda: tmp_path / "logs"))
+
+    result = usecase.export_for_day(unterricht_dir=unterricht_dir, export_day=today)
+
+    payload = json.loads(result.log_path.read_text(encoding="utf-8"))
+    unit = payload["courses"][0]["units"][0]
+    assert unit["status"] == "ausfall"
+    assert unit["is_ferien"] is True
 
 
 def test_daily_export_serializes_paths_workspace_relative(tmp_path, monkeypatch):
@@ -161,13 +199,14 @@ def test_daily_export_serializes_paths_workspace_relative(tmp_path, monkeypatch)
     plan_path = unterricht_dir / "Mathematik" / "Mathematik.md"
     plan_path.write_text("# plan\n", encoding="utf-8")
 
-    today = date(2026, 3, 31)
+    today = date(2026, 3, 31)  # Tuesday
     lesson_path = einheiten_dir / "GK blau-1 03-31 Relativ.md"
     lesson_path.write_text("---\nStundentyp: Unterricht\n---\n", encoding="utf-8")
 
     table = _table_for_rows(
         plan_path,
-        rows=[[today.strftime("%d-%m-%y"), "1", "[[GK blau-1 03-31 Relativ]]"]],
+        rows=[[today.strftime("%d-%m-%y"), "[[GK blau-1 03-31 Relativ]]", ""]],
+        rhythm=["Di 08:00 1"],
     )
 
     usecase = DailyCourseLogUseCase(

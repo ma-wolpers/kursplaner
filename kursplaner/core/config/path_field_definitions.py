@@ -104,7 +104,7 @@ PATH_FIELD_DEFINITIONS: tuple[PathFieldDefinition, ...] = (
         requires_markdown=False,
         help_text=(
             "JSON-Datei, die festlegt, welche Kompetenzkataloge verfügbar sind.\n"
-            "Im Dialog Neuer Unterricht werden daraus KC-Profile und Kompetenzlisten geladen."
+            "Im Dialog Neuer Kurs werden daraus KC-Profile und Kompetenzlisten geladen."
         ),
     ),
 )

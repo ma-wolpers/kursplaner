@@ -110,9 +110,7 @@ def test_execute_aborts_before_rename_when_plan_save_for_rename_is_denied(tmp_pa
         list_entries=None,
         should_rename_topic=True,
         desired_stem="gruen-6 02-06 Neu",
-        allow_plan_hours_save=True,
         allow_yaml_save=True,
-        allow_duration_save=True,
         allow_rename=True,
         allow_plan_save_for_rename=False,
     )
@@ -160,9 +158,7 @@ def test_execute_ub_steps_syncs_directly_and_preserves_resources(tmp_path):
         list_entries=["Neuer Schritt"],
         should_rename_topic=False,
         desired_stem="",
-        allow_plan_hours_save=True,
         allow_yaml_save=True,
-        allow_duration_save=True,
         allow_rename=True,
         allow_plan_save_for_rename=True,
     )
@@ -213,9 +209,7 @@ def test_execute_ub_resources_fails_cleanly_when_no_ub_link(tmp_path):
         list_entries=["Neue Ressource"],
         should_rename_topic=False,
         desired_stem="",
-        allow_plan_hours_save=True,
         allow_yaml_save=True,
-        allow_duration_save=True,
         allow_rename=True,
         allow_plan_save_for_rename=True,
     )

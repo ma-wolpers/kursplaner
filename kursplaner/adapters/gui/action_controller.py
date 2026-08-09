@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import pathlib
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from datetime import date
+from typing import Callable
+
 from bw_gui.runtime import ui, widgets
 from bw_gui.theming import (
     canvas_domain_fill,
@@ -13,20 +17,18 @@ from bw_gui.theming import (
     canvas_text_fill,
     theme_canvas,
 )
-from datetime import date
-from typing import Callable
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
-from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
-from kursplaner.adapters.gui.timetable_change_dialog import TimetableChangeDialog
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
-from kursplaner.adapters.gui.new_lesson_window import NewLessonWindow
+from kursplaner.adapters.gui.new_course_window import NewCourseWindow
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.shortcut_overview_dialog import ShortcutOverviewDialog
+from kursplaner.adapters.gui.timetable_change_dialog import TimetableChangeDialog
 from kursplaner.adapters.gui.toolbar_viewmodel import (
     TOOLBAR_ACTION_BY_KEY,
     TOOLBAR_SEPARATOR_SLOTS,
@@ -207,9 +209,9 @@ class MainWindowActionController:
         """Delegiert das Neuladen der Unterrichtsübersicht an den Overview-Controller."""
         self.app.overview_controller.refresh_overview()
 
-    def open_new_lesson_window(self):
-        """Öffnet den Dialog zur Anlage neuer Unterrichtseinheiten."""
-        window = NewLessonWindow(
+    def open_new_course_window(self):
+        """Öffnet den Dialog zur Anlage neuer Kurse."""
+        window = NewCourseWindow(
             self.app,
             on_success=self.app.refresh_overview,
             on_paths_changed=self.app._on_paths_saved,
@@ -234,7 +236,7 @@ class MainWindowActionController:
             return self.app.new_lesson_usecase.execute(request, confirm_change=confirm_change)
 
         return self._tracked_write_uc.run_tracked_action(
-            label="Unterricht anlegen",
+            label="Kurs anlegen",
             action=_action,
             table=None,
             day_columns=[],
@@ -1877,7 +1879,7 @@ class MainWindowActionController:
 
         calendar_dir = resolve_path_value(calendar_raw)
 
-        def _on_accept(date_from, date_to, draft_slots):
+        def _on_accept(date_from, date_to, draft_slots, rhythm_segment):
             try:
                 result = self._run_tracked_write(
                     label="Stundenplanänderung übernehmen",
@@ -1886,6 +1888,7 @@ class MainWindowActionController:
                         date_from=date_from,
                         date_to=date_to,
                         draft_slots=draft_slots,
+                        rhythm_segment=rhythm_segment,
                     ),
                     extra_after=[self.app.current_table.markdown_path],
                 )

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from types import SimpleNamespace
 
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.usecases.timetable_change_usecase import (
-    DraftSlot,
     TimetableChangeUseCase,
     column_is_ferien,
     column_is_manual_ausfall,
@@ -17,40 +16,36 @@ from kursplaner.core.usecases.timetable_change_usecase import (
 # ---------------------------------------------------------------------------
 
 
-def _day(stunden: str, is_cancel: bool = False) -> dict[str, object]:
-    return {"stunden": stunden, "is_cancel": is_cancel, "inhalt": ""}
+def _day(is_ferien: bool = False, is_cancel: bool = False) -> dict[str, object]:
+    return {"is_ferien": is_ferien, "is_cancel": is_cancel, "inhalt": ""}
 
 
-def test_column_is_ferien_zero():
-    assert column_is_ferien(_day("0")) is True
+def test_column_is_ferien_true():
+    assert column_is_ferien(_day(is_ferien=True, is_cancel=True)) is True
 
 
-def test_column_is_ferien_nonzero():
-    assert column_is_ferien(_day("2")) is False
-
-
-def test_column_is_ferien_empty_string():
-    assert column_is_ferien(_day("")) is True
+def test_column_is_ferien_false():
+    assert column_is_ferien(_day(is_ferien=False)) is False
 
 
 def test_column_is_manual_ausfall():
-    assert column_is_manual_ausfall(_day("2", is_cancel=True)) is True
+    assert column_is_manual_ausfall(_day(is_cancel=True)) is True
 
 
 def test_column_is_manual_ausfall_rejects_ferien():
-    assert column_is_manual_ausfall(_day("0", is_cancel=True)) is False
+    assert column_is_manual_ausfall(_day(is_ferien=True, is_cancel=True)) is False
 
 
 def test_column_is_stattfindend():
-    assert column_is_stattfindend(_day("2", is_cancel=False)) is True
+    assert column_is_stattfindend(_day(is_cancel=False)) is True
 
 
 def test_column_is_stattfindend_rejects_cancel():
-    assert column_is_stattfindend(_day("2", is_cancel=True)) is False
+    assert column_is_stattfindend(_day(is_cancel=True)) is False
 
 
 def test_column_is_stattfindend_rejects_ferien():
-    assert column_is_stattfindend(_day("0")) is False
+    assert column_is_stattfindend(_day(is_ferien=True, is_cancel=True)) is False
 
 
 # ---------------------------------------------------------------------------
@@ -80,35 +75,42 @@ def _make_uc(repo=None) -> TimetableChangeUseCase:
     return TimetableChangeUseCase(calendar_repo=repo or _FakeCalendarRepo())
 
 
+def _rhythm(hours_by_weekday: dict[int, int]) -> tuple[WeekdayRhythm, ...]:
+    return tuple(
+        WeekdayRhythm(weekday=weekday, start_time="00:00", hours=hours)
+        for weekday, hours in sorted(hours_by_weekday.items())
+    )
+
+
 def _stattfindend_day(
     datum_str: str, inhalt: str = "[[abc123]]", thema_ausfall: str = ""
 ) -> dict[str, object]:
     return {
         "datum": datum_str,
-        "stunden": "2",
         "is_cancel": False,
+        "is_ferien": False,
         "inhalt": inhalt,
         "thema_ausfall": thema_ausfall,
     }
 
 
 def _ausfall_day(datum_str: str) -> dict[str, object]:
-    return {"datum": datum_str, "stunden": "2", "is_cancel": True, "inhalt": "X Klausur"}
+    return {"datum": datum_str, "is_cancel": True, "is_ferien": False, "inhalt": "X Klausur"}
 
 
 def _ferien_day(datum_str: str) -> dict[str, object]:
-    return {"datum": datum_str, "stunden": "0", "is_cancel": False, "inhalt": "X Ferien"}
+    return {"datum": datum_str, "is_cancel": True, "is_ferien": True, "inhalt": "X Ferien X"}
 
 
 def test_compute_empty_range():
     """Kein Wochentag im Bereich passend → leere draft_slots."""
     uc = _make_uc()
-    # Jan 6, 2026 = Tuesday (weekday 1). new_day_hours has only Monday (0) → no slot generated.
+    # Jan 6, 2026 = Tuesday (weekday 1). new_rhythm has only Monday (0) → no slot generated.
     result = uc.compute(
         day_columns=[],
         date_from=date(2026, 1, 6),
         date_to=date(2026, 1, 6),
-        new_day_hours={0: 2},
+        new_rhythm=_rhythm({0: 2}),
         calendar_dir=Path("."),
     )
     assert result.old_units == []
@@ -127,7 +129,7 @@ def test_compute_same_timetable_one_to_one():
         day_columns=day_columns,
         date_from=date(2026, 1, 5),
         date_to=date(2026, 1, 7),
-        new_day_hours={0: 2, 2: 2},
+        new_rhythm=_rhythm({0: 2, 2: 2}),
         calendar_dir=Path("."),
     )
     assert len(result.old_units) == 2
@@ -147,7 +149,7 @@ def test_compute_ferien_dates_get_ferien_slots():
         day_columns=day_columns,
         date_from=date(2026, 1, 7),
         date_to=date(2026, 1, 7),
-        new_day_hours={2: 2},
+        new_rhythm=_rhythm({2: 2}),
         calendar_dir=Path("."),
     )
     assert len(result.draft_slots) == 1
@@ -166,7 +168,7 @@ def test_compute_old_ferien_not_counted_as_manual_ausfall_for_recovered_week():
         day_columns=day_columns,
         date_from=date(2026, 1, 6),
         date_to=date(2026, 1, 7),
-        new_day_hours={1: 2},
+        new_rhythm=_rhythm({1: 2}),
         calendar_dir=Path("."),
     )
     # Only Tuesday is in new plan (Tuesday = weekday 1)
@@ -185,7 +187,7 @@ def test_compute_manual_ausfall_marks_recovered_week():
         day_columns=day_columns,
         date_from=date(2026, 1, 6),
         date_to=date(2026, 1, 8),
-        new_day_hours={1: 2},  # new plan: Tuesday only (KW2)
+        new_rhythm=_rhythm({1: 2}),  # new plan: Tuesday only (KW2)
         calendar_dir=Path("."),
     )
     stattfindend = [s for s in result.draft_slots if not s.is_ferien]
@@ -207,7 +209,7 @@ def test_compute_more_old_than_new_truncates():
         day_columns=day_columns,
         date_from=date(2026, 1, 5),
         date_to=date(2026, 1, 9),
-        new_day_hours={0: 2},  # only Monday → Jan 5 only
+        new_rhythm=_rhythm({0: 2}),  # only Monday → Jan 5 only
         calendar_dir=Path("."),
     )
     stattfindend = [s for s in result.draft_slots if not s.is_ferien]
@@ -223,7 +225,7 @@ def test_compute_carries_oberthema_of_not_yet_created_unit():
         day_columns=day_columns,
         date_from=date(2026, 1, 5),
         date_to=date(2026, 1, 5),
-        new_day_hours={0: 2},
+        new_rhythm=_rhythm({0: 2}),
         calendar_dir=Path("."),
     )
     stattfindend = [s for s in result.draft_slots if not s.is_ferien]
@@ -241,7 +243,7 @@ def test_compute_more_new_than_old_leaves_empty_slots():
         day_columns=day_columns,
         date_from=date(2026, 1, 5),
         date_to=date(2026, 1, 7),
-        new_day_hours={0: 2, 2: 2},  # Monday (Jan 5) + Wednesday (Jan 7)
+        new_rhythm=_rhythm({0: 2, 2: 2}),  # Monday (Jan 5) + Wednesday (Jan 7)
         calendar_dir=Path("."),
     )
     stattfindend = [s for s in result.draft_slots if not s.is_ferien]

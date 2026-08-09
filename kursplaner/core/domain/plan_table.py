@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
 from kursplaner.core.domain.wiki_links import strip_wiki_link
@@ -29,7 +30,7 @@ class PlanTableData:
     end_line: int
     source_lines: list[str]
     had_trailing_newline: bool
-    metadata: dict[str, str]
+    metadata: dict[str, object]
     source_mtime_ns: int | None = None
     source_size: int | None = None
 
@@ -43,6 +44,30 @@ class LessonYamlData:
 
     lesson_path: Path
     data: dict[str, object]
+
+
+def parse_plan_row_date(value: str) -> date | None:
+    """Parst den ``Datum``-Zellwert einer Planzeile (``DD-MM-YY``) robust.
+
+    Konsolidiert die zuvor mehrfach unabhaengig implementierte
+    DD-MM-YY-Parsing-Logik (Timetable-Change-, Extend-to-Vacation- und
+    Archivierungs-Use-Cases). Liefert ``None`` statt zu werfen, damit
+    Aufrufer leere/kaputte Zeilen ueberspringen koennen.
+
+    Example::
+
+        parse_plan_row_date("27-02-26")
+        # -> date(2026, 2, 27)
+        parse_plan_row_date("")
+        # -> None
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.strptime(raw, "%d-%m-%y").date()
+    except ValueError:
+        return None
 
 
 def sanitize_hour_title(text: str) -> str:

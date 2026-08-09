@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker, resolve_row_cancel_state
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
 
@@ -60,6 +62,32 @@ class PlanCommandsUseCase:
         if idx is None:
             raise RuntimeError(f"Plan-Tabelle muss Spalte '{key}' enthalten.")
         return idx
+
+    @staticmethod
+    def _row_date(table: PlanTableData, row_index: int) -> date | None:
+        """Liest und parst das Datum einer Zeile.
+
+        Args:
+            table: Planungstabelle.
+            row_index: Zielzeile.
+
+        Returns:
+            Geparstes Datum oder ``None`` bei fehlender/ungueltiger Zeile.
+        """
+        idx_datum = PlanCommandsUseCase._idx(table, "datum")
+        if not (0 <= row_index < len(table.rows)):
+            return None
+        row = table.rows[row_index]
+        return parse_plan_row_date(row[idx_datum]) if idx_datum < len(row) else None
+
+    @staticmethod
+    def _hours_for_row(table: PlanTableData, row_index: int) -> int:
+        """Leitet die Rhythmus-Stundenzahl des Wochentags einer Zeile ab (0 falls kein Unterrichtstag)."""
+        row_date = PlanCommandsUseCase._row_date(table, row_index)
+        if row_date is None:
+            return 0
+        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+        return hours_for_date(rhythm, row_date)
 
     @staticmethod
     def _row_content(table: PlanTableData, row_index: int) -> str:
@@ -164,6 +192,9 @@ class PlanCommandsUseCase:
     def split_hour_count(self, table: PlanTableData, row_index: int) -> int:
         """Liest und validiert die Stundenanzahl für einen Split.
 
+        Die Stundenzahl ergibt sich aus dem Rhythmus des Wochentags, nicht mehr
+        aus einer gespeicherten Tabellenspalte (siehe :meth:`_hours_for_row`).
+
         Args:
             table: Planungstabelle.
             row_index: Zielzeile.
@@ -171,14 +202,19 @@ class PlanCommandsUseCase:
         Returns:
             Positive Stundenanzahl größer 1.
         """
-        idx_stunden = self._idx(table, "stunden")
-        hours_text = table.rows[row_index][idx_stunden].strip()
-        if not hours_text.isdigit() or int(hours_text) <= 1:
+        hour_count = self._hours_for_row(table, row_index)
+        if hour_count <= 1:
             raise RuntimeError("Diese Einheit hat weniger als 2 Stunden.")
-        return int(hours_text)
+        return hour_count
 
     def split_unit(self, table: PlanTableData, row_index: int) -> int:
-        """Teilt eine Mehrstunden-Zeile in einzelne Ein-Stunden-Zeilen.
+        """Teilt eine Mehrstunden-Zeile in einzelne Ein-Stunden-Zeilen desselben Datums.
+
+        Fügt ``hour_count - 1`` weitere Zeilen mit demselben Datum ein; die
+        Stundenzahl je Zeile ergibt sich beim Laden automatisch aus der
+        Gesamtstundenzahl des Wochentags geteilt durch die Zeilenanzahl
+        desselben Datums (siehe ``load_plan_detail_usecase.build_day_columns``
+        / :func:`~kursplaner.core.domain.course_rhythm.distribute_hours_over_rows`).
 
         Args:
             table: Planungstabelle.
@@ -187,19 +223,13 @@ class PlanCommandsUseCase:
         Returns:
             Ursprüngliche Stundenanzahl der gesplitteten Einheit.
         """
-        idx_stunden = self._idx(table, "stunden")
-        hours_text = table.rows[row_index][idx_stunden].strip()
-        if not hours_text.isdigit() or int(hours_text) <= 1:
-            raise RuntimeError("Diese Einheit hat weniger als 2 Stunden.")
+        hour_count = self.split_hour_count(table, row_index)
 
-        hour_count = int(hours_text)
+        idx_inhalt = self._idx(table, "inhalt")
         source_row = list(table.rows[row_index])
-        table.rows[row_index][idx_stunden] = "1"
 
         for _ in range(hour_count - 1):
             new_row = list(source_row)
-            new_row[idx_stunden] = "1"
-            idx_inhalt = self._idx(table, "inhalt")
             if idx_inhalt < len(new_row):
                 new_row[idx_inhalt] = ""
             table.rows.insert(row_index + 1, new_row)
@@ -241,6 +271,11 @@ class PlanCommandsUseCase:
     def merge_units(self, table: PlanTableData, row_index: int) -> MergeResult:
         """Führt die tatsächliche Zusammenführung einer Datumsgruppe aus.
 
+        Die Stundenzahl der Gruppe ist unabhängig von der Zeilenanzahl fix
+        (Rhythmus-Stunden des Wochentags); das Löschen der überzähligen Zeilen
+        gibt dem verbleibenden Keeper automatisch die volle Stundenzahl
+        (siehe ``load_plan_detail_usecase.build_day_columns``).
+
         Args:
             table: Planungstabelle.
             row_index: Referenzzeile.
@@ -254,17 +289,10 @@ class PlanCommandsUseCase:
         if not self.can_merge_date_units(table, row_index):
             raise RuntimeError("Verbinden ist nur möglich, wenn maximal eine Einheit Inhalt hat.")
 
-        idx_stunden = self._idx(table, "stunden")
         non_empty = [idx for idx in group if self._row_content(table, idx)]
         keeper = non_empty[0] if non_empty else group[0]
+        total_hours = max(1, self._hours_for_row(table, keeper))
 
-        total_hours = 0
-        for idx in group:
-            raw = table.rows[idx][idx_stunden].strip() if idx_stunden < len(table.rows[idx]) else ""
-            total_hours += int(raw) if raw.isdigit() else 0
-        total_hours = max(1, total_hours)
-
-        table.rows[keeper][idx_stunden] = str(total_hours)
         for idx in sorted([item for item in group if item != keeper], reverse=True):
             del table.rows[idx]
 
@@ -286,13 +314,7 @@ class PlanCommandsUseCase:
         if not self.can_merge_date_units(table, row_index):
             raise RuntimeError("Verbinden ist nur möglich, wenn maximal eine Einheit Inhalt hat.")
 
-        idx_stunden = self._idx(table, "stunden")
-        total_hours = 0
-        for idx in group:
-            raw = table.rows[idx][idx_stunden].strip() if idx_stunden < len(table.rows[idx]) else ""
-            total_hours += int(raw) if raw.isdigit() else 0
-        total_hours = max(1, total_hours)
-
+        total_hours = max(1, self._hours_for_row(table, group[0]))
         return MergeResult(merged_count=len(group), total_hours=total_hours)
 
     def shift_existing_lessons_forward(self, table: PlanTableData, start_row_index: int) -> bool:

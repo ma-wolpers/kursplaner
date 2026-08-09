@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
+
 
 @dataclass(frozen=True)
 class StartRequest:
@@ -16,7 +18,7 @@ class StartRequest:
     group_name: str
     grade_level: int
     term: str
-    day_hours: dict[int, int]
+    rhythm: tuple[WeekdayRhythm, ...]
     base_dir: Path
     calendar_dir: Path
     kc_profile_label: str | None = None
@@ -76,6 +78,7 @@ class LessonOverviewItem:
     days_until_next_unit: int | None = None
     has_upcoming_unit: bool = False
     has_any_dated_unit: bool = False
+    is_archived: bool = False
     load_error: str | None = None
 
 

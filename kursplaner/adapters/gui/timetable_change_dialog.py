@@ -14,7 +14,10 @@ from bw_gui.theming import tinted_color
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
-from kursplaner.core.domain.plan_table import PlanTableData, extract_plan_oberthema
+from kursplaner.adapters.gui.weekday_rhythm_picker import WeekdayRhythmPicker
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, WeekdayRhythm, parse_rhythm
+from kursplaner.core.domain.plan_table import PlanTableData, extract_plan_oberthema, parse_plan_row_date
+from kursplaner.core.domain.validators import ValidationError, normalize_day_rhythm
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.usecases.timetable_change_usecase import (
     DraftSlot,
@@ -22,8 +25,6 @@ from kursplaner.core.usecases.timetable_change_usecase import (
     column_is_manual_ausfall,
     column_is_stattfindend,
 )
-
-_WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr"]
 
 
 class TimetableChangeDialog(ScrollablePopupWindow):
@@ -42,7 +43,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         day_columns: list[dict[str, object]],
         calendar_dir: Path,
         timetable_change_uc: TimetableChangeUseCase,
-        on_accept: Callable[[date, date, list[DraftSlot]], None],
+        on_accept: Callable[[date, date, list[DraftSlot], tuple[WeekdayRhythm, ...]], None],
         theme_key: str | None = None,
     ) -> None:
         """Öffnet den Dialog und baut die UI auf.
@@ -74,45 +75,21 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._undo_stack: list[list[DraftSlot]] = []
         self._date_from: date | None = None
         self._date_to: date | None = None
-        self._day_vars: dict[int, ui.BooleanVar] = {}
-        self._hour_vars: dict[int, ui.IntVar] = {}
+        self._rhythm_segment: tuple[WeekdayRhythm, ...] = ()
+        self._rhythm_picker: WeekdayRhythmPicker | None = None
         self._build_ui()
         self.apply_theme()
         self._configure_tree_tags()
         self.bind_all("<Control-z>", self._on_undo)
 
-    def _parse_plan_date(self, value: str) -> date | None:
-        """Parst DD-MM-YY aus Planzeilen; None bei ungültigem Format."""
-        try:
-            return datetime.strptime(str(value).strip(), "%d-%m-%y").date()
-        except ValueError:
-            return None
-
     def _table_dates(self) -> list[date]:
         """Liefert alle gültigen Datumseinträge aus den Planzeilen."""
         result = []
         for row in self._table.rows:
-            d = self._parse_plan_date(row[0] if row else "")
+            d = parse_plan_row_date(row[0] if row else "")
             if d is not None:
                 result.append(d)
         return result
-
-    def _infer_day_hours(self) -> dict[int, int]:
-        """Leitet den Stundenrhythmus aus vorhandenen Planzeilen ab."""
-        day_hours: dict[int, int] = {}
-        for row in self._table.rows:
-            if len(row) < 2:
-                continue
-            d = self._parse_plan_date(row[0])
-            if d is None:
-                continue
-            try:
-                hours = int(str(row[1]).strip())
-            except ValueError:
-                continue
-            if hours > 0:
-                day_hours[d.weekday()] = hours
-        return day_hours
 
     def _build_ui(self) -> None:
         """Erstellt den gesamten Dialog-Inhalt (Header, Splitbereich, Footer)."""
@@ -127,7 +104,6 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         hf = widgets.Frame(parent)
         hf.pack(fill="x", pady=(0, 6))
 
-        inferred = self._infer_day_hours()
         dates = self._table_dates()
         today = date.today()
         default_from = today
@@ -147,21 +123,15 @@ class TimetableChangeDialog(ScrollablePopupWindow):
             row=0, column=5, padx=(4, 16)
         )
 
-        for wd, label in enumerate(_WEEKDAYS):
-            day_var = ui.BooleanVar(value=wd in inferred)
-            hour_var = ui.IntVar(value=inferred.get(wd, 2))
-            self._day_vars[wd] = day_var
-            self._hour_vars[wd] = hour_var
-            col = 6 + wd * 3
-            widgets.Checkbutton(hf, text=label, variable=day_var).grid(
-                row=0, column=col, padx=(0, 2)
-            )
-            widgets.Spinbox(hf, from_=1, to=10, textvariable=hour_var, width=3).grid(
-                row=0, column=col + 1, padx=(0, 8)
-            )
+        rhythm_frame = widgets.Frame(hf)
+        rhythm_frame.grid(row=0, column=6, sticky="w")
+        self._rhythm_picker = WeekdayRhythmPicker(rhythm_frame)
+        self._rhythm_picker.pack(side="left")
+        existing_rhythm = parse_rhythm(self._table.metadata.get(RHYTHM_YAML_KEY, []))
+        self._rhythm_picker.set_from_rhythm(existing_rhythm, on=today)
 
         widgets.Button(hf, text="Berechnen", command=self._on_berechnen).grid(
-            row=0, column=6 + 5 * 3, padx=(8, 0)
+            row=0, column=7, padx=(8, 0)
         )
 
     def _build_split(self, parent) -> None:
@@ -244,13 +214,10 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         if dates:
             self._bis_var.set(max(dates).strftime("%d.%m.%Y"))
 
-    def _collect_new_day_hours(self) -> dict[int, int]:
-        """Liest den neuen Stundenrhythmus aus den Checkbox-/Spinbox-Widgets."""
-        result: dict[int, int] = {}
-        for wd in range(5):
-            if self._day_vars[wd].get():
-                result[wd] = max(1, int(self._hour_vars[wd].get()))
-        return result
+    def _collect_new_rhythm(self, *, valid_from: date) -> tuple[WeekdayRhythm, ...]:
+        """Liest den neuen Rhythmus aus dem `WeekdayRhythmPicker`, gültig ab `valid_from`."""
+        assert self._rhythm_picker is not None
+        return normalize_day_rhythm(self._rhythm_picker.collect_raw(), valid_from=valid_from)
 
     # ── Berechnen ──────────────────────────────────────────────────────────
 
@@ -264,16 +231,17 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         if date_from > date_to:
             messagebox.showerror("Stundenplanänderung", "Von-Datum muss vor Bis-Datum liegen.", parent=self)
             return
-        new_day_hours = self._collect_new_day_hours()
-        if not new_day_hours:
-            messagebox.showerror("Stundenplanänderung", "Kein Wochentag ausgewählt.", parent=self)
+        try:
+            new_rhythm = self._collect_new_rhythm(valid_from=date_from)
+        except ValidationError as exc:
+            messagebox.showerror("Stundenplanänderung", str(exc), parent=self)
             return
         try:
             result = self._timetable_change_uc.compute(
                 day_columns=self._day_columns,
                 date_from=date_from,
                 date_to=date_to,
-                new_day_hours=new_day_hours,
+                new_rhythm=new_rhythm,
                 calendar_dir=self._calendar_dir,
             )
         except Exception as exc:
@@ -281,6 +249,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
             return
         self._date_from = date_from
         self._date_to = date_to
+        self._rhythm_segment = new_rhythm
         self._old_units = result.old_units
         self._draft_slots = result.draft_slots
         self._undo_stack.clear()
@@ -467,5 +436,5 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         if not self._draft_slots or self._date_from is None or self._date_to is None:
             messagebox.showwarning("Übernehmen", "Bitte zuerst 'Berechnen' ausführen.", parent=self)
             return
-        self._on_accept(self._date_from, self._date_to, list(self._draft_slots))
+        self._on_accept(self._date_from, self._date_to, list(self._draft_slots), self._rhythm_segment)
         self.destroy()

@@ -21,28 +21,23 @@ class LessonEditUseCase:
         """Erzeugt ein robustes Header-Index-Mapping für Tabellenoperationen."""
         return {name.lower(): idx for idx, name in enumerate(table.headers)}
 
-    def validate_table(self, table: PlanTableData) -> tuple[int, int]:
+    def validate_table(self, table: PlanTableData) -> int:
         """Prüft die Mindeststruktur der Planungstabelle für Edit-Operationen.
 
-        Invariante: Spalten ``stunden`` und ``inhalt`` müssen vorhanden sein.
+        Invariante: Spalte ``inhalt`` muss vorhanden sein.
+
+        Returns:
+            Spaltenindex von ``inhalt``.
         """
         header_map = self._header_map(table)
-        idx_stunden = header_map.get("stunden")
         idx_inhalt = header_map.get("inhalt")
-        if idx_stunden is None or idx_inhalt is None:
-            raise RuntimeError("Plan-Tabelle muss Datum, Stunden und Inhalt enthalten.")
-        return idx_stunden, idx_inhalt
-
-    def set_hours_value(self, table: PlanTableData, row_index: int, value: str) -> None:
-        """Setzt den Stundenwert einer Tabellenzeile nach numerischer Validierung."""
-        idx_stunden, _ = self.validate_table(table)
-        if value and not value.isdigit():
-            raise RuntimeError("Stunden müssen numerisch sein.")
-        table.rows[row_index][idx_stunden] = value
+        if idx_inhalt is None:
+            raise RuntimeError("Plan-Tabelle muss Datum und Inhalt enthalten.")
+        return idx_inhalt
 
     def set_content_value(self, table: PlanTableData, row_index: int, value: str) -> None:
         """Setzt den Inhaltswert einer Tabellenzeile ohne YAML-Nebenwirkungen."""
-        _, idx_inhalt = self.validate_table(table)
+        idx_inhalt = self.validate_table(table)
         table.rows[row_index][idx_inhalt] = value
 
     def set_lesson_duration(self, lesson_path: Path, value: str) -> None:

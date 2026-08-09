@@ -67,6 +67,7 @@ class NewLessonUseCase:
                 group_name=request.group_name,
                 course_subject=request.course_subject,
                 grade_level=request.grade_level,
+                rhythm=request.rhythm,
                 kc_profile_label=request.kc_profile_label,
                 process_competencies=request.process_competencies,
                 content_competency=request.content_competency,
@@ -75,7 +76,7 @@ class NewLessonUseCase:
             plan_result = self._create_plan_usecase.execute(
                 target_markdown=lesson_md,
                 term=request.term,
-                day_hours=request.day_hours,
+                rhythm=request.rhythm,
                 calendar_dir=request.calendar_dir,
                 takeover_start=request.takeover_start,
                 stop_at_next_break=request.stop_at_next_break,

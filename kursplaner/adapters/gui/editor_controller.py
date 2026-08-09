@@ -7,6 +7,7 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,
 )
+from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
 
 
 class MainWindowEditorController:
@@ -123,8 +124,7 @@ class MainWindowEditorController:
             return existing
 
         row_index = self.app._to_int(day.get("row_index", 0), 0)
-        stunden_raw = str(day.get("stunden", "")).strip()
-        default_hours = int(stunden_raw) if stunden_raw.isdigit() else 2
+        default_hours = coerce_lesson_hours(day.get("stunden"))
 
         topic = preferred_topic.strip() or "Unterrichtseinheit"
 
@@ -180,11 +180,10 @@ class MainWindowEditorController:
         row_index = self.app._to_int(day.get("row_index", 0), 0)
 
         header_map = {name.lower(): idx for idx, name in enumerate(self.app.current_table.headers)}
-        idx_stunden = header_map.get("stunden")
         idx_inhalt = header_map.get("inhalt")
 
-        if idx_stunden is None or idx_inhalt is None:
-            raise RuntimeError("Plan-Tabelle muss Datum, Stunden und Inhalt enthalten.")
+        if idx_inhalt is None:
+            raise RuntimeError("Plan-Tabelle muss Datum und Inhalt enthalten.")
 
         # Delegate full save flow to SaveCellValueUseCase which encapsulates
         # validation, YAML-updates, renaming and plan persistence.
@@ -218,9 +217,7 @@ class MainWindowEditorController:
                 list_entries=edit_plan.list_entries,
                 should_rename_topic=edit_plan.should_rename_topic,
                 desired_stem=edit_plan.desired_stem,
-                allow_plan_hours_save=True,
                 allow_yaml_save=True,
-                allow_duration_save=True,
                 allow_rename=True,
                 allow_plan_save_for_rename=True,
             )

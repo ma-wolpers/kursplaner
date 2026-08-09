@@ -36,8 +36,8 @@ class GridCellPolicyUseCase:
                 return topic
             return ""
 
-        if field_key == "stunden":
-            return str(day.get("stunden", ""))
+        if field_key in {"stunden", "startzeit"}:
+            return str(day.get(field_key, ""))
 
         yaml_data_obj = day.get("yaml")
         yaml_data: dict[str, object] = yaml_data_obj if isinstance(yaml_data_obj, dict) else {}
@@ -78,7 +78,7 @@ class GridCellPolicyUseCase:
 
     def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
         """Prüft, ob ein Feld fachlich editierbar ist (Status, Marker, Linklage)."""
-        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
+        if field_key in {"datum", "stunden", "startzeit", "inhalt", "thema/ausfall"}:
             return False
         link_obj = day.get("link")
         has_known_lesson = isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()

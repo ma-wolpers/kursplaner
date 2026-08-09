@@ -5,7 +5,7 @@ from kursplaner.core.config.path_store import CALENDAR_DIR_KEY, load_path_values
 from kursplaner.core.config.settings import WEEKDAY_SHORT_OPTIONS
 from kursplaner.core.domain.validators import (
     ValidationError,
-    normalize_day_hours,
+    normalize_day_rhythm,
     parse_period_input,
 )
 
@@ -39,12 +39,13 @@ def main():
         period_raw = _ask("Halbjahr ODER Startdatum (z. B. 26-1 oder 2026-02-20):")
         term, start_date, is_date_mode = parse_period_input(period_raw)
 
-        day_hours_input: dict[int, str] = {}
-        print("Stunden pro Tag (Mo-Fr), leer lassen = kein Termin:")
+        day_rhythm_input: dict[int, tuple[str, str]] = {}
+        print("Rhythmus pro Tag (Mo-Fr), Stunden leer lassen = kein Termin:")
         for short_label, weekday in WEEKDAY_SHORT_OPTIONS:
-            value = _ask(f"{short_label} (1-4):")
-            day_hours_input[weekday] = value
-        day_hours = normalize_day_hours(day_hours_input)
+            hours_value = _ask(f"{short_label} Stunden (1-4):")
+            start_value = _ask(f"{short_label} Startzeit (HH:MM):") if hours_value.strip() else ""
+            day_rhythm_input[weekday] = (start_value, hours_value)
+        rhythm = normalize_day_rhythm(day_rhythm_input)
 
         target_file_raw = _ask("Markdown-Zieldatei (voller Pfad oder relativ):")
         target_markdown = Path(target_file_raw).expanduser().resolve()
@@ -67,7 +68,7 @@ def main():
         result = create_plan_usecase.execute(
             target_markdown=target_markdown,
             term=term,
-            day_hours=day_hours,
+            rhythm=rhythm,
             calendar_dir=calendar_dir,
             takeover_start=takeover_start,
             stop_at_next_break=stop_at_next_break,

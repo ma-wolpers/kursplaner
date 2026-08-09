@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import date, datetime
-from pathlib import Path
+from dataclasses import dataclass
+from datetime import date
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.course_rhythm import (
+    RHYTHM_YAML_KEY,
+    WeekdayRhythm,
+    add_segment,
+    format_rhythm,
+    parse_rhythm,
+)
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.timetable_change_usecase import DraftSlot
 
@@ -32,14 +38,6 @@ class ApplyTimetableChangeUseCase:
         """Nimmt das Plan-Repository für Lade- und Speicheroperationen."""
         self._plan_repo = plan_repo
 
-    @staticmethod
-    def _parse_datum(value: str) -> date | None:
-        """Parst DD-MM-YY robust; liefert None bei ungültigem Format."""
-        try:
-            return datetime.strptime(str(value).strip(), "%d-%m-%y").date()
-        except ValueError:
-            return None
-
     def _col_index(self, headers: list[str], name: str) -> int | None:
         """Liefert den Index einer Spaltenüberschrift (case-insensitiv); None falls fehlt."""
         lc = name.lower()
@@ -54,7 +52,6 @@ class ApplyTimetableChangeUseCase:
         *,
         n_cols: int,
         idx_datum: int,
-        idx_stunden: int,
         idx_inhalt: int | None,
         idx_thema_ausfall: int | None,
     ) -> list[str]:
@@ -64,13 +61,15 @@ class ApplyTimetableChangeUseCase:
         Im Normalfall (weder Ferien noch Ausfall) wird zusätzlich zu `slot.content`
         auch ein gesetztes `slot.oberthema_cell` in die Thema/Ausfall-Spalte
         geschrieben — siehe `DraftSlot`-Docstring für die vollständige
-        Spalten-Zuordnung aller Felder.
+        Spalten-Zuordnung aller Felder. `slot.stunden` wird nicht mehr in die
+        Tabelle geschrieben (keine eigene Spalte mehr); es dient nur der
+        Vorschau im Dialog und wird beim Laden aus dem persistenten Rhythmus
+        neu abgeleitet (siehe `load_plan_detail_usecase.build_day_columns`).
         """
         row = [""] * n_cols
 
         datum_str = slot.datum.strftime("%d-%m-%y")
         row[idx_datum] = datum_str
-        row[idx_stunden] = str(slot.stunden)
 
         if slot.is_ferien:
             if idx_thema_ausfall is not None:
@@ -100,6 +99,7 @@ class ApplyTimetableChangeUseCase:
         date_from: date,
         date_to: date,
         draft_slots: list[DraftSlot],
+        rhythm_segment: tuple[WeekdayRhythm, ...] = (),
     ) -> ApplyTimetableChangeResult:
         """Spliced draft_slots in die Planungstabelle und speichert das Ergebnis.
 
@@ -108,15 +108,27 @@ class ApplyTimetableChangeUseCase:
             date_from: Erster Tag des Änderungsbereichs.
             date_to: Letzter Tag des Änderungsbereichs.
             draft_slots: Endgültiger Entwurf aus dem Dialog.
+            rhythm_segment: Neues, ab ``date_from`` gültiges Rhythmus-Segment.
+                Wird zu den bestehenden Rhythmus-Einträgen der Plan-Datei
+                hinzugefügt (frühere Segmente bleiben für vergangene Zeilen
+                erhalten, siehe :func:`~kursplaner.core.domain.course_rhythm.
+                add_segment`). Leer, wenn sich nur Inhalte, aber nicht der
+                Rhythmus geändert haben.
 
         Returns:
             ApplyTimetableChangeResult mit den aus dem Plan herausgefallenen Inhalten.
         """
-        headers = table.headers
-        n_cols = max(len(headers), 4)
+        if rhythm_segment:
+            existing_rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+            combined_rhythm = add_segment(existing_rhythm, rhythm_segment)
+            self._plan_repo.update_plan_rhythm(table.markdown_path, combined_rhythm)
+            table.metadata[RHYTHM_YAML_KEY] = format_rhythm(combined_rhythm)
 
-        idx_datum = self._col_index(headers, "datum") or 0
-        idx_stunden = self._col_index(headers, "stunden") or 1
+        headers = table.headers
+        n_cols = max(len(headers), 3)
+
+        idx_datum = self._col_index(headers, "datum")
+        idx_datum = idx_datum if idx_datum is not None else 0
         idx_inhalt = self._col_index(headers, "inhalt")
         idx_thema_ausfall = self._col_index(headers, "thema/ausfall")
 
@@ -129,7 +141,6 @@ class ApplyTimetableChangeUseCase:
                 slot,
                 n_cols=n_cols,
                 idx_datum=idx_datum,
-                idx_stunden=idx_stunden,
                 idx_inhalt=idx_inhalt,
                 idx_thema_ausfall=idx_thema_ausfall,
             )
@@ -150,7 +161,7 @@ class ApplyTimetableChangeUseCase:
             return []
         result = []
         for row in table.rows:
-            d = self._parse_datum(row[0] if row else "")
+            d = parse_plan_row_date(row[0] if row else "")
             if d is None or not (date_from <= d <= date_to):
                 continue
             val = str(row[idx_inhalt]) if idx_inhalt < len(row) else ""
@@ -176,7 +187,7 @@ class ApplyTimetableChangeUseCase:
 
         for row in rows:
             raw = row[idx_datum] if idx_datum < len(row) else ""
-            d = self._parse_datum(raw)
+            d = parse_plan_row_date(raw)
             if d is None:
                 if not found_range:
                     before.append(row)
