@@ -8,16 +8,21 @@ from bw_gui.runtime import ui, widgets
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
 
-_ALL_MODES: frozenset[str] = frozenset({"U", "L", "A", "H"})
+_MODE_COLUMN_HEADERS = {
+    RowDisplayModeUseCase.MODE_UNTERRICHT: "U",
+    RowDisplayModeUseCase.MODE_LZK: "L",
+    RowDisplayModeUseCase.MODE_AUSFALL: "A",
+    RowDisplayModeUseCase.MODE_HOSPITATION: "H",
+}
 
 
 class RowFilterDialog(ScrollablePopupWindow):
-    """Modaler Dialog zum Ein-/Ausblenden von Zeilenfeldern in Einheitskarten.
+    """Modaler Dialog zum Konfigurieren der Zeilenfeld-Sichtbarkeit je Anzeige-Modus.
 
     Die Feldliste wird dynamisch aus ``RowDisplayModeUseCase.all_fields_ordered()``
-    abgeleitet — keine eigene statische Tabelle.  Visuelle Trenner gliedern
-    COMMON-Felder (alle Modi) von typspezifischen Feldern und trennen
-    Feldgruppen ohne Modus-Überlappung voneinander.
+    abgeleitet — keine eigene statische Tabelle. Pro Feld gibt es vier Checkboxen
+    (Unterricht/LZK/Ausfall/Hospitation), mit denen sich die Sichtbarkeit je Modus
+    frei wählen lässt — auch abweichend von der fest hinterlegten Standardzuordnung.
     """
 
     def __init__(
@@ -32,34 +37,38 @@ class RowFilterDialog(ScrollablePopupWindow):
         Args:
             master: Elternfenster für den modalen Dialog.
             current: Aktuell aktive ``RowFilterSettings``; Checkboxen werden
-                daraus vorbelegt (versteckte Felder = nicht angehakt).
+                daraus vorbelegt (fehlende Felder → Standard-Moduszugehörigkeit).
             theme_key: Optionaler Theme-Name; ``None`` übernimmt das Parent-Theme.
         """
         super().__init__(
             master,
             title="Zeilenfelder",
-            geometry="540x560",
-            minsize=(480, 400),
+            geometry="620x580",
+            minsize=(560, 400),
             theme_key=theme_key,
         )
         self.result: RowFilterSettings | None = None
-        self._vars: dict[str, ui.BooleanVar] = {}
+        self._use_case = RowDisplayModeUseCase()
+        self._mode_order = [mode_def.key for mode_def in self._use_case.available_modes()]
+        self._vars: dict[tuple[str, str], ui.BooleanVar] = {}
         self._grid_widgets: dict[tuple[int, int], widgets.Checkbutton] = {}
         self._build_ui(current)
         self.apply_theme()
         self.after_idle(self._focus_first_toggle)
 
     def _build_ui(self, current: RowFilterSettings) -> None:
-        """Baut das Formular mit Feldliste, Modi-Spalte und Anzeigen-Checkboxen auf."""
-        use_case = RowDisplayModeUseCase()
-        fields = use_case.all_fields_ordered()
+        """Baut das Formular mit Feldliste und je vier Modus-Checkboxen pro Feld auf."""
+        fields = self._use_case.all_fields_ordered()
 
         frame = widgets.Frame(self.content, padding=14)
         frame.pack(fill="both", expand=True)
 
         widgets.Label(
             frame,
-            text="Lege fest, welche Zeilenfelder in den Einheitskarten angezeigt werden.",
+            text=(
+                "Lege pro Zeilenfeld fest, in welchen Anzeige-Modi es angezeigt wird "
+                "(U = Unterricht, L = LZK, A = Ausfall, H = Hospitation)."
+            ),
             justify="left",
         ).pack(anchor="w", pady=(0, 10))
 
@@ -70,47 +79,34 @@ class RowFilterDialog(ScrollablePopupWindow):
         widgets.Label(grid, text="Zeilenfeld", font=("Segoe UI", 9, "bold")).grid(
             row=0, column=0, sticky="w"
         )
-        widgets.Label(grid, text="Modi", font=("Segoe UI", 9, "bold")).grid(
-            row=0, column=1, sticky="w", padx=(16, 0)
-        )
-        widgets.Label(grid, text="Anzeigen", font=("Segoe UI", 9, "bold")).grid(
-            row=0, column=2, sticky="w", padx=(16, 0)
-        )
+        for col_index, mode_key in enumerate(self._mode_order):
+            widgets.Label(grid, text=_MODE_COLUMN_HEADERS[mode_key], font=("Segoe UI", 9, "bold")).grid(
+                row=0, column=col_index + 1, sticky="w", padx=(16, 0)
+            )
 
         grid_row = 1
-        prev_modes: frozenset[str] | None = None
+        prev_default_modes: frozenset[str] | None = None
 
-        for field_key, label, modes_str in fields:
-            cur_modes = frozenset(modes_str.split())
+        for field_key, label, _default_modes_str in fields:
+            default_modes = self._use_case.default_modes_for_field(field_key)
 
-            if prev_modes is not None:
-                out_of_common = prev_modes == _ALL_MODES and cur_modes != _ALL_MODES
-                new_group = (
-                    cur_modes != _ALL_MODES
-                    and prev_modes != _ALL_MODES
-                    and not (cur_modes & prev_modes)
+            if prev_default_modes is not None and default_modes != prev_default_modes:
+                widgets.Separator(grid, orient="horizontal").grid(
+                    row=grid_row, column=0, columnspan=len(self._mode_order) + 1, sticky="ew", pady=(4, 4)
                 )
-                if out_of_common or new_group:
-                    widgets.Separator(grid, orient="horizontal").grid(
-                        row=grid_row, column=0, columnspan=3, sticky="ew", pady=(4, 4)
-                    )
-                    grid_row += 1
+                grid_row += 1
 
-            var = ui.BooleanVar(value=field_key not in current.hidden_fields)
-            self._vars[field_key] = var
+            widgets.Label(grid, text=label).grid(row=grid_row, column=0, sticky="w", pady=(2, 0))
 
-            widgets.Label(grid, text=label).grid(
-                row=grid_row, column=0, sticky="w", pady=(2, 0)
-            )
-            widgets.Label(grid, text=modes_str).grid(
-                row=grid_row, column=1, sticky="w", padx=(16, 0), pady=(2, 0)
-            )
+            active_modes = self._use_case.effective_modes_for_field(field_key, current)
+            for col_index, mode_key in enumerate(self._mode_order):
+                var = ui.BooleanVar(value=mode_key in active_modes)
+                self._vars[(field_key, mode_key)] = var
+                toggle = widgets.Checkbutton(grid, variable=var)
+                toggle.grid(row=grid_row, column=col_index + 1, sticky="w", padx=(16, 0), pady=(2, 0))
+                self._register_nav_widget(toggle, row=grid_row, col=col_index)
 
-            toggle = widgets.Checkbutton(grid, variable=var)
-            toggle.grid(row=grid_row, column=2, sticky="w", padx=(16, 0), pady=(2, 0))
-            self._register_nav_widget(toggle, row=grid_row)
-
-            prev_modes = cur_modes
+            prev_default_modes = default_modes
             grid_row += 1
 
         widgets.Separator(frame, orient="horizontal").pack(fill="x", pady=12)
@@ -122,14 +118,13 @@ class RowFilterDialog(ScrollablePopupWindow):
             side="right", padx=(0, 8)
         )
 
-    def _register_nav_widget(self, widget: widgets.Checkbutton, *, row: int) -> None:
-        """Registriert eine Checkbox für Up/Down-Tastaturnavigation.
-
-        Separatoren werden nicht registriert und damit automatisch übersprungen.
-        """
-        self._grid_widgets[(row, 1)] = widget
-        widget.bind("<Up>", lambda event, r=row: self._move_focus(event, r, -1), add="+")
-        widget.bind("<Down>", lambda event, r=row: self._move_focus(event, r, 1), add="+")
+    def _register_nav_widget(self, widget: widgets.Checkbutton, *, row: int, col: int) -> None:
+        """Registriert eine Checkbox für Pfeiltasten-Navigation in beide Richtungen."""
+        self._grid_widgets[(row, col)] = widget
+        widget.bind("<Up>", lambda event, r=row, c=col: self._move_focus(event, r, c, -1, 0), add="+")
+        widget.bind("<Down>", lambda event, r=row, c=col: self._move_focus(event, r, c, 1, 0), add="+")
+        widget.bind("<Left>", lambda event, r=row, c=col: self._move_focus(event, r, c, 0, -1), add="+")
+        widget.bind("<Right>", lambda event, r=row, c=col: self._move_focus(event, r, c, 0, 1), add="+")
         widget.bind("<space>", lambda _event, w=widget: self._toggle_widget(w), add="+")
 
     @staticmethod
@@ -138,17 +133,24 @@ class RowFilterDialog(ScrollablePopupWindow):
         widget.invoke()
         return "break"
 
-    def _move_focus(self, _event, row: int, direction: int) -> str:
+    def _move_focus(self, _event, row: int, col: int, row_step: int, col_step: int) -> str:
         """Bewegt den Fokus zur nächsten registrierten Checkbox in der angegebenen Richtung."""
-        rows = sorted(r for r, _c in self._grid_widgets)
+        rows = sorted({r for r, _c in self._grid_widgets})
         if row not in rows:
             return "break"
-        pos = rows.index(row)
-        next_pos = pos + direction
-        if 0 <= next_pos < len(rows):
-            target = self._grid_widgets.get((rows[next_pos], 1))
-            if target is not None:
-                target.focus_set()
+        if row_step:
+            pos = rows.index(row)
+            next_pos = pos + row_step
+            if 0 <= next_pos < len(rows):
+                target = self._grid_widgets.get((rows[next_pos], col))
+                if target is not None:
+                    target.focus_set()
+        elif col_step:
+            next_col = col + col_step
+            if 0 <= next_col < len(self._mode_order):
+                target = self._grid_widgets.get((row, next_col))
+                if target is not None:
+                    target.focus_set()
         return "break"
 
     def _focus_first_toggle(self) -> None:
@@ -156,14 +158,23 @@ class RowFilterDialog(ScrollablePopupWindow):
         if not self._grid_widgets:
             return
         first_row = min(r for r, _c in self._grid_widgets)
-        first = self._grid_widgets.get((first_row, 1))
+        first = self._grid_widgets.get((first_row, 0))
         if first is not None and first.winfo_exists():
             first.focus_set()
 
     def _accept(self) -> None:
         """Speichert das Ergebnis und schließt den Dialog."""
-        hidden = frozenset(k for k, v in self._vars.items() if not v.get())
-        self.result = RowFilterSettings(hidden_fields=hidden)
+        fields = {field_key for field_key, _mode_key in self._vars}
+        overrides: dict[str, frozenset[str]] = {}
+        for field_key in fields:
+            selected = frozenset(
+                mode_key
+                for mode_key in self._mode_order
+                if self._vars[(field_key, mode_key)].get()
+            )
+            if selected != self._use_case.default_modes_for_field(field_key):
+                overrides[field_key] = selected
+        self.result = RowFilterSettings(field_mode_overrides=overrides)
         self.destroy()
 
 

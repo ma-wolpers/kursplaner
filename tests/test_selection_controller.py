@@ -112,7 +112,9 @@ class _RowDisplayModeUseCaseStub:
     def __init__(self, editable_cells: set[tuple[str, int]]):
         self._editable_cells = set(editable_cells)
 
-    def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
+    def is_editable(
+        self, field_key: str, day: dict[str, object], _settings: RowFilterSettings | None = None
+    ) -> bool:
         return (field_key, int(day.get("index", -1))) in self._editable_cells
 
 

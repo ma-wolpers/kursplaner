@@ -39,3 +39,17 @@ def test_other_list_fields_keep_separator_format():
     value = controller.field_value(day, "Kompetenzen")
 
     assert value == "K1\n—\nK2"
+
+
+def test_ausfallgrund_returns_header_content_on_cancel_day():
+    controller = _build_controller()
+    day = {"is_cancel": True, "header_content": "Lehrerfortbildung"}
+
+    assert controller.field_value(day, "Ausfallgrund") == "Lehrerfortbildung"
+
+
+def test_ausfallgrund_is_empty_on_non_cancel_day():
+    controller = _build_controller()
+    day = {"is_cancel": False, "header_content": "Lehrerfortbildung"}
+
+    assert controller.field_value(day, "Ausfallgrund") == ""

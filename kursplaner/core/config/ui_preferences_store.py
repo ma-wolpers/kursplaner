@@ -187,21 +187,39 @@ def load_row_filter_settings() -> RowFilterSettings:
     """Lädt die persistierten Zeilenfilter-Einstellungen.
 
     Bei fehlendem oder korruptem Eintrag wird ein leeres ``RowFilterSettings()``
-    (= alle Felder sichtbar) zurückgegeben.
+    (= Standard-Moduszugehörigkeit für alle Felder) zurückgegeben. Ein Eintrag im
+    alten Format (``hidden_fields``, vor der Pro-Modus-Konfiguration) wird einmalig
+    migriert: global versteckte Felder werden auf "in keinem Modus sichtbar"
+    abgebildet, damit bestehende Nutzer-Einstellungen nicht verloren gehen.
     """
     payload = _load_payload()
     raw = payload.get(_ROW_FILTER_KEY)
     if not isinstance(raw, dict):
         return RowFilterSettings()
+
+    overrides_raw = raw.get("field_mode_overrides")
+    if isinstance(overrides_raw, dict):
+        overrides = {
+            str(field_key): frozenset(str(mode) for mode in modes if isinstance(mode, str))
+            for field_key, modes in overrides_raw.items()
+            if isinstance(field_key, str) and isinstance(modes, list)
+        }
+        return RowFilterSettings(field_mode_overrides=overrides)
+
     hidden_raw = raw.get("hidden_fields")
-    if not isinstance(hidden_raw, list):
-        return RowFilterSettings()
-    hidden = frozenset(str(k) for k in hidden_raw if isinstance(k, str))
-    return RowFilterSettings(hidden_fields=hidden)
+    if isinstance(hidden_raw, list):
+        hidden = frozenset(str(k) for k in hidden_raw if isinstance(k, str))
+        return RowFilterSettings(field_mode_overrides={field_key: frozenset() for field_key in hidden})
+
+    return RowFilterSettings()
 
 
 def save_row_filter_settings(settings: RowFilterSettings) -> None:
     """Persistiert die Zeilenfilter-Einstellungen."""
     payload = _load_payload()
-    payload[_ROW_FILTER_KEY] = {"hidden_fields": sorted(settings.hidden_fields)}
+    payload[_ROW_FILTER_KEY] = {
+        "field_mode_overrides": {
+            field_key: sorted(modes) for field_key, modes in settings.field_mode_overrides.items()
+        }
+    }
     _save_payload(payload)

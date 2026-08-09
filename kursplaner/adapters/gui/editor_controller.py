@@ -61,7 +61,7 @@ class MainWindowEditorController:
             return False
 
         day = self.app.day_columns[day_index]
-        if not self.app.row_display_mode_usecase.is_editable(field_key, day):
+        if not self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings):
             return False
 
         kompetenzen_options, stundenziel_options, kompetenzen_hint = (
@@ -147,7 +147,7 @@ class MainWindowEditorController:
             return False
 
         day = self.app.day_columns[day_index]
-        if not self.app.row_display_mode_usecase.is_editable(field_key, day):
+        if not self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings):
             return False
 
         value = cell.get("1.0", "end-1c").strip()
@@ -199,7 +199,9 @@ class MainWindowEditorController:
             value=value,
             lesson_path=lesson_path or pathlib.Path("."),
         )
-        runtime = self.save_cell_value.build_runtime_context(field_key=field_key, day=day)
+        runtime = self.save_cell_value.build_runtime_context(
+            field_key=field_key, day=day, row_filter_settings=self.app.row_filter_settings
+        )
         if not runtime.proceed or runtime.row_index is None:
             raise RuntimeError(runtime.message_text or "Zelle kann nicht gespeichert werden.")
         if field_key not in {"inhalt", "Oberthema"} and runtime.lesson_path is None:

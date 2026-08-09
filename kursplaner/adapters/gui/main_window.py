@@ -120,9 +120,11 @@ class KursplanerApp(BwBaseWindow):
         self.row_mode_labels: dict[str, str] = {
             item.key: item.label for item in self.row_display_mode_usecase.available_modes()
         }
-        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode)
         self.column_visibility_settings = load_column_visibility_settings()
         self.row_filter_settings: RowFilterSettings = load_row_filter_settings()
+        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(
+            self.active_row_mode, self.row_filter_settings
+        )
         self.course_overview_highlight_days = load_course_overview_highlight_days()
         self.show_former_courses = False
         self.raw_day_columns: list[dict[str, object]] = []
@@ -331,7 +333,9 @@ class KursplanerApp(BwBaseWindow):
 
         changed = normalized != self.active_row_mode
         self.active_row_mode = normalized
-        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode)
+        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(
+            self.active_row_mode, self.row_filter_settings
+        )
         self._refresh_row_mode_button_styles()
         if changed:
             self._rebuild_grid()
@@ -353,6 +357,7 @@ class KursplanerApp(BwBaseWindow):
         """Setzt den Zeilenfilter, persistiert ihn und rendert das Grid neu."""
         save_row_filter_settings(settings)
         self.row_filter_settings = settings
+        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode, settings)
         self._rebuild_grid()
 
     def _update_row_mode_from_selection(self):

@@ -579,7 +579,7 @@ class MainWindowUiIntentController:
         if not field_key or not (0 <= day_index < len(self.app.day_columns)):
             return None
         day = self.app.day_columns[day_index]
-        if not self.app.row_display_mode_usecase.is_editable(field_key, day):
+        if not self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings):
             return None
 
         focused = self.app.focus_get()
@@ -682,7 +682,7 @@ class MainWindowUiIntentController:
         if not (0 <= day_index < len(self.app.day_columns)):
             return None
         day = self.app.day_columns[day_index]
-        if not self.app.row_display_mode_usecase.is_editable(field_key, day):
+        if not self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings):
             return None
         if str(field_key).strip().lower() == "inhalt":
             self.app.action_controller.clear_selected_lesson_content()
@@ -862,7 +862,7 @@ class MainWindowUiIntentController:
         if not (0 <= day_index < len(self.app.day_columns)):
             return None
         day = self.app.day_columns[day_index]
-        if not self.app.row_display_mode_usecase.is_editable(field_key, day):
+        if not self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings):
             return None
         self.app.editor_controller.apply_value(field_key, day_index, value)
         self.app._collect_day_columns()

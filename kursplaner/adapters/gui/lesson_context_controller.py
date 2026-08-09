@@ -47,6 +47,11 @@ class MainWindowLessonContextController:
         if field_key == "stunden":
             return str(day.get("stunden", ""))
 
+        if field_key == "Ausfallgrund":
+            if not bool(day.get("is_cancel", False)):
+                return ""
+            return str(day.get("header_content", "")).strip()
+
         yaml_data_obj = day.get("yaml")
         yaml_data: dict[str, object] = yaml_data_obj if isinstance(yaml_data_obj, dict) else {}
         if field_key == "Oberthema":

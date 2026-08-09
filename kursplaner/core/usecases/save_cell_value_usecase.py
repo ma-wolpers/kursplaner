@@ -14,7 +14,7 @@ from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCa
 from kursplaner.core.usecases.rename_linked_file_for_row_usecase import (
     RenameLinkedFileForRowUseCase,
 )
-from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
+from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
 
 
@@ -179,9 +179,10 @@ class SaveCellValueUseCase:
         *,
         field_key: str,
         day: dict[str, object],
+        row_filter_settings: RowFilterSettings | None = None,
     ) -> SaveCellRuntimeContext:
         """Prüft fachliche Editierbarkeit und liefert Laufzeitdaten für den Save-Flow."""
-        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
+        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall", "Ausfallgrund"}:
             return SaveCellRuntimeContext(
                 proceed=False,
                 row_index=None,
@@ -191,7 +192,7 @@ class SaveCellValueUseCase:
                 message_text=None,
             )
 
-        if not self.row_display_mode_usecase.field_is_relevant_for_day(field_key, day):
+        if not self.row_display_mode_usecase.field_is_relevant_for_day(field_key, day, row_filter_settings):
             return SaveCellRuntimeContext(
                 proceed=False,
                 row_index=None,

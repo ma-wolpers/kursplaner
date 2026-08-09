@@ -41,7 +41,10 @@ class RowDisplayModeUseCase:
         ("Inhaltsübersicht", "Welche Inhaltsübersicht"),
     )
 
-    AUSFALL_ROWS: tuple[RowDef, ...] = (("Vertretungsmaterial", "Welches Vertretungsmaterial"),)
+    AUSFALL_ROWS: tuple[RowDef, ...] = (
+        ("Ausfallgrund", "Ausfallgrund"),
+        ("Vertretungsmaterial", "Welches Vertretungsmaterial"),
+    )
 
     HOSPITATION_ROWS: tuple[RowDef, ...] = (
         ("Stundenthema", "Welches Stundenthema"),
@@ -95,10 +98,40 @@ class RowDisplayModeUseCase:
         key = str(mode_key or "").strip().lower()
         return key if key in self._definitions else self.MODE_UNTERRICHT
 
-    def row_defs_for_mode(self, mode_key: str | None) -> list[RowDef]:
-        """Liefert die Grid-Zeilendefinitionen für einen Anzeige-Modus."""
+    def row_defs_for_mode(
+        self, mode_key: str | None, settings: "RowFilterSettings | None" = None
+    ) -> list[RowDef]:
+        """Liefert die Grid-Zeilendefinitionen für einen Anzeige-Modus.
+
+        Berücksichtigt ``settings.field_mode_overrides``, falls übergeben — ein Feld
+        kann dadurch auch außerhalb seiner Standard-Modi auftauchen oder aus seinen
+        Standard-Modi entfernt worden sein (siehe ``effective_modes_for_field``).
+        """
         normalized = self.normalize_mode(mode_key)
-        return list(self._definitions[normalized].rows)
+        return [
+            (field_key, label)
+            for field_key, label, _modes_str in self.all_fields_ordered()
+            if normalized in self.effective_modes_for_field(field_key, settings)
+        ]
+
+    def default_modes_for_field(self, field_key: str) -> frozenset[str]:
+        """Liefert die fest hinterlegten Standard-Modi eines Feldes (ohne Overrides)."""
+        return frozenset(
+            mode_def.key for mode_def in self.available_modes() if any(k == field_key for k, _ in mode_def.rows)
+        )
+
+    def effective_modes_for_field(
+        self, field_key: str, settings: "RowFilterSettings | None"
+    ) -> frozenset[str]:
+        """Liefert die tatsächlich wirksamen Modi eines Feldes.
+
+        Ein in ``settings.field_mode_overrides`` hinterlegter Eintrag ersetzt die
+        Standard-Moduszugehörigkeit vollständig; fehlt der Eintrag, gilt
+        ``default_modes_for_field``.
+        """
+        if settings is not None and field_key in settings.field_mode_overrides:
+            return settings.field_mode_overrides[field_key]
+        return self.default_modes_for_field(field_key)
 
     @staticmethod
     def infer_day_mode(day: dict[str, object] | None) -> str:
@@ -140,7 +173,9 @@ class RowDisplayModeUseCase:
             "Nutzbare Ressourcen",
         }
 
-    def field_is_relevant_for_day(self, field_key: str, day: dict[str, object]) -> bool:
+    def field_is_relevant_for_day(
+        self, field_key: str, day: dict[str, object], settings: "RowFilterSettings | None" = None
+    ) -> bool:
         """Prüft, ob ein Feld zur fachlichen Art einer Spalte passt."""
         mode = self.infer_day_mode(day)
         if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
@@ -150,8 +185,7 @@ class RowDisplayModeUseCase:
             yaml_data = yaml_obj if isinstance(yaml_obj, dict) else {}
             ub_link = str(yaml_data.get("Unterrichtsbesuch", "")).strip()
             return bool(ub_link)
-        fields = {field for field, _ in self.row_defs_for_mode(mode)}
-        return field_key in fields
+        return mode in self.effective_modes_for_field(field_key, settings)
 
     def all_fields_ordered(self) -> list[tuple[str, str, str]]:
         """Liefert alle Felder aller Modi als deduplizierte, geordnete Liste.
@@ -203,18 +237,22 @@ class RowDisplayModeUseCase:
         link_obj = day.get("link") if isinstance(day, dict) else None
         return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
 
-    def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
+    def is_editable(
+        self, field_key: str, day: dict[str, object], settings: "RowFilterSettings | None" = None
+    ) -> bool:
         """Ermittelt fachlich, ob ein Feld für eine Spalte editierbar sein darf.
 
         Oberthema ist als einziges Feld auch ohne verlinkte Stunden-Datei
         editierbar: der Wert wird dann direkt in die `Thema/Ausfall`-Zelle
         der Plantabelle geschrieben (siehe `SaveCellValueUseCase.execute`).
+        Ausfallgrund ist read-only: der Grund wird ausschließlich über "Als
+        Ausfall markieren" gesetzt (Markertext in der `Thema/Ausfall`-Zelle).
         """
-        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall"}:
+        if field_key in {"datum", "stunden", "inhalt", "thema/ausfall", "Ausfallgrund"}:
             return False
         if field_key == "Kompetenzhorizont" and bool(day.get("is_lzk", False)):
             return False
-        if not self.field_is_relevant_for_day(field_key, day):
+        if not self.field_is_relevant_for_day(field_key, day, settings):
             return False
         if self.is_linked_day(day):
             return True
@@ -223,22 +261,23 @@ class RowDisplayModeUseCase:
 
 @dataclass(frozen=True)
 class RowFilterSettings:
-    """Konfiguriert, welche Zeilenfelder im Grid ausgeblendet werden.
+    """Konfiguriert, in welchen Anzeige-Modi einzelne Zeilenfelder sichtbar sind.
 
-    Default = leere Menge → alle Felder sichtbar.
+    Default = leeres Dict → jedes Feld behält seine aus den Modus-Definitionen
+    abgeleitete Standard-Moduszugehörigkeit (siehe ``RowDisplayModeUseCase.
+    default_modes_for_field``). Ein Eintrag in ``field_mode_overrides`` ersetzt
+    diese Standardzuordnung vollständig für das jeweilige Feld — dadurch lassen
+    sich sowohl Standard-Modi abwählen als auch zusätzliche Modi hinzufügen.
 
     Args:
-        hidden_fields: Menge der ``field_key``-Strings, die ausgeblendet werden.
+        field_mode_overrides: ``field_key`` → Menge der Modus-Schlüssel
+            (``RowDisplayModeUseCase.MODE_*``), in denen das Feld sichtbar sein soll.
 
     Example::
 
-        settings = RowFilterSettings(hidden_fields=frozenset({"Oberthema"}))
-        settings.is_visible("Oberthema")   # False
-        settings.is_visible("Stundenziel") # True
+        settings = RowFilterSettings(
+            field_mode_overrides={"Oberthema": frozenset({"lzk", "ausfall"})}
+        )
     """
 
-    hidden_fields: frozenset[str] = field(default_factory=frozenset)
-
-    def is_visible(self, field_key: str) -> bool:
-        """Gibt ``True`` zurück, wenn das Feld nicht durch den Filter versteckt ist."""
-        return field_key not in self.hidden_fields
+    field_mode_overrides: dict[str, frozenset[str]] = field(default_factory=dict)

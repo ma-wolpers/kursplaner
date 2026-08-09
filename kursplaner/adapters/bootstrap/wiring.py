@@ -9,7 +9,7 @@ from kursplaner.core.config.ui_preferences_store import load_ub_past_cutoff_time
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlow
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlow
 from kursplaner.core.flows.plan_lesson_flow import PlanLessonFlow
-from kursplaner.core.ports.repositories import LessonIndexRepository
+from kursplaner.core.ports.repositories import LessonIndexRepository, PlanRepository
 from kursplaner.core.usecases.action_button_state_usecase import ActionButtonStateUseCase
 from kursplaner.core.usecases.cleanup_lzk_expected_horizon_links_usecase import CleanupLzkExpectedHorizonLinksUseCase
 from kursplaner.core.usecases.clear_selected_lesson_usecase import ClearSelectedLessonUseCase
@@ -117,6 +117,7 @@ class GuiDependencies:
     """
 
     max_history: int
+    plan_repo: PlanRepository
     list_lessons_usecase: ListLessonsUseCase
     load_plan_detail_usecase: LoadPlanDetailUseCase
     action_button_state_usecase: ActionButtonStateUseCase
@@ -298,8 +299,6 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     move_selected_columns = MoveSelectedColumnsUseCase(
         plan_repo=plan_repo,
         plan_commands=plan_commands,
-        lesson_transfer=lesson_transfer,
-        rename_linked_file_for_row=rename_linked_file_for_row,
     )
     action_button_state_usecase = ActionButtonStateUseCase(
         lesson_context_query=lesson_context_query,
@@ -409,6 +408,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
 
     return GuiDependencies(
         max_history=max_history,
+        plan_repo=plan_repo,
         list_lessons_usecase=list_lessons_usecase,
         load_plan_detail_usecase=load_plan_detail_usecase,
         action_button_state_usecase=action_button_state_usecase,

@@ -74,8 +74,14 @@ class _RowDisplayModeUseCaseStub:
     def __init__(self, editable_cells: set[tuple[str, int]]):
         self._editable_cells = editable_cells
 
-    def is_editable(self, field_key: str, day: dict[str, object]) -> bool:
-        return (field_key, int(day.get("index", -1))) in self._editable_cells
+    def is_editable(
+        self, field_key: str, day: dict[str, object], settings: RowFilterSettings | None = None
+    ) -> bool:
+        if (field_key, int(day.get("index", -1))) not in self._editable_cells:
+            return False
+        if settings is not None and field_key in settings.field_mode_overrides:
+            return bool(settings.field_mode_overrides[field_key])
+        return True
 
 
 def _make_app(
@@ -116,7 +122,7 @@ def test_vertical_navigation_skips_filter_hidden_fields():
         day_columns=[{"index": 0}],
         row_defs=[("Stundenthema", "Thema"), ("Oberthema", "Oberthema"), ("Stundenziel", "Ziel")],
         editable_cells={("Stundenthema", 0), ("Oberthema", 0), ("Stundenziel", 0)},
-        row_filter_settings=RowFilterSettings(hidden_fields=frozenset({"Oberthema"})),
+        row_filter_settings=RowFilterSettings(field_mode_overrides={"Oberthema": frozenset()}),
     )
     controller = MainWindowSelectionController(app)
     controller.set_selected_cell("Stundenthema", 0)
@@ -133,7 +139,7 @@ def test_select_first_editable_skips_filter_hidden_fields():
         day_columns=[{"index": 0}],
         row_defs=[("Stundenthema", "Thema"), ("Oberthema", "Oberthema"), ("Stundenziel", "Ziel")],
         editable_cells={("Stundenthema", 0), ("Oberthema", 0), ("Stundenziel", 0)},
-        row_filter_settings=RowFilterSettings(hidden_fields=frozenset({"Stundenthema"})),
+        row_filter_settings=RowFilterSettings(field_mode_overrides={"Stundenthema": frozenset()}),
     )
     app.selected_day_indices = {0}
     controller = MainWindowSelectionController(app)
@@ -150,7 +156,9 @@ def test_select_first_editable_returns_false_when_all_editable_fields_are_hidden
         day_columns=[{"index": 0}],
         row_defs=[("Stundenthema", "Thema"), ("Oberthema", "Oberthema")],
         editable_cells={("Stundenthema", 0), ("Oberthema", 0)},
-        row_filter_settings=RowFilterSettings(hidden_fields=frozenset({"Stundenthema", "Oberthema"})),
+        row_filter_settings=RowFilterSettings(
+            field_mode_overrides={"Stundenthema": frozenset(), "Oberthema": frozenset()}
+        ),
     )
     app.selected_day_indices = {0}
     controller = MainWindowSelectionController(app)
@@ -165,7 +173,7 @@ def test_vertical_navigation_returns_false_when_all_remaining_fields_are_hidden(
         day_columns=[{"index": 0}],
         row_defs=[("Stundenthema", "Thema"), ("Oberthema", "Oberthema")],
         editable_cells={("Stundenthema", 0), ("Oberthema", 0)},
-        row_filter_settings=RowFilterSettings(hidden_fields=frozenset({"Oberthema"})),
+        row_filter_settings=RowFilterSettings(field_mode_overrides={"Oberthema": frozenset()}),
     )
     controller = MainWindowSelectionController(app)
     controller.set_selected_cell("Stundenthema", 0)
@@ -181,7 +189,7 @@ def test_enter_does_nothing_when_all_editable_fields_hidden():
         day_columns=[{"index": 0}],
         row_defs=[("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0)},
-        row_filter_settings=RowFilterSettings(hidden_fields=frozenset({"Stundenthema"})),
+        row_filter_settings=RowFilterSettings(field_mode_overrides={"Stundenthema": frozenset()}),
     )
     app.selected_day_indices = {0}
     controller = MainWindowSelectionController(app)

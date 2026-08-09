@@ -250,16 +250,15 @@ class GridRenderer:
     def _field_is_visible_for_day(self, field_key: str, day: dict[str, object]) -> bool:
         """Bestimmt, ob ein Feld für eine Spalte als Widget aufgebaut werden soll.
 
-        Reihenfolge: Zeilenfilter → Unlinked-Guard → Modus-Check. Der
-        Zeilenfilter muss vor dem Unlinked-Guard geprüft werden, sonst lässt
-        sich z. B. "Inhalt" bei Einheiten ohne verlinkte Datei nie ausblenden,
-        weil dieser Fall sonst den Filter komplett umgeht.
+        Der Modus-Check (inkl. Zeilenfilter-Overrides) muss auch für den
+        Unlinked-Guard-Fallback laufen, sonst lässt sich z. B. "Inhalt" bei
+        Einheiten ohne verlinkte Datei nie modusabhängig ausblenden, weil der
+        Fallback sonst den Filter komplett umgeht.
         """
-        if not self.app.row_filter_settings.is_visible(field_key):
-            return False
         if not self.app.row_display_mode_usecase.is_linked_day(day):
-            return field_key in {"inhalt", "stunden", "Oberthema"}
-        return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day)
+            if field_key not in {"inhalt", "stunden", "Oberthema", "Ausfallgrund"}:
+                return False
+        return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day, self.app.row_filter_settings)
 
     def _apply_cell_state(
         self,
@@ -525,8 +524,8 @@ class GridRenderer:
                 is_unresolved_link = bool(day.get("is_unresolved_link", False))
                 is_lzk = bool(day.get("is_lzk", False))
                 is_hospitation = bool(day.get("is_hospitation", False))
-                editable = self.app.row_display_mode_usecase.is_editable(field_key, day)
-                canceled_visual = is_cancel and field_key != "Vertretungsmaterial"
+                editable = self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings)
+                canceled_visual = is_cancel and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
 
                 value = row_values[day_index] if day_index < len(row_values) else ""
                 cell = self._create_text_cell(
@@ -630,8 +629,8 @@ class GridRenderer:
 
         row_height, _collapsible, _expanded, _label_text = self._row_layout(field_key)
         day = self.app.day_columns[day_index]
-        editable = self.app.row_display_mode_usecase.is_editable(field_key, day)
-        canceled_visual = bool(day.get("is_cancel", False)) and field_key != "Vertretungsmaterial"
+        editable = self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings)
+        canceled_visual = bool(day.get("is_cancel", False)) and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
         value = self.app._field_value(day, field_key)
         self._apply_cell_state(
             cell,

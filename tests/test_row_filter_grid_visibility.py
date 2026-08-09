@@ -5,9 +5,9 @@ from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
 
 
-def _make_app(hidden_fields: frozenset[str] = frozenset()) -> SimpleNamespace:
+def _make_app(field_mode_overrides: dict[str, frozenset[str]] | None = None) -> SimpleNamespace:
     return SimpleNamespace(
-        row_filter_settings=RowFilterSettings(hidden_fields=hidden_fields),
+        row_filter_settings=RowFilterSettings(field_mode_overrides=field_mode_overrides or {}),
         row_display_mode_usecase=RowDisplayModeUseCase(),
     )
 
@@ -38,7 +38,7 @@ def test_unlinked_day_only_shows_inhalt_stunden_and_oberthema():
 
 
 def test_unlinked_day_respects_row_filter(tmp_path):
-    app = _make_app(hidden_fields=frozenset({"inhalt"}))
+    app = _make_app(field_mode_overrides={"inhalt": frozenset()})
     renderer = GridRenderer(app)
     day = _unlinked_day()
 
@@ -46,7 +46,7 @@ def test_unlinked_day_respects_row_filter(tmp_path):
 
 
 def test_hidden_field_invisible_on_linked_day(tmp_path):
-    app = _make_app(hidden_fields=frozenset({"Oberthema"}))
+    app = _make_app(field_mode_overrides={"Oberthema": frozenset()})
     renderer = GridRenderer(app)
     day = _linked_day(tmp_path)
 
@@ -70,7 +70,7 @@ def test_field_not_in_mode_is_hidden_regardless_of_filter(tmp_path):
 
 
 def test_filter_hides_field_even_when_mode_would_show_it(tmp_path):
-    app = _make_app(hidden_fields=frozenset({"Stundenthema"}))
+    app = _make_app(field_mode_overrides={"Stundenthema": frozenset()})
     renderer = GridRenderer(app)
     day = _linked_day(tmp_path)
 
@@ -78,11 +78,33 @@ def test_filter_hides_field_even_when_mode_would_show_it(tmp_path):
 
 
 def test_filter_does_not_hide_other_fields(tmp_path):
-    app = _make_app(hidden_fields=frozenset({"Oberthema"}))
+    app = _make_app(field_mode_overrides={"Oberthema": frozenset()})
     renderer = GridRenderer(app)
     day = _linked_day(tmp_path)
 
     assert renderer._field_is_visible_for_day("Stundenthema", day) is True
+
+
+def test_field_can_be_added_to_a_mode_it_is_not_part_of_by_default(tmp_path):
+    """Vier-Checkboxen-Feature: ein Feld kann per Override zusätzlich in einem
+    Modus gezeigt werden, in dem es standardmäßig nicht vorkommt."""
+    app = _make_app(field_mode_overrides={"Stundenziel": frozenset({RowDisplayModeUseCase.MODE_AUSFALL})})
+    renderer = GridRenderer(app)
+    day = _linked_day(tmp_path)
+    day["is_cancel"] = True
+
+    assert renderer._field_is_visible_for_day("Stundenziel", day) is True
+
+
+def test_ausfallgrund_visible_on_ausfall_day_but_not_unterricht_day(tmp_path):
+    app = _make_app()
+    renderer = GridRenderer(app)
+    ausfall_day = _linked_day(tmp_path)
+    ausfall_day["is_cancel"] = True
+    unterricht_day = _linked_day(tmp_path)
+
+    assert renderer._field_is_visible_for_day("Ausfallgrund", ausfall_day) is True
+    assert renderer._field_is_visible_for_day("Ausfallgrund", unterricht_day) is False
 
 
 def test_oberthema_is_editable_on_unlinked_unterricht_day():
@@ -97,3 +119,10 @@ def test_oberthema_is_not_editable_on_unlinked_ausfall_day():
     day = _unlinked_ausfall_day()
 
     assert use_case.is_editable("Oberthema", day) is False
+
+
+def test_ausfallgrund_is_never_editable():
+    use_case = RowDisplayModeUseCase()
+    day = _unlinked_ausfall_day()
+
+    assert use_case.is_editable("Ausfallgrund", day) is False

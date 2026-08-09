@@ -76,7 +76,7 @@ class MainWindowSelectionController:
         if not (0 <= day_index < len(self.app.day_columns)):
             return False
         day = self.app.day_columns[day_index]
-        if not self.app.row_display_mode_usecase.is_editable(field_key, day):
+        if not self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings):
             return False
 
         old_sel = self.app.ui_state.selected_cell
@@ -157,9 +157,9 @@ class MainWindowSelectionController:
             return False
         day_index = selected[0]
         for field_key, _label in self.app.row_defs:
-            if not self.app.row_filter_settings.is_visible(field_key):
-                continue
-            if self.app.row_display_mode_usecase.is_editable(field_key, self.app.day_columns[day_index]):
+            if self.app.row_display_mode_usecase.is_editable(
+                field_key, self.app.day_columns[day_index], self.app.row_filter_settings
+            ):
                 return self.set_selected_cell(field_key, day_index, ensure_visible=True)
         return False
 
@@ -178,8 +178,8 @@ class MainWindowSelectionController:
         probe = current_pos + direction
         while 0 <= probe < len(field_order):
             candidate = field_order[probe]
-            if self.app.row_filter_settings.is_visible(candidate) and self.app.row_display_mode_usecase.is_editable(
-                candidate, self.app.day_columns[day_index]
+            if self.app.row_display_mode_usecase.is_editable(
+                candidate, self.app.day_columns[day_index], self.app.row_filter_settings
             ):
                 return self.set_selected_cell(candidate, day_index, ensure_visible=True)
             probe += direction
@@ -196,7 +196,7 @@ class MainWindowSelectionController:
         probe = selected_cell.day_index + direction
         while 0 <= probe < len(self.app.day_columns):
             day = self.app.day_columns[probe]
-            if self.app.row_display_mode_usecase.is_editable(selected_cell.field_key, day):
+            if self.app.row_display_mode_usecase.is_editable(selected_cell.field_key, day, self.app.row_filter_settings):
                 return self.set_selected_cell(selected_cell.field_key, probe, ensure_visible=True)
             probe += direction
         return False
@@ -210,7 +210,9 @@ class MainWindowSelectionController:
         field_order = [field_key for field_key, _ in self.app.row_defs]
         ordered = list(reversed(field_order)) if to_end else field_order
         for field_key in ordered:
-            if self.app.row_display_mode_usecase.is_editable(field_key, self.app.day_columns[day_index]):
+            if self.app.row_display_mode_usecase.is_editable(
+                field_key, self.app.day_columns[day_index], self.app.row_filter_settings
+            ):
                 return self.set_selected_cell(field_key, day_index, ensure_visible=True)
         return False
 
