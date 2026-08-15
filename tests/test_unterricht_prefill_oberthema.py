@@ -4,6 +4,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.plan_regular_lesson_usecase import PlanRegularLessonUseCase
+from tests.day_column_factory import make_day_column
 
 
 class _NoLinkLessonRepo:
@@ -51,16 +52,11 @@ def _usecase() -> PlanRegularLessonUseCase:
 
 def test_prefers_oberthema_already_typed_into_current_empty_row():
     """Ein direkt in die leere Zeile eingetragenes Oberthema hat Vorrang vor der Rückwärtssuche."""
-    day = {
-        "row_index": 0,
-        "is_lzk": False,
-        "Stundenthema": "",
-        "inhalt": "",
-        "stunden": "2",
-        "datum": "05-01-26",
-        "yaml": {},
-        "plan_oberthema": "Direkt eingetragenes Oberthema",
-    }
+    day = make_day_column(
+        row_index=0,
+        datum="05-01-26",
+        thema_ausfall="[[Direkt eingetragenes Oberthema]]",
+    )
 
     context = _usecase().build_dialog_context(table=_table(), day=day, unterricht_dir=Path("."))
 
@@ -69,16 +65,7 @@ def test_prefers_oberthema_already_typed_into_current_empty_row():
 
 def test_falls_back_to_backward_search_when_row_has_no_oberthema():
     """Ohne eigenes Oberthema in der Zeile greift weiterhin die Rückwärtssuche über Vorzeilen."""
-    day = {
-        "row_index": 0,
-        "is_lzk": False,
-        "Stundenthema": "",
-        "inhalt": "",
-        "stunden": "2",
-        "datum": "05-01-26",
-        "yaml": {},
-        "plan_oberthema": "",
-    }
+    day = make_day_column(row_index=0, datum="05-01-26")
 
     context = _usecase().build_dialog_context(table=_table(), day=day, unterricht_dir=Path("."))
 
@@ -87,16 +74,12 @@ def test_falls_back_to_backward_search_when_row_has_no_oberthema():
 
 def test_yaml_oberthema_still_wins_over_plan_oberthema():
     """Ein bereits im YAML gesetztes Oberthema hat weiterhin höchste Priorität."""
-    day = {
-        "row_index": 0,
-        "is_lzk": False,
-        "Stundenthema": "",
-        "inhalt": "",
-        "stunden": "2",
-        "datum": "05-01-26",
-        "yaml": {"Oberthema": "Oberthema aus YAML"},
-        "plan_oberthema": "Direkt eingetragenes Oberthema",
-    }
+    day = make_day_column(
+        row_index=0,
+        datum="05-01-26",
+        thema_ausfall="[[Direkt eingetragenes Oberthema]]",
+        yaml={"Oberthema": "Oberthema aus YAML"},
+    )
 
     context = _usecase().build_dialog_context(table=_table(), day=day, unterricht_dir=Path("."))
 

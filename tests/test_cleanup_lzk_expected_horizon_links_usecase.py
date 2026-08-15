@@ -3,6 +3,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.usecases.cleanup_lzk_expected_horizon_links_usecase import CleanupLzkExpectedHorizonLinksUseCase
+from tests.day_column_factory import make_day_column
 
 
 class _LessonRepoStub:
@@ -61,8 +62,8 @@ def test_cleanup_clears_missing_links_and_repairs_invalid_created_at(tmp_path):
     result = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=repo).execute(
         table=_table(course_dir / "kurs.md"),
         day_columns=[
-            {"is_lzk": True, "link": lesson_missing},
-            {"is_lzk": True, "link": lesson_existing},
+            make_day_column(link=lesson_missing, yaml={"Stundentyp": "LZK"}),
+            make_day_column(link=lesson_existing, yaml={"Stundentyp": "LZK"}),
         ],
     )
 

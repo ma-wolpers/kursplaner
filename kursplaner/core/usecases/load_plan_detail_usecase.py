@@ -5,29 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.content_markers import (
-    is_ferien_marker,
-    is_hospitation_marker,
-    is_unterricht_marker,
-    normalize_marker_text,
-)
-from kursplaner.core.domain.course_rhythm import (
-    RHYTHM_YAML_KEY,
-    hours_for_date,
-    parse_rhythm,
-    start_time_for_date,
-)
-from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
-from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml, infer_stundentyp
-from kursplaner.core.domain.plan_table import (
-    LessonYamlData,
-    PlanTableData,
-    extract_plan_oberthema,
-    parse_plan_row_date,
-)
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, parse_rhythm
+from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
+from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml
+from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
-from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
 
 
@@ -36,7 +20,7 @@ class PlanDetailResult:
     """Ergebnis eines Detail-Ladevorgangs für eine Planungsdatei."""
 
     table: PlanTableData
-    day_columns: list[dict[str, object]]
+    day_columns: list[DayColumn]
 
 
 class MissingLessonYamlFrontmatterError(RuntimeError):
@@ -90,12 +74,6 @@ class LoadPlanDetailUseCase:
         return infer_workspace_root_from_path(table.markdown_path)
 
     @staticmethod
-    def _contains_markdown_link(text: str) -> bool:
-        """Erkennt grob Obsidian-Linksyntax `[[...]]` im Inhaltstext."""
-        stripped = text.strip()
-        return "[[" in stripped and "]]" in stripped
-
-    @staticmethod
     def _extract_primary_link_target(text: str) -> str:
         """Extrahiert aus `[[...]]` den primären Zieldateinamen ohne Pfad/Endung."""
         match = re.search(r"\[\[([^\]]+)\]\]", text)
@@ -133,19 +111,6 @@ class LoadPlanDetailUseCase:
             return link_target, True
         return raw, False
 
-    @staticmethod
-    def _is_valid_unterricht_link(*, link: Path | None, link_target: str, group_name: str) -> bool:
-        """Validiert, ob ein Link auf eine verwaltete Stunden-Datei zeigt.
-
-        Akzeptiert Dateien aus ``Einheiten/`` (aktive Einheiten) und
-        ``Alteinheiten/`` (archivierte vergangene Einheiten), da beide Ordner
-        von :func:`managed_lesson_dir_names` verwaltet werden.
-        """
-        if not (isinstance(link, Path) and link.exists() and link.is_file()):
-            return False
-        managed = {d.lower() for d in managed_lesson_dir_names()}
-        return link.parent.name.lower() in managed
-
     def _ensure_valid_lesson_yaml(self, lesson_path: Path, topic: str) -> LessonYamlData:
         """Lädt und validiert YAML einer Stunden-Datei und ergänzt fehlende Keys.
 
@@ -180,8 +145,15 @@ class LoadPlanDetailUseCase:
         table = self.plan_repo.load_plan_table(markdown_path)
         return PlanDetailResult(table=table, day_columns=self.build_day_columns(table))
 
-    def build_day_columns(self, table: PlanTableData) -> list[dict[str, object]]:
-        """Erzeugt aufbereitete Tages-Spalten inkl. geladener YAML-Daten.
+    def build_day_columns(self, table: PlanTableData) -> list[DayColumn]:
+        """Erzeugt `DayColumn`-Objekte inkl. geladener YAML-Daten für jede Planzeile.
+
+        Reine I/O-Orchestrierung: löst Links auf, lädt/kanonisiert YAML
+        verlinkter Stunden-Dateien (inkl. UB-Entwicklungslisten) und baut
+        daraus ein `DayColumn` je Zeile. Alle fachlichen Ableitungen
+        (Ausfall-/Hospitation-/Unterricht-/LZK-Erkennung, Stunden/Startzeit
+        aus dem Rhythmus, Kopfzeilentext, Oberthema, …) leben als Methoden
+        auf `DayColumn` selbst (`core.domain.day_column`), nicht hier.
 
         Liest aus dem 3-Spalten-Format (Datum | Inhalt | Thema/Ausfall):
         - Inhalt (col 1): Wiki-Link zur Stundendatei oder leer
@@ -189,33 +161,9 @@ class LoadPlanDetailUseCase:
           Ferien/Feiertag, ``[[gruppe thema]]`` für Unterricht/Hospitation,
           ``LZK [[...]]`` für LZK, sonst leer
 
-        ``stunden``/``startzeit`` werden nicht mehr aus der Tabelle gelesen,
-        sondern aus dem kursweiten ``Rhythmus``-Feld abgeleitet (siehe
-        :mod:`kursplaner.core.domain.course_rhythm`): ``0``/leer für Ferien-
-        Zeilen, sonst die zum Wochentag und Datum passende Stundenzahl/
-        Startzeit. Ein Kurstag hat genau eine Planzeile; es gibt keine
-        Aufteilung einer Wochentags-Stundenzahl auf mehrere Zeilen desselben
-        Datums.
-
-        Ausfall-Erkennung erfolgt über col 2 (``X ``-Präfix) plus einen
-        YAML-Override, falls die verlinkte Stunden-Datei
-        ``Stundentyp: Ausfall`` trägt (siehe
-        :meth:`~kursplaner.core.usecases.lesson_context_query_usecase.
-        LessonContextQueryUseCase.resolve_cancel_state`).
-        Der Spalten-Header (``header_content``) wird bevorzugt aus dem YAML-Feld
-        ``Stundenthema`` befüllt, da Einheits-Dateinamen nun kryptische 6-Zeichen-
-        Codes sind und keinen lesbaren Titel enthalten.
-
-        Jeder Eintrag trägt zusätzlich ``plan_oberthema``: das aus der rohen
-        ``Thema/Ausfall``-Zelle geparste Oberthema (siehe `extract_plan_oberthema`).
-        Das ist die einzige Oberthema-Quelle für Einheiten ohne verlinkte
-        Stunden-Datei (noch kein ``yaml["Oberthema"]`` vorhanden); Aufrufer, die
-        das angezeigte/fachliche Oberthema einer Spalte brauchen, sollen
-        ``yaml["Oberthema"]`` (entschlüsselt via
-        :func:`~kursplaner.core.domain.plan_table.read_yaml_oberthema`, das
-        Feld darf bewusst als Wiki-Link gespeichert sein) bevorzugen und erst
-        dann auf ``plan_oberthema`` zurückfallen. ``group_name`` (Lerngruppe,
-        Wiki-Link bereits entfernt) wird für diese Dekodierung mitgeführt.
+        Jedes `DayColumn` trägt den kompletten geparsten `Rhythmus` (nicht
+        nur den für seine Zeile relevanten Ausschnitt) — `DayColumn.stunden()`/
+        `startzeit()` lösen live gegen ihr eigenes `datum` auf.
         """
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum", 0)
@@ -225,7 +173,7 @@ class LoadPlanDetailUseCase:
 
         rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
 
-        collected: list[dict[str, object]] = []
+        collected: list[DayColumn] = []
         for row_index, row in enumerate(table.rows):
             datum = row[idx_datum] if idx_datum < len(row) else ""
             inhalt = row[idx_inhalt] if idx_inhalt < len(row) else ""
@@ -234,40 +182,18 @@ class LoadPlanDetailUseCase:
                 if idx_thema_ausfall is not None and idx_thema_ausfall < len(row)
                 else ""
             )
-            marker_text = normalize_marker_text(inhalt)
-
-            row_date = parse_plan_row_date(datum) if idx_datum < len(row) else None
-            is_ferien = is_ferien_marker(thema_ausfall)
-            if row_date is None:
-                stunden, startzeit = "", ""
-            elif is_ferien:
-                stunden, startzeit = "0", ""
-            else:
-                stunden = str(hours_for_date(rhythm, row_date))
-                startzeit = start_time_for_date(rhythm, row_date)
 
             link = self.lesson_repo.resolve_row_link_path(table, row_index)
-            has_link_ref = self._contains_markdown_link(inhalt)
             link_target = self._extract_primary_link_target(inhalt)
-            valid_unterricht_link = self._is_valid_unterricht_link(
-                link=link,
-                link_target=link_target,
-                group_name=group_name,
-            )
-            is_unresolved_link = bool(inhalt.strip() and has_link_ref and link is None)
-            is_hospitation = is_hospitation_marker(marker_text, group_name)
-            is_unterricht = is_unterricht_marker(marker_text, group_name)
 
             yaml_data: dict[str, object] = {}
-            lesson_type = "Unterricht"
-            if valid_unterricht_link and isinstance(link, Path):
+            if is_valid_unterricht_link(link) and isinstance(link, Path):
                 extracted_topic = link_target
                 split = link_target.split(" ", 1)
                 if len(split) == 2:
                     extracted_topic = split[1].strip() or link_target
                 lesson = self._ensure_valid_lesson_yaml(link, topic=extracted_topic)
                 yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
-                lesson_type = infer_stundentyp(yaml_data)
                 ub_link = str(yaml_data.get("Unterrichtsbesuch", "")).strip()
                 if ub_link:
                     steps, resources = self._load_ub_development_lists(
@@ -278,52 +204,17 @@ class LoadPlanDetailUseCase:
                     yaml_data["Professionalisierungsschritte"] = steps
                     yaml_data["Nutzbare Ressourcen"] = resources
 
-            is_cancel = LessonContextQueryUseCase.resolve_cancel_state(table.headers, row, yaml_data)
-            is_lzk = lesson_type == "LZK"
-            is_link_header = bool(has_link_ref)
-
-            if lesson_type == "Hospitation":
-                is_hospitation = True
-            if lesson_type == "Unterricht":
-                is_unterricht = True
-
-            plan_oberthema = extract_plan_oberthema(thema_ausfall, group_name)
-
-            stundenthema = str(yaml_data.get("Stundenthema", "")).strip()
-            thema_text = str(thema_ausfall).strip()
-            if stundenthema:
-                header_content = stundenthema
-            elif is_cancel:
-                reason = thema_text[2:].strip() if thema_text.upper().startswith("X ") else thema_text
-                header_content = reason or "Ausfall"
-            else:
-                header_content = marker_text or ""
-
             collected.append(
-                {
-                    "row_index": row_index,
-                    "datum": datum,
-                    "stunden": stunden,
-                    "startzeit": startzeit,
-                    "inhalt": inhalt,
-                    "thema_ausfall": thema_ausfall,
-                    "link": link,
-                    "is_cancel": is_cancel,
-                    "is_ferien": is_ferien,
-                    "is_unresolved_link": is_unresolved_link,
-                    "is_hospitation": is_hospitation,
-                    "is_unterricht": is_unterricht,
-                    "is_lzk": is_lzk,
-                    "is_ub": bool(str(yaml_data.get("Unterrichtsbesuch", "")).strip()),
-                    "is_valid_unterricht_file": valid_unterricht_link,
-                    "yaml": yaml_data,
-                    "plan_oberthema": plan_oberthema,
-                    "group_name": group_name,
-                    "Stundentyp": lesson_type,
-                    "content_marker_text": marker_text,
-                    "header_content": header_content,
-                    "is_link_header": is_link_header,
-                }
+                DayColumn(
+                    row_index=row_index,
+                    datum=datum,
+                    inhalt=inhalt,
+                    thema_ausfall=thema_ausfall,
+                    link=link,
+                    yaml=yaml_data,
+                    group_name=group_name,
+                    rhythm=rhythm,
+                )
             )
 
         return collected

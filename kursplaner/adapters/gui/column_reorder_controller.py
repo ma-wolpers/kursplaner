@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib
 
 from kursplaner.adapters.gui.dialog_services import messagebox
+from kursplaner.core.domain.day_column import DayColumn
 
 
 class MainWindowColumnReorderController:
@@ -20,11 +21,8 @@ class MainWindowColumnReorderController:
         return self._move_selected_columns_uc.find_swap_partner(self.app.day_columns, start_index, direction)
 
     @staticmethod
-    def _has_ub_link(day: dict[str, object]) -> bool:
-        yaml_data = day.get("yaml")
-        if not isinstance(yaml_data, dict):
-            return False
-        return bool(str(yaml_data.get("Unterrichtsbesuch", "")).strip())
+    def _has_ub_link(day: DayColumn) -> bool:
+        return bool(str(day.yaml.get("Unterrichtsbesuch", "")).strip())
 
     def _requires_ub_confirmation(self, selected_index: int, partner_index: int) -> bool:
         if not (0 <= selected_index < len(self.app.day_columns)):

@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 
 from kursplaner.core.domain.content_markers import normalize_marker_text
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import read_yaml_oberthema, sanitize_hour_title
@@ -29,31 +30,30 @@ class MainWindowLessonContextController:
         self._cached_group_token: str | None = None
         self._cached_group_token_table_id: int | None = None
 
-    def field_value(self, day: dict[str, object], field_key: str) -> str:
+    def field_value(self, day: DayColumn, field_key: str) -> str:
         """Projiziert den Zellwert eines Feldes aus `day_columns` in UI-Text."""
         if field_key == "inhalt":
             return self._display_content_text(day)
 
         if field_key == "Stundenthema":
-            if not bool(day.get("is_valid_unterricht_file", False)):
+            if not day.is_valid_unterricht_file():
                 return ""
-            yaml_data_obj = day.get("yaml")
-            yaml_data: dict[str, object] = yaml_data_obj if isinstance(yaml_data_obj, dict) else {}
-            topic = str(yaml_data.get("Stundenthema", "")).strip()
+            topic = str(day.yaml.get("Stundenthema", "")).strip()
             if topic:
                 return topic
             return ""
 
-        if field_key in {"stunden", "startzeit"}:
-            return str(day.get(field_key, ""))
+        if field_key == "stunden":
+            return str(day.stunden())
+        if field_key == "startzeit":
+            return day.startzeit()
 
         if field_key == "Ausfallgrund":
-            if not bool(day.get("is_cancel", False)):
+            if not day.is_cancel():
                 return ""
-            return str(day.get("header_content", "")).strip()
+            return day.header_content().strip()
 
-        yaml_data_obj = day.get("yaml")
-        yaml_data: dict[str, object] = yaml_data_obj if isinstance(yaml_data_obj, dict) else {}
+        yaml_data = day.yaml
         if field_key == "Oberthema":
             # Solange keine verlinkte Stunden-Datei existiert, hat `yaml` kein
             # eigenes "Oberthema"-Feld; die Plantabelle (Thema/Ausfall-Spalte)
@@ -66,7 +66,7 @@ class MainWindowLessonContextController:
             oberthema = read_yaml_oberthema(yaml_data, group_name)
             if oberthema:
                 return oberthema
-            return str(day.get("plan_oberthema", "")).strip()
+            return day.plan_oberthema().strip()
         if field_key in {
             "Stundenziel",
             "Inhaltsübersicht",
@@ -74,7 +74,7 @@ class MainWindowLessonContextController:
         }:
             return str(yaml_data.get(field_key, "")).strip()
         if field_key == "Kompetenzhorizont":
-            if bool(day.get("is_lzk", False)):
+            if day.is_lzk():
                 return self._expected_horizon_status_text(day, yaml_data)
             return str(yaml_data.get(field_key, "")).strip()
 
@@ -130,12 +130,12 @@ class MainWindowLessonContextController:
     def _format_status_datetime(value: datetime) -> str:
         return value.astimezone().strftime("%d.%m.%y um %H:%M")
 
-    def _expected_horizon_status_text(self, day: dict[str, object], yaml_data: dict[str, object]) -> str:
+    def _expected_horizon_status_text(self, day: DayColumn, yaml_data: dict[str, object]) -> str:
         stem = self._extract_wiki_stem(yaml_data.get("Kompetenzhorizont", ""))
         if not stem:
             return "leer"
 
-        lesson_path = day.get("link")
+        lesson_path = day.link
         if not isinstance(lesson_path, pathlib.Path):
             return "leer"
 
@@ -149,16 +149,16 @@ class MainWindowLessonContextController:
             created_at = datetime.fromtimestamp(markdown_path.stat().st_mtime).astimezone()
         return f"erstellt am {self._format_status_datetime(created_at)}"
 
-    def _display_content_text(self, day: dict[str, object]) -> str:
+    def _display_content_text(self, day: DayColumn) -> str:
         """Bereinigt Inhaltsanzeige um Linksyntax sowie Lerngruppe/Datum-Präfix."""
-        text = normalize_marker_text(str(day.get("inhalt", "")))
+        text = normalize_marker_text(day.inhalt)
         text = text.replace("[", "").replace("]", "").strip()
         text = re.sub(r"\s+", " ", text)
         if not text:
             return ""
 
         group = self.parse_group_token()
-        mmdd = parse_mmdd(str(day.get("datum", "")).strip())
+        mmdd = parse_mmdd(day.datum.strip())
         prefix = f"{group} {mmdd} "
         if text.lower().startswith(prefix.lower()):
             text = text[len(prefix) :].strip()

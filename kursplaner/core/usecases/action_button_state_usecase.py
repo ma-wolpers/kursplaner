@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.move_selected_columns_usecase import MoveSelectedColumnsUseCase
 
@@ -39,7 +40,7 @@ class ActionButtonStateUseCase:
         self.move_selected_columns = move_selected_columns
 
     @staticmethod
-    def _selected_index(selected_day_indices: set[int], day_columns: list[dict[str, object]]) -> int | None:
+    def _selected_index(selected_day_indices: set[int], day_columns: list[DayColumn]) -> int | None:
         """Liefert den Index bei genau einer gültigen Selektion, sonst `None`."""
         selected = sorted(idx for idx in selected_day_indices if 0 <= idx < len(day_columns))
         if len(selected) != 1:
@@ -50,7 +51,7 @@ class ActionButtonStateUseCase:
         self,
         *,
         selected_day_indices: set[int],
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         current_table: PlanTableData | None,
         clipboard_path: Path | None,
         is_detail_view: bool = True,
@@ -58,13 +59,13 @@ class ActionButtonStateUseCase:
         """Liefert den vollständigen Aktivierungszustand für Kontextaktionen."""
         selected = self._selected_index(selected_day_indices, day_columns)
         selected_day = day_columns[selected] if selected is not None else None
-        link = selected_day.get("link") if isinstance(selected_day, dict) else None
+        link = selected_day.link if selected_day is not None else None
 
         has_selection = selected_day is not None
         has_link = isinstance(link, Path) and link.exists() and link.is_file()
-        is_cancel = bool(selected_day.get("is_cancel", False)) if isinstance(selected_day, dict) else False
-        is_lzk = bool(selected_day.get("is_lzk", False)) if isinstance(selected_day, dict) else False
-        is_hospitation = bool(selected_day.get("is_hospitation", False)) if isinstance(selected_day, dict) else False
+        is_cancel = selected_day.is_cancel() if selected_day is not None else False
+        is_lzk = selected_day.is_lzk() if selected_day is not None else False
+        is_hospitation = selected_day.is_hospitation() if selected_day is not None else False
         can_act_on_lesson = has_selection and not is_cancel
 
         can_copy = can_act_on_lesson and has_link

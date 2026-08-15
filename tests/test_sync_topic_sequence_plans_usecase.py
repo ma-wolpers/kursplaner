@@ -1,9 +1,11 @@
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopicSequencePlansUseCase
 from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
+from tests.day_column_factory import make_day_column
 
 
 def _usecase(repo: FileSystemSequencePlanRepository) -> SyncTopicSequencePlansUseCase:
@@ -28,13 +30,18 @@ def _table(tmp_path: Path) -> PlanTableData:
     )
 
 
-def _day(*, row_index: int, kind: str, obert: str = "", datum: str = "", stunden: str = "", thema: str = ""):
-    return {
-        "row_index": row_index,
-        "datum": datum,
-        "stunden": stunden,
-        "yaml": {"Stundentyp": kind, "Oberthema": obert, "Stundenthema": thema},
-    }
+def _day(*, row_index: int, kind: str, obert: str = "", datum: str = "", thema: str = "") -> DayColumn:
+    """Baut eine `DayColumn` mit den in diesen Tests ausschließlich verwendeten "Unterricht"-Zeilen.
+
+    Ohne gültigen Link liefert `DayColumn.stundentyp()` immer ``"Unterricht"``
+    (siehe `day_column.py`), was hier genügt, da diese Testdatei nie andere
+    Stundentypen braucht.
+    """
+    return make_day_column(
+        row_index=row_index,
+        datum=datum,
+        yaml={"Stundentyp": kind, "Oberthema": obert, "Stundenthema": thema},
+    )
 
 
 def test_creates_sequence_file_only_for_runs_with_at_least_two_members(tmp_path):
@@ -99,8 +106,8 @@ def test_auto_sync_writes_export_table_without_manual_export(tmp_path):
     table = _table(tmp_path)
 
     day_columns = [
-        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
-        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", thema="Vigenere"),
     ]
 
     views = usecase.execute(table=table, day_columns=day_columns)
@@ -121,8 +128,8 @@ def test_cleared_oberthema_removes_unit_from_export_table(tmp_path):
     table = _table(tmp_path)
 
     day_columns = [
-        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
-        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", thema="Vigenere"),
     ]
     first_views = usecase.execute(table=table, day_columns=day_columns)
     sequence_path = first_views[0].sequence_path
@@ -133,8 +140,8 @@ def test_cleared_oberthema_removes_unit_from_export_table(tmp_path):
 
     # Oberthema der ersten Einheit wird gelöscht -> Lauf schrumpft auf 1 Mitglied.
     day_columns_after_clear = [
-        _day(row_index=0, kind="Unterricht", obert="", datum="13-02-26", stunden="2", thema="Caesar"),
-        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+        _day(row_index=0, kind="Unterricht", obert="", datum="13-02-26", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", thema="Vigenere"),
     ]
 
     views = usecase.execute(table=table, day_columns=day_columns_after_clear)
@@ -155,15 +162,15 @@ def test_cleared_oberthema_deletes_file_when_it_becomes_fully_trivial(tmp_path):
     table = _table(tmp_path)
 
     day_columns = [
-        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
-        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", thema="Vigenere"),
     ]
     first_views = usecase.execute(table=table, day_columns=day_columns)
     sequence_path = first_views[0].sequence_path
 
     day_columns_after_clear = [
-        _day(row_index=0, kind="Unterricht", obert="", datum="13-02-26", stunden="2", thema="Caesar"),
-        _day(row_index=1, kind="Unterricht", obert="", datum="20-02-26", stunden="2", thema="Vigenere"),
+        _day(row_index=0, kind="Unterricht", obert="", datum="13-02-26", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="", datum="20-02-26", thema="Vigenere"),
     ]
 
     views = usecase.execute(table=table, day_columns=day_columns_after_clear)
@@ -180,8 +187,8 @@ def test_sync_ignores_sequence_documents_whose_run_still_qualifies(tmp_path):
     table = _table(tmp_path)
 
     day_columns = [
-        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", stunden="2", thema="Caesar"),
-        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", stunden="2", thema="Vigenere"),
+        _day(row_index=0, kind="Unterricht", obert="Kodierung", datum="13-02-26", thema="Caesar"),
+        _day(row_index=1, kind="Unterricht", obert="Kodierung", datum="20-02-26", thema="Vigenere"),
     ]
 
     views = usecase.execute(table=table, day_columns=day_columns)

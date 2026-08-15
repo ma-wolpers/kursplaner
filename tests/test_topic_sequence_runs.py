@@ -3,6 +3,7 @@ from kursplaner.core.domain.topic_sequence_runs import (
     find_run_for_row_index,
     row_lesson_type,
 )
+from tests.day_column_factory import make_day_column
 
 
 def _day(*, row_index: int, kind: str, obert: str = "", group_name: str = ""):
@@ -10,17 +11,17 @@ def _day(*, row_index: int, kind: str, obert: str = "", group_name: str = ""):
 
     Ausfall-Tage haben in der echten Anwendung nie eine verlinkte Stundendatei
     (kein `[[Link]]` in der Planungstabelle) und tragen ihren Typ deshalb nur
-    über das `is_cancel`-Flag, nicht über `yaml.Stundentyp` — genau die Form,
-    die den ursprünglichen Bug (Ausfall bricht die Kette statt sie zu
-    überspringen) verursacht hat.
+    über den Thema/Ausfall-Textmarker, nicht über `yaml.Stundentyp` — genau
+    die Form, die den ursprünglichen Bug (Ausfall bricht die Kette statt sie
+    zu überspringen) verursacht hat.
     """
     if kind == "Ausfall":
-        return {"row_index": row_index, "yaml": {}, "is_cancel": True}
-    return {
-        "row_index": row_index,
-        "yaml": {"Stundentyp": kind, "Oberthema": obert},
-        "group_name": group_name,
-    }
+        return make_day_column(row_index=row_index, thema_ausfall="X Krank")
+    return make_day_column(
+        row_index=row_index,
+        yaml={"Stundentyp": kind, "Oberthema": obert},
+        group_name=group_name,
+    )
 
 
 def test_two_adjacent_units_with_same_oberthema_form_one_run():
@@ -91,11 +92,10 @@ def test_two_consecutive_ausfall_days_are_both_skipped():
     assert runs[0].member_row_indices == (0, 3)
 
 
-def test_row_lesson_type_recognizes_linkless_ausfall_via_is_cancel_flag():
+def test_row_lesson_type_recognizes_linkless_ausfall_via_marker():
     """Regressionstest: Ausfall-Tage ohne verlinkte Stundendatei (yaml={}) müssen
     trotzdem als "Ausfall" erkannt werden, nicht als leerer/unbekannter Typ."""
-    assert row_lesson_type({"is_cancel": True, "yaml": {}}) == "Ausfall"
-    assert row_lesson_type({"is_cancel": True}) == "Ausfall"
+    assert row_lesson_type(make_day_column(thema_ausfall="X Krank")) == "Ausfall"
 
 
 def test_hospitation_counts_as_chain_member():

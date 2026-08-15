@@ -1,8 +1,9 @@
-from pathlib import Path
 from types import SimpleNamespace
 
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
+from tests.day_column_factory import make_day_column
 
 
 def _make_app(field_mode_overrides: dict[str, frozenset[str]] | None = None) -> SimpleNamespace:
@@ -12,18 +13,28 @@ def _make_app(field_mode_overrides: dict[str, frozenset[str]] | None = None) -> 
     )
 
 
-def _linked_day(tmp_path) -> dict[str, object]:
-    link = tmp_path / "abc123.md"
+def _linked_day(tmp_path) -> DayColumn:
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir(exist_ok=True)
+    link = lesson_dir / "abc123.md"
     link.write_text("---\nStundentyp: Unterricht\nDauer: 2\nStundenthema: Thema\n---\n", encoding="utf-8")
-    return {"link": link, "is_cancel": False, "is_hospitation": False, "is_lzk": False}
+    return make_day_column(link=link, yaml={"Stundentyp": "Unterricht", "Stundenthema": "Thema"})
 
 
-def _unlinked_day() -> dict[str, object]:
-    return {"link": None}
+def _unlinked_day() -> DayColumn:
+    return make_day_column()
 
 
-def _unlinked_ausfall_day() -> dict[str, object]:
-    return {"link": None, "is_cancel": True}
+def _unlinked_ausfall_day() -> DayColumn:
+    return make_day_column(thema_ausfall="X Ausfall")
+
+
+def _linked_ausfall_day(tmp_path) -> DayColumn:
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir(exist_ok=True)
+    link = lesson_dir / "abc123.md"
+    link.write_text("---\nStundentyp: Unterricht\nDauer: 2\nStundenthema: Thema\n---\n", encoding="utf-8")
+    return make_day_column(link=link, thema_ausfall="X Ausfall", yaml={"Stundentyp": "Unterricht"})
 
 
 def test_unlinked_day_only_shows_inhalt_stunden_startzeit_and_oberthema():
@@ -91,8 +102,7 @@ def test_field_can_be_added_to_a_mode_it_is_not_part_of_by_default(tmp_path):
     Modus gezeigt werden, in dem es standardmäßig nicht vorkommt."""
     app = _make_app(field_mode_overrides={"Stundenziel": frozenset({RowDisplayModeUseCase.MODE_AUSFALL})})
     renderer = GridRenderer(app)
-    day = _linked_day(tmp_path)
-    day["is_cancel"] = True
+    day = _linked_ausfall_day(tmp_path)
 
     assert renderer._field_is_visible_for_day("Stundenziel", day) is True
 
@@ -100,8 +110,7 @@ def test_field_can_be_added_to_a_mode_it_is_not_part_of_by_default(tmp_path):
 def test_ausfallgrund_visible_on_ausfall_day_but_not_unterricht_day(tmp_path):
     app = _make_app()
     renderer = GridRenderer(app)
-    ausfall_day = _linked_day(tmp_path)
-    ausfall_day["is_cancel"] = True
+    ausfall_day = _linked_ausfall_day(tmp_path)
     unterricht_day = _linked_day(tmp_path)
 
     assert renderer._field_is_visible_for_day("Ausfallgrund", ausfall_day) is True

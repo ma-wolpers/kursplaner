@@ -1,6 +1,7 @@
 import pathlib
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import BwBaseWindow, ui  # noqa: F401,E402
@@ -110,7 +111,7 @@ class KursplanerApp(BwBaseWindow):
         self.sequence_field_widgets: dict[tuple[str, int], ui.Text] = {}
 
         self.current_table: PlanTableData | None = None
-        self.day_columns: list[dict[str, object]] = []
+        self.day_columns: list[DayColumn] = []
         self.day_column_x_positions: dict[int, int] = {}
         self.lesson_load_errors: dict[str, str] = {}
         self._plan_overview_query = self.gui_dependencies.plan_overview_query
@@ -128,7 +129,7 @@ class KursplanerApp(BwBaseWindow):
         )
         self.course_overview_highlight_days = load_course_overview_highlight_days()
         self.show_former_courses = False
-        self.raw_day_columns: list[dict[str, object]] = []
+        self.raw_day_columns: list[DayColumn] = []
 
         self.cell_widgets: dict[tuple[str, int], ui.Text] = {}
         self.header_labels: dict[int, ui.Label] = {}
@@ -452,7 +453,7 @@ class KursplanerApp(BwBaseWindow):
         """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle."""
         self.overview_controller.collect_day_columns()
 
-    def _field_value(self, day: dict[str, object], field_key: str) -> str:
+    def _field_value(self, day: DayColumn, field_key: str) -> str:
         """Liefert den darzustellenden Zellwert für ein Feld aus `day_columns`."""
         return self.lesson_context_controller.field_value(day, field_key)
 

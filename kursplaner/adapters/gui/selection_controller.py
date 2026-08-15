@@ -6,6 +6,7 @@ from bw_gui.theming import theme_label_tinted, theme_label_token
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
+from kursplaner.core.domain.day_column import DayColumn
 
 
 class MainWindowSelectionController:
@@ -127,10 +128,10 @@ class MainWindowSelectionController:
             return
         day = self.app.day_columns[day_index]
         is_selected = day_index in self.app.selected_day_indices
-        is_cancel = bool(day.get("is_cancel"))
-        is_unresolved_link = bool(day.get("is_unresolved_link"))
-        is_hospitation = bool(day.get("is_hospitation"))
-        is_lzk = bool(day.get("is_lzk"))
+        is_cancel = day.is_cancel()
+        is_unresolved_link = day.is_unresolved_link()
+        is_hospitation = day.is_hospitation()
+        is_lzk = day.is_lzk()
         if is_selected:
             label.configure(borderwidth=2, relief="raised")
             theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
@@ -303,9 +304,9 @@ class MainWindowSelectionController:
 
         self.app.viewport_sync.yview_moveto(target_start)
 
-    def _is_occurring_column(self, day: dict[str, object]) -> bool:
+    def _is_occurring_column(self, day: DayColumn) -> bool:
         """Prüft, ob eine Spalte als stattfindende Einheit navigierbar ist."""
-        return not bool(day.get("is_cancel", False))
+        return not day.is_cancel()
 
     def move_selection_to_adjacent_occurring(self, direction: int) -> bool:
         """Navigiert mit +/-1 zur nächsten stattfindenden Einheit und fokussiert sie."""
@@ -339,7 +340,7 @@ class MainWindowSelectionController:
         if not (0 <= idx < len(self.app.day_columns)):
             self.app.selected_column_var.set("Ausgewählte Spalte: keine")
             return
-        datum = self._format_short_date(str(self.app.day_columns[idx].get("datum", "")).strip()) or "?"
+        datum = self._format_short_date(self.app.day_columns[idx].datum.strip()) or "?"
         self.app.selected_column_var.set(f"Ausgewählte Spalte: {datum}")
 
     @staticmethod
@@ -368,10 +369,10 @@ class MainWindowSelectionController:
                 continue
             day = self.app.day_columns[day_index]
             is_selected = day_index in self.app.selected_day_indices
-            is_cancel = bool(day.get("is_cancel"))
-            is_unresolved_link = bool(day.get("is_unresolved_link"))
-            is_hospitation = bool(day.get("is_hospitation"))
-            is_lzk = bool(day.get("is_lzk"))
+            is_cancel = day.is_cancel()
+            is_unresolved_link = day.is_unresolved_link()
+            is_hospitation = day.is_hospitation()
+            is_lzk = day.is_lzk()
             if is_selected:
                 label.configure(borderwidth=2, relief="raised")
                 theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")

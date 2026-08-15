@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
+
 RowDef = tuple[str, str]
 
 
@@ -135,15 +137,15 @@ class RowDisplayModeUseCase:
         return self.default_modes_for_field(field_key)
 
     @staticmethod
-    def infer_day_mode(day: dict[str, object] | None) -> str:
+    def infer_day_mode(day: DayColumn | None) -> str:
         """Leitet den fachlich passenden Modus aus einer Tages-Spalte ab."""
-        if not isinstance(day, dict):
+        if not isinstance(day, DayColumn):
             return RowDisplayModeUseCase.MODE_UNTERRICHT
-        if bool(day.get("is_cancel", False)):
+        if day.is_cancel():
             return RowDisplayModeUseCase.MODE_AUSFALL
-        if bool(day.get("is_hospitation", False)):
+        if day.is_hospitation():
             return RowDisplayModeUseCase.MODE_HOSPITATION
-        if bool(day.get("is_lzk", False)):
+        if day.is_lzk():
             return RowDisplayModeUseCase.MODE_LZK
         return RowDisplayModeUseCase.MODE_UNTERRICHT
 
@@ -151,7 +153,7 @@ class RowDisplayModeUseCase:
         self,
         *,
         selected_day_indices: set[int],
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         fallback_mode: str | None,
     ) -> str:
         """Bestimmt den passenden Modus anhand der aktuellen Selektion."""
@@ -175,16 +177,14 @@ class RowDisplayModeUseCase:
         }
 
     def field_is_relevant_for_day(
-        self, field_key: str, day: dict[str, object], settings: "RowFilterSettings | None" = None
+        self, field_key: str, day: DayColumn, settings: "RowFilterSettings | None" = None
     ) -> bool:
         """Prüft, ob ein Feld zur fachlichen Art einer Spalte passt."""
         mode = self.infer_day_mode(day)
         if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
             if mode != self.MODE_UNTERRICHT:
                 return False
-            yaml_obj = day.get("yaml") if isinstance(day, dict) else None
-            yaml_data = yaml_obj if isinstance(yaml_obj, dict) else {}
-            ub_link = str(yaml_data.get("Unterrichtsbesuch", "")).strip()
+            ub_link = str(day.yaml.get("Unterrichtsbesuch", "")).strip()
             return bool(ub_link)
         return mode in self.effective_modes_for_field(field_key, settings)
 
@@ -227,7 +227,7 @@ class RowDisplayModeUseCase:
         return [(k, seen[k][0], " ".join(seen[k][1])) for k in order]
 
     @staticmethod
-    def is_linked_day(day: dict[str, object]) -> bool:
+    def is_linked_day(day: DayColumn) -> bool:
         """Prüft, ob eine Spalte auf eine existierende, verlinkte Stunden-Datei zeigt.
 
         Einzige Quelle der Wahrheit für diese Prüfung; vorher unabhängig in
@@ -235,12 +235,10 @@ class RowDisplayModeUseCase:
         dupliziert, was u. a. dazu führte, dass "Inhalt" bei unverlinkten
         Tagen den Zeilenfilter umgehen konnte.
         """
-        link_obj = day.get("link") if isinstance(day, dict) else None
+        link_obj = day.link
         return isinstance(link_obj, Path) and link_obj.exists() and link_obj.is_file()
 
-    def is_editable(
-        self, field_key: str, day: dict[str, object], settings: "RowFilterSettings | None" = None
-    ) -> bool:
+    def is_editable(self, field_key: str, day: DayColumn, settings: "RowFilterSettings | None" = None) -> bool:
         """Ermittelt fachlich, ob ein Feld für eine Spalte editierbar sein darf.
 
         Oberthema ist als einziges Feld auch ohne verlinkte Stunden-Datei
@@ -251,7 +249,7 @@ class RowDisplayModeUseCase:
         """
         if field_key in {"datum", "stunden", "startzeit", "inhalt", "thema/ausfall", "Ausfallgrund"}:
             return False
-        if field_key == "Kompetenzhorizont" and bool(day.get("is_lzk", False)):
+        if field_key == "Kompetenzhorizont" and day.is_lzk():
             return False
         if not self.field_is_relevant_for_day(field_key, day, settings):
             return False

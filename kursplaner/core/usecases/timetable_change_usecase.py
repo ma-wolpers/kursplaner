@@ -6,6 +6,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.content_markers import is_ferien_marker
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, active_weekdays, hours_for_date
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import parse_plan_row_date
 from kursplaner.core.domain.planner import PlanRow, generate_rows
 from kursplaner.core.ports.repositories import CalendarRepository
@@ -15,25 +16,22 @@ from kursplaner.core.ports.repositories import CalendarRepository
 # ---------------------------------------------------------------------------
 
 
-def column_is_ferien(day: dict[str, object]) -> bool:
-    """Ferientag/Feiertag: Zeile traegt einen Ferien-Marker (siehe `content_markers.is_ferien_marker`).
-
-    Wraps the day-dict lookup to avoid inline heuristics at call sites.
-    """
-    return bool(day.get("is_ferien", False))
+def column_is_ferien(day: DayColumn) -> bool:
+    """Ferientag/Feiertag: Zeile traegt einen Ferien-Marker (siehe `content_markers.is_ferien_marker`)."""
+    return day.is_ferien()
 
 
-def column_is_manual_ausfall(day: dict[str, object]) -> bool:
+def column_is_manual_ausfall(day: DayColumn) -> bool:
     """Manuell markierter Ausfall: is_cancel True, aber keine Ferien.
 
     Distinct from Ferien. Use for week-comparison logic.
     """
-    return not column_is_ferien(day) and bool(day.get("is_cancel", False))
+    return not column_is_ferien(day) and day.is_cancel()
 
 
-def column_is_stattfindend(day: dict[str, object]) -> bool:
+def column_is_stattfindend(day: DayColumn) -> bool:
     """Stattfindende Einheit: nicht storniert (weder Ferien noch manueller Ausfall)."""
-    return not bool(day.get("is_cancel", False))
+    return not day.is_cancel()
 
 
 def _new_row_is_ferien(row: PlanRow) -> bool:
@@ -80,11 +78,11 @@ class DraftSlot:
 class TimetableChangeResult:
     """Rückgabe von TimetableChangeUseCase.compute().
 
-    old_units: gefilterte day_column-Dicts im gewählten Datumsbereich
+    old_units: gefilterte DayColumn-Einträge im gewählten Datumsbereich
     draft_slots: vorgeschlagene neue Planung (editierbar im Dialog)
     """
 
-    old_units: list[dict[str, object]]
+    old_units: list[DayColumn]
     draft_slots: list[DraftSlot]
 
 
@@ -107,7 +105,7 @@ class TimetableChangeUseCase:
     def compute(
         self,
         *,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         date_from: date,
         date_to: date,
         new_rhythm: tuple[WeekdayRhythm, ...],
@@ -138,23 +136,21 @@ class TimetableChangeUseCase:
 
     def _filter_old_units(
         self,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         date_from: date,
         date_to: date,
-    ) -> list[dict[str, object]]:
+    ) -> list[DayColumn]:
         """Filtert day_columns auf den gegebenen Datumsbereich."""
         result = []
         for day in day_columns:
-            d = parse_plan_row_date(str(day.get("datum", "")))
+            d = parse_plan_row_date(day.datum)
             if d is None:
                 continue
             if date_from <= d <= date_to:
                 result.append(day)
         return result
 
-    def _collect_ausfall_weeks(
-        self, old_units: list[dict[str, object]]
-    ) -> set[tuple[int, int]]:
+    def _collect_ausfall_weeks(self, old_units: list[DayColumn]) -> set[tuple[int, int]]:
         """Sammelt ISO-Kalenderwochen, in denen ein manueller Ausfall liegt.
 
         Gibt ein Set von (year, isoweek)-Tupeln zurück.
@@ -163,7 +159,7 @@ class TimetableChangeUseCase:
         for day in old_units:
             if not column_is_manual_ausfall(day):
                 continue
-            d = parse_plan_row_date(str(day.get("datum", "")))
+            d = parse_plan_row_date(day.datum)
             if d is None:
                 continue
             iso = d.isocalendar()
@@ -172,7 +168,7 @@ class TimetableChangeUseCase:
 
     def _build_draft_slots(
         self,
-        old_units: list[dict[str, object]],
+        old_units: list[DayColumn],
         new_rows: list[PlanRow],
         weeks_with_manual_ausfall: set[tuple[int, int]],
         new_rhythm: tuple[WeekdayRhythm, ...],
@@ -184,11 +180,7 @@ class TimetableChangeUseCase:
         noch nicht angelegter Einheiten, siehe `DraftSlot`) alter stattfindender
         Einheiten.
         """
-        pending_contents = [
-            (str(day.get("inhalt", "")), str(day.get("thema_ausfall", "")))
-            for day in old_units
-            if column_is_stattfindend(day)
-        ]
+        pending_contents = [(day.inhalt, day.thema_ausfall) for day in old_units if column_is_stattfindend(day)]
 
         slots: list[DraftSlot] = []
         content_index = 0

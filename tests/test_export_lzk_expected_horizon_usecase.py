@@ -8,6 +8,7 @@ from kursplaner.core.usecases.export_expected_horizon_usecase import (
 )
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
+from tests.day_column_factory import make_day_column
 
 
 class _LessonRepoStub:
@@ -79,7 +80,7 @@ def test_execute_exports_md_and_pdf_and_updates_lesson_link(tmp_path):
 
     result = usecase.execute(
         table=_table(course_dir / "kurs.md"),
-        day_columns=[{"is_lzk": True, "row_index": 0, "link": lesson_path}],
+        day_columns=[make_day_column(row_index=0, link=lesson_path, yaml={"Stundentyp": "LZK"})],
         selected_day_index=0,
         export_date=date(2026, 4, 2),
         created_at=datetime(2026, 4, 2, 13, 15, 0),
@@ -143,32 +144,27 @@ def test_lzk_export_uses_same_markdown_merge_behavior_for_overwrite(tmp_path):
     )
 
     day_columns = [
-        {
-            "row_index": 0,
-            "datum": "02-04-26",
-            "Stundentyp": "Unterricht",
-            "yaml": {
+        make_day_column(
+            row_index=0,
+            datum="02-04-26",
+            yaml={
                 "Stundentyp": "Unterricht",
                 "Oberthema": "Mengen & Folgen",
                 "Stundenziel": "Mengen beschreiben",
                 "Teilziele": [],
             },
-            "is_lzk": False,
-            "link": None,
-        },
-        {
-            "row_index": 1,
-            "datum": "09-04-26",
-            "Stundentyp": "LZK",
-            "yaml": {
+        ),
+        make_day_column(
+            row_index=1,
+            datum="09-04-26",
+            link=lesson_path,
+            yaml={
                 "Stundentyp": "LZK",
                 "Oberthema": "Mengen & Folgen",
                 "Stundenziel": "LZK Sortieren",
                 "Teilziele": [],
             },
-            "is_lzk": True,
-            "link": lesson_path,
-        },
+        ),
     ]
 
     result = usecase.execute(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, TypeVar
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
 
@@ -40,7 +41,7 @@ class TrackedWriteUseCase:
         self,
         *,
         table: PlanTableData | None,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_day_indices: set[int],
         extra_paths: list[Path] | None = None,
     ) -> dict[Path, str | None]:
@@ -50,8 +51,7 @@ class TrackedWriteUseCase:
             files.append(table.markdown_path.resolve())
             selected = sorted(idx for idx in selected_day_indices if 0 <= idx < len(day_columns))
             for idx in selected:
-                day = day_columns[idx]
-                link = day.get("link") if isinstance(day, dict) else None
+                link = day_columns[idx].link
                 if isinstance(link, Path):
                     files.append(link.resolve())
 
@@ -64,7 +64,7 @@ class TrackedWriteUseCase:
         label: str,
         action: Callable[[], TActionResult],
         table: PlanTableData | None,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_day_indices: set[int],
         before_state: dict[Path, str | None] | None = None,
         extra_before: list[Path] | None = None,

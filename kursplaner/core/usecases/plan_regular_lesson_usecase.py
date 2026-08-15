@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.course_rhythm import parse_lesson_hours
-from kursplaner.core.domain.plan_table import PlanTableData, read_yaml_oberthema
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
@@ -97,16 +97,16 @@ class PlanRegularLessonUseCase:
         self,
         *,
         table: PlanTableData,
-        day: dict[str, object],
+        day: DayColumn,
         unterricht_dir: Path,
     ) -> RegularLessonDialogContext:
         """Bereitet alle fachlichen Dialog-Eingaben für "Einheit planen" vor."""
-        row_index = int(day.get("row_index", 0))
-        was_lzk = bool(day.get("is_lzk", False))
-        current_topic = str(day.get("Stundenthema", "")).strip()
-        content_before = str(day.get("inhalt", "")).strip()
-        stunden_raw = str(day.get("stunden", "")).strip()
-        date_label = str(day.get("datum", "")).strip()
+        row_index = day.row_index
+        was_lzk = day.is_lzk()
+        current_topic = str(day.yaml.get("Stundenthema", "")).strip()
+        content_before = day.inhalt.strip()
+        stunden_raw = str(day.stunden())
+        date_label = day.datum.strip()
 
         link = self.resolve_existing_link(table, row_index)
         has_existing_link = self.has_existing_link(link)
@@ -117,14 +117,7 @@ class PlanRegularLessonUseCase:
             subject_name,
         )
 
-        yaml_obj = day.get("yaml")
-        yaml_data = yaml_obj if isinstance(yaml_obj, dict) else {}
-        group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
-        oberthema_initial = (
-            read_yaml_oberthema(yaml_data, group_name)
-            or str(day.get("plan_oberthema", "")).strip()
-            or self.lesson_context_query.last_oberthema_before_row(table, row_index)
-        )
+        oberthema_initial = day.oberthema() or self.lesson_context_query.last_oberthema_before_row(table, row_index)
 
         return RegularLessonDialogContext(
             row_index=row_index,

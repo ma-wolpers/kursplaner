@@ -6,6 +6,7 @@ from bw_gui.runtime import ui
 from bw_gui.theming import theme_label_token
 
 from kursplaner.adapters.gui.ui_intents import UiIntent
+from kursplaner.core.domain.day_column import DayColumn
 
 CreateTextCell = Callable[..., ui.Text]
 
@@ -64,16 +65,12 @@ class SequenceFieldGridRenderer:
         row_index_to_grid_col: dict[int, int] = {}
         grid_col_is_cancel: dict[int, bool] = {}
         for day_index, day in enumerate(self.app.day_columns):
-            if not isinstance(day, dict):
-                continue
-            try:
-                stable_row_index = int(day.get("row_index", -1))
-            except (TypeError, ValueError):
+            if not isinstance(day, DayColumn):
                 continue
             grid_col = day_grid_columns.get(day_index)
             if grid_col is not None:
-                row_index_to_grid_col[stable_row_index] = grid_col
-                grid_col_is_cancel[grid_col] = bool(day.get("is_cancel", False))
+                row_index_to_grid_col[day.row_index] = grid_col
+                grid_col_is_cancel[grid_col] = day.is_cancel()
 
         for field_key, label_text in (("Sequenzziel", "Sequenzziel"), ("Leitkompetenz", "Leitkompetenz")):
             row_idx = self._render_one_row(

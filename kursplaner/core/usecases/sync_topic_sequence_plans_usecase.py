@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
     EXPORT_TABLE_HEADERS,
@@ -91,9 +92,7 @@ class SyncTopicSequencePlansUseCase:
         self._sequence_plan_repo = sequence_plan_repo
         self._sequence_export_sync = sequence_export_sync
 
-    def execute(
-        self, *, table: PlanTableData, day_columns: list[dict[str, object]]
-    ) -> list[TopicSequencePlanView]:
+    def execute(self, *, table: PlanTableData, day_columns: list[DayColumn]) -> list[TopicSequencePlanView]:
         """Berechnet Sequenz-Läufe und synchronisiert deren Dateien.
 
         Args:

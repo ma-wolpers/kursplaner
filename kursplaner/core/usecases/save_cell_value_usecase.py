@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_naming import row_mmdd
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
@@ -176,7 +177,7 @@ class SaveCellValueUseCase:
         self,
         *,
         field_key: str,
-        day: dict[str, object],
+        day: DayColumn,
         row_filter_settings: RowFilterSettings | None = None,
     ) -> SaveCellRuntimeContext:
         """Prüft fachliche Editierbarkeit und liefert Laufzeitdaten für den Save-Flow."""
@@ -200,12 +201,8 @@ class SaveCellValueUseCase:
                 message_text=None,
             )
 
-        link_obj = day.get("link")
-        raw_row_index = day.get("row_index", 0)
-        try:
-            row_index = int(raw_row_index)
-        except (TypeError, ValueError):
-            row_index = 0
+        link_obj = day.link
+        row_index = day.row_index
         has_known_lesson = self.row_display_mode_usecase.is_linked_day(day)
         if not has_known_lesson:
             if field_key == "Oberthema":

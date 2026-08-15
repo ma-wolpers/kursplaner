@@ -5,6 +5,7 @@ from kursplaner.adapters.gui.main_window import KursplanerApp
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
+from tests.day_column_factory import make_day_column
 
 
 class _ActionControllerSpy:
@@ -263,7 +264,7 @@ def test_toolbar_move_columns_intent_normalizes_direction_and_delegates():
 
 def test_toolbar_ausfall_intent_marks_ausfall_for_non_cancel_selection():
     app = _build_dummy_app()
-    app.day_columns = [{"is_cancel": False}]
+    app.day_columns = [make_day_column()]
     app._get_single_selected_or_warn = lambda: 0
 
     KursplanerApp._handle_ui_intent(app, UiIntent.TOOLBAR_AUSFALL)
@@ -274,7 +275,7 @@ def test_toolbar_ausfall_intent_marks_ausfall_for_non_cancel_selection():
 
 def test_toolbar_ausfall_intent_restores_cancel_selection():
     app = _build_dummy_app()
-    app.day_columns = [{"is_cancel": True}]
+    app.day_columns = [make_day_column(thema_ausfall="X Ausfall")]
     app._get_single_selected_or_warn = lambda: 0
 
     KursplanerApp._handle_ui_intent(app, UiIntent.TOOLBAR_AUSFALL)
@@ -644,7 +645,7 @@ def test_ctrl_enter_column_shortcut_routes_to_unterricht_for_regular_column():
     app.is_detail_view = True
     app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
     app.focus_get = lambda: None
-    app.day_columns = [{"is_cancel": False, "is_hospitation": False, "is_lzk": False}]
+    app.day_columns = [make_day_column()]
     app._get_single_selected_or_warn = lambda: 0
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
@@ -658,7 +659,7 @@ def test_ctrl_enter_column_shortcut_routes_to_ausfall_for_cancel_column():
     app.is_detail_view = True
     app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
     app.focus_get = lambda: None
-    app.day_columns = [{"is_cancel": True, "is_hospitation": False, "is_lzk": False}]
+    app.day_columns = [make_day_column(thema_ausfall="X Ausfall")]
     app._get_single_selected_or_warn = lambda: 0
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
@@ -667,12 +668,16 @@ def test_ctrl_enter_column_shortcut_routes_to_ausfall_for_cancel_column():
     assert app.lesson_conversion_controller.calls == ["convert_selected_to_ausfall"]
 
 
-def test_ctrl_enter_column_shortcut_routes_to_hospitation():
+def test_ctrl_enter_column_shortcut_routes_to_hospitation(tmp_path):
     app = _build_dummy_app()
     app.is_detail_view = True
     app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
     app.focus_get = lambda: None
-    app.day_columns = [{"is_cancel": False, "is_hospitation": True, "is_lzk": False}]
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir()
+    link = lesson_dir / "hospitation.md"
+    link.write_text("---\nStundentyp: Hospitation\n---\n", encoding="utf-8")
+    app.day_columns = [make_day_column(link=link, yaml={"Stundentyp": "Hospitation"})]
     app._get_single_selected_or_warn = lambda: 0
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
@@ -681,12 +686,16 @@ def test_ctrl_enter_column_shortcut_routes_to_hospitation():
     assert app.lesson_conversion_controller.calls == ["convert_selected_to_hospitation"]
 
 
-def test_ctrl_enter_column_shortcut_routes_to_lzk():
+def test_ctrl_enter_column_shortcut_routes_to_lzk(tmp_path):
     app = _build_dummy_app()
     app.is_detail_view = True
     app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
     app.focus_get = lambda: None
-    app.day_columns = [{"is_cancel": False, "is_hospitation": False, "is_lzk": True}]
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir()
+    link = lesson_dir / "lzk.md"
+    link.write_text("---\nStundentyp: LZK\n---\n", encoding="utf-8")
+    app.day_columns = [make_day_column(link=link, yaml={"Stundentyp": "LZK"})]
     app._get_single_selected_or_warn = lambda: 0
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)

@@ -2,7 +2,9 @@ from types import SimpleNamespace
 
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
+from tests.day_column_factory import make_day_column
 
 
 class _Var:
@@ -112,17 +114,15 @@ class _RowDisplayModeUseCaseStub:
     def __init__(self, editable_cells: set[tuple[str, int]]):
         self._editable_cells = set(editable_cells)
 
-    def is_editable(
-        self, field_key: str, day: dict[str, object], _settings: RowFilterSettings | None = None
-    ) -> bool:
-        return (field_key, int(day.get("index", -1))) in self._editable_cells
+    def is_editable(self, field_key: str, day: DayColumn, _settings: RowFilterSettings | None = None) -> bool:
+        return (field_key, day.row_index) in self._editable_cells
 
 
 class _SelectionAppStub(SimpleNamespace):
     def __init__(
         self,
         *,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         row_defs: list[tuple[str, str]],
         editable_cells: set[tuple[str, int]],
         row_filter_settings: RowFilterSettings | None = None,
@@ -156,13 +156,13 @@ class _SelectionAppStub(SimpleNamespace):
     def _refresh_grid_content(self):
         self.refresh_calls += 1
 
-    def _is_holiday_column(self, _day: dict[str, object]) -> bool:
+    def _is_holiday_column(self, _day: DayColumn) -> bool:
         return False
 
 
 def test_select_first_editable_in_selected_column_skips_non_editable_fields():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("inhalt", "Inhalt"), ("stunden", "Wie lange"), ("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0)},
     )
@@ -180,7 +180,7 @@ def test_select_first_editable_in_selected_column_skips_non_editable_fields():
 
 def test_vertical_cell_navigation_skips_non_editable_rows():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("inhalt", "Inhalt"), ("Stundenthema", "Thema"), ("Kompetenzen", "Kompetenzen")],
         editable_cells={("Stundenthema", 0), ("Kompetenzen", 0)},
     )
@@ -197,9 +197,9 @@ def test_vertical_cell_navigation_skips_non_editable_rows():
 def test_horizontal_cell_navigation_skips_non_matching_columns():
     app = _SelectionAppStub(
         day_columns=[
-            {"index": 0, "datum": "2026-03-27"},
-            {"index": 1, "datum": "2026-03-28"},
-            {"index": 2, "datum": "2026-03-29"},
+            make_day_column(row_index=0, datum="2026-03-27"),
+            make_day_column(row_index=1, datum="2026-03-28"),
+            make_day_column(row_index=2, datum="2026-03-29"),
         ],
         row_defs=[("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0), ("Stundenthema", 2)},
@@ -216,7 +216,7 @@ def test_horizontal_cell_navigation_skips_non_matching_columns():
 
 def test_move_selected_cell_to_edge_selects_first_and_last_editable_field():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("inhalt", "Inhalt"), ("Stundenthema", "Thema"), ("Kompetenzen", "Kompetenzen")],
         editable_cells={("Stundenthema", 0), ("Kompetenzen", 0)},
     )
@@ -237,9 +237,9 @@ def test_move_selected_cell_to_edge_selects_first_and_last_editable_field():
 def test_set_edge_column_selection_selects_first_and_last_column():
     app = _SelectionAppStub(
         day_columns=[
-            {"index": 0, "datum": "2026-03-27"},
-            {"index": 1, "datum": "2026-03-28"},
-            {"index": 2, "datum": "2026-03-29"},
+            make_day_column(row_index=0, datum="2026-03-27"),
+            make_day_column(row_index=1, datum="2026-03-28"),
+            make_day_column(row_index=2, datum="2026-03-29"),
         ],
         row_defs=[("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0), ("Stundenthema", 1), ("Stundenthema", 2)},
@@ -257,9 +257,9 @@ def test_set_edge_column_selection_selects_first_and_last_column():
 def test_move_selection_to_adjacent_occurring_does_not_skip_non_cancel_holiday_column():
     app = _SelectionAppStub(
         day_columns=[
-            {"index": 0, "datum": "2026-03-27", "inhalt": "[[Thema A]]", "is_cancel": False},
-            {"index": 1, "datum": "2026-03-28", "inhalt": "Ferien", "stunden": "0", "is_cancel": False},
-            {"index": 2, "datum": "2026-03-29", "inhalt": "[[Thema B]]", "is_cancel": False},
+            make_day_column(row_index=0, datum="2026-03-27", inhalt="[[Thema A]]"),
+            make_day_column(row_index=1, datum="2026-03-28", inhalt="Ferien"),
+            make_day_column(row_index=2, datum="2026-03-29", inhalt="[[Thema B]]"),
         ],
         row_defs=[("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0), ("Stundenthema", 1), ("Stundenthema", 2)},
@@ -275,7 +275,7 @@ def test_move_selection_to_adjacent_occurring_does_not_skip_non_cancel_holiday_c
 
 def test_vertical_navigation_scrolls_selected_cell_into_view():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("Stundenthema", "Thema"), ("Kompetenzen", "Kompetenzen")],
         editable_cells={("Stundenthema", 0), ("Kompetenzen", 0)},
     )
@@ -293,7 +293,7 @@ def test_vertical_navigation_scrolls_selected_cell_into_view():
 
 def test_move_selected_cell_to_edge_scrolls_selected_cell_into_view():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("Stundenthema", "Thema"), ("Kompetenzen", "Kompetenzen")],
         editable_cells={("Stundenthema", 0), ("Kompetenzen", 0)},
     )
@@ -311,7 +311,7 @@ def test_move_selected_cell_to_edge_scrolls_selected_cell_into_view():
 
 def test_select_first_editable_in_selected_column_scrolls_into_view():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("inhalt", "Inhalt"), ("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0)},
     )
@@ -328,7 +328,7 @@ def test_select_first_editable_in_selected_column_scrolls_into_view():
 
 def test_set_selected_cell_does_not_scroll_when_cell_already_visible():
     app = _SelectionAppStub(
-        day_columns=[{"index": 0, "datum": "2026-03-27"}],
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
         row_defs=[("Stundenthema", "Thema")],
         editable_cells={("Stundenthema", 0)},
     )

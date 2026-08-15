@@ -9,6 +9,7 @@ from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicUnitsPdfUseCase, TopicUnitsPdfDocument
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
+from tests.day_column_factory import make_day_column
 
 
 class _RendererSpy:
@@ -35,6 +36,7 @@ def _table(tmp_path: Path) -> PlanTableData:
 
 
 def _day(
+    tmp_path: Path,
     *,
     row_index: int,
     datum: str = "01-09-25",
@@ -48,25 +50,28 @@ def _day(
     """Baut einen Tages-Eintrag in der jeweils realistischen Form.
 
     Ausfall-Tage haben in der echten Anwendung keine verlinkte Stundendatei,
-    daher bleibt `yaml` leer und der Typ ergibt sich nur aus `is_cancel`
-    (siehe `row_lesson_type()`), nicht aus `yaml.Stundentyp`.
+    daher bleibt `yaml` leer und der Typ ergibt sich nur aus dem
+    Thema/Ausfall-Textmarker (siehe `row_lesson_type()`), nicht aus
+    `yaml.Stundentyp`. LZK/Hospitation brauchen dagegen einen echten,
+    existierenden Link in einem verwalteten Einheitenverzeichnis, da
+    `DayColumn.stundentyp()` nur darüber auflöst (siehe
+    `is_valid_unterricht_file`).
     """
-    if kind == "Ausfall":
-        return {"row_index": row_index, "datum": datum, "stunden": stunden, "yaml": {}, "is_cancel": True}
-    return {
-        "row_index": row_index,
-        "datum": datum,
-        "stunden": stunden,
-        "yaml": {
-            "Stundentyp": kind,
-            "Oberthema": obert,
-            "Stundenthema": thema,
-            "Stundenziel": ziel,
-            "Kompetenzen": kompetenzen or [],
-        },
-        "link": Path(f"unit-{row_index}.md"),
-        "is_cancel": False,
+    yaml_data = {
+        "Stundentyp": kind,
+        "Oberthema": obert,
+        "Stundenthema": thema,
+        "Stundenziel": ziel,
+        "Kompetenzen": kompetenzen or [],
     }
+    if kind == "Ausfall":
+        return make_day_column(row_index=row_index, datum=datum, thema_ausfall="X Ausfall")
+
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir(exist_ok=True)
+    link = lesson_dir / f"unit-{row_index}.md"
+    link.write_text(f"---\nStundentyp: {kind}\n---\n", encoding="utf-8")
+    return make_day_column(row_index=row_index, datum=datum, link=link, yaml=yaml_data)
 
 
 def _make_usecase() -> tuple[ExportTopicUnitsPdfUseCase, _RendererSpy]:
@@ -81,9 +86,9 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
 
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
-            stunden="2",
             kind="Unterricht",
             obert="Algorithmen",
             thema="Sortieren",
@@ -91,9 +96,9 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
             kompetenzen=["PK1", "PK2"],
         ),
         _day(
+            tmp_path,
             row_index=1,
             datum="08-09-25",
-            stunden="1",
             kind="LZK",
             obert="Algorithmen",
             thema="LZK Sortieren",
@@ -101,9 +106,9 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
             kompetenzen=["PK3"],
         ),
         _day(
+            tmp_path,
             row_index=2,
             datum="15-09-25",
-            stunden="2",
             kind="Unterricht",
             obert="Datenbanken",
             thema="SQL Einstieg",
@@ -143,9 +148,9 @@ def test_export_title_uses_requested_halfyear_format(tmp_path):
     usecase, _renderer = _make_usecase()
 
     day_columns = [
-        _day(row_index=0, datum="01-09-25", stunden="1", kind="Unterricht", obert="Thema A", thema="A1"),
-        _day(row_index=1, datum="08-09-25", stunden="1", kind="Unterricht", obert="Thema B", thema="B1"),
-        _day(row_index=2, datum="15-09-25", stunden="1", kind="LZK", obert="Thema C", thema="C1"),
+        _day(tmp_path, row_index=0, datum="01-09-25", kind="Unterricht", obert="Thema A", thema="A1"),
+        _day(tmp_path, row_index=1, datum="08-09-25", kind="Unterricht", obert="Thema B", thema="B1"),
+        _day(tmp_path, row_index=2, datum="15-09-25", kind="LZK", obert="Thema C", thema="C1"),
     ]
 
     result = usecase.execute(
@@ -163,7 +168,7 @@ def test_export_rejects_selection_without_oberthema(tmp_path):
     usecase, _renderer = _make_usecase()
 
     day_columns = [
-        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="", thema="Sortieren"),
+        _day(tmp_path, row_index=0, datum="01-09-25", kind="Unterricht", obert="", thema="Sortieren"),
     ]
 
     with pytest.raises(RuntimeError, match="kein Oberthema"):
@@ -180,9 +185,9 @@ def test_export_does_not_merge_non_adjacent_occurrences_of_same_oberthema(tmp_pa
     usecase, renderer = _make_usecase()
 
     day_columns = [
-        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Funktionen", thema="Einstieg"),
-        _day(row_index=1, datum="08-09-25", stunden="2", kind="Unterricht", obert="Geometrie", thema="Dreiecke"),
-        _day(row_index=2, datum="15-09-25", stunden="2", kind="Unterricht", obert="Funktionen", thema="Vertiefung"),
+        _day(tmp_path, row_index=0, datum="01-09-25", kind="Unterricht", obert="Funktionen", thema="Einstieg"),
+        _day(tmp_path, row_index=1, datum="08-09-25", kind="Unterricht", obert="Geometrie", thema="Dreiecke"),
+        _day(tmp_path, row_index=2, datum="15-09-25", kind="Unterricht", obert="Funktionen", thema="Vertiefung"),
     ]
 
     result = usecase.execute(
@@ -202,9 +207,9 @@ def test_export_includes_hospitation_in_chain_but_not_as_table_row(tmp_path):
     usecase, renderer = _make_usecase()
 
     day_columns = [
-        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Optik", thema="Linsen"),
-        _day(row_index=1, datum="08-09-25", stunden="2", kind="Hospitation", obert="Optik", thema="Hospitation"),
-        _day(row_index=2, datum="15-09-25", stunden="2", kind="Unterricht", obert="Optik", thema="Brennweite"),
+        _day(tmp_path, row_index=0, datum="01-09-25", kind="Unterricht", obert="Optik", thema="Linsen"),
+        _day(tmp_path, row_index=1, datum="08-09-25", kind="Hospitation", obert="Optik", thema="Hospitation"),
+        _day(tmp_path, row_index=2, datum="15-09-25", kind="Unterricht", obert="Optik", thema="Brennweite"),
     ]
 
     result = usecase.execute(
@@ -224,9 +229,9 @@ def test_export_ausfall_does_not_break_the_chain(tmp_path):
     usecase, _renderer = _make_usecase()
 
     day_columns = [
-        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Chemie", thema="Saeuren"),
-        _day(row_index=1, datum="08-09-25", stunden="2", kind="Ausfall"),
-        _day(row_index=2, datum="15-09-25", stunden="2", kind="Unterricht", obert="Chemie", thema="Basen"),
+        _day(tmp_path, row_index=0, datum="01-09-25", kind="Unterricht", obert="Chemie", thema="Saeuren"),
+        _day(tmp_path, row_index=1, datum="08-09-25", kind="Ausfall"),
+        _day(tmp_path, row_index=2, datum="15-09-25", kind="Unterricht", obert="Chemie", thema="Basen"),
     ]
 
     result = usecase.execute(
@@ -245,8 +250,8 @@ def test_export_updates_sequence_file_export_table(tmp_path):
     table = _table(tmp_path)
 
     day_columns = [
-        _day(row_index=0, datum="01-09-25", stunden="2", kind="Unterricht", obert="Mechanik", thema="Kraft"),
-        _day(row_index=1, datum="08-09-25", stunden="2", kind="Unterricht", obert="Mechanik", thema="Impuls"),
+        _day(tmp_path, row_index=0, datum="01-09-25", kind="Unterricht", obert="Mechanik", thema="Kraft"),
+        _day(tmp_path, row_index=1, datum="08-09-25", kind="Unterricht", obert="Mechanik", thema="Impuls"),
     ]
 
     result = usecase.execute(

@@ -7,7 +7,6 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,
 )
-from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 
 
 class MainWindowEditorController:
@@ -74,7 +73,7 @@ class MainWindowEditorController:
         )
         stundenziel_initial = self.app._field_value(day, "Stundenziel")
 
-        date_label = str(day.get("datum", "")).strip()
+        date_label = day.datum.strip()
         if field_key == "Stundenziel":
             selection = ask_lesson_stundenziel_selection(
                 parent=self.app,
@@ -119,12 +118,12 @@ class MainWindowEditorController:
             return None
 
         day = self.app.day_columns[day_index]
-        existing = day.get("link")
+        existing = day.link
         if isinstance(existing, pathlib.Path) and existing.exists():
             return existing
 
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
-        default_hours = parse_lesson_hours(day.get("stunden"))
+        row_index = day.row_index
+        default_hours = day.stunden()
 
         topic = preferred_topic.strip() or "Unterrichtseinheit"
 
@@ -177,7 +176,7 @@ class MainWindowEditorController:
             return
 
         day = self.app.day_columns[day_index]
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
+        row_index = day.row_index
 
         header_map = {name.lower(): idx for idx, name in enumerate(self.app.current_table.headers)}
         idx_inhalt = header_map.get("inhalt")
@@ -188,7 +187,7 @@ class MainWindowEditorController:
         # Delegate full save flow to SaveCellValueUseCase which encapsulates
         # validation, YAML-updates, renaming and plan persistence.
         day = self.app.day_columns[day_index]
-        link_obj = day.get("link")
+        link_obj = day.link
         lesson_path = link_obj if isinstance(link_obj, pathlib.Path) else None
 
         edit_plan = self.save_cell_value.build_edit_plan(

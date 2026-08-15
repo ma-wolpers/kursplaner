@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository
 
@@ -63,17 +64,17 @@ class CleanupLzkExpectedHorizonLinksUseCase:
         self,
         *,
         table: PlanTableData,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
     ) -> CleanupLzkExpectedHorizonLinksResult:
         course_dir = table.markdown_path.parent.resolve()
         cleared_links = 0
         repaired_timestamps = 0
 
         for day in day_columns:
-            if not bool(day.get("is_lzk", False)):
+            if not day.is_lzk():
                 continue
 
-            lesson_path = day.get("link")
+            lesson_path = day.link
             if not isinstance(lesson_path, Path) or not lesson_path.exists() or not lesson_path.is_file():
                 continue
 

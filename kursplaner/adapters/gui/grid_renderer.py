@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
@@ -77,7 +78,7 @@ class GridRenderer:
         """Liefert die Darstellungsreihenfolge aus sichtbaren Tagen und Marker-Lücken."""
         items: list[dict[str, object]] = []
         for day_index, day in enumerate(self.app.day_columns):
-            hidden_before = day.get("hidden_kinds_before", ()) if isinstance(day, dict) else ()
+            hidden_before = day.hidden_kinds_before if isinstance(day, DayColumn) else ()
             if isinstance(hidden_before, (tuple, list)) and hidden_before:
                 items.append({"type": "marker", "kinds": tuple(str(kind) for kind in hidden_before)})
             items.append({"type": "day", "day_index": day_index})
@@ -100,14 +101,14 @@ class GridRenderer:
         if day_index >= len(self.app.day_columns):
             return "", "normal"
         day = self.app.day_columns[day_index]
-        date_text = self._format_header_date(str(day.get("datum", "")))
-        if bool(day.get("is_cancel")):
+        date_text = self._format_header_date(day.datum)
+        if day.is_cancel():
             return date_text, "cancel"
-        if bool(day.get("is_hospitation")):
+        if day.is_hospitation():
             return date_text, "hospitation"
-        if bool(day.get("is_lzk")):
+        if day.is_lzk():
             return date_text, "lzk"
-        if bool(day.get("is_unresolved_link")):
+        if day.is_unresolved_link():
             return f"{date_text} ⚠", "unresolved"
         return date_text, "normal"
 
@@ -126,9 +127,7 @@ class GridRenderer:
 
     def _apply_ub_border(self, widget: ui.Widget, day_index: int) -> None:
         """Setzt UB-Akzentrahmen oder neutralen Rahmen auf einem Widget."""
-        is_ub = 0 <= day_index < len(self.app.day_columns) and bool(
-            self.app.day_columns[day_index].get("is_ub", False)
-        )
+        is_ub = 0 <= day_index < len(self.app.day_columns) and self.app.day_columns[day_index].is_ub()
         if is_ub:
             theme_widget_border(widget, color_token="accent", thickness=2)
         else:
@@ -247,7 +246,7 @@ class GridRenderer:
         else:
             self._row_layout_cache.pop(field_key, None)
 
-    def _field_is_visible_for_day(self, field_key: str, day: dict[str, object]) -> bool:
+    def _field_is_visible_for_day(self, field_key: str, day: DayColumn) -> bool:
         """Bestimmt, ob ein Feld für eine Spalte als Widget aufgebaut werden soll.
 
         Der Modus-Check (inkl. Zeilenfilter-Overrides) muss auch für den
@@ -312,7 +311,7 @@ class GridRenderer:
             theme_widget_border(widget, color_token="selection_bg", thickness=2)
             widget.configure(borderwidth=2, relief="solid")
             return
-        is_ub = 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub"))
+        is_ub = 0 <= day_index < len(self.app.day_columns) and self.app.day_columns[day_index].is_ub()
         self._apply_ub_border(widget, day_index)
         widget.configure(borderwidth=2 if is_ub else 1, relief="solid")
 
@@ -463,7 +462,7 @@ class GridRenderer:
             if day_index < 0:
                 continue
             header_text, col_type = self._header_visual_state(day_index)
-            is_ub = bool(self.app.day_columns[day_index].get("is_ub", False))
+            is_ub = self.app.day_columns[day_index].is_ub()
 
             header = ui.Label(
                 self.app.header_inner,
@@ -520,10 +519,10 @@ class GridRenderer:
             for day_index, day in enumerate(self.app.day_columns):
                 if not self._field_is_visible_for_day(field_key, day):
                     continue
-                is_cancel = bool(day.get("is_cancel", False))
-                is_unresolved_link = bool(day.get("is_unresolved_link", False))
-                is_lzk = bool(day.get("is_lzk", False))
-                is_hospitation = bool(day.get("is_hospitation", False))
+                is_cancel = day.is_cancel()
+                is_unresolved_link = day.is_unresolved_link()
+                is_lzk = day.is_lzk()
+                is_hospitation = day.is_hospitation()
                 editable = self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings)
                 canceled_visual = is_cancel and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
 
@@ -616,7 +615,7 @@ class GridRenderer:
         if label is None:
             return
         text, col_type = self._header_visual_state(day_index)
-        is_ub = 0 <= day_index < len(self.app.day_columns) and bool(self.app.day_columns[day_index].get("is_ub", False))
+        is_ub = 0 <= day_index < len(self.app.day_columns) and self.app.day_columns[day_index].is_ub()
         label.configure(text=text, borderwidth=2 if is_ub else 1)
         self._apply_header_color(label, col_type)
         self._apply_ub_border(label, day_index)
@@ -630,19 +629,19 @@ class GridRenderer:
         row_height, _collapsible, _expanded, _label_text = self._row_layout(field_key)
         day = self.app.day_columns[day_index]
         editable = self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings)
-        canceled_visual = bool(day.get("is_cancel", False)) and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
+        canceled_visual = day.is_cancel() and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
         value = self.app._field_value(day, field_key)
         self._apply_cell_state(
             cell,
             text=value,
             editable=editable,
             canceled=canceled_visual,
-            unresolved_link=bool(day.get("is_unresolved_link", False)),
+            unresolved_link=day.is_unresolved_link(),
             row_height=row_height,
-            is_lzk=bool(day.get("is_lzk", False)),
-            is_hospitation=bool(day.get("is_hospitation", False)),
+            is_lzk=day.is_lzk(),
+            is_hospitation=day.is_hospitation(),
             lzk_masked=False,
-            italic=(field_key == "Kompetenzhorizont" and bool(day.get("is_lzk", False))),
+            italic=(field_key == "Kompetenzhorizont" and day.is_lzk()),
         )
         self._apply_cell_selection_style(cell, field_key=field_key, day_index=day_index)
         if sync_row_style:

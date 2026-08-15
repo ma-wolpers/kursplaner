@@ -6,6 +6,7 @@ from pathlib import Path
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
+from tests.day_column_factory import make_day_column
 
 
 def _table() -> PlanTableData:
@@ -21,21 +22,22 @@ def _table() -> PlanTableData:
     )
 
 
-def _day(*, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilziele: list[str]):
-    return {
-        "row_index": row_index,
-        "datum": datum,
-        "stunden": "1",
-        "Stundentyp": kind,
-        "yaml": {
+def _day(tmp_path, *, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilziele: list[str]):
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir(exist_ok=True)
+    link = lesson_dir / f"unit-{row_index}.md"
+    link.write_text(f"---\nStundentyp: {kind}\n---\n", encoding="utf-8")
+    return make_day_column(
+        row_index=row_index,
+        datum=datum,
+        link=link,
+        yaml={
             "Stundentyp": kind,
             "Oberthema": obert,
             "Stundenziel": ziel,
             "Teilziele": teilziele,
         },
-        "link": Path(f"A:/7thCloud/unit-{row_index}.md"),
-        "is_cancel": False,
-    }
+    )
 
 
 def test_expected_horizon_markdown_uses_swapped_headings_and_bold_main_goals(tmp_path: Path):
@@ -44,6 +46,7 @@ def test_expected_horizon_markdown_uses_swapped_headings_and_bold_main_goals(tmp
 
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -92,6 +95,7 @@ def test_markdown_renderer_merges_existing_scores_and_marks_removed_rows(tmp_pat
     usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -135,6 +139,7 @@ def test_markdown_renderer_merge_is_idempotent_on_repeated_export(tmp_path: Path
     usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -187,6 +192,7 @@ def test_markdown_renderer_merges_colliding_goal_texts_by_date_and_goal_key(tmp_
     usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -195,6 +201,7 @@ def test_markdown_renderer_merges_colliding_goal_texts_by_date_and_goal_key(tmp_
             teilziele=[],
         ),
         _day(
+            tmp_path,
             row_index=1,
             datum="08-09-25",
             kind="Unterricht",
@@ -238,6 +245,7 @@ def test_markdown_renderer_keeps_old_rows_order_and_inserts_new_rows_above_ancho
     usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -246,6 +254,7 @@ def test_markdown_renderer_keeps_old_rows_order_and_inserts_new_rows_above_ancho
             teilziele=[],
         ),
         _day(
+            tmp_path,
             row_index=1,
             datum="05-09-25",
             kind="Unterricht",
@@ -254,6 +263,7 @@ def test_markdown_renderer_keeps_old_rows_order_and_inserts_new_rows_above_ancho
             teilziele=[],
         ),
         _day(
+            tmp_path,
             row_index=2,
             datum="08-09-25",
             kind="Unterricht",

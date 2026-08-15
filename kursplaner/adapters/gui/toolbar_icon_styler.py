@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
@@ -158,10 +159,9 @@ class ToolbarIconStyler:
             idx = selected[0]
             if 0 <= idx < len(day_columns):
                 day = day_columns[idx]
-                yaml_data = day.get("yaml") if isinstance(day, dict) else {}
-                if isinstance(yaml_data, dict):
-                    mark_ub_remove_mode = bool(str(yaml_data.get("Unterrichtsbesuch", "")).strip())
-                ausfall_resume_mode = bool(day.get("is_cancel", False)) if isinstance(day, dict) else False
+                if isinstance(day, DayColumn):
+                    mark_ub_remove_mode = bool(str(day.yaml.get("Unterrichtsbesuch", "")).strip())
+                    ausfall_resume_mode = day.is_cancel()
 
         for spec in TOOLBAR_ACTIONS:
             button = buttons.get(spec.key)

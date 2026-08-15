@@ -41,6 +41,21 @@ def managed_lesson_dir_names() -> tuple[str, ...]:
     return _MANAGED_DIRS
 
 
+def is_valid_unterricht_link(link: Path | None) -> bool:
+    """Prüft, ob ein Link auf eine verwaltete, tatsächlich existierende Stunden-Datei zeigt.
+
+    Args:
+        link: Aufgelöster Pfad einer verlinkten Stunden-Datei, oder ``None``.
+
+    Returns:
+        ``True``, wenn ``link`` existiert, eine Datei ist und in einem
+        verwalteten Einheitenverzeichnis liegt (siehe `is_lesson_dir_name`).
+    """
+    if not (isinstance(link, Path) and link.exists() and link.is_file()):
+        return False
+    return is_lesson_dir_name(link.parent.name)
+
+
 def resolve_lesson_dir(plan_dir: Path, *, create_if_missing: bool = False) -> Path:
     """Resolves the managed lesson directory for a plan (`Einheiten`)."""
     primary = plan_dir / LESSON_DIR_PRIMARY

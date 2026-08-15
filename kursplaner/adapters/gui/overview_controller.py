@@ -5,6 +5,7 @@ import re
 from datetime import date, datetime
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
@@ -77,7 +78,7 @@ class MainWindowOverviewController:
             screen_builder.refresh_course_overview_toolbar()
         self.refresh_overview()
 
-    def _project_visible_day_columns(self, raw_day_columns: list[dict[str, object]]) -> list[dict[str, object]]:
+    def _project_visible_day_columns(self, raw_day_columns: list[DayColumn]) -> list[DayColumn]:
         """Projiziert Tages-Spalten nach aktiven Sichtbarkeits-/Marker-Regeln."""
         projection = self.column_visibility_projection_usecase.project(
             day_columns=raw_day_columns,

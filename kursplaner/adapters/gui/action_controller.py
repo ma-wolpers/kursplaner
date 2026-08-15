@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from datetime import date
@@ -417,10 +418,8 @@ class MainWindowActionController:
             return
         selected_index, row_index, day = context
 
-        lesson_yaml = day.get("yaml") if isinstance(day, dict) else {}
-        ub_link = ""
-        if isinstance(lesson_yaml, dict):
-            ub_link = str(lesson_yaml.get("Unterrichtsbesuch", "")).strip()
+        lesson_yaml = day.yaml
+        ub_link = str(lesson_yaml.get("Unterrichtsbesuch", "")).strip()
 
         workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
 
@@ -781,7 +780,7 @@ class MainWindowActionController:
         if context is None:
             return
         _, _, day = context
-        if bool(day.get("is_cancel", False)):
+        if day.is_cancel():
             self.restore_selected_from_cancel_action()
             return
         self.mark_selected_as_ub()
@@ -940,15 +939,14 @@ class MainWindowActionController:
         except Exception as exc:
             messagebox.showerror("Lesson-Index", f"Rebuild fehlgeschlagen:\n{exc}", parent=self.app)
 
-    def _single_selection_context(self) -> tuple[int, int, dict[str, object]] | None:
+    def _single_selection_context(self) -> tuple[int, int, DayColumn] | None:
         if self.app.current_table is None:
             return None
         selected_index = self.app._get_single_selected_or_warn()
         if selected_index is None:
             return None
         day = self.app.day_columns[selected_index]
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
-        return selected_index, row_index, day
+        return selected_index, day.row_index, day
 
     def _refresh_after_write(self, *, selected_index: int | None = None) -> None:
         self.app._collect_day_columns()
@@ -1072,7 +1070,7 @@ class MainWindowActionController:
                 idx = selected_indices[0]
                 if 0 <= idx < len(day_columns):
                     day = day_columns[idx]
-                    if bool(day.get("is_cancel", False)):
+                    if day.is_cancel():
                         text = "Nimmt Ausfall zurück und gibt die Einheit wieder frei. - Strg+Q"
             ausfall_tooltip.text = str(text).strip()
 
@@ -1606,10 +1604,8 @@ class MainWindowActionController:
         selected_index, row_index, day = context
 
         workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
-        lesson_yaml = day.get("yaml") if isinstance(day, dict) else {}
-        ub_link = ""
-        if isinstance(lesson_yaml, dict):
-            ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
+        lesson_yaml = day.yaml
+        ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
 
         confirmed = messagebox.askyesno(
             "Einheit löschen",
@@ -1708,7 +1704,7 @@ class MainWindowActionController:
 
         desired_stem = self.app.lesson_context_controller.build_regular_stem(
             new_title,
-            str(day.get("datum", "")).strip(),
+            day.datum.strip(),
         )
 
         result = self._run_tracked_write(
@@ -1742,7 +1738,7 @@ class MainWindowActionController:
             return
         selected_index, row_index, day = context
 
-        if not bool(day.get("is_cancel", False)):
+        if not day.is_cancel():
             messagebox.showinfo("Ausfall zurücknehmen", "Die ausgewählte Spalte ist kein Ausfall.", parent=self.app)
             return
 

@@ -92,7 +92,7 @@ class MainWindowUiIntentController:
             if selected_index < 0 or selected_index >= len(day_columns):
                 return None
             day = day_columns[selected_index]
-            if bool(day.get("is_cancel", False)):
+            if day.is_cancel():
                 self.app.action_controller.restore_selected_from_cancel_action()
             else:
                 self.app.lesson_conversion_controller.convert_selected_to_ausfall()
@@ -529,13 +529,13 @@ class MainWindowUiIntentController:
             return None
 
         day = day_columns[selected_index]
-        if bool(day.get("is_cancel", False)):
+        if day.is_cancel():
             self.app.lesson_conversion_controller.convert_selected_to_ausfall(from_column_shortcut=True)
             return "break"
-        if bool(day.get("is_hospitation", False)):
+        if day.is_hospitation():
             self.app.lesson_conversion_controller.convert_selected_to_hospitation(from_column_shortcut=True)
             return "break"
-        if bool(day.get("is_lzk", False)):
+        if day.is_lzk():
             self.app.lesson_conversion_controller.convert_selected_to_lzk(from_column_shortcut=True)
             return "break"
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
@@ -40,7 +41,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         master,
         *,
         table: PlanTableData,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         calendar_dir: Path,
         timetable_change_uc: TimetableChangeUseCase,
         on_accept: Callable[[date, date, list[DraftSlot], tuple[WeekdayRhythm, ...]], None],
@@ -70,7 +71,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._calendar_dir = calendar_dir
         self._timetable_change_uc = timetable_change_uc
         self._on_accept = on_accept
-        self._old_units: list[dict[str, object]] = []
+        self._old_units: list[DayColumn] = []
         self._draft_slots: list[DraftSlot] = []
         self._undo_stack: list[list[DraftSlot]] = []
         self._date_from: date | None = None
@@ -262,12 +263,12 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         """Befüllt den linken Treeview mit den alten Planzeilen."""
         self._left_tree.delete(*self._left_tree.get_children())
         for day in self._old_units:
-            datum_str = self._fmt_datum(str(day.get("datum", "")))
+            datum_str = self._fmt_datum(day.datum)
             if column_is_stattfindend(day):
                 art = ""
             else:
                 art = "Ausfall" if column_is_manual_ausfall(day) else "Ferien"
-            inhalt = strip_wiki_link(str(day.get("inhalt", "")))
+            inhalt = strip_wiki_link(day.inhalt)
             tag = "cancel" if not column_is_stattfindend(day) else ""
             self._left_tree.insert("", "end", values=(datum_str, art, inhalt), tags=(tag,))
 

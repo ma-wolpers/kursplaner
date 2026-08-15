@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.topic_sequence_runs import row_oberthema
 
 
@@ -25,7 +26,7 @@ class ColumnVisibilitySettings:
 class ColumnVisibilityProjectionResult:
     """Ergebnis der Projektion für die Detailansicht."""
 
-    visible_day_columns: list[dict[str, object]]
+    visible_day_columns: list[DayColumn]
 
 
 class ColumnVisibilityProjectionUseCase:
@@ -40,11 +41,11 @@ class ColumnVisibilityProjectionUseCase:
     def project(
         self,
         *,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         settings: ColumnVisibilitySettings,
     ) -> ColumnVisibilityProjectionResult:
         """Filtert Spaltenarten und markiert ausgeblendete Läufe für die Anzeige."""
-        visible: list[dict[str, object]] = []
+        visible: list[DayColumn] = []
         pending_hidden_kinds: list[str] = []
 
         for day in day_columns:
@@ -54,27 +55,25 @@ class ColumnVisibilityProjectionUseCase:
                     pending_hidden_kinds.append(kind)
                 continue
 
-            projected_day = dict(day)
-            projected_day["hidden_kinds_before"] = tuple(pending_hidden_kinds)
+            visible.append(day.with_hidden_kinds_before(tuple(pending_hidden_kinds)))
             pending_hidden_kinds = []
-            visible.append(projected_day)
 
         return ColumnVisibilityProjectionResult(visible_day_columns=visible)
 
     @classmethod
-    def _kind_for_day(cls, day: dict[str, object]) -> str:
-        if bool(day.get("is_cancel", False)):
+    def _kind_for_day(cls, day: DayColumn) -> str:
+        if day.is_cancel():
             return cls.KIND_AUSFALL
-        if bool(day.get("is_hospitation", False)):
+        if day.is_hospitation():
             return cls.KIND_HOSPITATION
-        if bool(day.get("is_lzk", False)):
+        if day.is_lzk():
             return cls.KIND_LZK
         if cls._is_empty_day(day):
             return cls.KIND_LEER
         return cls.KIND_UNTERRICHT
 
     @staticmethod
-    def _is_empty_day(day: dict[str, object]) -> bool:
+    def _is_empty_day(day: DayColumn) -> bool:
         """Prüft, ob eine Tages-Spalte als `KIND_LEER` gilt.
 
         Eine Spalte ist nur dann leer, wenn sie weder Inhalt, Link, YAML-Payload
@@ -82,12 +81,9 @@ class ColumnVisibilityProjectionUseCase:
         damit noch nicht angelegte Einheiten, die in der Plantabelle bereits einem
         Oberthema zugeordnet sind, nicht fälschlich als leer gefiltert werden.
         """
-        inhalt = str(day.get("inhalt", "")).strip()
-        has_link = day.get("link") is not None
-        yaml_obj = day.get("yaml")
-        has_yaml_payload = isinstance(yaml_obj, dict) and bool(yaml_obj)
+        has_yaml_payload = bool(day.yaml)
         has_oberthema = bool(row_oberthema(day))
-        return not inhalt and not has_link and not has_yaml_payload and not has_oberthema
+        return not day.inhalt.strip() and day.link is None and not has_yaml_payload and not has_oberthema
 
     @classmethod
     def _is_hidden(cls, kind: str, settings: ColumnVisibilitySettings) -> bool:

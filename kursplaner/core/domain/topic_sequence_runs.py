@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.export_date_formatting import format_day_date
-from kursplaner.core.domain.plan_table import read_yaml_oberthema
 
 ELIGIBLE_SEQUENCE_TYPES = frozenset({"Unterricht", "LZK", "Hospitation"})
 """Stundentypen, die selbst ein Oberthema tragen und Teil einer Sequenz sein können."""
@@ -33,15 +33,15 @@ EXPORT_TABLE_HEADERS: tuple[str, ...] = ("Datum", "Std.", "Thema", "Stundenziel"
 """Spaltenüberschriften der Sequenz-Export-Tabelle (manueller Export und Auto-Sync)."""
 
 
-def row_lesson_type(day: dict[str, object]) -> str:
+def row_lesson_type(day: DayColumn) -> str:
     """Liest den Stundentyp einer Tages-Spalte.
 
-    Bevorzugt den `Stundentyp` aus den YAML-Daten der verlinkten Stundendatei.
-    Ausfall-Tage haben jedoch nie eine verlinkte Datei (`yaml` bleibt `{}`) und
-    werden stattdessen über das Marker-Flag `is_cancel` erkannt; Hospitation
-    kann ebenso ohne Link vorkommen (`is_hospitation`-Marker). Dieser Fallback
-    spiegelt exakt die Ableitung aus `RowDisplayModeUseCase.infer_day_mode()`,
-    damit beide Stellen für dieselbe Spalte immer denselben Typ ermitteln.
+    Bevorzugt `day.stundentyp()` (YAML-Typ der verlinkten Stundendatei).
+    Ausfall-Tage haben jedoch nie eine verlinkte Datei und werden stattdessen
+    über `day.is_cancel()` erkannt; Hospitation kann ebenso ohne Link
+    vorkommen (`day.is_hospitation()`). Dieser Fallback spiegelt exakt die
+    Ableitung aus `RowDisplayModeUseCase.infer_day_mode()`, damit beide
+    Stellen für dieselbe Spalte immer denselben Typ ermitteln.
 
     Args:
         day: Eintrag aus einer Tagesliste (z. B. `raw_day_columns`), wie sie
@@ -51,34 +51,17 @@ def row_lesson_type(day: dict[str, object]) -> str:
         Der Stundentyp-Text (z. B. ``"Unterricht"``) oder ein leerer String,
         wenn die Spalte keinem bekannten Typ zugeordnet werden kann.
     """
-    yaml_data = day.get("yaml")
-    if isinstance(yaml_data, dict):
-        lesson_type = str(yaml_data.get("Stundentyp", "")).strip()
-        if lesson_type:
-            return lesson_type
-    if bool(day.get("is_cancel", False)):
+    if day.is_cancel():
         return "Ausfall"
-    if bool(day.get("is_hospitation", False)):
+    if day.is_hospitation():
         return "Hospitation"
-    if bool(day.get("is_lzk", False)):
+    if day.is_lzk():
         return "LZK"
-    return str(day.get("Stundentyp", "")).strip()
+    return day.stundentyp()
 
 
-def row_oberthema(day: dict[str, object]) -> str:
-    """Liest das Oberthema einer Tages-Spalte.
-
-    Bevorzugt das YAML-Feld `Oberthema` der verlinkten Stunden-Datei (das Feld
-    darf bewusst als Wiki-Link gespeichert sein, siehe
-    `plan_table.read_yaml_oberthema` — liefert den entschlüsselten
-    Anzeige-/Vergleichstext, damit Klartext- und Link-Schreibweise desselben
-    Themas als eine Kette erkannt werden). Existiert noch keine verlinkte
-    Datei (leere/ungeplante Einheit), fällt die Erkennung auf
-    `day["plan_oberthema"]` zurück — das aus der rohen `Thema/Ausfall`-Spalte
-    der Plantabelle geparste (bereits entschlüsselte) Oberthema (siehe
-    `load_plan_detail_usecase.build_day_columns`/`plan_table.extract_plan_oberthema`).
-    Damit zählen auch noch nicht angelegte Einheiten, die in der Plantabelle
-    bereits einem Oberthema zugeordnet sind, als Kettenmitglied.
+def row_oberthema(day: DayColumn) -> str:
+    """Liest das Oberthema einer Tages-Spalte (siehe `DayColumn.oberthema`).
 
     Args:
         day: Eintrag aus einer Tagesliste (z. B. `raw_day_columns`).
@@ -87,20 +70,7 @@ def row_oberthema(day: dict[str, object]) -> str:
         Der getrimmte, entschlüsselte Oberthema-Text oder ein leerer String,
         wenn keines gesetzt ist.
     """
-    yaml_data = day.get("yaml")
-    if isinstance(yaml_data, dict):
-        oberthema = read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
-        if oberthema:
-            return oberthema
-    return str(day.get("plan_oberthema", "")).strip()
-
-
-def _row_index(day: dict[str, object]) -> int:
-    """Liest den stabilen, absoluten Zeilenindex einer Tages-Spalte."""
-    try:
-        return int(day.get("row_index", 0))  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 0
+    return day.oberthema()
 
 
 @dataclass(frozen=True)
@@ -108,7 +78,7 @@ class TopicSequenceRun:
     """Eine erkannte Kette benachbarter Einheiten mit gemeinsamem Oberthema.
 
     `member_row_indices` referenziert die stabilen, absoluten Zeilenindizes
-    (`day["row_index"]`) der Kettenmitglieder in chronologischer Reihenfolge.
+    (`day.row_index`) der Kettenmitglieder in chronologischer Reihenfolge.
     Diese Indizes sind unabhängig von aktuellen Sichtbarkeits-Projektionen des
     Grids und bleiben über Spalten-Ein-/Ausblenden hinweg stabil.
     """
@@ -132,7 +102,7 @@ class TopicSequenceRun:
         return self.member_row_indices[-1]
 
 
-def compute_topic_sequence_runs(raw_day_columns: list[dict[str, object]]) -> list[TopicSequenceRun]:
+def compute_topic_sequence_runs(raw_day_columns: list[DayColumn]) -> list[TopicSequenceRun]:
     """Berechnet alle Themen-Sequenz-Läufe innerhalb einer chronologischen Tagesliste.
 
     Iteriert einmal linear über `raw_day_columns` und verfolgt eine laufende Kette:
@@ -159,7 +129,7 @@ def compute_topic_sequence_runs(raw_day_columns: list[dict[str, object]]) -> lis
             runs.append(TopicSequenceRun(oberthema=current_oberthema, member_row_indices=tuple(current_members)))
 
     for day in raw_day_columns:
-        if not isinstance(day, dict):
+        if not isinstance(day, DayColumn):
             _flush()
             current_oberthema, current_members = None, []
             continue
@@ -179,11 +149,11 @@ def compute_topic_sequence_runs(raw_day_columns: list[dict[str, object]]) -> lis
             continue
 
         if oberthema == current_oberthema:
-            current_members.append(_row_index(day))
+            current_members.append(day.row_index)
             continue
 
         _flush()
-        current_oberthema, current_members = oberthema, [_row_index(day)]
+        current_oberthema, current_members = oberthema, [day.row_index]
 
     _flush()
     return runs
@@ -224,9 +194,7 @@ def _format_competencies_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def build_export_rows_for_run(
-    day_columns: list[dict[str, object]], run: TopicSequenceRun
-) -> list[TopicUnitExportRow]:
+def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRun) -> list[TopicUnitExportRow]:
     """Baut die Exportzeilen ausschließlich aus den Mitgliedern eines Sequenz-Laufs.
 
     Hospitations-Einheiten zählen als Kettenmitglied (siehe
@@ -249,28 +217,20 @@ def build_export_rows_for_run(
     member_row_indices = set(run.member_row_indices)
     rows: list[TopicUnitExportRow] = []
     for day in day_columns:
-        if not isinstance(day, dict):
+        if not isinstance(day, DayColumn):
             continue
-        try:
-            row_index = int(day.get("row_index", -1))  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            continue
-        if row_index not in member_row_indices:
+        if day.row_index not in member_row_indices:
             continue
         if row_lesson_type(day) not in EXPORTABLE_LESSON_TYPES:
             continue
 
-        yaml_data = day.get("yaml")
-        if not isinstance(yaml_data, dict):
-            continue
-
         rows.append(
             TopicUnitExportRow(
-                datum=format_day_date(day.get("datum", "")),
-                stunden=str(day.get("stunden", "")).strip(),
-                thema=str(yaml_data.get("Stundenthema", "")).strip(),
-                stundenziel=str(yaml_data.get("Stundenziel", "")).strip(),
-                prozesskompetenzen=_format_competencies_text(yaml_data.get("Kompetenzen", [])),
+                datum=format_day_date(day.datum),
+                stunden=str(day.stunden()),
+                thema=str(day.yaml.get("Stundenthema", "")).strip(),
+                stundenziel=str(day.yaml.get("Stundenziel", "")).strip(),
+                prozesskompetenzen=_format_competencies_text(day.yaml.get("Kompetenzen", [])),
             )
         )
     return rows

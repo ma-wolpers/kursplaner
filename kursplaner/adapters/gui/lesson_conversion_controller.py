@@ -14,8 +14,8 @@ from kursplaner.core.config.path_store import (
     infer_workspace_root_from_path,
 )
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
-from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 from kursplaner.core.domain.course_subject import normalize_course_subject
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import read_yaml_oberthema
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
@@ -289,7 +289,7 @@ class MainWindowLessonConversionController:
             return cleaned[len("ausfall") :].strip(" :\t")
         return cleaned
 
-    def _unterricht_prefill_values(self, *, day: dict[str, object], row_index: int) -> dict[str, object]:
+    def _unterricht_prefill_values(self, *, day: DayColumn, row_index: int) -> dict[str, object]:
         current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
         topic_initial = current_topic or "Unterrichtseinheit"
         oberthema_initial = (
@@ -332,13 +332,13 @@ class MainWindowLessonConversionController:
         if selected_index is None:
             return
         day = self.app.day_columns[selected_index]
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
+        row_index = day.row_index
 
         link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
         if isinstance(link, pathlib.Path) and link.exists():
             confirm = messagebox.askyesno(
                 "In Ausfall umwandeln",
-                f"Soll die verlinkte Stunden-Datei für {day.get('datum', '')} gelöscht werden?",
+                f"Soll die verlinkte Stunden-Datei für {day.datum} gelöscht werden?",
                 parent=self.app,
             )
             if confirm:
@@ -349,7 +349,7 @@ class MainWindowLessonConversionController:
 
         initial_reason = ""
         if from_column_shortcut:
-            initial_reason = self._prefill_ausfall_reason_from_content(day.get("inhalt", ""))
+            initial_reason = self._prefill_ausfall_reason_from_content(day.inhalt)
         reason = simpledialog.askstring(
             "Fällt aus",
             "Grund für den Ausfall:",
@@ -374,10 +374,10 @@ class MainWindowLessonConversionController:
             return
 
         day = self.app.day_columns[selected_index]
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
+        row_index = day.row_index
         was_lzk = self.app._is_lzk_row(row_index)
         current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
-        content_before = str(day.get("inhalt", "")).strip()
+        content_before = day.inhalt.strip()
         topic = current_topic or "Unterrichtseinheit"
         oberthema_input = ""
         stundenziel_input = ""
@@ -403,7 +403,7 @@ class MainWindowLessonConversionController:
             ub_sections = self._lesson_builder_ub_sections()
             builder = ask_lesson_builder(
                 parent=self.app,
-                date_label=str(day.get("datum", "")).strip(),
+                date_label=day.datum.strip(),
                 topic_initial=topic,
                 oberthema_initial=oberthema_input,
                 kompetenzen_options=kompetenzen_options,
@@ -435,7 +435,7 @@ class MainWindowLessonConversionController:
         else:
             topic_input = simpledialog.askstring(
                 "In Unterricht umwandeln",
-                f"Stundenthema für {day.get('datum', '')}:",
+                f"Stundenthema für {day.datum}:",
                 initialvalue=topic,
                 parent=self.app,
             )
@@ -449,7 +449,7 @@ class MainWindowLessonConversionController:
                 table=self.app.current_table,
                 row_index=row_index,
                 topic=topic,
-                stunden_raw=str(day.get("stunden", "")).strip(),
+                stunden_raw=str(day.stunden()),
                 oberthema_input=oberthema_input,
                 stundenziel_input=stundenziel_input,
                 was_lzk=was_lzk,
@@ -487,16 +487,16 @@ class MainWindowLessonConversionController:
         next_no = self.app._next_lzk_number()
 
         day = self.app.day_columns[selected_index]
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
+        row_index = day.row_index
         title = self.convert_to_lzk.build_lzk_title(self.app.current_table, next_no)
-        current_content = str(day.get("inhalt", "")).strip()
+        current_content = day.inhalt.strip()
         existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
-        default_hours = parse_lesson_hours(day.get("stunden"))
+        default_hours = day.stunden()
 
         if from_column_shortcut:
             dialog_result = ask_lzk_column_dialog(
                 self.app,
-                date_label=str(day.get("datum", "")).strip(),
+                date_label=day.datum.strip(),
                 suggested_title=title,
                 theme_key=self.app.theme_var.get(),
             )
@@ -566,8 +566,8 @@ class MainWindowLessonConversionController:
             return
 
         day = self.app.day_columns[selected_index]
-        row_index = self.app._to_int(day.get("row_index", 0), 0)
-        default_hours = parse_lesson_hours(day.get("stunden"))
+        row_index = day.row_index
+        default_hours = day.stunden()
         focus_initial = ""
         if from_column_shortcut:
             existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)

@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Protocol
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.export_date_formatting import extract_term_token, schoolyear_from_term
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
@@ -86,23 +87,18 @@ class ExportTopicUnitsPdfUseCase:
         self._sequence_export_sync = sequence_export_sync
 
     @staticmethod
-    def _find_day_by_row_index(day_columns: list[dict[str, object]], row_index: int) -> dict[str, object] | None:
+    def _find_day_by_row_index(day_columns: list[DayColumn], row_index: int) -> DayColumn | None:
         """Sucht die Tages-Spalte mit passendem, stabilem Zeilenindex."""
         for day in day_columns:
-            if not isinstance(day, dict):
-                continue
-            try:
-                if int(day.get("row_index", -1)) == row_index:  # type: ignore[arg-type]
-                    return day
-            except (TypeError, ValueError):
-                continue
+            if day.row_index == row_index:
+                return day
         return None
 
     def execute(
         self,
         *,
         table: PlanTableData,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_row_index: int,
         output_path: Path,
         export_date: date,

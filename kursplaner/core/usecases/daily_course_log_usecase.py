@@ -7,7 +7,7 @@ from pathlib import Path
 from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.config.settings import SCRIPT_DIR
-from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date, read_yaml_oberthema
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 
@@ -60,13 +60,6 @@ class DailyCourseLogUseCase:
         return cls._log_dir() / f"{cls._LOG_FILENAME_PREFIX}{day.isoformat()}.json"
 
     @staticmethod
-    def _parse_hours(raw: object) -> int:
-        text = str(raw or "").strip()
-        if text.isdigit():
-            return max(0, int(text))
-        return 0
-
-    @staticmethod
     def _normalize_value(value: object) -> str | list[str]:
         if isinstance(value, list):
             result: list[str] = []
@@ -80,37 +73,29 @@ class DailyCourseLogUseCase:
         return str(value).strip()
 
     @staticmethod
-    def _status_for_unit(day: dict[str, object]) -> str:
-        """Klassifiziert den Status einer Einheit anhand der bereits von
-        ``load_plan_detail_usecase.build_day_columns`` berechneten Flags.
+    def _status_for_unit(day: DayColumn) -> str:
+        """Klassifiziert den Status einer Einheit anhand der `DayColumn`-Ableitungen.
 
         Ferien tragen weiterhin den Status ``"ausfall"`` (kein eigener
         Statuswert, um das bestehende JSON-Format kompatibel zu halten);
         ihre Ferien-Eigenschaft steht separat im Feld ``is_ferien`` (siehe
         :meth:`_units_for_table`).
         """
-        if bool(day.get("is_cancel", False)):
+        if day.is_cancel():
             return "ausfall"
-        if bool(day.get("is_hospitation", False)):
+        if day.is_hospitation():
             return "hospitation"
-        if bool(day.get("is_lzk", False)):
+        if day.is_lzk():
             return "lzk"
-
-        yaml_data = day.get("yaml") if isinstance(day.get("yaml"), dict) else {}
-        if isinstance(yaml_data, dict) and yaml_data:
-            lesson_type = infer_stundentyp(yaml_data)
-            return lesson_type.lower()
-
-        return "unterricht"
+        return day.stundentyp().lower()
 
     @classmethod
-    def _cells_for_unit(cls, day: dict[str, object]) -> dict[str, str | list[str]]:
-        yaml_data_obj = day.get("yaml")
-        yaml_data = yaml_data_obj if isinstance(yaml_data_obj, dict) else {}
+    def _cells_for_unit(cls, day: DayColumn) -> dict[str, str | list[str]]:
+        yaml_data = day.yaml
         cells: dict[str, str | list[str]] = {
-            "datum": str(day.get("datum", "")).strip(),
-            "stunden": str(day.get("stunden", "")).strip(),
-            "inhalt": str(day.get("inhalt", "")).strip(),
+            "datum": day.datum.strip(),
+            "stunden": str(day.stunden()),
+            "inhalt": day.inhalt.strip(),
         }
         for field in cls._FIELDS:
             if field in {"datum", "stunden", "inhalt", "thema/ausfall"}:
@@ -119,7 +104,7 @@ class DailyCourseLogUseCase:
                 # Darf bewusst als Wiki-Link gespeichert sein (Obsidian-
                 # Verlinkung); der Tageslog-Export soll den entschlüsselten
                 # Anzeigetext tragen, siehe `plan_table.read_yaml_oberthema`.
-                cells[field] = read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
+                cells[field] = read_yaml_oberthema(yaml_data, day.group_name)
                 continue
             cells[field] = cls._normalize_value(
                 yaml_data.get(
@@ -133,7 +118,7 @@ class DailyCourseLogUseCase:
         return cells
 
     def _units_for_table(self, table: PlanTableData, export_day: date) -> list[dict[str, object]]:
-        day_columns = []
+        day_columns: list[DayColumn] = []
         try:
             from kursplaner.core.usecases.load_plan_detail_usecase import LoadPlanDetailUseCase
 
@@ -143,11 +128,11 @@ class DailyCourseLogUseCase:
 
         units: list[dict[str, object]] = []
         for day in day_columns:
-            unit_day = parse_plan_row_date(str(day.get("datum", "")))
+            unit_day = parse_plan_row_date(day.datum)
             if unit_day is None or unit_day < export_day:
                 continue
 
-            hours = self._parse_hours(day.get("stunden"))
+            hours = day.stunden()
             cells = self._cells_for_unit(day)
             hour_entries = [
                 {
@@ -157,12 +142,12 @@ class DailyCourseLogUseCase:
                 for index in range(1, hours + 1)
             ]
 
-            link_path = day.get("link")
+            link_path = day.link
             units.append(
                 {
-                    "row_index": int(day.get("row_index", -1)),
+                    "row_index": day.row_index,
                     "status": self._status_for_unit(day),
-                    "is_ferien": bool(day.get("is_ferien", False)),
+                    "is_ferien": day.is_ferien(),
                     "cells": cells,
                     "link_path": (serialize_workspace_relative_path(link_path) if isinstance(link_path, Path) else ""),
                     "hour_entries": hour_entries,

@@ -10,6 +10,7 @@ from kursplaner.core.usecases.export_expected_horizon_usecase import (
     ExpectedHorizonDocument,
     ExportExpectedHorizonUseCase,
 )
+from tests.day_column_factory import make_day_column
 
 
 class _RendererSpy:
@@ -34,31 +35,41 @@ def _table() -> PlanTableData:
 
 
 def _day(
-    *, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilziele: list[str], group_name: str = "lila-5"
+    tmp_path,
+    *,
+    row_index: int,
+    datum: str,
+    kind: str,
+    obert: str,
+    ziel: str,
+    teilziele: list[str],
+    group_name: str = "lila-5",
 ):
-    return {
-        "row_index": row_index,
-        "datum": datum,
-        "stunden": "1",
-        "Stundentyp": kind,
-        "yaml": {
+    lesson_dir = tmp_path / "Einheiten"
+    lesson_dir.mkdir(exist_ok=True)
+    link = lesson_dir / f"unit-{row_index}.md"
+    link.write_text(f"---\nStundentyp: {kind}\n---\n", encoding="utf-8")
+    return make_day_column(
+        row_index=row_index,
+        datum=datum,
+        link=link,
+        group_name=group_name,
+        yaml={
             "Stundentyp": kind,
             "Oberthema": obert,
             "Stundenziel": ziel,
             "Teilziele": teilziele,
         },
-        "link": Path(f"A:/7thCloud/unit-{row_index}.md"),
-        "is_cancel": False,
-        "group_name": group_name,
-    }
+    )
 
 
-def test_expected_horizon_exports_only_unterricht_and_flattens_goals():
+def test_expected_horizon_exports_only_unterricht_and_flattens_goals(tmp_path):
     renderer = _RendererSpy()
     usecase = ExportExpectedHorizonUseCase(renderer=renderer)
 
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -67,6 +78,7 @@ def test_expected_horizon_exports_only_unterricht_and_flattens_goals():
             teilziele=["Bubble Sort erklären", "Merge Sort einordnen"],
         ),
         _day(
+            tmp_path,
             row_index=1,
             datum="08-09-25",
             kind="LZK",
@@ -75,6 +87,7 @@ def test_expected_horizon_exports_only_unterricht_and_flattens_goals():
             teilziele=["Aufgaben lösen"],
         ),
         _day(
+            tmp_path,
             row_index=2,
             datum="15-09-25",
             kind="Unterricht",
@@ -107,7 +120,7 @@ def test_expected_horizon_exports_only_unterricht_and_flattens_goals():
     assert [row.is_main_goal for row in document.rows] == [True, False, False]
 
 
-def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema():
+def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema(tmp_path):
     """Ein bewusst als Wiki-Link gespeichertes Oberthema (Obsidian-Verlinkung) darf beim
     Export nicht faelschlich als eigenes Thema behandelt werden."""
     renderer = _RendererSpy()
@@ -115,6 +128,7 @@ def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema():
 
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -123,6 +137,7 @@ def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema():
             teilziele=[],
         ),
         _day(
+            tmp_path,
             row_index=1,
             datum="08-09-25",
             kind="Unterricht",
@@ -144,12 +159,13 @@ def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema():
     assert result.title == "Kompetenzhorizont: Algorithmen"
 
 
-def test_expected_horizon_rejects_selection_without_oberthema():
+def test_expected_horizon_rejects_selection_without_oberthema(tmp_path):
     renderer = _RendererSpy()
     usecase = ExportExpectedHorizonUseCase(renderer=renderer)
 
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",
@@ -169,12 +185,13 @@ def test_expected_horizon_rejects_selection_without_oberthema():
         )
 
 
-def test_expected_horizon_filters_competency_prefixes_from_goals():
+def test_expected_horizon_filters_competency_prefixes_from_goals(tmp_path):
     renderer = _RendererSpy()
     usecase = ExportExpectedHorizonUseCase(renderer=renderer)
 
     day_columns = [
         _day(
+            tmp_path,
             row_index=0,
             datum="01-09-25",
             kind="Unterricht",

@@ -10,14 +10,21 @@ from kursplaner.core.usecases.timetable_change_usecase import (
     column_is_manual_ausfall,
     column_is_stattfindend,
 )
+from tests.day_column_factory import make_day_column
 
 # ---------------------------------------------------------------------------
 # Predicate wrapper tests
 # ---------------------------------------------------------------------------
 
 
-def _day(is_ferien: bool = False, is_cancel: bool = False) -> dict[str, object]:
-    return {"is_ferien": is_ferien, "is_cancel": is_cancel, "inhalt": ""}
+def _day(*, is_ferien: bool = False, is_cancel: bool = False):
+    if is_ferien:
+        thema_ausfall = "X Ferien X"
+    elif is_cancel:
+        thema_ausfall = "X Ausfall"
+    else:
+        thema_ausfall = ""
+    return make_day_column(thema_ausfall=thema_ausfall)
 
 
 def test_column_is_ferien_true():
@@ -82,24 +89,16 @@ def _rhythm(hours_by_weekday: dict[int, int]) -> tuple[WeekdayRhythm, ...]:
     )
 
 
-def _stattfindend_day(
-    datum_str: str, inhalt: str = "[[abc123]]", thema_ausfall: str = ""
-) -> dict[str, object]:
-    return {
-        "datum": datum_str,
-        "is_cancel": False,
-        "is_ferien": False,
-        "inhalt": inhalt,
-        "thema_ausfall": thema_ausfall,
-    }
+def _stattfindend_day(datum_str: str, inhalt: str = "[[abc123]]", thema_ausfall: str = ""):
+    return make_day_column(datum=datum_str, inhalt=inhalt, thema_ausfall=thema_ausfall)
 
 
-def _ausfall_day(datum_str: str) -> dict[str, object]:
-    return {"datum": datum_str, "is_cancel": True, "is_ferien": False, "inhalt": "X Klausur"}
+def _ausfall_day(datum_str: str):
+    return make_day_column(datum=datum_str, thema_ausfall="X Klausur")
 
 
-def _ferien_day(datum_str: str) -> dict[str, object]:
-    return {"datum": datum_str, "is_cancel": True, "is_ferien": True, "inhalt": "X Ferien X"}
+def _ferien_day(datum_str: str):
+    return make_day_column(datum=datum_str, thema_ausfall="X Ferien X")
 
 
 def test_compute_empty_range():

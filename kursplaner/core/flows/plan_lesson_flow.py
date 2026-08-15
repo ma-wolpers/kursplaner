@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.plan_regular_lesson_usecase import (
     PlanRegularLessonUseCase,
@@ -43,7 +44,7 @@ class PlanLessonFlow:
         self,
         *,
         table: PlanTableData,
-        day: dict[str, object],
+        day: DayColumn,
         unterricht_dir: Path,
     ) -> RegularLessonDialogContext:
         """Liefert den fachlichen Dialogkontext für den UI-Builder."""

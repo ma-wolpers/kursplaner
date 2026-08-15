@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
@@ -57,22 +58,13 @@ class ExportLzkExpectedHorizonUseCase:
         return normalized or "ohne_titel"
 
     @staticmethod
-    def _row_index(day: dict[str, object]) -> int:
-        raw = day.get("row_index", -1)
-        if isinstance(raw, int):
-            return raw
-        if isinstance(raw, str) and raw.strip().isdigit():
-            return int(raw.strip())
-        return -1
-
-    @staticmethod
-    def _require_selected_lzk(day: dict[str, object]) -> None:
-        if not bool(day.get("is_lzk", False)):
+    def _require_selected_lzk(day: DayColumn) -> None:
+        if not day.is_lzk():
             raise RuntimeError("Die ausgewählte Spalte ist keine LZK.")
 
     @staticmethod
-    def _require_lesson_path(day: dict[str, object]) -> Path:
-        link = day.get("link")
+    def _require_lesson_path(day: DayColumn) -> Path:
+        link = day.link
         if not isinstance(link, Path) or not link.exists() or not link.is_file():
             raise RuntimeError("Für die ausgewählte LZK ist keine verlinkte Einheitsdatei vorhanden.")
         return link.resolve()
@@ -88,7 +80,7 @@ class ExportLzkExpectedHorizonUseCase:
         self,
         *,
         table: PlanTableData,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_day_index: int,
     ) -> LzkExpectedHorizonTargets:
         if selected_day_index < 0 or selected_day_index >= len(day_columns):
@@ -119,7 +111,7 @@ class ExportLzkExpectedHorizonUseCase:
         self,
         *,
         table: PlanTableData,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_day_index: int,
         export_date: date,
         created_at: datetime | None = None,

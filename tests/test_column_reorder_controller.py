@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from kursplaner.adapters.gui.column_reorder_controller import MainWindowColumnReorderController
+from tests.day_column_factory import make_day_column
 
 
 class _TrackedWriteSpy:
@@ -32,7 +33,7 @@ class _MoveSelectedColumnsSpy:
     def find_swap_partner(self, day_columns, start_index: int, direction: int):
         probe = start_index + direction
         while 0 <= probe < len(day_columns):
-            if not bool(day_columns[probe].get("is_cancel", False)):
+            if not day_columns[probe].is_cancel():
                 return probe
             probe += direction
         return None
@@ -57,9 +58,19 @@ class _ActionControllerSpy:
         self.update_calls += 1
 
 
-def _build_app(*, selected_index: int, holiday_indices: set[int] | None = None):
+def _build_app(
+    *,
+    selected_index: int,
+    holiday_indices: set[int] | None = None,
+    cancel_indices: set[int] | None = None,
+    ub_link_by_index: dict[int, str] | None = None,
+):
     if holiday_indices is None:
         holiday_indices = set()
+    if cancel_indices is None:
+        cancel_indices = set()
+    if ub_link_by_index is None:
+        ub_link_by_index = {}
 
     tracked = _TrackedWriteSpy()
     move_uc = _MoveSelectedColumnsSpy()
@@ -71,13 +82,14 @@ def _build_app(*, selected_index: int, holiday_indices: set[int] | None = None):
         {"id": "C"},
     ]
     day_columns = [
-        {"row_index": 0, "inhalt": "", "yaml": {}},
-        {"row_index": 1, "inhalt": "", "yaml": {}},
-        {"row_index": 2, "inhalt": "", "yaml": {}},
+        make_day_column(
+            row_index=idx,
+            inhalt="Ferien" if idx in holiday_indices else "",
+            thema_ausfall="X Ausfall" if idx in cancel_indices else "",
+            yaml={"Unterrichtsbesuch": ub_link_by_index[idx]} if idx in ub_link_by_index else {},
+        )
+        for idx in range(3)
     ]
-    for idx in holiday_indices:
-        if 0 <= idx < len(day_columns):
-            day_columns[idx]["inhalt"] = "Ferien"
 
     app = SimpleNamespace(
         gui_dependencies=SimpleNamespace(tracked_write_usecase=tracked, move_selected_columns=move_uc),
@@ -93,8 +105,7 @@ def _build_app(*, selected_index: int, holiday_indices: set[int] | None = None):
     )
 
     def _is_holiday_column(day):
-        idx = int(day.get("row_index", -1))
-        return idx in holiday_indices
+        return day.row_index in holiday_indices
 
     app._is_holiday_column = _is_holiday_column
     app._get_single_selected_or_warn = lambda: selected_index
@@ -134,8 +145,7 @@ def test_move_selected_columns_swaps_rows_runs_usecase_and_refreshes_ui():
 
 
 def test_move_selected_columns_skips_cancel_day_via_move_plan():
-    app, tracked, move_uc, action_controller = _build_app(selected_index=0)
-    app.day_columns[1]["is_cancel"] = True
+    app, tracked, move_uc, action_controller = _build_app(selected_index=0, cancel_indices={1})
     controller = MainWindowColumnReorderController(app)
 
     controller.move_selected_columns(1)
@@ -151,8 +161,9 @@ def test_move_selected_columns_skips_cancel_day_via_move_plan():
 
 
 def test_move_selected_columns_with_ub_link_requires_confirmation_and_aborts_on_no(monkeypatch):
-    app, tracked, move_uc, action_controller = _build_app(selected_index=0)
-    app.day_columns[1]["yaml"] = {"Unterrichtsbesuch": "[[UB 26-02-27 Supertrumpf Kodierung]]"}
+    app, tracked, move_uc, action_controller = _build_app(
+        selected_index=0, ub_link_by_index={1: "[[UB 26-02-27 Supertrumpf Kodierung]]"}
+    )
     controller = MainWindowColumnReorderController(app)
 
     ask_calls = []
@@ -175,8 +186,9 @@ def test_move_selected_columns_with_ub_link_requires_confirmation_and_aborts_on_
 
 
 def test_move_selected_columns_with_ub_link_runs_on_yes(monkeypatch):
-    app, tracked, move_uc, action_controller = _build_app(selected_index=0)
-    app.day_columns[0]["yaml"] = {"Unterrichtsbesuch": "[[UB 26-02-06 Fach-Diagnose]]"}
+    app, tracked, move_uc, action_controller = _build_app(
+        selected_index=0, ub_link_by_index={0: "[[UB 26-02-06 Fach-Diagnose]]"}
+    )
     controller = MainWindowColumnReorderController(app)
 
     monkeypatch.setattr("kursplaner.adapters.gui.column_reorder_controller.messagebox.askyesno", lambda *a, **k: True)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
@@ -58,19 +59,18 @@ class MoveSelectedColumnsUseCase:
         self.plan_repo.save_plan_table(table)
         return MoveColumnsResult(proceed=True)
 
-    def find_swap_partner(self, day_columns: list[dict[str, object]], start_index: int, direction: int) -> int | None:
+    def find_swap_partner(self, day_columns: list[DayColumn], start_index: int, direction: int) -> int | None:
         """Sucht die nächste verschiebbare Spalte in gegebener Bewegungsrichtung."""
         probe = start_index + direction
         while 0 <= probe < len(day_columns):
-            day = day_columns[probe]
-            if not bool(day.get("is_cancel", False)):
+            if not day_columns[probe].is_cancel():
                 return probe
             probe += direction
         return None
 
     def build_move_plan(
         self,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_index: int,
         direction: int,
     ) -> MoveColumnsPlan | None:
@@ -78,8 +78,8 @@ class MoveSelectedColumnsUseCase:
         partner_index = self.find_swap_partner(day_columns, selected_index, direction)
         if partner_index is None:
             return None
-        row_a = int(day_columns[selected_index].get("row_index", selected_index))
-        row_b = int(day_columns[partner_index].get("row_index", partner_index))
+        row_a = day_columns[selected_index].row_index
+        row_b = day_columns[partner_index].row_index
         return MoveColumnsPlan(
             partner_index=partner_index,
             row_a=row_a,

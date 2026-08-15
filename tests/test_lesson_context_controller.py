@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from kursplaner.adapters.gui.lesson_context_controller import MainWindowLessonContextController
+from tests.day_column_factory import make_day_column
 
 
 def _build_controller():
@@ -16,12 +17,12 @@ def _build_controller():
 
 def test_ub_fields_are_displayed_without_separator_lines():
     controller = _build_controller()
-    day = {
-        "yaml": {
+    day = make_day_column(
+        yaml={
             "Professionalisierungsschritte": ["Schritt A", "Schritt B"],
             "Nutzbare Ressourcen": ["Res 1", "Res 2"],
         }
-    }
+    )
 
     steps = controller.field_value(day, "Professionalisierungsschritte")
     resources = controller.field_value(day, "Nutzbare Ressourcen")
@@ -34,7 +35,7 @@ def test_ub_fields_are_displayed_without_separator_lines():
 
 def test_other_list_fields_keep_separator_format():
     controller = _build_controller()
-    day = {"yaml": {"Kompetenzen": ["K1", "K2"]}}
+    day = make_day_column(yaml={"Kompetenzen": ["K1", "K2"]})
 
     value = controller.field_value(day, "Kompetenzen")
 
@@ -43,13 +44,13 @@ def test_other_list_fields_keep_separator_format():
 
 def test_ausfallgrund_returns_header_content_on_cancel_day():
     controller = _build_controller()
-    day = {"is_cancel": True, "header_content": "Lehrerfortbildung"}
+    day = make_day_column(thema_ausfall="X Lehrerfortbildung")
 
     assert controller.field_value(day, "Ausfallgrund") == "Lehrerfortbildung"
 
 
 def test_ausfallgrund_is_empty_on_non_cancel_day():
     controller = _build_controller()
-    day = {"is_cancel": False, "header_content": "Lehrerfortbildung"}
+    day = make_day_column()
 
     assert controller.field_value(day, "Ausfallgrund") == ""

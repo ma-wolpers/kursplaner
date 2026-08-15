@@ -6,7 +6,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Protocol
 
-from kursplaner.core.domain.plan_table import PlanTableData, read_yaml_oberthema
+from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 
@@ -93,22 +94,6 @@ class ExportExpectedHorizonUseCase:
         end_year_short = (year_short + 1) % 100
         return f"{start_year}/{end_year_short:02d}"
 
-    @classmethod
-    def _row_type(cls, day: dict[str, object]) -> str:
-        yaml_data = day.get("yaml")
-        if isinstance(yaml_data, dict):
-            lesson_type = str(yaml_data.get("Stundentyp", "")).strip()
-            if lesson_type:
-                return lesson_type
-        return str(day.get("Stundentyp", "")).strip()
-
-    @staticmethod
-    def _row_oberthema(day: dict[str, object]) -> str:
-        yaml_data = day.get("yaml")
-        if not isinstance(yaml_data, dict):
-            return ""
-        return read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
-
     @staticmethod
     def _parse_text_list(value: object) -> list[str]:
         if isinstance(value, list):
@@ -142,23 +127,19 @@ class ExportExpectedHorizonUseCase:
     def _export_rows_for_oberthema(
         cls,
         *,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         target_oberthema: str,
     ) -> list[ExpectedHorizonLine]:
         rows: list[ExpectedHorizonLine] = []
         for day in day_columns:
-            if cls._row_type(day) not in cls._EXPORT_ALLOWED_TYPES:
+            if day.stundentyp() not in cls._EXPORT_ALLOWED_TYPES:
                 continue
 
-            yaml_data = day.get("yaml")
-            if not isinstance(yaml_data, dict):
+            if day.oberthema() != target_oberthema:
                 continue
 
-            if read_yaml_oberthema(yaml_data, str(day.get("group_name", ""))) != target_oberthema:
-                continue
-
-            formatted_date = cls._format_day_date(day.get("datum", ""))
-            goals = cls._goals_for_day(yaml_data)
+            formatted_date = cls._format_day_date(day.datum)
+            goals = cls._goals_for_day(day.yaml)
             for index, goal in enumerate(goals):
                 rows.append(
                     ExpectedHorizonLine(
@@ -174,7 +155,7 @@ class ExportExpectedHorizonUseCase:
         self,
         *,
         table: PlanTableData,
-        day_columns: list[dict[str, object]],
+        day_columns: list[DayColumn],
         selected_day_index: int,
         output_path: Path,
         export_date: date,
@@ -183,11 +164,11 @@ class ExportExpectedHorizonUseCase:
             raise RuntimeError("Es ist keine gültige Einheit ausgewählt.")
 
         selected_day = day_columns[selected_day_index]
-        selected_type = self._row_type(selected_day)
+        selected_type = selected_day.stundentyp()
         if selected_type not in self._SELECTION_ALLOWED_TYPES:
             raise RuntimeError("Der Export ist nur für Unterrichts- oder LZK-Einheiten verfügbar.")
 
-        target_oberthema = self._row_oberthema(selected_day)
+        target_oberthema = selected_day.oberthema()
         if not target_oberthema:
             raise RuntimeError("Die ausgewählte Einheit hat kein Oberthema.")
 
