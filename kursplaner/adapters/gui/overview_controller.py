@@ -212,8 +212,38 @@ class MainWindowOverviewController:
             )
             return False
 
+    def sync_course_storage_lifecycle(self, unterricht_dir: pathlib.Path) -> None:
+        """Verschiebt Kurse automatisch ins/aus dem Archiv, je nach Lebenszyklus-Status.
+
+        Eigene, benannte Methode für diese Dateisystem-Mutation (siehe
+        `ArchiveFormerCoursesUseCase`/`course_lifecycle.is_former_course`) —
+        `refresh_overview()` ruft sie als expliziten ersten Schritt auf, damit
+        die Verschiebung nicht implizit in einer Methode passiert, deren Name
+        reines Rendering suggeriert. Der aktuell geöffnete Kurs wird nie
+        verschoben (`skip_paths`).
+        """
+        current_table = getattr(self.app, "current_table", None)
+        skip_paths = (
+            frozenset({current_table.markdown_path.resolve()}) if current_table is not None else frozenset()
+        )
+        result = self.archive_former_courses_usecase.execute(unterricht_dir, skip_paths=skip_paths)
+        if result.errors:
+            messagebox.showwarning(
+                "Markierte Einträge",
+                "Einige Kurse konnten nicht auf Archivierung geprüft werden:\n\n"
+                + "\n".join(f"- {error}" for error in result.errors),
+                parent=self.app,
+            )
+
     def refresh_overview(self):
-        """Lädt die Unterrichtsübersicht neu und rendert die linke Baumansicht."""
+        """Lädt die Unterrichtsübersicht neu und rendert die linke Baumansicht.
+
+        Führt vor dem eigentlichen Rendering den Kurs-Lifecycle-Sync aus
+        (`sync_course_storage_lifecycle`) — alle Aufrufstellen dieser Methode
+        entsprechen bereits einer fachlich relevanten Änderung (Programmstart,
+        Kurs anlegen, Pfadänderung, manueller Refresh, Undo/Redo), nicht jeder
+        beliebigen UI-Aktion.
+        """
         base_dir = self.app.base_dir_var.get().strip()
         unterricht_key = self.path_settings_usecase.UNTERRICHT_KEY
         if base_dir:
@@ -232,18 +262,7 @@ class MainWindowOverviewController:
 
         resolved_base_dir = pathlib.Path(base_dir).expanduser().resolve() if base_dir else None
         if resolved_base_dir is not None:
-            current_table = getattr(self.app, "current_table", None)
-            skip_paths = (
-                frozenset({current_table.markdown_path.resolve()}) if current_table is not None else frozenset()
-            )
-            archive_result = self.archive_former_courses_usecase.execute(resolved_base_dir, skip_paths=skip_paths)
-            if archive_result.errors:
-                messagebox.showwarning(
-                    "Markierte Einträge",
-                    "Einige Kurse konnten nicht auf Archivierung geprüft werden:\n\n"
-                    + "\n".join(f"- {error}" for error in archive_result.errors),
-                    parent=self.app,
-                )
+            self.sync_course_storage_lifecycle(resolved_base_dir)
 
         result = self.list_lessons_usecase.execute(resolved_base_dir) if resolved_base_dir is not None else None
         all_lessons = result.lessons if result is not None else []
