@@ -40,7 +40,11 @@ def is_archived_course_path(plan_markdown_path: Path, unterricht_dir: Path) -> b
 
 def last_plan_date(table: PlanTableData) -> date | None:
     """Liefert das spaeteste in der Plantabelle vorkommende Datum, ``None`` falls keins gueltig ist."""
-    dates = [parse_plan_row_date(row[0]) for row in table.rows if row]
+    header_map = {str(name).strip().lower(): idx for idx, name in enumerate(table.headers)}
+    idx_datum = header_map.get("datum")
+    if idx_datum is None:
+        return None
+    dates = [parse_plan_row_date(row[idx_datum]) for row in table.rows if row and idx_datum < len(row)]
     valid_dates = [d for d in dates if d is not None]
     return max(valid_dates) if valid_dates else None
 
