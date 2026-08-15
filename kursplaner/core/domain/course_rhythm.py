@@ -25,7 +25,6 @@ from datetime import date, datetime
 
 WEEKDAY_TOKENS: tuple[str, ...] = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 RHYTHM_YAML_KEY = "Rhythmus"
-DEFAULT_LESSON_HOURS = 2
 
 RHYTHM_ENTRY_RE = re.compile(
     r"^(?:ab\s+(?P<valid_from>\d{2}-\d{2}-\d{2})\s+)?"
@@ -254,11 +253,30 @@ def add_segment(
     return tuple(entries) + tuple(new_segment)
 
 
-def coerce_lesson_hours(raw: object, *, default: int = DEFAULT_LESSON_HOURS) -> int:
-    """Parst einen rohen Stundenwert robust, mit Fallback auf ``default``.
+def parse_lesson_hours(raw: object) -> int:
+    """Parst die aus dem Rhythmus abgeleitete Stundenzahl einer Planzeile.
 
-    Konsolidiert die zuvor an mehreren Stellen dupliziere
-    ``int(x) if x.isdigit() else 2``-Heuristik.
+    Konsolidiert die zuvor an mehreren Stellen duplizierte Parsing-Logik für
+    ``day["stunden"]``-Rohwerte. Anders als eine frühere Fassung dieser
+    Funktion liefert sie **keinen stillen Default** mehr: seit ``Rhythmus``
+    einzige Quelle der Wahrheit für die Stundenzahl ist, hat jede Zeile mit
+    gültigem Datum immer eine daraus abgeleitete Stundenzahl (auch ``0`` für
+    Ferien-/Nicht-Unterrichtstage); ein leerer/ungültiger Wert bedeutet daher
+    ausschließlich ein nicht parsbares Zeilendatum - ein echter Fehlerfall,
+    kein Normalzustand, der einen erfundenen Default rechtfertigen würde.
+
+    Args:
+        raw: Rohwert aus ``day["stunden"]`` (siehe
+            :meth:`kursplaner.core.usecases.load_plan_detail_usecase.
+            LoadPlanDetailUseCase.build_day_columns`).
+
+    Returns:
+        Die geparste Stundenzahl.
+
+    Raises:
+        ValueError: Wenn ``raw`` keine gültige nicht-negative Ganzzahl ist.
     """
     text = str(raw or "").strip()
-    return int(text) if text.isdigit() else default
+    if not text.isdigit():
+        raise ValueError(f"Keine gültige Stundenzahl ableitbar: {raw!r} (Zeilendatum vermutlich ungültig).")
+    return int(text)

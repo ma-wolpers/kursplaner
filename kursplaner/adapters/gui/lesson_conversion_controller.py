@@ -14,7 +14,7 @@ from kursplaner.core.config.path_store import (
     infer_workspace_root_from_path,
 )
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
-from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
+from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
 
@@ -488,7 +488,7 @@ class MainWindowLessonConversionController:
         title = self.convert_to_lzk.build_lzk_title(self.app.current_table, next_no)
         current_content = str(day.get("inhalt", "")).strip()
         existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)
-        default_hours = coerce_lesson_hours(day.get("stunden"))
+        default_hours = parse_lesson_hours(day.get("stunden"))
 
         if from_column_shortcut:
             dialog_result = ask_lzk_column_dialog(
@@ -564,7 +564,7 @@ class MainWindowLessonConversionController:
 
         day = self.app.day_columns[selected_index]
         row_index = self.app._to_int(day.get("row_index", 0), 0)
-        default_hours = coerce_lesson_hours(day.get("stunden"))
+        default_hours = parse_lesson_hours(day.get("stunden"))
         focus_initial = ""
         if from_column_shortcut:
             existing_link = self.lesson_transfer.resolve_existing_link(self.app.current_table, row_index)

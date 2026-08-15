@@ -7,7 +7,7 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,
 )
-from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
+from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 
 
 class MainWindowEditorController:
@@ -124,7 +124,7 @@ class MainWindowEditorController:
             return existing
 
         row_index = self.app._to_int(day.get("row_index", 0), 0)
-        default_hours = coerce_lesson_hours(day.get("stunden"))
+        default_hours = parse_lesson_hours(day.get("stunden"))
 
         topic = preferred_topic.strip() or "Unterrichtseinheit"
 

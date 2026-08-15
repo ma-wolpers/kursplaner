@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
+from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
@@ -266,7 +266,7 @@ class PlanRegularLessonUseCase:
                     proceed=False,
                     error_message="Anlegen der Stunden-Datei wurde nicht bestätigt.",
                 )
-            default_hours = coerce_lesson_hours(stunden_raw)
+            default_hours = parse_lesson_hours(stunden_raw)
             link = self.ensure_link(table, row_index, topic, default_hours)
 
         if not isinstance(link, Path):

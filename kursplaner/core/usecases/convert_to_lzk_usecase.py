@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.course_rhythm import coerce_lesson_hours
+from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 from kursplaner.core.domain.course_subject import short_subject_for_course_subject
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.wiki_links import strip_wiki_link
@@ -188,7 +188,7 @@ class ConvertToLzkUseCase:
         """Ermittelt alle fachlichen Dialog-Eingaben für die LZK-Umwandlung."""
         existing_link = self.lesson_transfer.resolve_existing_link(table, row_index)
         existing_existing_link = self._existing_file(existing_link)
-        default_hours = coerce_lesson_hours(stunden_raw)
+        default_hours = parse_lesson_hours(stunden_raw)
         return ConvertToLzkDialogContext(
             row_index=row_index,
             current_content=str(current_content).strip(),

@@ -7,11 +7,11 @@ import pytest
 from kursplaner.core.domain.course_rhythm import (
     WeekdayRhythm,
     active_weekdays,
-    coerce_lesson_hours,
     current_segment,
     format_rhythm,
     hours_for_date,
     is_valid_rhythm_value,
+    parse_lesson_hours,
     parse_rhythm,
     parse_rhythm_entry,
     start_time_for_date,
@@ -114,8 +114,12 @@ def test_active_weekdays_is_plain_set_of_entries():
     assert active_weekdays(entries) == {0, 3}
 
 
-def test_coerce_lesson_hours_defaults_on_non_digit():
-    assert coerce_lesson_hours("3") == 3
-    assert coerce_lesson_hours("") == 2
-    assert coerce_lesson_hours(None) == 2
-    assert coerce_lesson_hours("abc", default=1) == 1
+def test_parse_lesson_hours_parses_valid_digit_string():
+    assert parse_lesson_hours("3") == 3
+    assert parse_lesson_hours("0") == 0
+
+
+@pytest.mark.parametrize("raw", ["", None, "abc", "-1"])
+def test_parse_lesson_hours_raises_on_invalid_value(raw):
+    with pytest.raises(ValueError):
+        parse_lesson_hours(raw)
