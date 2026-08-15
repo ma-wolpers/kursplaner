@@ -7,7 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Added
-- **Startzeit pro Wochentag**: Kurse haben jetzt einen echten Wochenrhythmus (Startzeit + Stundenzahl je Wochentag), editierbar sowohl beim Kurs-Anlegen ("Neuer Kurs") als auch bei einer späteren Stundenplanänderung. Eine neue, nicht editierbare Grid-Zeile "Wann" zeigt die Startzeit jedes Kurstags direkt über "Wie lange" an.
+- **Startzeit pro Wochentag**: Kurse haben jetzt einen echten Wochenrhythmus (Startzeit + Stundenzahl je Wochentag), editierbar sowohl beim Kurs-Anlegen ("Neuer Kurs") als auch bei einer späteren Stundenplanänderung. Eine neue, nicht editierbare Grid-Zeile "Wann" zeigt die Startzeit jedes Kurstags direkt über "Wie lange" an — auch bei noch leeren, nicht verlinkten Einheiten.
 - **Automatische Kurs-Archivierung**: Ein Kurs wandert automatisch ins Archiv, sobald sein letztes Plandatum in der Vergangenheit liegt, und automatisch zurück, sobald eine Verlängerung das letzte Datum wieder in die Zukunft verschiebt. "Ehemalige anzeigen" (Strg+Shift+E) zeigt archivierte Kurse weiterhin wie gewohnt an.
 - **Ausfallgrund als eigene Grid-Zeile**: Der Grund eines Ausfalls (bisher nur in der Kopfzeile der Spalte sichtbar) erscheint jetzt zusätzlich als eigene, nicht editierbare Zeile "Ausfallgrund" bei Ausfall-Einheiten.
 - **"Zeilenfelder…" jetzt pro Anzeige-Modus konfigurierbar**: Statt einer einzigen Anzeigen-Checkbox pro Zeilenfeld gibt es jetzt vier Checkboxen (Unterricht/LZK/Ausfall/Hospitation) — ein Feld lässt sich dadurch für einzelne Modi ausblenden oder auch in Modi einblenden, in denen es standardmäßig nicht vorkommt (z. B. "Stundenziel" zusätzlich bei Ausfall anzeigen).

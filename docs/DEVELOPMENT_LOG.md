@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (technische Details, 2026-08-15) — "Wann"-Zeile bei leeren Einheiten (Part H)
+
+`grid_renderer.py::_field_is_visible_for_day()` hatte eine fest codierte Positivliste `{"inhalt", "stunden", "Oberthema", "Ausfallgrund"}` für Felder, die bei einer noch nicht verlinkten (leeren) Tageszeile trotzdem sichtbar bleiben — geschrieben vor Einführung von `"startzeit"` (Part A) und nie erweitert. Der Wert selbst wurde in `build_day_columns()` bereits unbedingt für jede Zeile berechnet; das Problem lag rein in der Rendering-Sichtbarkeitsprüfung. `"startzeit"` zur Menge ergänzt (Einzeiler). Behebt zwei Symptome: fehlende Zelle in einzelnen unverlinkten Spalten, und das komplette Verschwinden der ganzen "Wann"-Zeile, wenn im Grid gerade keine Spalte verlinkt ist (`_visible_row_defs()` nutzt dieselbe Methode). Test `test_unlinked_day_only_shows_inhalt_stunden_and_oberthema` in `test_row_filter_grid_visibility.py` um `"startzeit"`-Assertion erweitert und umbenannt.
+
 ### Changed (technische Details, 2026-08-15) — Architektur-Review-Korrekturen (J1–J7)
 
 Ein nachträglicher kritischer Architektur-Review des bereits implementierten Rhythmus/Ferien/Archiv-Features (siehe Eintrag darunter) ergab, dass Split/Merge entgegen der eigentlichen Modellsemantik ("ein Kurstag hat genau eine Einheit") ins neue Rhythmus-Modell integriert statt entfernt worden war. Korrektur (J1, erster Schritt der Review-Nacharbeit):

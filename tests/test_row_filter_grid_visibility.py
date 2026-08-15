@@ -26,13 +26,14 @@ def _unlinked_ausfall_day() -> dict[str, object]:
     return {"link": None, "is_cancel": True}
 
 
-def test_unlinked_day_only_shows_inhalt_stunden_and_oberthema():
+def test_unlinked_day_only_shows_inhalt_stunden_startzeit_and_oberthema():
     app = _make_app()
     renderer = GridRenderer(app)
     day = _unlinked_day()
 
     assert renderer._field_is_visible_for_day("inhalt", day) is True
     assert renderer._field_is_visible_for_day("stunden", day) is True
+    assert renderer._field_is_visible_for_day("startzeit", day) is True
     assert renderer._field_is_visible_for_day("Oberthema", day) is True
     assert renderer._field_is_visible_for_day("Stundenthema", day) is False
 

@@ -256,7 +256,7 @@ class GridRenderer:
         Fallback sonst den Filter komplett umgeht.
         """
         if not self.app.row_display_mode_usecase.is_linked_day(day):
-            if field_key not in {"inhalt", "stunden", "Oberthema", "Ausfallgrund"}:
+            if field_key not in {"inhalt", "stunden", "startzeit", "Oberthema", "Ausfallgrund"}:
                 return False
         return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day, self.app.row_filter_settings)
 
