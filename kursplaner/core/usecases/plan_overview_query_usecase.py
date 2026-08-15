@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.content_markers import normalize_marker_text, resolve_cancel_state
+from kursplaner.core.domain.content_markers import normalize_marker_text
 from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData
@@ -16,6 +16,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonIndexRepository, LessonRepository, UbRepository
+from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 
 
 class PlanOverviewQueryUseCase:
@@ -240,7 +241,9 @@ class PlanOverviewQueryUseCase:
             # `load_plan_detail_usecase.build_day_columns`, damit eine Zeile
             # nicht in der Uebersicht als stattfindend zaehlt, waehrend sie in
             # der Detailansicht als Ausfall angezeigt wird.
-            is_cancel = resolve_cancel_state(table.headers, table.rows[row_index], lesson_meta or None)
+            is_cancel = LessonContextQueryUseCase.resolve_cancel_state(
+                table.headers, table.rows[row_index], lesson_meta or None
+            )
             if not is_cancel and row_date is not None:
                 has_upcoming_unit = True
                 if earliest_upcoming_lesson_date is None or row_date < earliest_upcoming_lesson_date:

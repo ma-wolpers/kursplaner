@@ -103,7 +103,11 @@ def resolve_row_cancel_state(headers: list[str], row: list[str]) -> bool:
     Prueft ausschliesslich die `Thema/Ausfall`-Spalte (seit Entfernung der
     `Stunden`-Spalte die einzige Marker-Quelle; jede migrierte Tabelle hat
     diese Spalte). Fuer den vollstaendigen Ausfall-Status inkl. YAML-Override
-    (`Stundentyp: Ausfall` ohne Textmarker) siehe :func:`resolve_cancel_state`.
+    (`Stundentyp: Ausfall` ohne Textmarker) siehe
+    :meth:`kursplaner.core.usecases.lesson_context_query_usecase.
+    LessonContextQueryUseCase.resolve_cancel_state` - dieses Modul kennt
+    bewusst nur Text-Marker, keine YAML-Daten (Architekturprinzip, siehe
+    Modul-Docstring dort).
 
     Args:
         headers: Spaltenüberschriften der Planungstabelle (Groß-/Kleinschreibung
@@ -158,33 +162,6 @@ def classify_row_marker(headers: list[str], row: list[str]) -> str:
     return "none"
 
 
-def resolve_cancel_state(
-    headers: list[str], row: list[str], lesson_yaml: dict[str, object] | None = None
-) -> bool:
-    """Ermittelt den vollstaendigen Ausfall-Status inkl. YAML-Override.
-
-    Einzige Wahrheit fuer "ist diese Zeile Ausfall" ueber die reine
-    Textmarker-Pruefung (:func:`resolve_row_cancel_state`) hinaus: eine Zeile
-    gilt auch dann als Ausfall, wenn ihre verlinkte Stunden-Datei
-    ``Stundentyp: Ausfall`` traegt, selbst ohne Textmarker in der
-    `Thema/Ausfall`-Spalte. Konsolidiert zwei zuvor unabhaengige, teils
-    widerspruechliche Implementierungen (Detailansicht mit YAML-Override,
-    Kursuebersicht ohne).
-
-    Args:
-        headers: Spaltenüberschriften der Planungstabelle.
-        row: Zellwerte einer einzelnen Tabellenzeile.
-        lesson_yaml: Normalisiertes YAML-Dictionary der verlinkten
-            Stunden-Datei, falls vorhanden (sonst ``None``).
-
-    Returns:
-        `True`, wenn die Zeile als Ausfall gilt (Textmarker oder YAML-Typ).
-    """
-    if resolve_row_cancel_state(headers, row):
-        return True
-    if lesson_yaml is None:
-        return False
-    return str(lesson_yaml.get("Stundentyp", "")).strip() == "Ausfall"
 
 
 def build_ausfall_marker(reason_text: str) -> str:

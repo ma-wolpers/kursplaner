@@ -10,7 +10,6 @@ from kursplaner.core.domain.content_markers import (
     is_hospitation_marker,
     is_unterricht_marker,
     normalize_marker_text,
-    resolve_cancel_state,
 )
 from kursplaner.core.domain.course_rhythm import (
     RHYTHM_YAML_KEY,
@@ -28,6 +27,7 @@ from kursplaner.core.domain.plan_table import (
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
+from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
 
 
@@ -200,7 +200,8 @@ class LoadPlanDetailUseCase:
         Ausfall-Erkennung erfolgt über col 2 (``X ``-Präfix) plus einen
         YAML-Override, falls die verlinkte Stunden-Datei
         ``Stundentyp: Ausfall`` trägt (siehe
-        :func:`kursplaner.core.domain.content_markers.resolve_cancel_state`).
+        :meth:`~kursplaner.core.usecases.lesson_context_query_usecase.
+        LessonContextQueryUseCase.resolve_cancel_state`).
         Der Spalten-Header (``header_content``) wird bevorzugt aus dem YAML-Feld
         ``Stundenthema`` befüllt, da Einheits-Dateinamen nun kryptische 6-Zeichen-
         Codes sind und keinen lesbaren Titel enthalten.
@@ -274,7 +275,7 @@ class LoadPlanDetailUseCase:
                     yaml_data["Professionalisierungsschritte"] = steps
                     yaml_data["Nutzbare Ressourcen"] = resources
 
-            is_cancel = resolve_cancel_state(table.headers, row, yaml_data)
+            is_cancel = LessonContextQueryUseCase.resolve_cancel_state(table.headers, row, yaml_data)
             is_lzk = lesson_type == "LZK"
             is_link_header = bool(has_link_ref)
 

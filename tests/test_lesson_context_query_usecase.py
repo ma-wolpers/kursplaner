@@ -58,3 +58,19 @@ def test_next_lzk_number_counts_yaml_lzk_types_only():
     result = LessonContextQueryUseCase(lesson_repo=_LessonRepoStub(lessons)).next_lzk_number(table)
 
     assert result == 2
+
+
+_HEADERS = ["Datum", "Inhalt", "Thema/Ausfall"]
+
+
+def test_resolve_cancel_state_yaml_override_without_text_marker():
+    """Eine Zeile ohne Text-Marker gilt trotzdem als Ausfall, wenn die YAML Stundentyp=Ausfall traegt."""
+    row = ["05-01-26", "[[abc]]", ""]
+    assert LessonContextQueryUseCase.resolve_cancel_state(_HEADERS, row, {"Stundentyp": "Ausfall"}) is True
+    assert LessonContextQueryUseCase.resolve_cancel_state(_HEADERS, row, {"Stundentyp": "Unterricht"}) is False
+    assert LessonContextQueryUseCase.resolve_cancel_state(_HEADERS, row, None) is False
+
+
+def test_resolve_cancel_state_text_marker_alone_is_sufficient():
+    row = ["05-01-26", "", "X Lehrer krank"]
+    assert LessonContextQueryUseCase.resolve_cancel_state(_HEADERS, row, None) is True

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from kursplaner.core.domain.content_markers import resolve_row_cancel_state
 from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
@@ -7,7 +8,15 @@ from kursplaner.core.ports.repositories import LessonRepository
 
 
 class LessonContextQueryUseCase:
-    """Bündelt fachliche Kontextabfragen rund um Planzeilen und Stundenbezüge."""
+    """Bündelt fachliche Kontextabfragen rund um Planzeilen und Stundenbezüge.
+
+    Kombiniert bewusst reine Text-Marker-Erkennung (`content_markers.py`) mit
+    bereits geladenen YAML-Daten verlinkter Stunden-Dateien (siehe
+    `resolve_cancel_state`) — `content_markers.py` selbst bleibt strikt auf
+    Text-Marker-Parsing beschränkt und kennt keine YAML-Daten; sobald eine
+    Funktion YAML-Felder wie `Stundentyp` benötigt, gehört sie hierher, nicht
+    dorthin (Architekturprinzip, nicht nur für diesen einen Fall).
+    """
 
     def __init__(self, lesson_repo: LessonRepository):
         """Initialisiert den Query-Use-Case mit dem benötigten Lesson-Read-Port."""
@@ -32,6 +41,35 @@ class LessonContextQueryUseCase:
             return 0
         rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
         return hours_for_date(rhythm, row_date)
+
+    @staticmethod
+    def resolve_cancel_state(
+        headers: list[str], row: list[str], lesson_yaml: dict[str, object] | None = None
+    ) -> bool:
+        """Ermittelt den vollständigen Ausfall-Status inkl. YAML-Override.
+
+        Einzige Wahrheit für "ist diese Zeile Ausfall" über die reine
+        Textmarker-Prüfung (`content_markers.resolve_row_cancel_state`)
+        hinaus: eine Zeile gilt auch dann als Ausfall, wenn ihre verlinkte
+        Stunden-Datei ``Stundentyp: Ausfall`` trägt, selbst ohne Textmarker
+        in der `Thema/Ausfall`-Spalte. Konsolidiert zwei zuvor unabhängige,
+        teils widersprüchliche Implementierungen (Detailansicht mit
+        YAML-Override, Kursübersicht ohne).
+
+        Args:
+            headers: Spaltenüberschriften der Planungstabelle.
+            row: Zellwerte einer einzelnen Tabellenzeile.
+            lesson_yaml: Normalisiertes YAML-Dictionary der verlinkten
+                Stunden-Datei, falls vorhanden (sonst ``None``).
+
+        Returns:
+            `True`, wenn die Zeile als Ausfall gilt (Textmarker oder YAML-Typ).
+        """
+        if resolve_row_cancel_state(headers, row):
+            return True
+        if lesson_yaml is None:
+            return False
+        return str(lesson_yaml.get("Stundentyp", "")).strip() == "Ausfall"
 
     def next_lzk_number(self, table: PlanTableData) -> int:
         """Bestimmt die nächste freie laufende LZK-Nummer in der Planung.

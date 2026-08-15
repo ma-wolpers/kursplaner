@@ -7,7 +7,6 @@ from kursplaner.core.domain.content_markers import (
     is_ausfall_marker,
     is_ferien_marker,
     marker_reason_text,
-    resolve_cancel_state,
     resolve_row_cancel_state,
     resolve_row_ferien_state,
 )
@@ -70,19 +69,6 @@ def test_classify_row_marker():
     assert classify_row_marker(_HEADERS, ["05-01-26", "", "X Sommerferien X"]) == "ferien"
     assert classify_row_marker(_HEADERS, ["05-01-26", "", "X Lehrer krank"]) == "ausfall"
     assert classify_row_marker(_HEADERS, ["05-01-26", "[[abc]]", ""]) == "none"
-
-
-def test_resolve_cancel_state_yaml_override_without_text_marker():
-    """Eine Zeile ohne Text-Marker gilt trotzdem als Ausfall, wenn die YAML Stundentyp=Ausfall traegt."""
-    row = ["05-01-26", "[[abc]]", ""]
-    assert resolve_cancel_state(_HEADERS, row, {"Stundentyp": "Ausfall"}) is True
-    assert resolve_cancel_state(_HEADERS, row, {"Stundentyp": "Unterricht"}) is False
-    assert resolve_cancel_state(_HEADERS, row, None) is False
-
-
-def test_resolve_cancel_state_text_marker_alone_is_sufficient():
-    row = ["05-01-26", "", "X Lehrer krank"]
-    assert resolve_cancel_state(_HEADERS, row, None) is True
 
 
 def test_is_ausfall_marker_covers_both_ferien_and_manual_ausfall():
