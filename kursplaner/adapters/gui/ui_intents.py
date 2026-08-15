@@ -54,8 +54,6 @@ class UiIntent:
     TOOLBAR_FIND = "toolbar.find"
     TOOLBAR_CLEAR = "toolbar.clear"
     TOOLBAR_RENAME = "toolbar.rename"
-    TOOLBAR_SPLIT = "toolbar.split"
-    TOOLBAR_MERGE = "toolbar.merge"
     TOOLBAR_RESUME = "toolbar.resume"
     TOOLBAR_MOVE_COLUMNS = "toolbar.move_columns"
     TOOLBAR_EXPORT_AS = "toolbar.export_as"

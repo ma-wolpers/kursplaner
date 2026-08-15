@@ -80,8 +80,6 @@ class ToolbarIconStyler:
             "find":               "tb_find.png",
             "clear":              "tb_clear.png",
             "rename":             "tb_rename.png",
-            "split":              "tb_split.png",
-            "merge":              "tb_merge.png",
             "resume":             "tb_resume.png",
             "move_left":          "tb_move_left.png",
             "move_right":         "tb_move_right.png",

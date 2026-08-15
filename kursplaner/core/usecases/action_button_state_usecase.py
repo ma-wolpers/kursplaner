@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
-from kursplaner.core.usecases.merge_selected_units_usecase import MergeSelectedUnitsUseCase
 from kursplaner.core.usecases.move_selected_columns_usecase import MoveSelectedColumnsUseCase
 
 
@@ -20,8 +18,6 @@ class ActionButtonState:
     can_hospitation: bool
     can_mark_ub: bool
     can_resume: bool
-    can_split: bool
-    can_merge: bool
     can_move_left: bool
     can_move_right: bool
     can_clear: bool
@@ -37,29 +33,10 @@ class ActionButtonStateUseCase:
 
     def __init__(
         self,
-        lesson_context_query: LessonContextQueryUseCase,
-        merge_selected_units: MergeSelectedUnitsUseCase,
         move_selected_columns: MoveSelectedColumnsUseCase,
     ):
         """Bindet abhängige Use Cases zur Zustandsberechnung der Aktionsbuttons."""
-        self.lesson_context_query = lesson_context_query
-        self.merge_selected_units = merge_selected_units
         self.move_selected_columns = move_selected_columns
-
-    @staticmethod
-    def _to_int(value: object, default: int = -1) -> int:
-        """Konvertiert heterogene Werte robust zu `int` mit Fallback."""
-        if isinstance(value, bool):
-            return int(value)
-        if isinstance(value, int):
-            return value
-        if isinstance(value, float):
-            return int(value)
-        if isinstance(value, str):
-            text = value.strip()
-            if text.isdigit() or (text.startswith("-") and text[1:].isdigit()):
-                return int(text)
-        return default
 
     @staticmethod
     def _selected_index(selected_day_indices: set[int], day_columns: list[dict[str, object]]) -> int | None:
@@ -81,7 +58,6 @@ class ActionButtonStateUseCase:
         """Liefert den vollständigen Aktivierungszustand für Kontextaktionen."""
         selected = self._selected_index(selected_day_indices, day_columns)
         selected_day = day_columns[selected] if selected is not None else None
-        row_index = self._to_int(selected_day.get("row_index", -1), -1) if isinstance(selected_day, dict) else -1
         link = selected_day.get("link") if isinstance(selected_day, dict) else None
 
         has_selection = selected_day is not None
@@ -91,13 +67,6 @@ class ActionButtonStateUseCase:
         is_hospitation = bool(selected_day.get("is_hospitation", False)) if isinstance(selected_day, dict) else False
         can_act_on_lesson = has_selection and not is_cancel
 
-        can_split = can_act_on_lesson and self.lesson_context_query.selected_row_hours(current_table, row_index) > 1
-        can_merge = (
-            can_act_on_lesson
-            and current_table is not None
-            and row_index >= 0
-            and self.merge_selected_units.can_merge(current_table, row_index)
-        )
         can_copy = can_act_on_lesson and has_link
 
         can_move_left = False
@@ -127,8 +96,6 @@ class ActionButtonStateUseCase:
                 can_hospitation=False,
                 can_mark_ub=False,
                 can_resume=False,
-                can_split=False,
-                can_merge=False,
                 can_move_left=False,
                 can_move_right=False,
                 can_clear=False,
@@ -147,8 +114,6 @@ class ActionButtonStateUseCase:
             can_hospitation=can_act_on_lesson and not is_hospitation,
             can_mark_ub=can_act_on_lesson and has_link,
             can_resume=has_selection and is_cancel,
-            can_split=can_split,
-            can_merge=can_merge,
             can_move_left=can_move_left,
             can_move_right=can_move_right,
             can_clear=can_act_on_lesson,

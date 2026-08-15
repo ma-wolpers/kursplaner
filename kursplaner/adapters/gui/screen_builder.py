@@ -388,8 +388,6 @@ class ScreenBuilder:
                 "find",
                 "clear",
                 "rename",
-                "split",
-                "merge",
                 "move_left",
                 "move_right",
                 "export_as",
@@ -505,8 +503,6 @@ class ScreenBuilder:
             SharedMenuItem(type="command", label="Einheit leeren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR)),
             SharedMenuItem(type="command", label="Einheit umbenennen…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME)),
             SharedMenuItem(type="command", label="Schatteneinheiten anzeigen…", command=lambda: self._emit_intent(UiIntent.SHOW_SHADOW_LESSONS)),
-            SharedMenuItem(type="command", label="Einheit aufsplitten", command=lambda: self._emit_intent(UiIntent.TOOLBAR_SPLIT)),
-            SharedMenuItem(type="command", label="Einheiten zusammenführen", command=lambda: self._emit_intent(UiIntent.TOOLBAR_MERGE)),
             SharedMenuItem(
                 type="command",
                 label="Kontextaktion: UB markieren / Ausfall zurücknehmen (Strg+B)",

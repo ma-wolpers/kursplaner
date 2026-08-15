@@ -9,7 +9,6 @@ from kursplaner.core.domain.course_rhythm import (
     active_weekdays,
     coerce_lesson_hours,
     current_segment,
-    distribute_hours_over_rows,
     format_rhythm,
     hours_for_date,
     is_valid_rhythm_value,
@@ -113,20 +112,6 @@ def test_hours_and_start_time_for_date_match_weekday():
 def test_active_weekdays_is_plain_set_of_entries():
     entries = parse_rhythm(["Mo 08:00 2", "Do 07:50 1"])
     assert active_weekdays(entries) == {0, 3}
-
-
-@pytest.mark.parametrize(
-    "total_hours,row_count,expected",
-    [
-        (2, 2, [1, 1]),
-        (3, 2, [2, 1]),
-        (2, 1, [2]),
-        (0, 3, [0, 0, 0]),
-        (0, 0, []),
-    ],
-)
-def test_distribute_hours_over_rows(total_hours, row_count, expected):
-    assert distribute_hours_over_rows(total_hours, row_count) == expected
 
 
 def test_coerce_lesson_hours_defaults_on_non_digit():

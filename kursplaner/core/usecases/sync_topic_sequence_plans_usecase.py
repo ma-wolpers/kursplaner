@@ -69,9 +69,9 @@ class SyncTopicSequencePlansUseCase:
     Abgleich prüft dafür zustandslos die tatsächlich im `Sequenzen/`-Ordner
     vorhandenen Dateien gegen die aktuell berechneten Läufe — kein
     gemerkter "letzter Zustand", der von der Realität abweichen könnte.
-    Das deckt jede Änderungsart ab (Zell-Edit, Merge, Split, Ausfall-
-    Konvertierung, Undo/Redo, …), da praktisch jede schreibende Aktion vor
-    dem nächsten Grid-Rebuild wieder hier landet.
+    Das deckt jede Änderungsart ab (Zell-Edit, Ausfall-Konvertierung,
+    Undo/Redo, …), da praktisch jede schreibende Aktion vor dem nächsten
+    Grid-Rebuild wieder hier landet.
     """
 
     def __init__(

@@ -56,8 +56,6 @@ def test_every_toolbar_button_has_ctrl_shortcut_mapping():
         "find": "toolbar.find",
         "clear": "toolbar.clear",
         "rename": "toolbar.rename",
-        "split": "toolbar.split",
-        "merge": "toolbar.merge",
         "move_left": "toolbar.move_columns",
         "move_right": "toolbar.move_columns",
     }

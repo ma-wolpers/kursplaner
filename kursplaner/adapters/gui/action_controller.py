@@ -84,8 +84,6 @@ class MainWindowActionController:
         self._lesson_transfer_flow = deps.lesson_transfer_flow
         self._find_markdown_for_selected_uc = deps.find_markdown_for_selected
         self._clear_selected_lesson_uc = deps.clear_selected_lesson
-        self._split_selected_unit_uc = deps.split_selected_unit
-        self._merge_selected_units_uc = deps.merge_selected_units
         self._restore_selected_from_cancel_uc = deps.restore_selected_from_cancel
         self._rename_linked_file_for_row_uc = deps.rename_linked_file_for_row
         self._action_button_state_uc = deps.action_button_state_usecase
@@ -1733,70 +1731,6 @@ class MainWindowActionController:
             messagebox.showerror(
                 "Einheit umbenennen", result.error_message or "Umbenennen fehlgeschlagen.", parent=self.app
             )
-            return
-
-        self._refresh_after_write(selected_index=selected_index)
-
-    def split_selected_unit_action(self):
-        """Teilt eine Mehrstunden-Einheit in einzelne Stunden."""
-        context = self._single_selection_context()
-        if context is None or self.app.current_table is None:
-            return
-        selected_index, row_index, _ = context
-
-        try:
-            hours = self._split_selected_unit_uc.preview_hours(self.app.current_table, row_index)
-        except Exception as exc:
-            messagebox.showinfo("Aufsplitten", str(exc), parent=self.app)
-            return
-
-        confirmed = messagebox.askyesno(
-            "Einheit aufsplitten",
-            f"Die Einheit mit {hours} Stunden wird in einzelne Einheiten aufgeteilt. Fortfahren?",
-            parent=self.app,
-        )
-        if not confirmed:
-            return
-
-        try:
-            self._run_tracked_write(
-                label="Einheit aufsplitten",
-                action=lambda: self._split_selected_unit_uc.execute(self.app.current_table, row_index),
-            )
-        except Exception as exc:
-            messagebox.showerror("Aufsplitten", str(exc), parent=self.app)
-            return
-
-        self._refresh_after_write(selected_index=selected_index)
-
-    def merge_selected_units_action(self):
-        """Führt alle zusammenführbaren Einheiten des ausgewählten Datums zusammen."""
-        context = self._single_selection_context()
-        if context is None or self.app.current_table is None:
-            return
-        selected_index, row_index, _ = context
-
-        try:
-            preview = self._merge_selected_units_uc.preview(self.app.current_table, row_index)
-        except Exception as exc:
-            messagebox.showinfo("Zusammenführen", str(exc), parent=self.app)
-            return
-
-        confirmed = messagebox.askyesno(
-            "Einheiten zusammenführen",
-            f"{preview.merged_count} Einheiten werden zu einer Einheit mit {preview.total_hours} Stunden verbunden. Fortfahren?",
-            parent=self.app,
-        )
-        if not confirmed:
-            return
-
-        try:
-            self._run_tracked_write(
-                label="Einheiten zusammenführen",
-                action=lambda: self._merge_selected_units_uc.execute(self.app.current_table, row_index),
-            )
-        except Exception as exc:
-            messagebox.showerror("Zusammenführen", str(exc), parent=self.app)
             return
 
         self._refresh_after_write(selected_index=selected_index)

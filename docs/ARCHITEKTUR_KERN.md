@@ -17,7 +17,7 @@ Zum Kern gehören:
 - `Rhythmus`: kursweites YAML-Feld (Wochentag + Startzeit + Stundenzahl, optional segmentiert per `ab <Datum>`), einzige Quelle für die Stundenzahl/Startzeit eines Kalendertags — siehe `core/domain/course_rhythm.py`
 - Verlinkte Einheiten-Dateien (YAML + optionale Inhalte)
 - Termin-/Ferienlogik; Ferien sind am Marker `X <Grund> X` erkennbar (Schluss-X), ein normaler Ausfall bleibt `X <Grund>` — siehe `core/domain/content_markers.py`
-- Fachliche Planoperationen (Ausfall, LZK, Split/Merge, Verschieben, Zuordnen)
+- Fachliche Planoperationen (Ausfall, LZK, Verschieben, Zuordnen)
 - Kurs-Lebenszyklus: `core/domain/course_lifecycle.py::is_former_course` ist die einzige Definition von "ehemaliger Kurs" (spätestes Plandatum in der Vergangenheit); steuert die automatische Archivierung nach `unterricht_dir/-ALT`
 - Delta-basierte Änderungs- und Undo/Redo-Logik
 - Daily-Reporting als fachlicher Snapshot-Use-Case (z. B. Tages-JSON über aktuelle/future Einheiten)
@@ -289,7 +289,7 @@ Verbindlich zum Kern gehören:
 - Fachobjekte (`Plan`, `PlanRow`, `LessonRef`, `ConflictResolution`, `CommandEntry`, `FileDelta` als Fachstruktur)
 - Fachregeln für Tabellenzustand und Stundenbezüge
 - Konfliktentscheidungen (`move`, `shadow`, `delete`, `cancel`) als fachliche Strategie
-- Fachliche Planoperationen (Ausfall/LZK/Split/Merge/Verschieben/Zuordnen)
+- Fachliche Planoperationen (Ausfall/LZK/Verschieben/Zuordnen)
 - Undo/Redo-Logik als **fachlicher Command-Flow** (nicht als GUI-Helfer)
 
 Nicht zum Kern gehören:
@@ -529,7 +529,7 @@ Zur Beantwortung von „Wer entscheidet was?“ gilt verbindlich:
 
 - Invarianten der Planungstabelle (gültige Zeilenstruktur, Stunden-/Inhaltsregeln)
 - fachliche Konfliktregeln als Strategieobjekte/Enums (`cancel|move|shadow|delete`)
-- fachliche Transformationslogik (Split/Merge/Ausfall/LZK/Restore)
+- fachliche Transformationslogik (Ausfall/LZK/Restore)
 
 ### Use Cases entscheiden Ablauf + Transaktion
 

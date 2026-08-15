@@ -130,24 +130,6 @@
     "didactic_hint": "Wirkt nur im Spaltenauswahlmodus und nicht in Textfeldern."
   },
   {
-    "key_sequence": "<Control-t>",
-    "display_shortcut": "Strg+T",
-    "action_label": "Einheit aufsplitten",
-    "intent": "toolbar.split",
-    "from_shortcut": true,
-    "mnemonic": "T = Teilen",
-    "didactic_hint": "T verweist auf Teilen und unterstützt das Merken des Split-Schritts."
-  },
-  {
-    "key_sequence": "<Control-m>",
-    "display_shortcut": "Strg+M",
-    "action_label": "Einheiten zusammenführen",
-    "intent": "toolbar.merge",
-    "from_shortcut": true,
-    "mnemonic": "M = Merge",
-    "didactic_hint": "M passt als klarer Startbuchstabe für Zusammenführen."
-  },
-  {
     "key_sequence": "<Control-b>",
     "display_shortcut": "Strg+B",
     "action_label": "Kontextaktion: UB markieren / Ausfall zurücknehmen",

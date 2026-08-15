@@ -254,28 +254,6 @@ def add_segment(
     return tuple(entries) + tuple(new_segment)
 
 
-def distribute_hours_over_rows(total_hours: int, row_count: int) -> list[int]:
-    """Verteilt eine Gesamtstundenzahl moeglichst gleichmaessig auf mehrere Zeilen.
-
-    Wird gebraucht, wenn eine Mehrstunden-Einheit auf mehrere Tabellenzeilen
-    desselben Datums aufgeteilt ist (Split/Merge, siehe
-    ``core.usecases.plan_commands_usecase``) - die Stundenzahl wird nicht mehr
-    pro Zeile gespeichert, sondern aus dem Wochentags-Rhythmus abgeleitet und
-    muss daher hier auf die Zeilenzahl herunter gebrochen werden.
-
-    Example::
-
-        distribute_hours_over_rows(2, 2)
-        # -> [1, 1]
-        distribute_hours_over_rows(3, 2)
-        # -> [2, 1]
-    """
-    if row_count <= 0:
-        return []
-    base, remainder = divmod(total_hours, row_count)
-    return [base + 1 if index < remainder else base for index in range(row_count)]
-
-
 def coerce_lesson_hours(raw: object, *, default: int = DEFAULT_LESSON_HOURS) -> int:
     """Parst einen rohen Stundenwert robust, mit Fallback auf ``default``.
 

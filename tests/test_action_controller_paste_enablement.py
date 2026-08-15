@@ -14,8 +14,6 @@ def _state(**overrides):
         "can_hospitation": False,
         "can_mark_ub": False,
         "can_resume": False,
-        "can_split": False,
-        "can_merge": False,
         "can_move_left": False,
         "can_move_right": False,
         "can_clear": False,

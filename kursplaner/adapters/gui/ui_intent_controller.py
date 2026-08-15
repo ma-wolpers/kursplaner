@@ -131,12 +131,6 @@ class MainWindowUiIntentController:
         if intent == UiIntent.TOOLBAR_RENAME:
             self.app.action_controller.rename_selected_lesson()
             return None
-        if intent == UiIntent.TOOLBAR_SPLIT:
-            self.app.action_controller.split_selected_unit_action()
-            return None
-        if intent == UiIntent.TOOLBAR_MERGE:
-            self.app.action_controller.merge_selected_units_action()
-            return None
         if intent == UiIntent.TOOLBAR_RESUME:
             self.app.action_controller.restore_selected_from_cancel_action()
             return None
@@ -337,8 +331,6 @@ class MainWindowUiIntentController:
             UiIntent.TOOLBAR_FIND: "find",
             UiIntent.TOOLBAR_CLEAR: "clear",
             UiIntent.TOOLBAR_RENAME: "rename",
-            UiIntent.TOOLBAR_SPLIT: "split",
-            UiIntent.TOOLBAR_MERGE: "merge",
             UiIntent.TOOLBAR_RESUME: "resume",
             UiIntent.TOOLBAR_MOVE_COLUMNS: "move_left"
             if self.app._to_int(payload.get("direction", 0), 0) < 0

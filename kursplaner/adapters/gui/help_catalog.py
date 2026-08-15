@@ -64,8 +64,6 @@ MAIN_WINDOW_HELP: dict[str, str] = {
     "find_markdown": "Verknüpft eine vorhandene Markdown-Datei. - Strg+G",
     "clear": "Leert die verlinkte Einheit. - Strg+Entf (nur im Spaltenauswahlmodus)",
     "rename": "Benennt die verlinkte Einheitsdatei um. - Strg+J",
-    "split": "Teilt eine mehrstündige Einheit auf. - Strg+T",
-    "merge": "Führt passende Einheiten zusammen. - Strg+M",
     "resume": "Nimmt Ausfall zurück. - Kontextaktion Strg+B",
     "move_left": "Verschiebt die Spalte nach links. - Strg+Links",
     "move_right": "Verschiebt die Spalte nach rechts. - Strg+Rechts",

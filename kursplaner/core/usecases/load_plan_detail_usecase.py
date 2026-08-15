@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections import Counter
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
@@ -16,7 +14,6 @@ from kursplaner.core.domain.content_markers import (
 )
 from kursplaner.core.domain.course_rhythm import (
     RHYTHM_YAML_KEY,
-    distribute_hours_over_rows,
     hours_for_date,
     parse_rhythm,
     start_time_for_date,
@@ -196,10 +193,9 @@ class LoadPlanDetailUseCase:
         sondern aus dem kursweiten ``Rhythmus``-Feld abgeleitet (siehe
         :mod:`kursplaner.core.domain.course_rhythm`): ``0``/leer für Ferien-
         Zeilen, sonst die zum Wochentag und Datum passende Stundenzahl/
-        Startzeit. Teilen sich mehrere Zeilen dasselbe Datum (Split, siehe
-        ``core.usecases.plan_commands_usecase``), wird die Gesamtstundenzahl
-        des Wochentags über :func:`~kursplaner.core.domain.course_rhythm.
-        distribute_hours_over_rows` auf sie aufgeteilt.
+        Startzeit. Ein Kurstag hat genau eine Planzeile; es gibt keine
+        Aufteilung einer Wochentags-Stundenzahl auf mehrere Zeilen desselben
+        Datums.
 
         Ausfall-Erkennung erfolgt über col 2 (``X ``-Präfix) plus einen
         YAML-Override, falls die verlinkte Stunden-Datei
@@ -224,11 +220,6 @@ class LoadPlanDetailUseCase:
         group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
 
         rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
-        row_dates: list[date | None] = [
-            parse_plan_row_date(row[idx_datum]) if idx_datum < len(row) else None for row in table.rows
-        ]
-        rows_per_date: Counter[date] = Counter(row_date for row_date in row_dates if row_date is not None)
-        seen_per_date: Counter[date] = Counter()
 
         collected: list[dict[str, object]] = []
         for row_index, row in enumerate(table.rows):
@@ -241,20 +232,15 @@ class LoadPlanDetailUseCase:
             )
             marker_text = normalize_marker_text(inhalt)
 
-            row_date = row_dates[row_index]
+            row_date = parse_plan_row_date(datum) if idx_datum < len(row) else None
             is_ferien = is_ferien_marker(thema_ausfall)
             if row_date is None:
                 stunden, startzeit = "", ""
             elif is_ferien:
                 stunden, startzeit = "0", ""
             else:
-                total_hours = hours_for_date(rhythm, row_date)
-                shares = distribute_hours_over_rows(total_hours, rows_per_date[row_date])
-                position = seen_per_date[row_date]
-                stunden = str(shares[position]) if position < len(shares) else "0"
+                stunden = str(hours_for_date(rhythm, row_date))
                 startzeit = start_time_for_date(rhythm, row_date)
-            if row_date is not None:
-                seen_per_date[row_date] += 1
 
             link = self.lesson_repo.resolve_row_link_path(table, row_index)
             has_link_ref = self._contains_markdown_link(inhalt)

@@ -41,7 +41,6 @@ from kursplaner.core.usecases.list_lessons_usecase import ListLessonsUseCase
 from kursplaner.core.usecases.load_last_ub_insights_usecase import LoadLastUbInsightsUseCase
 from kursplaner.core.usecases.load_plan_detail_usecase import LoadPlanDetailUseCase
 from kursplaner.core.usecases.mark_unit_as_ub_usecase import MarkUnitAsUbUseCase
-from kursplaner.core.usecases.merge_selected_units_usecase import MergeSelectedUnitsUseCase
 from kursplaner.core.usecases.move_selected_columns_usecase import MoveSelectedColumnsUseCase
 from kursplaner.core.usecases.new_lesson_form_usecase import NewLessonFormUseCase
 from kursplaner.core.usecases.new_lesson_usecase import NewLessonUseCase
@@ -63,7 +62,6 @@ from kursplaner.core.usecases.repair_lesson_yaml_frontmatter_usecase import Repa
 from kursplaner.core.usecases.restore_selected_from_cancel_usecase import RestoreSelectedFromCancelUseCase
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
 from kursplaner.core.usecases.save_cell_value_usecase import SaveCellValueUseCase
-from kursplaner.core.usecases.split_selected_unit_usecase import SplitSelectedUnitUseCase
 from kursplaner.core.usecases.subject_sources_usecase import SubjectSourcesUseCase
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopicSequencePlansUseCase
@@ -145,8 +143,6 @@ class GuiDependencies:
     repair_lesson_yaml_frontmatter_usecase: RepairLessonYamlFrontmatterUseCase
     invalidate_repository_caches: InvalidateRepositoryCachesUseCase
     clear_selected_lesson: ClearSelectedLessonUseCase
-    split_selected_unit: SplitSelectedUnitUseCase
-    merge_selected_units: MergeSelectedUnitsUseCase
     move_selected_columns: MoveSelectedColumnsUseCase
     find_markdown_for_selected: FindMarkdownForSelectedUseCase
     restore_selected_from_cancel: RestoreSelectedFromCancelUseCase
@@ -284,14 +280,6 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         lesson_file_repo=lesson_file_repo,
         ub_repo=ub_repo,
     )
-    split_selected_unit = SplitSelectedUnitUseCase(
-        plan_repo=plan_repo,
-        plan_commands=plan_commands,
-    )
-    merge_selected_units = MergeSelectedUnitsUseCase(
-        plan_repo=plan_repo,
-        plan_commands=plan_commands,
-    )
     rename_linked_file_for_row = RenameLinkedFileForRowUseCase(
         plan_repo=plan_repo,
         lesson_transfer=lesson_transfer,
@@ -303,8 +291,6 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         plan_commands=plan_commands,
     )
     action_button_state_usecase = ActionButtonStateUseCase(
-        lesson_context_query=lesson_context_query,
-        merge_selected_units=merge_selected_units,
         move_selected_columns=move_selected_columns,
     )
     # expose rename usecase to adapters
@@ -441,8 +427,6 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         repair_lesson_yaml_frontmatter_usecase=repair_lesson_yaml_frontmatter_usecase,
         invalidate_repository_caches=invalidate_repository_caches,
         clear_selected_lesson=clear_selected_lesson,
-        split_selected_unit=split_selected_unit,
-        merge_selected_units=merge_selected_units,
         move_selected_columns=move_selected_columns,
         find_markdown_for_selected=find_markdown_for_selected,
         restore_selected_from_cancel=restore_selected_from_cancel,
