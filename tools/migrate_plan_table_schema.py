@@ -5,8 +5,11 @@ Thema/Ausfall``, kein ``Rhythmus``-YAML-Feld) auf das neue Format:
 
 * Tabelle wird auf ``Datum | Inhalt | Thema/Ausfall`` (3 Spalten) reduziert.
 * Ein neues YAML-Feld ``Rhythmus`` wird aus der alten Stunden-Spalte
-  abgeleitet (häufigste Stundenzahl je Wochentag; Startzeit immer ``00:00``,
-  da diese vorher nirgends erfasst wurde).
+  abgeleitet. Jeder Wochentag muss dafür über die gesamte Tabelle hinweg
+  genau eine Nicht-Null-Stundenzahl tragen (kein Mehrheitswert, kein
+  Tie-Breaker) - widersprüchliche historische Werte lassen die Datei mit
+  einem konkreten Fehler scheitern, statt sie stillschweigend zu erraten.
+  Startzeit immer ``00:00``, da diese vorher nirgends erfasst wurde.
 * Ferien-Zeilen (alte ``Stunden == 0``-Zeilen) bekommen das neue
   Ferien-Marker-Format ``X <Grund> X``; normale manuelle Ausfälle (alte
   ``Stunden > 0``-Zeilen mit ``X ...``) bleiben beim einfachen
@@ -35,7 +38,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
@@ -47,7 +50,7 @@ from kursplaner.core.domain.content_markers import (
     marker_reason_text,
 )
 from kursplaner.core.domain.course_lifecycle import course_archive_root
-from kursplaner.core.domain.course_rhythm import WeekdayRhythm, format_rhythm
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, format_rhythm, weekday_token
 from kursplaner.core.domain.plan_table import parse_plan_row_date
 from kursplaner.infrastructure.repositories.plan_table_markdown_io import (
     _extract_table_blocks,
@@ -87,13 +90,22 @@ def _frontmatter_bounds(lines: list[str]) -> tuple[int, int] | None:
 
 
 def _derive_rhythm(rows: list[list[str]]) -> tuple[WeekdayRhythm, ...]:
-    """Leitet je Wochentag die häufigste Stundenzahl aus den alten Planzeilen ab.
+    """Leitet je Wochentag die eindeutige Stundenzahl aus den alten Planzeilen ab.
 
-    Bei Gleichstand gewinnt die größere Stundenzahl (deterministisch). Die
+    Harte fachliche Regel, kein Best-Effort-Raten: historische Tabellen kennen
+    noch keine Rhythmus-Segmente, jeder Wochentag muss daher über die gesamte
+    Tabelle hinweg genau eine Nicht-Null-Stundenzahl tragen. Kommen für
+    denselben Wochentag mehrere unterschiedliche Werte vor, ist die Datei
+    nicht eindeutig migrierbar - kein Mehrheitswert, kein Tie-Breaker.
+
     Startzeit ist immer ``"00:00"`` - sie wurde vom alten Format nirgends
     strukturiert erfasst.
+
+    Raises:
+        ValueError: Wenn ein Wochentag mehrere unterschiedliche historische
+            Nicht-Null-Stundenwerte trägt.
     """
-    hours_by_weekday: dict[int, Counter[int]] = defaultdict(Counter)
+    hours_by_weekday: dict[int, set[int]] = defaultdict(set)
     for row in rows:
         if len(row) < 2:
             continue
@@ -106,14 +118,17 @@ def _derive_rhythm(rows: list[list[str]]) -> tuple[WeekdayRhythm, ...]:
         hours = int(hours_text)
         if hours <= 0:
             continue
-        hours_by_weekday[row_date.weekday()][hours] += 1
+        hours_by_weekday[row_date.weekday()].add(hours)
 
     entries: list[WeekdayRhythm] = []
     for weekday in sorted(hours_by_weekday):
-        counts = hours_by_weekday[weekday]
-        best_count = max(counts.values())
-        chosen_hours = max(hours for hours, count in counts.items() if count == best_count)
-        entries.append(WeekdayRhythm(weekday=weekday, start_time="00:00", hours=chosen_hours, valid_from=None))
+        values = hours_by_weekday[weekday]
+        if len(values) > 1:
+            raise ValueError(
+                f"Widersprüchliche historische Stundenwerte für {weekday_token(weekday)}: "
+                f"{sorted(values)} - Datei nicht eindeutig migrierbar."
+            )
+        entries.append(WeekdayRhythm(weekday=weekday, start_time="00:00", hours=values.pop(), valid_from=None))
     return tuple(entries)
 
 
@@ -163,7 +178,10 @@ def migrate_plan(plan_path: Path, *, dry_run: bool) -> str:
     body_lines = lines[table_start + 2 : table_end + 1]
     old_rows = [_split_row(line) for line in body_lines]
 
-    rhythm = _derive_rhythm(old_rows)
+    try:
+        rhythm = _derive_rhythm(old_rows)
+    except ValueError as exc:
+        return f"ERROR: {exc}"
     ferien_count = 0
     ausfall_count = 0
     new_rows: list[list[str]] = []
