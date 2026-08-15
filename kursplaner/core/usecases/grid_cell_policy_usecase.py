@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import normalize_marker_text
+from kursplaner.core.domain.plan_table import read_yaml_oberthema
 
 
 class GridCellPolicyUseCase:
@@ -45,8 +46,10 @@ class GridCellPolicyUseCase:
             # Solange keine verlinkte Stunden-Datei existiert, hat `yaml` kein
             # eigenes "Oberthema"-Feld; die Plantabelle (Thema/Ausfall-Spalte)
             # kann das Oberthema aber schon vorab tragen (siehe
-            # `extract_plan_oberthema`/`build_day_columns`).
-            oberthema = str(yaml_data.get("Oberthema", "")).strip()
+            # `extract_plan_oberthema`/`build_day_columns`). Das YAML-Feld darf
+            # bewusst als Wiki-Link gespeichert sein; `read_yaml_oberthema`
+            # liefert dafür einheitlich den entschlüsselten Anzeigetext.
+            oberthema = read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
             if oberthema:
                 return oberthema
             return str(day.get("plan_oberthema", "")).strip()

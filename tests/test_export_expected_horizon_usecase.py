@@ -33,7 +33,9 @@ def _table() -> PlanTableData:
     )
 
 
-def _day(*, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilziele: list[str]):
+def _day(
+    *, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilziele: list[str], group_name: str = "lila-5"
+):
     return {
         "row_index": row_index,
         "datum": datum,
@@ -47,6 +49,7 @@ def _day(*, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilzi
         },
         "link": Path(f"A:/7thCloud/unit-{row_index}.md"),
         "is_cancel": False,
+        "group_name": group_name,
     }
 
 
@@ -102,6 +105,43 @@ def test_expected_horizon_exports_only_unterricht_and_flattens_goals():
         "... Merge Sort einordnen",
     ]
     assert [row.is_main_goal for row in document.rows] == [True, False, False]
+
+
+def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema():
+    """Ein bewusst als Wiki-Link gespeichertes Oberthema (Obsidian-Verlinkung) darf beim
+    Export nicht faelschlich als eigenes Thema behandelt werden."""
+    renderer = _RendererSpy()
+    usecase = ExportExpectedHorizonUseCase(renderer=renderer)
+
+    day_columns = [
+        _day(
+            row_index=0,
+            datum="01-09-25",
+            kind="Unterricht",
+            obert="[[lila-5 Algorithmen]]",
+            ziel="Sortierverfahren vergleichen",
+            teilziele=[],
+        ),
+        _day(
+            row_index=1,
+            datum="08-09-25",
+            kind="Unterricht",
+            obert="Algorithmen",
+            ziel="LZK Sortieren",
+            teilziele=[],
+        ),
+    ]
+
+    result = usecase.execute(
+        table=_table(),
+        day_columns=day_columns,
+        selected_day_index=1,
+        output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
+        export_date=date(2026, 4, 1),
+    )
+
+    assert result.row_count == 2
+    assert result.title == "Kompetenzhorizont: Algorithmen"
 
 
 def test_expected_horizon_rejects_selection_without_oberthema():

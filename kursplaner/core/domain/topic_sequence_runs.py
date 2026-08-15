@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kursplaner.core.domain.export_date_formatting import format_day_date
+from kursplaner.core.domain.plan_table import read_yaml_oberthema
 
 ELIGIBLE_SEQUENCE_TYPES = frozenset({"Unterricht", "LZK", "Hospitation"})
 """Stundentypen, die selbst ein Oberthema tragen und Teil einer Sequenz sein können."""
@@ -67,10 +68,14 @@ def row_lesson_type(day: dict[str, object]) -> str:
 def row_oberthema(day: dict[str, object]) -> str:
     """Liest das Oberthema einer Tages-Spalte.
 
-    Bevorzugt das YAML-Feld `Oberthema` der verlinkten Stunden-Datei. Existiert
-    noch keine verlinkte Datei (leere/ungeplante Einheit), fällt die Erkennung
-    auf `day["plan_oberthema"]` zurück — das aus der rohen `Thema/Ausfall`-Spalte
-    der Plantabelle geparste Oberthema (siehe
+    Bevorzugt das YAML-Feld `Oberthema` der verlinkten Stunden-Datei (das Feld
+    darf bewusst als Wiki-Link gespeichert sein, siehe
+    `plan_table.read_yaml_oberthema` — liefert den entschlüsselten
+    Anzeige-/Vergleichstext, damit Klartext- und Link-Schreibweise desselben
+    Themas als eine Kette erkannt werden). Existiert noch keine verlinkte
+    Datei (leere/ungeplante Einheit), fällt die Erkennung auf
+    `day["plan_oberthema"]` zurück — das aus der rohen `Thema/Ausfall`-Spalte
+    der Plantabelle geparste (bereits entschlüsselte) Oberthema (siehe
     `load_plan_detail_usecase.build_day_columns`/`plan_table.extract_plan_oberthema`).
     Damit zählen auch noch nicht angelegte Einheiten, die in der Plantabelle
     bereits einem Oberthema zugeordnet sind, als Kettenmitglied.
@@ -79,12 +84,12 @@ def row_oberthema(day: dict[str, object]) -> str:
         day: Eintrag aus einer Tagesliste (z. B. `raw_day_columns`).
 
     Returns:
-        Der getrimmte Oberthema-Text oder ein leerer String, wenn keines
-        gesetzt ist.
+        Der getrimmte, entschlüsselte Oberthema-Text oder ein leerer String,
+        wenn keines gesetzt ist.
     """
     yaml_data = day.get("yaml")
     if isinstance(yaml_data, dict):
-        oberthema = str(yaml_data.get("Oberthema", "")).strip()
+        oberthema = read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
         if oberthema:
             return oberthema
     return str(day.get("plan_oberthema", "")).strip()

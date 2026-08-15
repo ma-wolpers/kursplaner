@@ -3,7 +3,8 @@ from __future__ import annotations
 from kursplaner.core.domain.content_markers import resolve_row_cancel_state
 from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
-from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date, read_yaml_oberthema
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
 
 
@@ -92,17 +93,22 @@ class LessonContextQueryUseCase:
     def last_oberthema_before_row(self, table: PlanTableData, row_index: int) -> str:
         """Liefert das letzte gesetzte Oberthema vor einer Zielzeile.
 
-        Durchsucht vorherige Zeilen rückwärts auf Basis batchgeladener Stunden-YAMLs.
+        Durchsucht vorherige Zeilen rückwärts auf Basis batchgeladener
+        Stunden-YAMLs. Das YAML-Feld `Oberthema` darf bewusst als Wiki-Link
+        gespeichert sein; `read_yaml_oberthema` liefert dafür einheitlich den
+        entschlüsselten Text, damit ein neu angelegter Nachfolge-Prefill den
+        Klartext übernimmt statt den rohen Link weiterzureichen.
         """
         if row_index <= 0:
             return ""
         probes = list(range(row_index - 1, -1, -1))
         lessons_by_row = self.lesson_repo.load_lessons_for_all_rows(table)
+        group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
         for probe in probes:
             lesson = lessons_by_row.get(probe)
             if lesson is None:
                 continue
-            oberthema = str(lesson.data.get("Oberthema", "")).strip()
+            oberthema = read_yaml_oberthema(lesson.data, group_name)
             if oberthema:
                 return oberthema
         return ""

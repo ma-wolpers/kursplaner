@@ -6,7 +6,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Protocol
 
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import PlanTableData, read_yaml_oberthema
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 
@@ -107,7 +107,7 @@ class ExportExpectedHorizonUseCase:
         yaml_data = day.get("yaml")
         if not isinstance(yaml_data, dict):
             return ""
-        return str(yaml_data.get("Oberthema", "")).strip()
+        return read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
 
     @staticmethod
     def _parse_text_list(value: object) -> list[str]:
@@ -154,7 +154,7 @@ class ExportExpectedHorizonUseCase:
             if not isinstance(yaml_data, dict):
                 continue
 
-            if str(yaml_data.get("Oberthema", "")).strip() != target_oberthema:
+            if read_yaml_oberthema(yaml_data, str(day.get("group_name", ""))) != target_oberthema:
                 continue
 
             formatted_date = cls._format_day_date(day.get("datum", ""))

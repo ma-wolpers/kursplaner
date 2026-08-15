@@ -5,7 +5,7 @@ from kursplaner.core.domain.topic_sequence_runs import (
 )
 
 
-def _day(*, row_index: int, kind: str, obert: str = ""):
+def _day(*, row_index: int, kind: str, obert: str = "", group_name: str = ""):
     """Baut einen Tages-Eintrag in der jeweils realistischen Form.
 
     Ausfall-Tage haben in der echten Anwendung nie eine verlinkte Stundendatei
@@ -19,6 +19,7 @@ def _day(*, row_index: int, kind: str, obert: str = ""):
     return {
         "row_index": row_index,
         "yaml": {"Stundentyp": kind, "Oberthema": obert},
+        "group_name": group_name,
     }
 
 
@@ -34,6 +35,21 @@ def test_two_adjacent_units_with_same_oberthema_form_one_run():
     assert runs[0].oberthema == "Algorithmen"
     assert runs[0].member_row_indices == (0, 1)
     assert runs[0].member_count == 2
+
+
+def test_plain_text_and_wiki_linked_oberthema_form_one_run():
+    """Ein bewusst als Wiki-Link gespeichertes Oberthema (Obsidian-Verlinkung) darf die
+    Sequenz nicht faelschlich abbrechen, nur weil die Schreibweise vom Klartext abweicht."""
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="EFl1 Potenzfunktionen", group_name="11.1"),
+        _day(row_index=1, kind="Unterricht", obert="[[11.1 EFl1 Potenzfunktionen]]", group_name="11.1"),
+    ]
+
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert len(runs) == 1
+    assert runs[0].oberthema == "EFl1 Potenzfunktionen"
+    assert runs[0].member_row_indices == (0, 1)
 
 
 def test_different_oberthema_breaks_the_chain():

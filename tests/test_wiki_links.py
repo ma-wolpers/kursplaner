@@ -1,6 +1,6 @@
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
-from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.wiki_links import build_wiki_link
+from kursplaner.core.domain.plan_table import PlanTableData, read_yaml_oberthema
+from kursplaner.core.domain.wiki_links import build_wiki_link, strip_group_prefixed_link
 from kursplaner.infrastructure.repositories.plan_repository import FileSystemPlanRepository
 from kursplaner.infrastructure.repositories.plan_table_file_repository import create_linked_lesson_file
 
@@ -11,6 +11,38 @@ def test_build_wiki_link_formats_target_and_alias():
     built = build_wiki_link(" gruen-6 ]", " Lautstaerke [ im Raum ")
 
     assert built == "[[gruen-6|Lautstaerke im Raum]]"
+
+
+def test_strip_group_prefixed_link_decodes_bracketed_group_prefixed_text():
+    assert strip_group_prefixed_link("[[11.1 EFl1 Potenzfunktionen]]", "11.1") == "EFl1 Potenzfunktionen"
+
+
+def test_strip_group_prefixed_link_decodes_without_group_prefix():
+    assert strip_group_prefixed_link("[[Algorithmen]]", "lila-5") == "Algorithmen"
+
+
+def test_strip_group_prefixed_link_leaves_plain_text_unchanged():
+    assert strip_group_prefixed_link("EFl1 Potenzfunktionen", "11.1") == "EFl1 Potenzfunktionen"
+
+
+def test_strip_group_prefixed_link_handles_wiki_linked_group_name():
+    assert strip_group_prefixed_link("[[li2 Kodierung]]", "[[li2]]") == "Kodierung"
+
+
+def test_strip_group_prefixed_link_empty_input_is_empty():
+    assert strip_group_prefixed_link("", "11.1") == ""
+
+
+def test_read_yaml_oberthema_matches_regardless_of_representation():
+    """Klartext und Wiki-Link desselben Themas muessen denselben Wert liefern (Vergleichbarkeit)."""
+    plain = read_yaml_oberthema({"Oberthema": "EFl1 Potenzfunktionen"}, "11.1")
+    linked = read_yaml_oberthema({"Oberthema": "[[11.1 EFl1 Potenzfunktionen]]"}, "11.1")
+
+    assert plain == linked == "EFl1 Potenzfunktionen"
+
+
+def test_read_yaml_oberthema_missing_field_is_empty():
+    assert read_yaml_oberthema({}, "11.1") == ""
 
 
 def test_create_linked_lesson_file_writes_balanced_wiki_link(tmp_path):

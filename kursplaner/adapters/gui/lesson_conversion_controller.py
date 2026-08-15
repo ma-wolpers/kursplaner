@@ -16,6 +16,8 @@ from kursplaner.core.config.path_store import (
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
 from kursplaner.core.domain.course_rhythm import parse_lesson_hours
 from kursplaner.core.domain.course_subject import normalize_course_subject
+from kursplaner.core.domain.plan_table import read_yaml_oberthema
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
 
 
@@ -307,7 +309,8 @@ class MainWindowLessonConversionController:
                 yaml_data = {}
 
             topic_initial = str(yaml_data.get("Stundenthema", "")).strip() or topic_initial
-            oberthema_initial = str(yaml_data.get("Oberthema", "")).strip() or oberthema_initial
+            group_name = strip_wiki_link(str(self.app.current_table.metadata.get("Lerngruppe", "")))
+            oberthema_initial = read_yaml_oberthema(yaml_data, group_name) or oberthema_initial
             stundenziel_initial = str(yaml_data.get("Stundenziel", "")).strip()
             kompetenzen_initial = self._coerce_string_list(yaml_data.get("Kompetenzen", []))
             inhalte_initial = self._extract_markdown_section_refs(existing_link, "Inhalte")

@@ -7,7 +7,7 @@ from datetime import datetime
 from kursplaner.core.domain.content_markers import normalize_marker_text
 from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
-from kursplaner.core.domain.plan_table import sanitize_hour_title
+from kursplaner.core.domain.plan_table import read_yaml_oberthema, sanitize_hour_title
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 
@@ -58,8 +58,12 @@ class MainWindowLessonContextController:
             # Solange keine verlinkte Stunden-Datei existiert, hat `yaml` kein
             # eigenes "Oberthema"-Feld; die Plantabelle (Thema/Ausfall-Spalte)
             # kann das Oberthema aber schon vorab tragen (siehe
-            # `extract_plan_oberthema`/`build_day_columns`).
-            oberthema = str(yaml_data.get("Oberthema", "")).strip()
+            # `extract_plan_oberthema`/`build_day_columns`). Das YAML-Feld darf
+            # bewusst als Wiki-Link gespeichert sein (Obsidian-Verlinkung);
+            # `read_yaml_oberthema` liefert dafür einheitlich den
+            # entschlüsselten Anzeigetext.
+            group_name = self._raw_group_name()
+            oberthema = read_yaml_oberthema(yaml_data, group_name)
             if oberthema:
                 return oberthema
             return str(day.get("plan_oberthema", "")).strip()
@@ -224,6 +228,18 @@ class MainWindowLessonContextController:
         text = self.app.current_table.markdown_path.stem
         match = re.search(r"\b(\d{2}-[12])\b", text)
         return match.group(1) if match else "??-?"
+
+    def _raw_group_name(self) -> str:
+        """Liest die Lerngruppen-Bezeichnung roh (nur Wiki-Link entfernt, nicht dateinamen-bereinigt).
+
+        Für den Abgleich mit einem gruppen-präfigierten Oberthema-Wert
+        (siehe `plan_table.read_yaml_oberthema`) — anders als
+        `parse_group_token()`, das zusätzlich `sanitize_hour_title()`
+        anwendet und daher für diesen Vergleichszweck ungeeignet ist.
+        """
+        if self.app.current_table is None:
+            return ""
+        return strip_wiki_link(str(self.app.current_table.metadata.get("Lerngruppe", "")))
 
     def parse_group_token(self) -> str:
         """Liest und normalisiert den Lerngruppen-Token aus Plan-Metadaten.

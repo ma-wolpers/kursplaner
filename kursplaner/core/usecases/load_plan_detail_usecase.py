@@ -211,8 +211,11 @@ class LoadPlanDetailUseCase:
         Das ist die einzige Oberthema-Quelle für Einheiten ohne verlinkte
         Stunden-Datei (noch kein ``yaml["Oberthema"]`` vorhanden); Aufrufer, die
         das angezeigte/fachliche Oberthema einer Spalte brauchen, sollen
-        ``yaml["Oberthema"]`` bevorzugen und erst dann auf ``plan_oberthema``
-        zurückfallen.
+        ``yaml["Oberthema"]`` (entschlüsselt via
+        :func:`~kursplaner.core.domain.plan_table.read_yaml_oberthema`, das
+        Feld darf bewusst als Wiki-Link gespeichert sein) bevorzugen und erst
+        dann auf ``plan_oberthema`` zurückfallen. ``group_name`` (Lerngruppe,
+        Wiki-Link bereits entfernt) wird für diese Dekodierung mitgeführt.
         """
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum", 0)
@@ -315,6 +318,7 @@ class LoadPlanDetailUseCase:
                     "is_valid_unterricht_file": valid_unterricht_link,
                     "yaml": yaml_data,
                     "plan_oberthema": plan_oberthema,
+                    "group_name": group_name,
                     "Stundentyp": lesson_type,
                     "content_marker_text": marker_text,
                     "header_content": header_content,

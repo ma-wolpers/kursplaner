@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.wiki_links import strip_group_prefixed_link
 
 
 @dataclass
@@ -115,11 +115,33 @@ def extract_plan_oberthema(thema_ausfall: str, group_name: str) -> str:
         text = text[4:].strip()
     if not (text.startswith("[[") and text.endswith("]]")):
         return ""
+    return strip_group_prefixed_link(text, group_name)
 
-    inner = strip_wiki_link(text)
-    group_plain = strip_wiki_link(str(group_name or "").strip())
-    if group_plain and inner.lower().startswith(group_plain.lower()):
-        remainder = inner[len(group_plain) :].strip()
-        if remainder:
-            return remainder
-    return inner
+
+def read_yaml_oberthema(yaml_data: dict[str, object], group_name: str) -> str:
+    """Liest und entschlüsselt das Oberthema aus der YAML einer Stunden-Datei.
+
+    Das YAML-Feld ``Oberthema`` darf bewusst als Wiki-Link gespeichert sein
+    (z. B. ``"[[11.1 EFl1 Potenzfunktionen]]"``), damit es in Obsidian
+    verlinkt — die Speicherung bleibt davon unberührt. Für Anzeige/Vergleich
+    (Grid, Themenfolgen-Erkennung, Exporte, Prefill) liefert diese Funktion
+    einheitlich den entschlüsselten Klartext (siehe
+    :func:`~kursplaner.core.domain.wiki_links.strip_group_prefixed_link`) —
+    die eine Stelle, die jeder Lesepfad dafür aufrufen soll.
+
+    Args:
+        yaml_data: Normalisiertes YAML-Dictionary einer Stunden-Datei.
+        group_name: Lerngruppen-Bezeichnung des Kurses.
+
+    Returns:
+        Der entschlüsselte Oberthema-Text, oder ein leerer String.
+
+    Example::
+
+        read_yaml_oberthema({"Oberthema": "[[11.1 EFl1 Potenzfunktionen]]"}, "11.1")
+        # -> "EFl1 Potenzfunktionen"
+        read_yaml_oberthema({"Oberthema": "EFl1 Potenzfunktionen"}, "11.1")
+        # -> "EFl1 Potenzfunktionen"
+    """
+    raw = str(yaml_data.get("Oberthema", "")).strip()
+    return strip_group_prefixed_link(raw, group_name)

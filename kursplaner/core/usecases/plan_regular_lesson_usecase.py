@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.course_rhythm import parse_lesson_hours
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import PlanTableData, read_yaml_oberthema
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
@@ -118,8 +119,9 @@ class PlanRegularLessonUseCase:
 
         yaml_obj = day.get("yaml")
         yaml_data = yaml_obj if isinstance(yaml_obj, dict) else {}
+        group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
         oberthema_initial = (
-            str(yaml_data.get("Oberthema", "")).strip()
+            read_yaml_oberthema(yaml_data, group_name)
             or str(day.get("plan_oberthema", "")).strip()
             or self.lesson_context_query.last_oberthema_before_row(table, row_index)
         )

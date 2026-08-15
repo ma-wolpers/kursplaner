@@ -8,7 +8,7 @@ from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
-from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date, read_yaml_oberthema
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 
 
@@ -114,6 +114,12 @@ class DailyCourseLogUseCase:
         }
         for field in cls._FIELDS:
             if field in {"datum", "stunden", "inhalt", "thema/ausfall"}:
+                continue
+            if field == "Oberthema":
+                # Darf bewusst als Wiki-Link gespeichert sein (Obsidian-
+                # Verlinkung); der Tageslog-Export soll den entschlüsselten
+                # Anzeigetext tragen, siehe `plan_table.read_yaml_oberthema`.
+                cells[field] = read_yaml_oberthema(yaml_data, str(day.get("group_name", "")))
                 continue
             cells[field] = cls._normalize_value(
                 yaml_data.get(
