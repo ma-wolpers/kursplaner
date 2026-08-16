@@ -8,6 +8,18 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (kritisch, 2026-08-16) — Stundenplanänderung verschluckte den Plan ab `Rhythmus`
+
+Von Nutzer gemeldet anhand einer real beschädigten Datei: nach Übernahme einer Stundenplanänderung endete die Datei direkt nach dem `Rhythmus:`-Block der Frontmatter — schließendes `---`, komplette Plantabelle und alles danach fehlten.
+
+**Ursache**: `plan_repository.py::update_plan_rhythm()` scannt die Datei zeilenweise, um den `Rhythmus:`-Block chirurgisch zu ersetzen (`start_idx`/`end_idx`). Die Schleife brach beim schließenden `---` sofort ab (`break`), **bevor** sie `end_idx` auf dessen Zeilenindex setzen konnte, falls `Rhythmus` das letzte Feld vor `---` war (kein weiteres Feld dazwischen, das `end_idx` schon gesetzt hätte). `end_idx` blieb dadurch `None` und fiel auf den Fallback `len(lines)` zurück — wodurch `lines[end_idx:]` (schließendes `---` + Tabelle + alles danach) beim Zusammenbau der neuen Datei komplett wegfiel. Betroffen war jede Datei, bei der `Rhythmus` das letzte Frontmatter-Feld ist — nach der Migration (Part A/F) der Normalfall, da `Rhythmus` immer zuletzt geschrieben wird und optionale Folgefelder (`Kompetenzen`, `Stundenziel`) meist fehlen.
+
+Fix: beim Erreichen von `---` wird `end_idx` (falls noch offen) zuerst gesetzt, dann erst `break`. Reine Ein-Zeilen-Korrektur der Bedingungsreihenfolge. Neue Tests `tests/test_plan_repository_update_rhythm.py` (Rhythmus als letztes Feld inkl. Tabelle + Freitext-Abschnitt danach bleiben erhalten; Felder nach Rhythmus bleiben unverändert; fehlendes Rhythmus-Feld wirft weiterhin `RuntimeError`) — für diese Methode existierte zuvor kein einziger Test, was den Bug unentdeckt ließ.
+
+**Zusätzlich vom Nutzer gemeldet und mitbehoben**: `apply_timetable_change_usecase.py::execute()` hängte ein neues Rhythmus-Segment über `add_segment()` immer als zusätzliches `ab <Datum> …`-Segment an die bestehenden Einträge an — auch wenn `date_from` faktisch der erste Plantag war (keine frühere Zeile existiert, die das alte Segment noch bräuchte). Ergebnis war ein sinnloses, nie greifendes altes Segment neben einem unnötig datierten neuen. Neue Prüfung `_has_row_before(table, date_from, idx_datum)`: existiert keine Planzeile vor `date_from`, wird der Rhythmus komplett ersetzt statt ergänzt, und die neuen Einträge verlieren ihr `valid_from` (sie gelten dann unconditioned seit Kursbeginn, kein `ab`-Präfix nötig). Tests in `test_apply_timetable_change_usecase.py`: ein Fall mit früherer Zeile (Segment bleibt erhalten, `add_segment`-Pfad), ein Fall ohne (vollständiger Ersatz, `valid_from` entfernt).
+
+455/455 Tests grün, `ruff`/`mypy`/Guardrails ohne neue Findings gegenüber dem Stand vor dieser Änderung.
+
 ### Changed (technische Details, 2026-08-15) — `DayColumn`-Objektkapselung (Part K)
 
 Letzte Phase des Rhythmus/Ferien/Archiv-Vorhabens: das bisherige lose `day: dict[str, object]` (bis zu 21 lose String-Keys, teils gespeicherter Rohwert, teils bei jedem Zugriff neu berechneter Wert — für Aufrufer nicht unterscheidbar) wird durch eine echte Domain-Klasse `core/domain/day_column.py::DayColumn` ersetzt. Ablauf laut Supervisor-Vorgabe: erst Callgraph-Analyse aller Leser/Schreiber (Explore-Agent, ~33 Quell- + 15 Testdateien), dann konkreter Modellvorschlag zur Rückfrage, erst danach Umsetzung — alle drei Design-Rückfragen (volle Methodenkapselung statt Minimalvariante, live aus mitgeführter Rhythmus-Referenz statt Precompute-Cache, vollständiges Durchziehen statt Teilmigration) vom Supervisor mit der jeweils gründlicheren Option beantwortet.

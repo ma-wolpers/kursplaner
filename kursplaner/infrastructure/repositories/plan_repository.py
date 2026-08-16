@@ -322,6 +322,8 @@ class FileSystemPlanRepository:
         for idx in range(1, len(lines)):
             stripped = lines[idx].strip()
             if stripped == "---":
+                if start_idx is not None and end_idx is None:
+                    end_idx = idx
                 break
             if stripped.startswith("Rhythmus:"):
                 start_idx = idx

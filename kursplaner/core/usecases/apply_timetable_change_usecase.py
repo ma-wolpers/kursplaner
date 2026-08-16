@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker
@@ -109,26 +109,32 @@ class ApplyTimetableChangeUseCase:
             date_to: Letzter Tag des Änderungsbereichs.
             draft_slots: Endgültiger Entwurf aus dem Dialog.
             rhythm_segment: Neues, ab ``date_from`` gültiges Rhythmus-Segment.
-                Wird zu den bestehenden Rhythmus-Einträgen der Plan-Datei
-                hinzugefügt (frühere Segmente bleiben für vergangene Zeilen
-                erhalten, siehe :func:`~kursplaner.core.domain.course_rhythm.
-                add_segment`). Leer, wenn sich nur Inhalte, aber nicht der
-                Rhythmus geändert haben.
+                Gibt es im Plan keine Zeile vor ``date_from`` (die also auf
+                ein früheres Segment angewiesen wäre), ersetzt dieses Segment
+                den kompletten Rhythmus statt ihn zu ergänzen (kein
+                sinnloses ``ab``-Segment, wenn ``date_from`` faktisch der
+                Kursbeginn ist) — sonst bleiben frühere Segmente für
+                vergangene Zeilen erhalten (siehe :func:`~kursplaner.core.
+                domain.course_rhythm.add_segment`). Leer, wenn sich nur
+                Inhalte, aber nicht der Rhythmus geändert haben.
 
         Returns:
             ApplyTimetableChangeResult mit den aus dem Plan herausgefallenen Inhalten.
         """
-        if rhythm_segment:
-            existing_rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
-            combined_rhythm = add_segment(existing_rhythm, rhythm_segment)
-            self._plan_repo.update_plan_rhythm(table.markdown_path, combined_rhythm)
-            table.metadata[RHYTHM_YAML_KEY] = format_rhythm(combined_rhythm)
-
         headers = table.headers
         n_cols = max(len(headers), 3)
 
         idx_datum = self._col_index(headers, "datum")
         idx_datum = idx_datum if idx_datum is not None else 0
+
+        if rhythm_segment:
+            if self._has_row_before(table, date_from, idx_datum):
+                existing_rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+                combined_rhythm = add_segment(existing_rhythm, rhythm_segment)
+            else:
+                combined_rhythm = tuple(replace(entry, valid_from=None) for entry in rhythm_segment)
+            self._plan_repo.update_plan_rhythm(table.markdown_path, combined_rhythm)
+            table.metadata[RHYTHM_YAML_KEY] = format_rhythm(combined_rhythm)
         idx_inhalt = self._col_index(headers, "inhalt")
         idx_thema_ausfall = self._col_index(headers, "thema/ausfall")
 
@@ -151,6 +157,21 @@ class ApplyTimetableChangeUseCase:
         self._plan_repo.save_plan_table(table)
 
         return ApplyTimetableChangeResult(dropped_contents=dropped)
+
+    @staticmethod
+    def _has_row_before(table: PlanTableData, cutoff: date, idx_datum: int) -> bool:
+        """Prüft, ob der Plan eine Zeile vor ``cutoff`` enthält.
+
+        Entscheidet, ob ein neues Rhythmus-Segment frühere Segmente erhalten
+        muss (weil eine vergangene Zeile darauf angewiesen ist) oder den
+        gesamten Rhythmus ersetzen darf.
+        """
+        for row in table.rows:
+            raw = row[idx_datum] if idx_datum < len(row) else ""
+            d = parse_plan_row_date(raw)
+            if d is not None and d < cutoff:
+                return True
+        return False
 
     def _collect_old_contents(
         self, table: PlanTableData, date_from: date, date_to: date

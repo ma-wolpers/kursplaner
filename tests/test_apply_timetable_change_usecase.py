@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.timetable_change_usecase import DraftSlot
@@ -29,13 +30,17 @@ def _table(rows: list[list[str]]) -> PlanTableData:
 
 
 class _FakePlanRepo:
-    """Captures save_plan_table calls without touching the file system."""
+    """Captures save_plan_table/update_plan_rhythm calls without touching the file system."""
 
     def __init__(self) -> None:
         self.saved: PlanTableData | None = None
+        self.rhythm_calls: list[tuple[Path, tuple[WeekdayRhythm, ...]]] = []
 
     def save_plan_table(self, table: PlanTableData) -> None:
         self.saved = table
+
+    def update_plan_rhythm(self, markdown_path: Path, rhythm: tuple[WeekdayRhythm, ...]) -> None:
+        self.rhythm_calls.append((markdown_path, rhythm))
 
 
 def _slot(
@@ -173,3 +178,49 @@ def test_splice_adds_new_rows_for_new_dates():
 
     assert len(repo.saved.rows) == 2
     assert repo.saved.rows[1][1] == "[[def]]"
+
+
+def test_rhythm_segment_is_appended_when_earlier_rows_exist():
+    """Existiert eine Planzeile vor date_from, muss das alte Segment erhalten bleiben."""
+    rows = [
+        ["10-03-26", "[[before]]", ""],
+        ["17-03-26", "[[abc]]", ""],
+    ]
+    uc, repo = _make_uc()
+    table = _table(rows)
+    table.metadata["Rhythmus"] = ["Di 08:00 2"]
+    new_segment = (WeekdayRhythm(weekday=1, start_time="08:00", hours=1, valid_from=date(2026, 3, 17)),)
+    draft = [_slot(date(2026, 3, 17), content="[[abc]]")]
+
+    uc.execute(
+        table, date_from=date(2026, 3, 17), date_to=date(2026, 3, 17), draft_slots=draft, rhythm_segment=new_segment
+    )
+
+    assert len(repo.rhythm_calls) == 1
+    _path, combined = repo.rhythm_calls[0]
+    assert len(combined) == 2
+    assert combined[0].valid_from is None
+    assert combined[1].valid_from == date(2026, 3, 17)
+
+
+def test_rhythm_segment_replaces_instead_of_appending_when_no_earlier_row_exists():
+    """Ohne Planzeile vor date_from ist die neue Startzeit faktisch der Kursbeginn -
+    ein zusaetzliches 'ab'-Segment neben dem alten waere sinnlos; der Rhythmus wird
+    stattdessen komplett ersetzt (und die neuen Eintraege verlieren ihr valid_from,
+    da sie ab dem Kursbeginn gelten)."""
+    rows = [["17-03-26", "[[abc]]", ""]]
+    uc, repo = _make_uc()
+    table = _table(rows)
+    table.metadata["Rhythmus"] = ["Di 08:00 2"]
+    new_segment = (WeekdayRhythm(weekday=1, start_time="11:30", hours=1, valid_from=date(2026, 3, 17)),)
+    draft = [_slot(date(2026, 3, 17), content="[[abc]]")]
+
+    uc.execute(
+        table, date_from=date(2026, 3, 17), date_to=date(2026, 3, 17), draft_slots=draft, rhythm_segment=new_segment
+    )
+
+    assert len(repo.rhythm_calls) == 1
+    _path, combined = repo.rhythm_calls[0]
+    assert len(combined) == 1
+    assert combined[0].start_time == "11:30"
+    assert combined[0].valid_from is None
