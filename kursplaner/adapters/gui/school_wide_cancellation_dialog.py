@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 from pathlib import Path
 
@@ -21,6 +22,50 @@ from kursplaner.core.usecases.bulk_cancellation_coordinator import BulkOperation
 from kursplaner.core.usecases.school_wide_cancellation_diagnostics_usecase import (
     SchoolWideCancellationDiagnosticsUseCase,
 )
+
+
+_DAY_MONTH_RE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.?$")
+
+
+def parse_flexible_date(text: str, *, today: date | None = None) -> date | None:
+    """Parst ein Datumsfeld des Dialogs. Jahr ist optional (`DD.MM.`/`DD.MM`) - dann gilt `today`s Jahr.
+
+    Reine Funktion (kein `ui.StringVar`), damit sie ohne Tk-Kontext testbar ist.
+    Der Tag/Monat-Fall parst bewusst per Regex statt über ein jahrloses
+    `strptime` (dessen implizites Default-Jahr nicht schaltjahrfähig ist und
+    z. B. "29.02." unabhängig vom tatsächlichen Zieljahr ablehnen würde).
+    """
+    stripped = text.strip()
+    if not stripped:
+        return None
+    for fmt in ("%d.%m.%Y", "%d.%m.%y"):
+        try:
+            return datetime.strptime(stripped, fmt).date()
+        except ValueError:
+            continue
+    match = _DAY_MONTH_RE.match(stripped)
+    if match is None:
+        return None
+    day, month = int(match.group(1)), int(match.group(2))
+    reference_year = (today or date.today()).year
+    try:
+        return date(reference_year, month, day)
+    except ValueError:
+        return None
+
+
+def resolve_date_range(von_text: str, bis_text: str, *, today: date | None = None) -> tuple[date, date] | None:
+    """Liest Von/Bis. Leeres Bis gilt als eintägiger Ausfall (= Von); Bis vor Von ist ungültig (-> `None`)."""
+    date_from = parse_flexible_date(von_text, today=today)
+    if date_from is None:
+        return None
+    stripped_bis = bis_text.strip()
+    if not stripped_bis:
+        return date_from, date_from
+    date_to = parse_flexible_date(bis_text, today=today)
+    if date_to is None or date_to < date_from:
+        return None
+    return date_from, date_to
 
 
 class SchoolWideCancellationDialog(ScrollablePopupWindow):
@@ -127,7 +172,7 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
         self._tooltips.append(HoverTooltip(von_entry, SCHOOL_WIDE_CANCELLATION_HELP["date_from"]))
 
         widgets.Label(form, text="Bis:").grid(row=1, column=2, sticky="w", pady=(0, 4))
-        self._bis_var = ui.StringVar(value=date.today().strftime("%d.%m.%Y"))
+        self._bis_var = ui.StringVar(value="")
         bis_entry = widgets.Entry(form, textvariable=self._bis_var, width=12)
         bis_entry.grid(row=1, column=3, sticky="w", pady=(0, 4))
         self._tooltips.append(HoverTooltip(bis_entry, SCHOOL_WIDE_CANCELLATION_HELP["date_to"]))
@@ -214,24 +259,35 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
             self._entry_tree.selection_remove(item)
         self._reason_var.set("")
         self._von_var.set(date.today().strftime("%d.%m.%Y"))
-        self._bis_var.set(date.today().strftime("%d.%m.%Y"))
+        self._bis_var.set("")
         self._grade_selector.set_selected_grades(frozenset())
         self._refresh_preview()
 
     @staticmethod
     def _parse_date(var: ui.StringVar) -> date | None:
-        try:
-            return datetime.strptime(str(var.get()).strip(), "%d.%m.%Y").date()
-        except ValueError:
-            return None
+        """Parst ein Datumsfeld. Jahr ist optional (`DD.MM.` / `DD.MM`) - dann gilt das aktuelle Jahr."""
+        return parse_flexible_date(str(var.get()))
+
+    def _resolve_date_range(self) -> tuple[date, date] | None:
+        """Liest Von/Bis. Leeres Bis gilt als eintägiger Ausfall (= Von); Bis vor Von ist ungültig."""
+        return resolve_date_range(str(self._von_var.get()), str(self._bis_var.get()))
+
+    def _date_range_error_message(self) -> str:
+        """Erklärt, warum der letzte `_resolve_date_range()`-Aufruf gescheitert ist (nur für Fehlermeldungen)."""
+        if self._parse_date(self._von_var) is None:
+            return "Ungültiges Von-Datum (DD.MM.YYYY oder DD.MM. für das aktuelle Jahr)."
+        bis_text = str(self._bis_var.get()).strip()
+        if bis_text and self._parse_date(self._bis_var) is None:
+            return "Ungültiges Bis-Datum (DD.MM.YYYY oder DD.MM. für das aktuelle Jahr)."
+        return "Bis-Datum darf nicht vor dem Von-Datum liegen."
 
     def _refresh_preview(self, *_args) -> None:
         self._preview_tree.delete(*self._preview_tree.get_children())
-        date_from = self._parse_date(self._von_var)
-        date_to = self._parse_date(self._bis_var)
+        date_range = self._resolve_date_range()
         grades = self._grade_selector.get_selected_grades()
-        if date_from is None or date_to is None or date_from > date_to or not grades:
+        if date_range is None or not grades:
             return
+        date_from, date_to = date_range
 
         result = self._flow.preview(
             base_dir=self._base_dir,
@@ -257,19 +313,17 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
 
     def _on_save(self) -> None:
         reason = self._reason_var.get().strip()
-        date_from = self._parse_date(self._von_var)
-        date_to = self._parse_date(self._bis_var)
-        grades = self._grade_selector.get_selected_grades()
-
         if not reason:
             messagebox.showerror("Schulweite Ausfälle", "Bitte einen Grund angeben.", parent=self)
             return
-        if date_from is None or date_to is None:
-            messagebox.showerror("Schulweite Ausfälle", "Ungültiges Datumsformat (DD.MM.YYYY).", parent=self)
+
+        date_range = self._resolve_date_range()
+        if date_range is None:
+            messagebox.showerror("Schulweite Ausfälle", self._date_range_error_message(), parent=self)
             return
-        if date_from > date_to:
-            messagebox.showerror("Schulweite Ausfälle", "Von-Datum muss vor Bis-Datum liegen.", parent=self)
-            return
+        date_from, date_to = date_range
+
+        grades = self._grade_selector.get_selected_grades()
         if not grades:
             messagebox.showerror("Schulweite Ausfälle", "Bitte mindestens eine Jahrgangsstufe auswählen.", parent=self)
             return

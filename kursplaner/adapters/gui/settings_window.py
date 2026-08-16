@@ -21,6 +21,7 @@ _UB_CUTOFF_MINUTE_KEY = "ub_past_cutoff_minute"
 _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _SHOW_KOMPETENZEN_KEY = "lesson_builder_show_kompetenzen"
 _SHOW_STUNDENZIEL_KEY = "lesson_builder_show_stundenziel"
+_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY = "school_wide_cancellations_path"
 
 
 def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> SettingsDialogSpec:
@@ -100,6 +101,22 @@ def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> Settings
                     ),
                 ),
             ),
+            SettingsSectionSpec(
+                key="school_wide_cancellations",
+                label="Schulweite Ausfälle",
+                fields=(
+                    SettingsFieldSpec(
+                        key=_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY,
+                        label="Speicherort (Pfad zur JSON-Datei)",
+                        field_type="string",
+                        hint=(
+                            "Leer = Standardablage außerhalb des Projekt-Repos unter ~/.kursplaner/.\n"
+                            "Sonst ein frei wählbarer absoluter Pfad, z. B. in einem synchronisierten Ordner. "
+                            "Bestehende Einträge werden beim Wechsel automatisch mitgenommen."
+                        ),
+                    ),
+                ),
+            ),
         )
     )
 
@@ -110,6 +127,7 @@ def _initial_values(
     ub_past_cutoff_time: time,
     lesson_builder_field_settings: LessonBuilderFieldSettings,
     course_overview_highlight_days: int,
+    school_wide_cancellations_path: str,
 ) -> dict[str, object]:
     values: dict[str, object] = {key: value for key, value in path_values.items()}
     values[_UB_CUTOFF_HOUR_KEY] = int(ub_past_cutoff_time.hour)
@@ -117,6 +135,7 @@ def _initial_values(
     values[_SHOW_KOMPETENZEN_KEY] = bool(lesson_builder_field_settings.show_kompetenzen)
     values[_SHOW_STUNDENZIEL_KEY] = bool(lesson_builder_field_settings.show_stundenziel)
     values[_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY] = max(0, min(60, int(course_overview_highlight_days)))
+    values[_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY] = str(school_wide_cancellations_path or "")
     return values
 
 
@@ -141,6 +160,11 @@ def _extract_lesson_builder_settings(payload: dict[str, object]) -> LessonBuilde
         show_kompetenzen=bool(payload.get(_SHOW_KOMPETENZEN_KEY, True)),
         show_stundenziel=bool(payload.get(_SHOW_STUNDENZIEL_KEY, True)),
     )
+
+
+def _extract_school_wide_cancellations_path(payload: dict[str, object]) -> str:
+    raw = payload.get(_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY, "")
+    return str(raw).strip()
 
 
 def _extract_course_overview_highlight_days(payload: dict[str, object]) -> int:
@@ -204,10 +228,17 @@ def open_settings_dialog(
     on_lesson_builder_fields_saved=None,
     course_overview_highlight_days: int = 5,
     on_course_overview_highlight_days_saved=None,
+    school_wide_cancellations_path: str = "",
+    on_school_wide_cancellations_path_saved=None,
     theme_key: str | None = None,
     path_settings_usecase: PathSettingsUseCase | None = None,
 ) -> None:
-    """Open Kursplaner settings using the shared tabbed settings renderer."""
+    """Open Kursplaner settings using the shared tabbed settings renderer.
+
+    `on_school_wide_cancellations_path_saved` darf `RuntimeError` werfen (z. B.
+    Zielort nicht beschreibbar) - der Dialog bleibt dann geöffnet, zeigt den
+    Fehler und übernimmt keinen der anderen Settings-Werte in diesem Durchlauf.
+    """
 
     if path_settings_usecase is None:
         raise RuntimeError("PathSettingsUseCase fehlt in SettingsWindow-Verdrahtung.")
@@ -217,6 +248,7 @@ def open_settings_dialog(
     active_cutoff = ub_past_cutoff_time or time(hour=15, minute=0)
     active_lesson_builder_settings = lesson_builder_field_settings or LessonBuilderFieldSettings()
     active_course_overview_highlight_days = max(0, min(60, int(course_overview_highlight_days)))
+    active_school_wide_cancellations_path = str(school_wide_cancellations_path or "")
     active_section: str | None = None
     effective_theme_key = str(theme_key or "slate_indigo")
 
@@ -226,6 +258,7 @@ def open_settings_dialog(
             ub_past_cutoff_time=active_cutoff,
             lesson_builder_field_settings=active_lesson_builder_settings,
             course_overview_highlight_days=active_course_overview_highlight_days,
+            school_wide_cancellations_path=active_school_wide_cancellations_path,
         )
         result = open_tabbed_settings_dialog(
             master,
@@ -242,6 +275,7 @@ def open_settings_dialog(
         proposed_cutoff = _extract_cutoff_time(result)
         proposed_lesson_builder = _extract_lesson_builder_settings(result)
         proposed_course_overview_highlight_days = _extract_course_overview_highlight_days(result)
+        proposed_school_wide_cancellations_path = _extract_school_wide_cancellations_path(result)
 
         issues = path_settings_usecase.validate_values(proposed_path_values)
         if issues:
@@ -265,8 +299,21 @@ def open_settings_dialog(
             active_cutoff = proposed_cutoff
             active_lesson_builder_settings = proposed_lesson_builder
             active_course_overview_highlight_days = proposed_course_overview_highlight_days
+            active_school_wide_cancellations_path = proposed_school_wide_cancellations_path
             active_section = "paths"
             continue
+
+        if on_school_wide_cancellations_path_saved and proposed_school_wide_cancellations_path != active_school_wide_cancellations_path:
+            try:
+                on_school_wide_cancellations_path_saved(proposed_school_wide_cancellations_path)
+            except RuntimeError as exc:
+                messagebox.showerror("Einstellungen", str(exc), parent=master)
+                active_path_values = proposed_path_values
+                active_cutoff = proposed_cutoff
+                active_lesson_builder_settings = proposed_lesson_builder
+                active_course_overview_highlight_days = proposed_course_overview_highlight_days
+                active_section = "school_wide_cancellations"
+                continue
 
         saved_values = path_settings_usecase.save_values(proposed_path_values)
         if on_saved:

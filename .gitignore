@@ -34,6 +34,7 @@ build/
 config/paths.json
 config/ui_preferences.json
 config/file_relation_registry.json
+config/schulweite_ausfaelle.json
 config/logs/
 
 # Temp outputs

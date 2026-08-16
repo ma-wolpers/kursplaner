@@ -14,7 +14,7 @@ Teil der Identitaet: aendert er sich, bleibt die Zuordnung gueltig (siehe
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Literal, Sequence
 
@@ -113,3 +113,34 @@ def find_claiming_entry(
 def course_key_for_path(markdown_path: Path) -> str:
     """Kanonischer String-Schluessel eines Kurses fuer `course_ledgers` (Dict-Key, JSON-tauglich)."""
     return str(markdown_path)
+
+
+def claims_for_grade(
+    entries: Sequence[SchoolWideCancellationEntry],
+    *,
+    grade_level: int,
+    date_from: date,
+    date_to: date,
+) -> dict[date, SchoolWideCancellationEntry]:
+    """Liefert je Datum im Bereich den beanspruchenden Entry fuer eine Jahrgangsstufe.
+
+    Arbeitet bewusst nur auf den *deklarierten* Entry-Parametern (nicht auf
+    `course_ledgers`), da diese Funktion fuer frisch erzeugte/verlaengerte
+    Kurse genutzt wird, die zum Zeitpunkt der Anlage noch gar keinen eigenen
+    Ledger-Eintrag haben (siehe `ApplySchoolWideCancellationsToNewRowsUseCase`).
+
+    Bei mehreren aktiven Entries mit passender Stufe und ueberlappendem
+    Datum gewinnt bewusst der **erste in Listenreihenfolge** (= Reihenfolge
+    im Store = Erstellungsreihenfolge, da `create()` neue Entries stets ans
+    Ende anhaengt) - eine festgelegte, getestete Semantik, keine implizite
+    Sortierung.
+    """
+    result: dict[date, SchoolWideCancellationEntry] = {}
+    current = date_from
+    while current <= date_to:
+        for entry in entries:
+            if grade_level in entry.grade_levels and entry.date_from <= current <= entry.date_to:
+                result[current] = entry
+                break
+        current += timedelta(days=1)
+    return result

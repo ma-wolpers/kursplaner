@@ -17,6 +17,9 @@ from kursplaner.core.flows.school_wide_cancellation_flow import SchoolWideCancel
 from kursplaner.core.ports.repositories import LessonIndexRepository, PlanRepository
 from kursplaner.core.usecases.action_button_state_usecase import ActionButtonStateUseCase
 from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
+from kursplaner.core.usecases.apply_school_wide_cancellations_to_new_rows_usecase import (
+    ApplySchoolWideCancellationsToNewRowsUseCase,
+)
 from kursplaner.core.usecases.archive_former_courses_usecase import ArchiveFormerCoursesUseCase
 from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.core.usecases.bulk_cancellation_coordinator import BulkCancellationCoordinator
@@ -180,6 +183,7 @@ class GuiDependencies:
     school_wide_cancellation_flow: SchoolWideCancellationFlow
     school_wide_cancellation_diagnostics_usecase: SchoolWideCancellationDiagnosticsUseCase
     school_wide_cancellation_overlap_query_usecase: SchoolWideCancellationOverlapQueryUseCase
+    apply_school_wide_cancellations_to_new_rows_usecase: ApplySchoolWideCancellationsToNewRowsUseCase
     export_topic_units_pdf_usecase: ExportTopicUnitsPdfUseCase
     export_topic_units_markdown_usecase: ExportTopicUnitsPdfUseCase
     export_expected_horizon_pdf_usecase: ExportExpectedHorizonUseCase
@@ -372,6 +376,11 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     school_wide_cancellation_overlap_query_usecase = SchoolWideCancellationOverlapQueryUseCase(
         store_load=load_school_wide_cancellations
     )
+    apply_school_wide_cancellations_to_new_rows_usecase = ApplySchoolWideCancellationsToNewRowsUseCase(
+        plan_repo=plan_repo,
+        store_load=load_school_wide_cancellations,
+        store_save=save_school_wide_cancellations,
+    )
     sequence_plan_repo = FileSystemSequencePlanRepository()
     sync_sequence_export_table_usecase = SyncSequenceExportTableUseCase(sequence_plan_repo=sequence_plan_repo)
     sync_topic_sequence_plans_usecase = SyncTopicSequencePlansUseCase(
@@ -484,6 +493,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         school_wide_cancellation_flow=school_wide_cancellation_flow,
         school_wide_cancellation_diagnostics_usecase=school_wide_cancellation_diagnostics_usecase,
         school_wide_cancellation_overlap_query_usecase=school_wide_cancellation_overlap_query_usecase,
+        apply_school_wide_cancellations_to_new_rows_usecase=apply_school_wide_cancellations_to_new_rows_usecase,
         export_topic_units_pdf_usecase=export_topic_units_pdf_usecase,
         export_topic_units_markdown_usecase=export_topic_units_markdown_usecase,
         export_expected_horizon_pdf_usecase=export_expected_horizon_pdf_usecase,

@@ -5,10 +5,12 @@ from datetime import time
 
 from kursplaner.adapters.gui.dialog_services import filedialog
 from kursplaner.adapters.gui.settings_window import open_settings_dialog
+from kursplaner.core.config.school_wide_cancellations_store import set_store_path_override
 from kursplaner.core.config.ui_preferences_store import (
     LessonBuilderFieldSettings,
     load_course_overview_highlight_days,
     load_lesson_builder_field_settings,
+    load_school_wide_cancellations_path_override,
     load_ub_past_cutoff_time,
     save_course_overview_highlight_days,
     save_lesson_builder_field_settings,
@@ -67,6 +69,8 @@ class MainWindowPathSettingsController:
             on_lesson_builder_fields_saved=self.on_lesson_builder_fields_saved,
             course_overview_highlight_days=load_course_overview_highlight_days(),
             on_course_overview_highlight_days_saved=self.on_course_overview_highlight_days_saved,
+            school_wide_cancellations_path=load_school_wide_cancellations_path_override(),
+            on_school_wide_cancellations_path_saved=set_store_path_override,
             theme_key=self.app.theme_var.get(),
             path_settings_usecase=self.path_settings_usecase,
         )

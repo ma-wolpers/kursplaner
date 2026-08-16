@@ -14,6 +14,7 @@ _UB_PAST_CUTOFF_KEY = "ub_past_cutoff_time"
 _LESSON_BUILDER_FIELDS_KEY = "lesson_builder_fields"
 _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _ROW_FILTER_KEY = "row_filter"
+_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY = "school_wide_cancellations_path"
 
 
 @dataclass(frozen=True)
@@ -212,6 +213,24 @@ def load_row_filter_settings() -> RowFilterSettings:
         return RowFilterSettings(field_mode_overrides={field_key: frozenset() for field_key in hidden})
 
     return RowFilterSettings()
+
+
+def load_school_wide_cancellations_path_override() -> str:
+    """Lädt den konfigurierten Override-Pfad für `schulweite_ausfaelle.json` (leer = Standardort).
+
+    Rein technische String-Ablage - Pfadauflösung, Default und Migration
+    gehören in `core.config.school_wide_cancellations_store`, nicht hierher.
+    """
+    payload = _load_payload()
+    raw = payload.get(_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY)
+    return raw.strip() if isinstance(raw, str) else ""
+
+
+def save_school_wide_cancellations_path_override(value: str) -> None:
+    """Persistiert den Override-Pfad für `schulweite_ausfaelle.json` (leerer String löscht ihn)."""
+    payload = _load_payload()
+    payload[_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY] = value.strip()
+    _save_payload(payload)
 
 
 def save_row_filter_settings(settings: RowFilterSettings) -> None:

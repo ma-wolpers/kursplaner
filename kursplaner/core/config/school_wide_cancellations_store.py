@@ -3,16 +3,26 @@
 Folgt dem bestehenden Muster von `ui_preferences_store.py` (flaches JSON,
 defensives Laden). Eigene Datei statt Einmischung in `ui_preferences.json`,
 da diese Eintraege wachsende strukturierte Fachdaten sind, keine Einstellungen.
+
+Speicherort bewusst ausserhalb des Projekt-Repos (siehe `_default_store_path`)
+und ueber `set_store_path_override` frei konfigurierbar - Pfadaufloesung und
+Migration leben vollstaendig hier; Konsumenten (Flow/Usecases/GUI) kennen nur
+`load_school_wide_cancellations`/`save_school_wide_cancellations`.
 """
 
 from __future__ import annotations
 
+import shutil
 from datetime import date
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_json
 from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.settings import SCRIPT_DIR
+from kursplaner.core.config.ui_preferences_store import (
+    load_school_wide_cancellations_path_override,
+    save_school_wide_cancellations_path_override,
+)
 from kursplaner.core.domain.school_wide_cancellation import (
     CourseApplicationLedger,
     RowLocation,
@@ -22,10 +32,91 @@ from kursplaner.core.domain.school_wide_cancellation import (
 )
 
 _STORE_FILE = "schulweite_ausfaelle.json"
+_LEGACY_STORE_PATH = SCRIPT_DIR / "config" / _STORE_FILE
+"""Frueherer, fehlerhafter Standardort innerhalb des Repos (vor der Trennung von Code/Nutzdaten).
+
+Nur fuer die einmalige automatische Migration bestehender Installationen
+relevant - neue Installationen sehen diesen Pfad nie befuellt.
+"""
+
+
+def _default_store_path() -> Path:
+    """Standardablage ausserhalb des Projekt-Repos (nutzerspezifisch, kein Henne-Ei mit `paths.json`)."""
+    return Path.home() / ".kursplaner" / _STORE_FILE
+
+
+def _copy_verified(old_path: Path, new_path: Path) -> bool:
+    """Kopiert `old_path` nach `new_path` und verifiziert per Dateigroesse; liefert den Erfolg."""
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(old_path, new_path)
+    return new_path.exists() and new_path.stat().st_size == old_path.stat().st_size
+
+
+def _probe_writable(path: Path) -> None:
+    """Prueft, ob an `path` geschrieben werden kann, ohne einen bestehenden Inhalt zu veraendern."""
+    if path.exists():
+        path.read_text(encoding="utf-8")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    path.unlink()
+
+
+def _migrate_legacy_default_if_needed(new_default: Path) -> None:
+    """Einmalige, automatische Migration vom fehlerhaften Alt-Standardort zum neuen Default.
+
+    Kopiert nur, wenn am neuen Ort noch nichts liegt und am alten Ort etwas
+    existiert; loescht die Altdatei ausschliesslich nach verifiziertem
+    Kopiererfolg (kein Datenverlust, kein dauerhaftes Nebeneinander).
+    """
+    if new_default.exists() or not _LEGACY_STORE_PATH.exists():
+        return
+    if _copy_verified(_LEGACY_STORE_PATH, new_default):
+        _LEGACY_STORE_PATH.unlink()
 
 
 def _store_path() -> Path:
-    return SCRIPT_DIR / "config" / _STORE_FILE
+    override = load_school_wide_cancellations_path_override()
+    if override:
+        return Path(override).expanduser()
+    default_path = _default_store_path()
+    _migrate_legacy_default_if_needed(default_path)
+    return default_path
+
+
+def set_store_path_override(new_value: str) -> None:
+    """Aendert den Speicherort und migriert bestehende Daten dorthin (kopieren, dann bei Erfolg loeschen).
+
+    Ist das Ziel nicht beschreibbar oder die Migration nicht verifizierbar,
+    wird der Override NICHT gespeichert - der bisherige, funktionierende
+    Pfad bleibt aktiv, ein Fehler wird geworfen statt einen scheinbar
+    erfolgreichen, aber kaputten Zustand zu persistieren.
+
+    Args:
+        new_value: Neuer absoluter Pfad, oder leerer String fuer den Standardort.
+    """
+    old_path = _store_path()
+    new_value = new_value.strip()
+    new_path = Path(new_value).expanduser() if new_value else _default_store_path()
+
+    if new_path.resolve() == old_path.resolve():
+        save_school_wide_cancellations_path_override(new_value)
+        return
+
+    migrated = False
+    try:
+        if old_path.exists() and not new_path.exists():
+            if not _copy_verified(old_path, new_path):
+                raise OSError(f"Kopie nach {new_path} konnte nicht verifiziert werden.")
+            migrated = True
+        else:
+            _probe_writable(new_path)
+    except OSError as exc:
+        raise RuntimeError(f"Neuer Speicherort ist nicht nutzbar: {exc}") from exc
+
+    if migrated:
+        old_path.unlink()
+    save_school_wide_cancellations_path_override(new_value)
 
 
 def _load_payload() -> dict[str, object]:

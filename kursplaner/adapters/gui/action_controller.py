@@ -107,6 +107,7 @@ class MainWindowActionController:
         self._school_wide_cancellation_flow = deps.school_wide_cancellation_flow
         self._school_wide_cancellation_diagnostics_uc = deps.school_wide_cancellation_diagnostics_usecase
         self._school_wide_cancellation_overlap_query_uc = deps.school_wide_cancellation_overlap_query_usecase
+        self._apply_school_wide_cancellations_to_new_rows_uc = deps.apply_school_wide_cancellations_to_new_rows_usecase
         self._action_controls_after_id: str | None = None
 
     @staticmethod
@@ -236,7 +237,14 @@ class MainWindowActionController:
         expected_markdown = (expected_dir / f"{request.folder_name}.md").expanduser().resolve()
 
         def _action() -> StartResult:
-            return self.app.new_lesson_usecase.execute(request, confirm_change=confirm_change)
+            result = self.app.new_lesson_usecase.execute(request, confirm_change=confirm_change)
+            self._apply_school_wide_cancellations_to_new_course(
+                markdown_path=result.lesson_markdown,
+                grade_level=request.grade_level,
+                date_from=result.range_start,
+                date_to=result.range_end,
+            )
+            return result
 
         return self._tracked_write_uc.run_tracked_action(
             label="Kurs anlegen",
@@ -247,6 +255,41 @@ class MainWindowActionController:
             extra_before=[expected_dir, expected_markdown],
             extra_after_from_result=lambda result: [result.lesson_dir, result.lesson_markdown],
         )
+
+    def _apply_school_wide_cancellations_to_new_course(
+        self,
+        *,
+        markdown_path: pathlib.Path,
+        grade_level: int,
+        date_from,
+        date_to,
+    ) -> None:
+        """Markiert frisch erzeugte/verlängerte Planzeilen wie Ferien/Feiertage direkt als Ausfall.
+
+        Läuft bewusst NACH einer bereits vollständig erfolgreichen Kurs-
+        Anlage/-Verlängerung und fängt eigene Fehler ab, statt sie
+        propagieren zu lassen: ein Fehler in diesem nachgelagerten Schritt
+        darf den bereits abgeschlossenen Kurs nicht "teilweise" zurücklassen
+        oder den umgebenden Tracked-Write-Schritt scheitern lassen. Läuft der
+        Schritt erfolgreich, wird seine Änderung an derselben (ohnehin schon
+        von `extra_after`/`extra_after_from_result` erfassten) Plandatei
+        automatisch Teil desselben einzelnen Undo-Schritts.
+        """
+        try:
+            self._apply_school_wide_cancellations_to_new_rows_uc.execute(
+                markdown_path=markdown_path,
+                grade_level=grade_level,
+                date_from=date_from,
+                date_to=date_to,
+            )
+        except Exception as exc:
+            messagebox.showwarning(
+                "Schulweite Ausfälle",
+                "Der Kurs wurde angelegt/erweitert, aber die automatische Markierung schulweiter "
+                f"Ausfälle ist fehlgeschlagen: {exc}\n\n"
+                "Bitte im Popup 'Schulweite Ausfälle' auf Diagnose-Hinweise prüfen.",
+                parent=self.app,
+            )
 
     def _collect_shadow_lesson_files(self) -> list[pathlib.Path]:
         """Sammelt unverkettete Dateien aus dem Einheiten-Ordner des aktiven Plans."""
@@ -1778,13 +1821,25 @@ class MainWindowActionController:
 
         calendar_dir = resolve_path_value(calendar_raw)
 
+        def _action():
+            result = self._extend_plan_to_next_vacation_uc.execute(
+                markdown_path=self.app.current_table.markdown_path,
+                calendar_dir=calendar_dir,
+            )
+            stufe_raw = str(self.app.current_table.metadata.get("Stufe", "")).strip()
+            if stufe_raw.isdigit():
+                self._apply_school_wide_cancellations_to_new_course(
+                    markdown_path=self.app.current_table.markdown_path,
+                    grade_level=int(stufe_raw),
+                    date_from=result.range_start,
+                    date_to=result.range_end,
+                )
+            return result
+
         try:
             result = self._run_tracked_write(
                 label="Plan bis nächste Ferien erweitern",
-                action=lambda: self._extend_plan_to_next_vacation_uc.execute(
-                    markdown_path=self.app.current_table.markdown_path,
-                    calendar_dir=calendar_dir,
-                ),
+                action=_action,
                 extra_after=[self.app.current_table.markdown_path],
             )
         except Exception as exc:
