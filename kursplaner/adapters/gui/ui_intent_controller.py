@@ -146,6 +146,9 @@ class MainWindowUiIntentController:
         if intent == UiIntent.COURSE_TOGGLE_SHOW_FORMER:
             self.app.overview_controller.toggle_show_former_courses()
             return "break"
+        if intent == UiIntent.COURSE_OPEN_SCHOOL_WIDE_CANCELLATIONS:
+            self.app.action_controller.open_school_wide_cancellations()
+            return "break"
         if intent == UiIntent.COURSE_KEYBOARD_NAVIGATION:
             self.app._tree_hover_suspend_until = time.monotonic() + 0.6
             return None

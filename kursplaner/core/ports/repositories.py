@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
+from enum import Enum
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -11,6 +13,43 @@ from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 
 ConfirmChange = Callable[[str, str], bool]
 PlanCalendarEvent = tuple[str, date, date]
+
+
+class ConflictKind(Enum):
+    """Unterscheidet technische Fehler von inhaltlichen Konflikten/Warnungen.
+
+    Fehler ("die Operation kann technisch nicht sicher ausgefuehrt werden")
+    bieten keine `PROCEED`-Option - es gibt nichts sinnvolles, das "trotzdem"
+    getan werden koennte. Warnungen ("die Operation ist moeglich, aber eine
+    relevante Abweichung wurde erkannt") bieten sie zusaetzlich an.
+    """
+
+    ERROR = "error"
+    WARNING = "warning"
+
+
+class ConflictResolution(Enum):
+    """Nutzer:innen-Entscheidung bei einem Fehler/Konflikt waehrend einer Bulk-Operation."""
+
+    RETRY = "retry"
+    SKIP = "skip"
+    ROLLBACK = "rollback"
+    PROCEED = "proceed"
+
+
+@dataclass(frozen=True)
+class ConflictContext:
+    """Beschreibt einen einzelnen Fehler-/Konfliktfall fuer die Nutzer:innen-Entscheidung."""
+
+    kind: ConflictKind
+    title: str
+    message: str
+
+
+ConflictDecision = Callable[[ConflictContext], ConflictResolution]
+"""Generalisierung von `ConfirmChange` fuer Bulk-Operationen mit mehr als
+Ja/Nein-Entscheidungen (Retry/Skip/Rollback/ggf. Trotzdem), siehe
+`core.usecases.bulk_cancellation_coordinator`."""
 
 
 class PlanRepository(Protocol):

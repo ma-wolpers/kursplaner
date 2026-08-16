@@ -11,6 +11,7 @@ class UiIntent:
     COURSE_HOME = "course.home"
     COURSE_END = "course.end"
     COURSE_TOGGLE_SHOW_FORMER = "course.toggle_show_former"
+    COURSE_OPEN_SCHOOL_WIDE_CANCELLATIONS = "course.open_school_wide_cancellations"
 
     # Grid intents
     GRID_TOGGLE_COLUMN_SELECTION = "grid.toggle_column_selection"

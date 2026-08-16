@@ -17,9 +17,13 @@ from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.weekday_rhythm_picker import WeekdayRhythmPicker
 from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, WeekdayRhythm, parse_rhythm
+from kursplaner.core.domain.plan_row_placement import plan_gap_placement
 from kursplaner.core.domain.plan_table import PlanTableData, extract_plan_oberthema, parse_plan_row_date
 from kursplaner.core.domain.validators import ValidationError, normalize_day_rhythm
 from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.usecases.school_wide_cancellation_overlap_query_usecase import (
+    SchoolWideCancellationOverlapQueryUseCase,
+)
 from kursplaner.core.usecases.timetable_change_usecase import (
     DraftSlot,
     TimetableChangeUseCase,
@@ -45,6 +49,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         calendar_dir: Path,
         timetable_change_uc: TimetableChangeUseCase,
         on_accept: Callable[[date, date, list[DraftSlot], tuple[WeekdayRhythm, ...]], None],
+        overlap_query_uc: SchoolWideCancellationOverlapQueryUseCase | None = None,
         theme_key: str | None = None,
     ) -> None:
         """Öffnet den Dialog und baut die UI auf.
@@ -56,6 +61,8 @@ class TimetableChangeDialog(ScrollablePopupWindow):
             calendar_dir: Pfad zum Kalenderordner für Ferien-/Feiertage.
             timetable_change_uc: Use Case für die Neuberechnung.
             on_accept: Callback, der nach Klick auf "Übernehmen" aufgerufen wird.
+            overlap_query_uc: Optionale Abfrage aktiver schulweiter Ausfälle, um
+                vor einer Überschneidung zu warnen (siehe `_on_berechnen`).
             theme_key: Optionaler Theme-Name.
         """
         super().__init__(
@@ -70,6 +77,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._day_columns = day_columns
         self._calendar_dir = calendar_dir
         self._timetable_change_uc = timetable_change_uc
+        self._overlap_query_uc = overlap_query_uc
         self._on_accept = on_accept
         self._old_units: list[DayColumn] = []
         self._draft_slots: list[DraftSlot] = []
@@ -237,6 +245,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         except ValidationError as exc:
             messagebox.showerror("Stundenplanänderung", str(exc), parent=self)
             return
+        self._warn_on_school_wide_cancellation_overlap(date_from, date_to)
         try:
             result = self._timetable_change_uc.compute(
                 day_columns=self._day_columns,
@@ -256,6 +265,30 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._undo_stack.clear()
         self._refresh_left_tree()
         self._refresh_right_tree()
+
+    def _warn_on_school_wide_cancellation_overlap(self, date_from: date, date_to: date) -> None:
+        """Warnt nicht-blockierend, falls der Bereich einen aktiven schulweiten Ausfall beruehrt.
+
+        Blockiert die Aenderung bewusst nicht - die Nutzer:in entscheidet
+        selbst, ob sie trotzdem fortfaehrt. Ein spaeterer Revert des
+        betroffenen schulweiten Ausfalls kann dann in einen Konflikt laufen
+        (siehe `core.domain.row_identity`), der dort separat behandelt wird.
+        """
+        if self._overlap_query_uc is None:
+            return
+        overlapping_dates = self._overlap_query_uc.find_active_cancellation_dates(
+            markdown_path=self._table.markdown_path, date_from=date_from, date_to=date_to
+        )
+        if not overlapping_dates:
+            return
+        messagebox.showwarning(
+            "Stundenplanänderung",
+            "Der gewählte Zeitraum überschneidet sich mit einem aktiven schulweiten Ausfall "
+            f"({len(overlapping_dates)} Tag(e)). Die Stundenplanänderung kann dessen Zeilen "
+            "strukturell verändern - ein späteres Zurücknehmen des schulweiten Ausfalls kann "
+            "dann einen Konflikt melden.",
+            parent=self,
+        )
 
     # ── Tree rendering ─────────────────────────────────────────────────────
 
@@ -285,7 +318,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
 
         self._right_tree.delete(*self._right_tree.get_children())
         for slot in self._draft_slots:
-            datum_str = slot.datum.strftime("%d.%m.%Y")
+            datum_str = slot.datum.strftime("%d.%m.%Y") if slot.datum is not None else "—"
             if slot.is_ferien:
                 art, inhalt_text, tag = "Ferien", slot.ausfall_reason, "cancel"
             elif slot.is_user_ausfall:
@@ -373,16 +406,39 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._refresh_right_tree()
 
     def _place_displaced_content(self, content: str, start_after: int) -> None:
-        """Platziert verdrängten Inhalt im nächsten leeren Stattfindend-Slot."""
-        for i in range(start_after + 1, len(self._draft_slots)):
-            s = self._draft_slots[i]
-            if not s.is_ferien and not s.is_user_ausfall and not s.content and not s.oberthema_cell:
-                self._draft_slots[i] = dataclasses.replace(s, content=content)
-                return
-        messagebox.showwarning(
-            "Ausfall",
-            "Kein leerer Slot zum Verschieben des Inhalts vorhanden. Inhalt wurde entfernt.",
-            parent=self,
+        """Platziert verdrängten Inhalt im nächsten leeren Stattfindend-Slot, sonst als angehängter Slot.
+
+        Findet sich keine freie Lücke mehr, wird ein neuer, datumsloser Slot
+        angehängt statt den Inhalt zu verwerfen (siehe `plan_gap_placement`,
+        gemeinsam genutzt mit dem Schulweite-Ausfall-Apply).
+        """
+
+        def is_available_gap(index: int) -> bool:
+            s = self._draft_slots[index]
+            return not s.is_ferien and not s.is_user_ausfall and not s.content and not s.oberthema_cell
+
+        placement = plan_gap_placement(
+            is_available_gap=is_available_gap,
+            slot_count=len(self._draft_slots),
+            start_after_index=start_after + 1,
+            needed_count=1,
+        )
+        if placement.gap_indices:
+            gap_index = placement.gap_indices[0]
+            self._draft_slots[gap_index] = dataclasses.replace(self._draft_slots[gap_index], content=content)
+            return
+
+        self._draft_slots.append(
+            DraftSlot(
+                datum=None,
+                stunden=0,
+                is_ferien=False,
+                is_user_ausfall=False,
+                ausfall_reason="",
+                content=content,
+                was_recovered_week=False,
+                oberthema_cell="",
+            )
         )
 
     def _on_swap(self, direction: int) -> None:

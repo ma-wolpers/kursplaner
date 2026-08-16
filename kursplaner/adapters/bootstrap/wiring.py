@@ -5,15 +5,21 @@ from typing import Protocol
 
 from bw_libs.app_shell import AppShellConfig
 from kursplaner.app_info import APP_INFO, AppInfo
+from kursplaner.core.config.school_wide_cancellations_store import (
+    load_school_wide_cancellations,
+    save_school_wide_cancellations,
+)
 from kursplaner.core.config.ui_preferences_store import load_ub_past_cutoff_time
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlow
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlow
 from kursplaner.core.flows.plan_lesson_flow import PlanLessonFlow
+from kursplaner.core.flows.school_wide_cancellation_flow import SchoolWideCancellationFlow
 from kursplaner.core.ports.repositories import LessonIndexRepository, PlanRepository
 from kursplaner.core.usecases.action_button_state_usecase import ActionButtonStateUseCase
 from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.archive_former_courses_usecase import ArchiveFormerCoursesUseCase
 from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
+from kursplaner.core.usecases.bulk_cancellation_coordinator import BulkCancellationCoordinator
 from kursplaner.core.usecases.cleanup_lzk_expected_horizon_links_usecase import CleanupLzkExpectedHorizonLinksUseCase
 from kursplaner.core.usecases.clear_selected_lesson_usecase import ClearSelectedLessonUseCase
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilityProjectionUseCase
@@ -62,6 +68,15 @@ from kursplaner.core.usecases.repair_lesson_yaml_frontmatter_usecase import Repa
 from kursplaner.core.usecases.restore_selected_from_cancel_usecase import RestoreSelectedFromCancelUseCase
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
 from kursplaner.core.usecases.save_cell_value_usecase import SaveCellValueUseCase
+from kursplaner.core.usecases.school_wide_cancellation_apply_usecase import SchoolWideCancellationApplyUseCase
+from kursplaner.core.usecases.school_wide_cancellation_diagnostics_usecase import (
+    SchoolWideCancellationDiagnosticsUseCase,
+)
+from kursplaner.core.usecases.school_wide_cancellation_overlap_query_usecase import (
+    SchoolWideCancellationOverlapQueryUseCase,
+)
+from kursplaner.core.usecases.school_wide_cancellation_preview_usecase import SchoolWideCancellationPreviewUseCase
+from kursplaner.core.usecases.school_wide_cancellation_revert_usecase import SchoolWideCancellationRevertUseCase
 from kursplaner.core.usecases.subject_sources_usecase import SubjectSourcesUseCase
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopicSequencePlansUseCase
@@ -162,6 +177,9 @@ class GuiDependencies:
     extend_plan_to_next_vacation_usecase: ExtendPlanToNextVacationUseCase
     timetable_change_usecase: TimetableChangeUseCase
     apply_timetable_change_usecase: ApplyTimetableChangeUseCase
+    school_wide_cancellation_flow: SchoolWideCancellationFlow
+    school_wide_cancellation_diagnostics_usecase: SchoolWideCancellationDiagnosticsUseCase
+    school_wide_cancellation_overlap_query_usecase: SchoolWideCancellationOverlapQueryUseCase
     export_topic_units_pdf_usecase: ExportTopicUnitsPdfUseCase
     export_topic_units_markdown_usecase: ExportTopicUnitsPdfUseCase
     export_expected_horizon_pdf_usecase: ExportExpectedHorizonUseCase
@@ -337,6 +355,23 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     )
     timetable_change_usecase = TimetableChangeUseCase(calendar_repo=calendar_repo)
     apply_timetable_change_usecase = ApplyTimetableChangeUseCase(plan_repo=plan_repo)
+    school_wide_cancellation_preview_usecase = SchoolWideCancellationPreviewUseCase(plan_repo=plan_repo)
+    school_wide_cancellation_apply_usecase = SchoolWideCancellationApplyUseCase(plan_repo=plan_repo)
+    school_wide_cancellation_revert_usecase = SchoolWideCancellationRevertUseCase(plan_repo=plan_repo)
+    bulk_cancellation_coordinator = BulkCancellationCoordinator(
+        apply_uc=school_wide_cancellation_apply_usecase,
+        revert_uc=school_wide_cancellation_revert_usecase,
+    )
+    school_wide_cancellation_flow = SchoolWideCancellationFlow(
+        preview_uc=school_wide_cancellation_preview_usecase,
+        coordinator=bulk_cancellation_coordinator,
+        store_load=load_school_wide_cancellations,
+        store_save=save_school_wide_cancellations,
+    )
+    school_wide_cancellation_diagnostics_usecase = SchoolWideCancellationDiagnosticsUseCase(plan_repo=plan_repo)
+    school_wide_cancellation_overlap_query_usecase = SchoolWideCancellationOverlapQueryUseCase(
+        store_load=load_school_wide_cancellations
+    )
     sequence_plan_repo = FileSystemSequencePlanRepository()
     sync_sequence_export_table_usecase = SyncSequenceExportTableUseCase(sequence_plan_repo=sequence_plan_repo)
     sync_topic_sequence_plans_usecase = SyncTopicSequencePlansUseCase(
@@ -446,6 +481,9 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         extend_plan_to_next_vacation_usecase=extend_plan_to_next_vacation_usecase,
         timetable_change_usecase=timetable_change_usecase,
         apply_timetable_change_usecase=apply_timetable_change_usecase,
+        school_wide_cancellation_flow=school_wide_cancellation_flow,
+        school_wide_cancellation_diagnostics_usecase=school_wide_cancellation_diagnostics_usecase,
+        school_wide_cancellation_overlap_query_usecase=school_wide_cancellation_overlap_query_usecase,
         export_topic_units_pdf_usecase=export_topic_units_pdf_usecase,
         export_topic_units_markdown_usecase=export_topic_units_markdown_usecase,
         export_expected_horizon_pdf_usecase=export_expected_horizon_pdf_usecase,

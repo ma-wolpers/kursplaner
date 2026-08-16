@@ -46,6 +46,10 @@ MAIN_WINDOW_HELP: dict[str, str] = {
     ),
     "course_overview_new": "Legt einen neuen Kurs an. - Strg+N (immer)",
     "toggle_former_courses": "Blendet ehemalige Kurse ein/aus. - Strg+Shift+E",
+    "school_wide_cancellations": (
+        "Öffnet die Verwaltung schulweiter Ausfälle (z. B. Wandertag): betroffene Einheiten "
+        "werden automatisch verschoben und als Ausfall markiert."
+    ),
     "new": "Legt einen neuen Kurs an. - Strg+N (immer)",
     "refresh": "Lädt Kursübersicht/Status neu. - Strg+R (immer)",
     "column_visibility": "Blendet Spaltenarten aus oder zeigt sie als dünne Marker an. - Strg+L",
@@ -91,4 +95,17 @@ SHADOW_LESSONS_HELP: dict[str, str] = {
     "preview": "Vollständiger Inhalt der ausgewählten Datei inklusive YAML-Kopf.",
     "set_clipboard": "Setzt die Datei als Quelle für Einfügen im Hauptfenster.",
     "copy_path": "Kopiert den vollständigen Dateipfad in die Zwischenablage.",
+}
+
+SCHOOL_WIDE_CANCELLATION_HELP: dict[str, str] = {
+    "entry_list": "Bestehende schulweite Ausfälle. Auswahl lädt den Eintrag rechts zum Bearbeiten.",
+    "reason": "Grund des Ausfalls (z. B. Wandertag), wird als Ausfall-Markierung in die betroffenen Kurspläne geschrieben.",
+    "date_from": "Erster Tag des Ausfalls (DD.MM.YYYY).",
+    "date_to": "Letzter Tag des Ausfalls (DD.MM.YYYY).",
+    "grade_groups": "Betroffene Jahrgangsstufen. Gruppen aufklappen, um einzelne Stufen an-/abzuwählen.",
+    "preview": (
+        "Kurse/Einheiten, die aktuell betroffen wären. Aktualisiert sich live bei jeder Datums-/Stufenänderung.\n"
+        "Bereits durch einen anderen Ausfall beanspruchte Tage sind markiert."
+    ),
+    "diagnostics": "Abweichungen zwischen gespeicherten Einträgen und dem tatsächlichen Kursplan-Zustand (rein informativ).",
 }

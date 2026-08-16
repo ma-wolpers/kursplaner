@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -12,7 +11,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     parse_ub_date_from_stem,
     ub_date_counts_as_past,
 )
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.wiki_links import extract_wiki_link_target, strip_wiki_link
 from kursplaner.core.ports.repositories import PlanRepository, UbRepository
 
 
@@ -58,20 +57,6 @@ class QueryUbPlanUseCase:
     def _format_display_date(day: date) -> str:
         return f"{day.day:02d}.{day.month:02d}.{str(day.year)[-2:]}"
 
-    @staticmethod
-    def _extract_primary_link_target(text: str) -> str:
-        match = re.search(r"\[\[([^\]]+)\]\]", str(text))
-        if not match:
-            return ""
-        raw = match.group(1).strip()
-        if "|" in raw:
-            raw = raw.split("|", 1)[0].strip()
-        if raw.lower().endswith(".md"):
-            raw = raw[:-3].strip()
-        if "/" in raw or "\\" in raw:
-            raw = raw.replace("\\", "/").split("/")[-1].strip()
-        return raw
-
     def _build_course_map(self, unterricht_base_dir: Path) -> dict[str, str]:
         if not unterricht_base_dir.exists() or not unterricht_base_dir.is_dir():
             return {}
@@ -86,7 +71,7 @@ class QueryUbPlanUseCase:
             for row in table.rows:
                 if inhalt_idx >= len(row):
                     continue
-                stem = self._extract_primary_link_target(row[inhalt_idx])
+                stem = extract_wiki_link_target(row[inhalt_idx])
                 if not stem:
                     continue
                 course_by_lesson_stem.setdefault(stem, course_name)

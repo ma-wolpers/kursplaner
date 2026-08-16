@@ -125,10 +125,22 @@ class GridRenderer:
         else:
             theme_label_token(label, bg_token="panel_strong")
 
+    def _border_thickness(self, day_index: int) -> int:
+        """Liefert die Rahmenstaerke (2px fuer datumslos/UB, sonst 1px) einer Tages-Spalte."""
+        return 2 if self._accent_border_active(day_index) else 1
+
+    def _accent_border_active(self, day_index: int) -> bool:
+        if not 0 <= day_index < len(self.app.day_columns):
+            return False
+        day = self.app.day_columns[day_index]
+        return day.is_dateless() or day.is_ub()
+
     def _apply_ub_border(self, widget: ui.Widget, day_index: int) -> None:
-        """Setzt UB-Akzentrahmen oder neutralen Rahmen auf einem Widget."""
-        is_ub = 0 <= day_index < len(self.app.day_columns) and self.app.day_columns[day_index].is_ub()
-        if is_ub:
+        """Setzt Datumslos-/UB-Akzentrahmen oder neutralen Rahmen auf einem Widget."""
+        in_range = 0 <= day_index < len(self.app.day_columns)
+        if in_range and self.app.day_columns[day_index].is_dateless():
+            theme_widget_border(widget, color_token="danger", thickness=2)
+        elif in_range and self.app.day_columns[day_index].is_ub():
             theme_widget_border(widget, color_token="accent", thickness=2)
         else:
             theme_widget_border(widget, color_token="border", thickness=1)
@@ -311,9 +323,8 @@ class GridRenderer:
             theme_widget_border(widget, color_token="selection_bg", thickness=2)
             widget.configure(borderwidth=2, relief="solid")
             return
-        is_ub = 0 <= day_index < len(self.app.day_columns) and self.app.day_columns[day_index].is_ub()
         self._apply_ub_border(widget, day_index)
-        widget.configure(borderwidth=2 if is_ub else 1, relief="solid")
+        widget.configure(borderwidth=self._border_thickness(day_index), relief="solid")
 
     def _create_text_cell(
         self,
@@ -462,7 +473,6 @@ class GridRenderer:
             if day_index < 0:
                 continue
             header_text, col_type = self._header_visual_state(day_index)
-            is_ub = self.app.day_columns[day_index].is_ub()
 
             header = ui.Label(
                 self.app.header_inner,
@@ -472,7 +482,7 @@ class GridRenderer:
                 padx=6,
                 pady=6,
                 relief="solid",
-                borderwidth=2 if is_ub else 1,
+                borderwidth=self._border_thickness(day_index),
             )
             self._apply_header_color(header, col_type)
             self._apply_ub_border(header, day_index)
@@ -615,8 +625,7 @@ class GridRenderer:
         if label is None:
             return
         text, col_type = self._header_visual_state(day_index)
-        is_ub = 0 <= day_index < len(self.app.day_columns) and self.app.day_columns[day_index].is_ub()
-        label.configure(text=text, borderwidth=2 if is_ub else 1)
+        label.configure(text=text, borderwidth=self._border_thickness(day_index))
         self._apply_header_color(label, col_type)
         self._apply_ub_border(label, day_index)
 

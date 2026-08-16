@@ -62,9 +62,14 @@ class DraftSlot:
       über `format_outage_note`/`build_ausfall_marker` (editierbarer Freitext).
     - `oberthema_cell` → Spalte "Thema/Ausfall" im Normalfall, unverändert aus
       der alten Einheit übernommen (roher Zellwert, kein Freitext).
+
+    `datum` ist `None` für einen datumslosen Slot: entsteht, wenn verdrängter
+    Inhalt keine freie Lücke mehr findet und stattdessen angehängt wird (siehe
+    `TimetableChangeDialog._place_displaced_content`). Datumslose Slots werden
+    im Grid rot umrandet dargestellt (siehe `DayColumn.is_dateless`).
     """
 
-    datum: date
+    datum: date | None
     stunden: int
     is_ferien: bool
     is_user_ausfall: bool

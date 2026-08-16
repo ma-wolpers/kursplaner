@@ -10,7 +10,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.wiki_links import extract_wiki_link_target, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
 
@@ -72,21 +72,6 @@ class LoadPlanDetailUseCase:
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
         return infer_workspace_root_from_path(table.markdown_path)
-
-    @staticmethod
-    def _extract_primary_link_target(text: str) -> str:
-        """Extrahiert aus `[[...]]` den primären Zieldateinamen ohne Pfad/Endung."""
-        match = re.search(r"\[\[([^\]]+)\]\]", text)
-        if not match:
-            return ""
-        raw = match.group(1).strip()
-        if "|" in raw:
-            raw = raw.split("|", 1)[0].strip()
-        if raw.lower().endswith(".md"):
-            raw = raw[:-3].strip()
-        if "/" in raw or "\\" in raw:
-            raw = raw.replace("\\", "/").split("/")[-1].strip()
-        return raw
 
     @staticmethod
     def _extract_markdown_link_target(text: str) -> str:
@@ -184,7 +169,7 @@ class LoadPlanDetailUseCase:
             )
 
             link = self.lesson_repo.resolve_row_link_path(table, row_index)
-            link_target = self._extract_primary_link_target(inhalt)
+            link_target = extract_wiki_link_target(inhalt)
 
             yaml_data: dict[str, object] = {}
             if is_valid_unterricht_link(link) and isinstance(link, Path):

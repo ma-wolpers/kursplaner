@@ -11,6 +11,7 @@ from kursplaner.core.domain.course_rhythm import (
     format_rhythm,
     parse_rhythm,
 )
+from kursplaner.core.domain.plan_row_placement import strip_empty_dateless_rows
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.timetable_change_usecase import DraftSlot
@@ -65,11 +66,12 @@ class ApplyTimetableChangeUseCase:
         Tabelle geschrieben (keine eigene Spalte mehr); es dient nur der
         Vorschau im Dialog und wird beim Laden aus dem persistenten Rhythmus
         neu abgeleitet (siehe `load_plan_detail_usecase.build_day_columns`).
+        Bei `slot.datum is None` (angehängter datumsloser Slot) bleibt die
+        Datum-Zelle leer.
         """
         row = [""] * n_cols
 
-        datum_str = slot.datum.strftime("%d-%m-%y")
-        row[idx_datum] = datum_str
+        row[idx_datum] = slot.datum.strftime("%d-%m-%y") if slot.datum is not None else ""
 
         if slot.is_ferien:
             if idx_thema_ausfall is not None:
@@ -154,6 +156,7 @@ class ApplyTimetableChangeUseCase:
         ]
 
         table.rows = self._splice_rows(table.rows, date_from, date_to, new_rows, idx_datum)
+        table.rows = strip_empty_dateless_rows(headers, table.rows)
         self._plan_repo.save_plan_table(table)
 
         return ApplyTimetableChangeResult(dropped_contents=dropped)

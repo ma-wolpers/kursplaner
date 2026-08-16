@@ -137,6 +137,20 @@ class ScreenBuilder:
             intent=UiIntent.COURSE_TOGGLE_SHOW_FORMER,
         )
 
+        school_wide_cancellations_button = widgets.Button(
+            overview_toolbar,
+            text="Schulweite Ausfälle…",
+            command=lambda: self._emit_intent(UiIntent.COURSE_OPEN_SCHOOL_WIDE_CANCELLATIONS),
+            style="Action.Utility.TButton",
+        )
+        school_wide_cancellations_button.pack(side="left", padx=(8, 0))
+        self.app.course_overview_buttons["school_wide_cancellations"] = school_wide_cancellations_button
+        self._add_help(
+            school_wide_cancellations_button,
+            MAIN_WINDOW_HELP.get("school_wide_cancellations", ""),
+            intent=UiIntent.COURSE_OPEN_SCHOOL_WIDE_CANCELLATIONS,
+        )
+
         widgets.Label(left, textvariable=self.app.count_var, style="Toolbar.TLabel").pack(anchor="e", pady=(0, 6))
 
         detail_toolbar = widgets.Frame(right, style="Toolbar.TFrame")

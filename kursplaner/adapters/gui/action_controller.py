@@ -27,6 +27,7 @@ from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.new_course_window import NewCourseWindow
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
+from kursplaner.adapters.gui.school_wide_cancellation_dialog import SchoolWideCancellationDialog
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.shortcut_overview_dialog import ShortcutOverviewDialog
 from kursplaner.adapters.gui.timetable_change_dialog import TimetableChangeDialog
@@ -103,6 +104,9 @@ class MainWindowActionController:
         self._load_last_ub_insights_uc = deps.load_last_ub_insights_usecase
         self._timetable_change_uc = deps.timetable_change_usecase
         self._apply_timetable_change_uc = deps.apply_timetable_change_usecase
+        self._school_wide_cancellation_flow = deps.school_wide_cancellation_flow
+        self._school_wide_cancellation_diagnostics_uc = deps.school_wide_cancellation_diagnostics_usecase
+        self._school_wide_cancellation_overlap_query_uc = deps.school_wide_cancellation_overlap_query_usecase
         self._action_controls_after_id: str | None = None
 
     @staticmethod
@@ -1842,6 +1846,32 @@ class MainWindowActionController:
             calendar_dir=calendar_dir,
             timetable_change_uc=self._timetable_change_uc,
             on_accept=_on_accept,
+            overlap_query_uc=self._school_wide_cancellation_overlap_query_uc,
             theme_key=self.app.theme_var.get(),
+        )
+
+    def open_school_wide_cancellations(self) -> None:
+        """Öffnet die Verwaltung schulweiter Ausfälle (aus der Kursauswahlansicht, kursunabhängig)."""
+        base_dir_raw = str(self.app.base_dir_var.get()).strip()
+        if not base_dir_raw:
+            messagebox.showerror("Schulweite Ausfälle", "Kein Unterrichtsordner konfiguriert.", parent=self.app)
+            return
+        base_dir = pathlib.Path(base_dir_raw).expanduser().resolve()
+
+        dialog = SchoolWideCancellationDialog(
+            self.app,
+            flow=self._school_wide_cancellation_flow,
+            diagnostics_uc=self._school_wide_cancellation_diagnostics_uc,
+            base_dir=base_dir,
+            theme_key=self.app.theme_var.get(),
+        )
+        dialog.apply_theme()
+        dialog.grab_set()
+        dialog.bind(
+            "<Destroy>",
+            lambda _e: self.app.overview_controller.refresh_overview()
+            if self.app.current_table is None
+            else self._refresh_after_write(),
+            add="+",
         )
 

@@ -81,6 +81,15 @@ class DayColumn:
         """Ferien-/Feiertagszeile (abschließendes `X`-Token, siehe `content_markers.is_ferien_marker`)."""
         return is_ferien_marker(self.thema_ausfall)
 
+    def is_dateless(self) -> bool:
+        """Einheit ohne Datum (angehängter Platzhalter, z. B. bei fehlendem freien Plan-Slot).
+
+        Nur eine Zeile mit tatsächlichem Inhalt gilt als datumslose Einheit -
+        eine leere Zeile ohne Datum ist keine Einheit, sondern wird von
+        `plan_row_placement.strip_empty_dateless_rows` entfernt.
+        """
+        return self._row_date() is None and bool(self.inhalt.strip())
+
     def stunden(self) -> int:
         """Stundenzahl dieses Kurstags, live aus `rhythm` + `datum` abgeleitet.
 

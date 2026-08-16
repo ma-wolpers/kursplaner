@@ -30,6 +30,33 @@ def strip_wiki_link(raw: str) -> str:
     return text.replace("[[", "").replace("]]", "").strip()
 
 
+def extract_wiki_link_target(text: str) -> str:
+    """Extrahiert aus `[[...]]` den primären Zieldateinamen ohne Pfad/Endung.
+
+    Zentrale Fassung der zuvor unabhängig duplizierten Link-Extraktion
+    (`LoadPlanDetailUseCase._extract_primary_link_target`,
+    `QueryUbPlanUseCase._extract_primary_link_target`). Bevorzugt bei
+    Alias-Links (`[[ziel|alias]]`) das Ziel vor dem Alias, entfernt eine
+    ``.md``-Endung sowie einen ggf. vorhandenen Pfadanteil.
+
+    Example::
+
+        extract_wiki_link_target("[[Einheiten/ab12cd.md|Bruchrechnung]]")
+        # -> "ab12cd"
+    """
+    match = re.search(r"\[\[([^\]]+)\]\]", str(text or ""))
+    if not match:
+        return ""
+    raw = match.group(1).strip()
+    if "|" in raw:
+        raw = raw.split("|", 1)[0].strip()
+    if raw.lower().endswith(".md"):
+        raw = raw[:-3].strip()
+    if "/" in raw or "\\" in raw:
+        raw = raw.replace("\\", "/").split("/")[-1].strip()
+    return raw
+
+
 def strip_group_prefixed_link(raw: str, group_name: str) -> str:
     """Entschlüsselt einen ggf. wiki-verlinkten, gruppen-präfigierten Text.
 
