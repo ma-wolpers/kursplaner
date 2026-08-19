@@ -6,9 +6,8 @@ from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.lesson_naming import row_mmdd
-from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
@@ -113,44 +112,39 @@ class SaveCellValueUseCase:
         return result
 
     @staticmethod
-    def _sanitize_link_alias(text: str) -> str:
-        """Bereinigt Alias-Text für Wiki-Links ohne den Zielstem zu verändern."""
-        alias = str(text or "").replace("|", " ").replace("[", " ").replace("]", " ")
-        alias = alias.replace("\n", " ").replace("\r", " ")
-        return re.sub(r"\s+", " ", alias).strip()
-
-    @staticmethod
-    def _alias_from_stem(table: PlanTableData, row_index: int, stem: str) -> str:
-        """Leitet den sichtbaren Inhalt aus einem Dateistem ab (`gruppe mm-dd <alias>`)."""
-        group = strip_wiki_link(str(table.metadata.get("Lerngruppe", "gruppe")))
-        group = sanitize_hour_title(group) or "gruppe"
-        mmdd = row_mmdd(table, row_index)
-        prefix = f"{group} {mmdd} "
-        if stem.lower().startswith(prefix.lower()):
-            alias = stem[len(prefix) :].strip()
-            if alias:
-                return alias
-        return stem.strip()
-
-    @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
         return infer_workspace_root_from_path(table.markdown_path)
 
     def _compose_inhalt_value(self, table: PlanTableData, row_index: int, value: str) -> str:
-        """Persistiert Inhalts-Edits linkstabil als Wiki-Link-Alias, falls ein Link existiert."""
+        """Persistiert manuelle Inhalts-Edits der Haupttabelle linkstabil.
+
+        Enthält die Eingabe bereits einen eigenen Link (`[[...]]` oder eine
+        eigene Dataview-Inline-Query, erkennbar am `` `= `` -Präfix), wird sie
+        unverändert übernommen. Andernfalls: existiert für die Zeile bereits
+        eine verlinkte Einheit, wird der getippte Text verworfen und immer der
+        kanonische Dataview-Link (`build_dataview_lesson_link`) neu gebaut —
+        seit Umstellung auf Dataview-Links gibt es kein Alias-Konzept mehr
+        (die Anzeige kommt live aus dem `Stundenthema`-YAML-Feld), daher kann
+        freier Text hier keinen eigenen Anzeigenamen mehr setzen. Nutzer-
+        bestätigtes Verhalten.
+
+        Args:
+            table: Planungstabelle.
+            row_index: Zielzeile.
+            value: Roher, vom Nutzer eingegebener Zellwert.
+
+        Returns:
+            Der zu speichernde `Inhalt`-Zellwert.
+        """
         raw = str(value or "").strip()
-        if "[[" in raw and "]]" in raw:
+        if ("[[" in raw and "]]" in raw) or raw.startswith("`="):
             return raw
 
         link = self.lesson_transfer.resolve_existing_link(table, row_index)
         if not isinstance(link, Path):
             return raw
 
-        alias = self._sanitize_link_alias(raw)
-        if not alias:
-            alias = self._alias_from_stem(table, row_index, link.stem)
-        built = build_wiki_link(link.stem, alias or None)
-        return built or raw
+        return build_dataview_lesson_link(link.stem) or raw
 
     def build_edit_plan(
         self,

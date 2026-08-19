@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
+from kursplaner.core.domain.markdown_lists import render_markdown_bullet_section
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_OVERVIEW_FILE_NAME,
     UB_ROOT_RELATIVE_PARTS,
@@ -12,15 +12,24 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_EINHEIT,
     UB_YAML_KEY_LANGENTWURF,
 )
-from kursplaner.core.domain.yaml_registry import YamlSchema, parse_yaml_frontmatter
+from kursplaner.core.domain.yaml_registry import (
+    YamlSchema,
+    body_after_frontmatter,
+    parse_yaml_frontmatter,
+    render_yaml_frontmatter,
+)
 
 _UB_SCHEMA = YamlSchema(
     label="UB-Datei",
     required_keys=(UB_YAML_KEY_BEREICH, UB_YAML_KEY_LANGENTWURF, UB_YAML_KEY_BEOBACHTUNG, UB_YAML_KEY_EINHEIT),
     non_empty_keys=(UB_YAML_KEY_EINHEIT,),
 )
-WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
-MARKDOWN_LINK_VALUE_RE = re.compile(r"^\s*\[[^\]]+\]\([^\)]+\.md\)\s*$", re.IGNORECASE)
+_UB_ORDERED_KEYS = (
+    UB_YAML_KEY_BEREICH,
+    UB_YAML_KEY_LANGENTWURF,
+    UB_YAML_KEY_BEOBACHTUNG,
+    UB_YAML_KEY_EINHEIT,
+)
 
 
 class FileSystemUbRepository:
@@ -57,44 +66,26 @@ class FileSystemUbRepository:
             suffix += 1
 
     @staticmethod
-    def _to_yaml_scalar(value: object) -> str:
-        if isinstance(value, bool):
-            return "true" if value else "false"
-        return str(value or "")
-
-    @staticmethod
     def _render_yaml_frontmatter(yaml_data: dict[str, object]) -> str:
-        ordered_keys = (
-            UB_YAML_KEY_BEREICH,
-            UB_YAML_KEY_LANGENTWURF,
-            UB_YAML_KEY_BEOBACHTUNG,
-            UB_YAML_KEY_EINHEIT,
-        )
-        lines = ["---"]
-        for key in ordered_keys:
-            value = yaml_data.get(key, "")
-            if isinstance(value, list):
-                lines.append(f"{key}:")
-                for item in value:
-                    lines.append(f'  - "{str(item)}"')
-            else:
-                scalar = FileSystemUbRepository._to_yaml_scalar(value)
-                if WIKI_LINK_VALUE_RE.fullmatch(scalar) or MARKDOWN_LINK_VALUE_RE.fullmatch(scalar):
-                    escaped = scalar.replace('"', '\\"')
-                    lines.append(f'{key}: "{escaped}"')
-                else:
-                    lines.append(f"{key}: {scalar}")
-        lines.append("---")
-        return "\n".join(lines) + "\n\n"
+        """Rendert die UB-Frontmatter über die zentrale `yaml_registry.render_yaml_frontmatter`.
+
+        UB-Dateien tragen immer alle vier Schlüssel (auch leer), anders als
+        Lesson-Dateien, die fehlende Schlüssel überspringen — daher wird
+        `values` hier vorab mit `.get(key, "")` für jeden Key befüllt, statt
+        `yaml_data` direkt durchzureichen.
+        """
+        values = {key: yaml_data.get(key, "") for key in _UB_ORDERED_KEYS}
+        return render_yaml_frontmatter(_UB_ORDERED_KEYS, values)
 
     @staticmethod
     def _render_list_section(title: str, entries: list[str]) -> str:
-        lines = [f"## {title}", ""]
-        if entries:
-            lines.extend(f"- {item.strip()}" for item in entries if item and item.strip())
-        else:
-            lines.append("- ")
-        return "\n".join(lines)
+        """Rendert eine UB-Body-Sektion über die zentrale `render_markdown_bullet_section`.
+
+        Reproduziert den bisherigen Platzhalter-Bullet (`"- "`) bei leerer
+        Liste, indem `[""]` statt einer leeren Liste übergeben wird.
+        """
+        cleaned = [item.strip() for item in entries if item and item.strip()]
+        return render_markdown_bullet_section(title, cleaned or [""])
 
     def save_ub_markdown(
         self,
@@ -121,16 +112,8 @@ class FileSystemUbRepository:
     def load_ub_markdown(self, ub_path: Path) -> tuple[dict[str, object], str]:
         """Liest UB-Frontmatter plus restlichen Markdown-Body."""
         text = ub_path.read_text(encoding="utf-8")
-        yaml_data, _ = parse_yaml_frontmatter(text, _UB_SCHEMA, source_label=str(ub_path))
-
-        body = text
-        if body.startswith("---\n"):
-            end = body.find("\n---", 4)
-            if end != -1:
-                body = body[end + 4 :]
-                if body.startswith("\n"):
-                    body = body[1:]
-        return yaml_data, body
+        yaml_data, raw_text = parse_yaml_frontmatter(text, _UB_SCHEMA, source_label=str(ub_path))
+        return yaml_data, body_after_frontmatter(raw_text)
 
     def list_ub_markdown_files(self, workspace_root: Path) -> list[Path]:
         """Listet UB-Markdowns sortiert nach Dateiname."""

@@ -22,6 +22,46 @@ def build_wiki_link(target: str, alias: str | None = None) -> str:
     return f"[[{normalized_target}]]"
 
 
+def build_dataview_lesson_link(stem: str) -> str:
+    """Builds a Dataview inline-query link showing an Einheit's live Stundenthema.
+
+    Renders `` `= link("stem", [[stem]].Stundenthema)` `` — a backtick-fenced
+    Dataview inline query. `link(path, display)` builds a clickable Obsidian
+    link to `path` using `display` as the visible text; `[[stem]].Stundenthema`
+    reads the `Stundenthema` frontmatter field of the linked Einheit-file live,
+    so the visible label always tracks the file's current title without a
+    second, potentially stale copy of it living in the plan table.
+
+    This is the ONE place that builds this string — the counterpart to
+    `build_wiki_link` for linking the `Inhalt` column of the plan table to an
+    Einheit-file. Do not build ad-hoc dataview-link string literals elsewhere;
+    call this function instead. The `Thema/Ausfall` column's Themenfolge-link
+    (`sync_thema_ausfall_to_plan_row`) is unrelated and keeps using
+    `build_wiki_link`.
+
+    Reuses `_normalize_component` like `build_wiki_link` (strips stray
+    brackets/newlines). Additionally strips backticks: a backtick inside the
+    stem would prematurely close the surrounding inline-query fence and break
+    the syntax. No quote-escaping is needed since `"` is already excluded from
+    Einheit-Dateistems by `sanitize_hour_title`.
+
+    Args:
+        stem: Dateistem der verlinkten Einheit (ohne `.md`-Endung).
+
+    Returns:
+        Die fertige Inline-Query, oder ein leerer String bei leerem `stem`.
+
+    Example::
+
+        build_dataview_lesson_link("ab12cd")
+        # -> '`= link("ab12cd", [[ab12cd]].Stundenthema)`'
+    """
+    normalized = _normalize_component(stem).replace("`", "")
+    if not normalized:
+        return ""
+    return f'`= link("{normalized}", [[{normalized}]].Stundenthema)`'
+
+
 def strip_wiki_link(raw: str) -> str:
     """Extracts plain text from raw wiki-link-ish text by removing wrapper brackets."""
     text = str(raw or "").strip()

@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.plan_table import COLUMN_INHALT, PlanTableData
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
@@ -34,14 +34,6 @@ class ConvertToHospitationUseCase:
         self.lesson_repo = lesson_repo
         self.lesson_commands = lesson_commands
         self.lesson_transfer = lesson_transfer
-
-    @staticmethod
-    def _header_index(table: PlanTableData, key: str) -> int:
-        mapping = {name.lower(): idx for idx, name in enumerate(table.headers)}
-        idx = mapping.get(key.lower())
-        if idx is None:
-            raise RuntimeError(f"Plan-Tabelle muss Spalte '{key}' enthalten.")
-        return idx
 
     @staticmethod
     def _group_name(table: PlanTableData) -> str:
@@ -76,8 +68,8 @@ class ConvertToHospitationUseCase:
                 error_message="Keine verlinkte Hospitations-Datei verfügbar.",
             )
 
-        idx_inhalt = self._header_index(table, "inhalt")
-        table.rows[row_index][idx_inhalt] = build_wiki_link(link.stem)
+        idx_inhalt = table.column_index(COLUMN_INHALT)
+        table.rows[row_index][idx_inhalt] = build_dataview_lesson_link(link.stem)
 
         if not allow_yaml_save:
             return ConvertToHospitationWriteResult(

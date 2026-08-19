@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from kursplaner.core.domain.plan_table import COLUMN_THEMA_AUSFALL
+
 WIKI_LINK_WITH_ALIAS_RE = re.compile(r"\[\[([^\]|]+)\|([^\]]+)\]\]")
 WIKI_LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 WHITESPACE_RE = re.compile(r"\s+")
@@ -127,7 +129,7 @@ def resolve_row_cancel_state(headers: list[str], row: list[str]) -> bool:
     """
     header_map = {str(name).strip().lower(): idx for idx, name in enumerate(headers)}
 
-    idx_thema_ausfall = header_map.get("thema/ausfall")
+    idx_thema_ausfall = header_map.get(COLUMN_THEMA_AUSFALL.lower())
     if idx_thema_ausfall is None:
         return False
     cell = row[idx_thema_ausfall] if idx_thema_ausfall < len(row) else ""
@@ -141,7 +143,7 @@ def resolve_row_ferien_state(headers: list[str], row: list[str]) -> bool:
     Ferien-Teilmenge (abschliessendes ``X``-Token, siehe :func:`is_ferien_marker`).
     """
     header_map = {str(name).strip().lower(): idx for idx, name in enumerate(headers)}
-    idx_thema_ausfall = header_map.get("thema/ausfall")
+    idx_thema_ausfall = header_map.get(COLUMN_THEMA_AUSFALL.lower())
     if idx_thema_ausfall is None:
         return False
     cell = row[idx_thema_ausfall] if idx_thema_ausfall < len(row) else ""
@@ -160,8 +162,6 @@ def classify_row_marker(headers: list[str], row: list[str]) -> str:
     if resolve_row_cancel_state(headers, row):
         return "ausfall"
     return "none"
-
-
 
 
 def build_ausfall_marker(reason_text: str) -> str:

@@ -7,6 +7,18 @@ from pathlib import Path
 
 from kursplaner.core.domain.wiki_links import strip_group_prefixed_link
 
+COLUMN_DATUM = "Datum"
+COLUMN_INHALT = "Inhalt"
+COLUMN_THEMA_AUSFALL = "Thema/Ausfall"
+"""Kanonische Spaltennamen der Planungstabelle.
+
+Einzige Quelle für "welche drei Spalten gibt es" — sowohl
+`plan_table_markdown_io.py::_locate_plan_table_block` (Header-Validierung
+beim Laden einer Datei) als auch `PlanTableData.column_index()`/
+`.column_index_optional()` (Laufzeit-Zugriff durch Use Cases) referenzieren
+dieselben Strings, statt zwei unabhängig gepflegte Schreibweisen zu haben.
+"""
+
 
 @dataclass
 class PlanTableData:
@@ -33,6 +45,84 @@ class PlanTableData:
     metadata: dict[str, object]
     source_mtime_ns: int | None = None
     source_size: int | None = None
+
+    def column_index(self, column_name: str) -> int:
+        """Liefert den Spaltenindex eines Headernamens (case-insensitiv).
+
+        Zentrale Ablösung der zuvor 4x unabhängig duplizierten
+        ``{name.lower(): idx for idx, name in enumerate(headers)}``-Helfer
+        (`PlanCommandsUseCase._idx`, `ConvertToHospitationUseCase._header_index`,
+        `MarkUnitAsUbUseCase._header_index`, `LessonEditUseCase._header_map`).
+        Baut die Lookup bei jedem Aufruf frisch (kein Cache): `headers` ist
+        eine mutable Liste ohne Mutationsgarantie, und bei nur ~3 Spalten ist
+        der Perf-Gewinn eines Caches vernachlässigbar gegenüber dem Risiko
+        eines still veralteten Caches.
+
+        Args:
+            column_name: Fachlicher Spaltenname, z. B. `COLUMN_INHALT`.
+
+        Returns:
+            Nullbasierter Spaltenindex.
+
+        Raises:
+            RuntimeError: Wenn `column_name` nicht in `headers` vorkommt.
+
+        Example::
+
+            table.column_index(COLUMN_INHALT)
+            # -> 1
+        """
+        idx = self.column_index_optional(column_name)
+        if idx is None:
+            raise RuntimeError(f"Plan-Tabelle muss Spalte '{column_name}' enthalten.")
+        return idx
+
+    def column_index_optional(self, column_name: str) -> int | None:
+        """Wie `column_index`, liefert aber `None` statt zu werfen.
+
+        Für legitime Legacy-Fallback-Zweige, die auch Tabellen ohne eigene
+        `Thema/Ausfall`-Spalte verarbeiten müssen (siehe
+        `PlanCommandsUseCase.restore_from_cancel`/`.convert_to_ausfall`).
+
+        Args:
+            column_name: Fachlicher Spaltenname, z. B. `COLUMN_THEMA_AUSFALL`.
+
+        Returns:
+            Nullbasierter Spaltenindex, oder `None` wenn die Spalte fehlt.
+        """
+        lowered = column_name.lower()
+        for idx, name in enumerate(self.headers):
+            if name.lower() == lowered:
+                return idx
+        return None
+
+    def inhalt(self, row_index: int) -> str:
+        """Liest den `Inhalt`-Zellwert einer Planzeile robust (leer bei kurzer Zeile)."""
+        idx = self.column_index(COLUMN_INHALT)
+        row = self.rows[row_index]
+        return row[idx] if idx < len(row) else ""
+
+    def set_inhalt(self, row_index: int, value: str) -> None:
+        """Setzt den `Inhalt`-Zellwert; polstert zu kurze Zeilen defensiv auf."""
+        idx = self.column_index(COLUMN_INHALT)
+        row = self.rows[row_index]
+        while len(row) <= idx:
+            row.append("")
+        row[idx] = value
+
+    def thema_ausfall(self, row_index: int) -> str:
+        """Liest den `Thema/Ausfall`-Zellwert einer Planzeile robust (leer bei kurzer Zeile)."""
+        idx = self.column_index(COLUMN_THEMA_AUSFALL)
+        row = self.rows[row_index]
+        return row[idx] if idx < len(row) else ""
+
+    def set_thema_ausfall(self, row_index: int, value: str) -> None:
+        """Setzt den `Thema/Ausfall`-Zellwert; polstert zu kurze Zeilen defensiv auf."""
+        idx = self.column_index(COLUMN_THEMA_AUSFALL)
+        row = self.rows[row_index]
+        while len(row) <= idx:
+            row.append("")
+        row[idx] = value
 
 
 @dataclass

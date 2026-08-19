@@ -29,8 +29,8 @@ def _write_unterricht_lesson(path: Path, title: str = "Funktionen"):
 def _table(plan_path: Path, lesson_stem: str) -> PlanTableData:
     return PlanTableData(
         markdown_path=plan_path,
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["31-03-26", "2", f"[[{lesson_stem}]]"]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["31-03-26", f"[[{lesson_stem}]]", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -122,8 +122,8 @@ def test_mark_unit_as_ub_uses_lesson_file_title_for_ub_stem(tmp_path):
     _write_unterricht_lesson(lesson_path, title="Anderes Stundenthema")
     table = PlanTableData(
         markdown_path=plan_dir / "Mathe Kurs.md",
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["06-02-26", "2", f"[[{lesson_path.stem}]]"]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["06-02-26", f"[[{lesson_path.stem}]]", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -155,8 +155,8 @@ def test_mark_unit_as_ub_allows_zusatzbesuch_without_domain_selection(tmp_path):
     _write_unterricht_lesson(lesson_path, title="Zusatzbesuch")
     table = PlanTableData(
         markdown_path=plan_dir / "Mathe Kurs.md",
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["31-03-26", "2", f"[[{lesson_path.stem}]]"]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["31-03-26", f"[[{lesson_path.stem}]]", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],

@@ -54,8 +54,8 @@ def test_execute_write_uses_plain_hospitation_title_and_link_only(tmp_path):
 
     table = PlanTableData(
         markdown_path=plan_path,
-        headers=["datum", "stunden", "inhalt"],
-        rows=[["21-04-26", "2", ""]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["21-04-26", "", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -91,8 +91,8 @@ def test_execute_write_uses_plain_hospitation_title_and_link_only(tmp_path):
 
     assert result.proceed is True
     assert lesson_commands.created_topic == "Hospitation"
-    assert table.rows[0][2] == "[[lila-5 04-21 Hospitation]]"
-    assert "HO " not in table.rows[0][2]
+    assert table.rows[0][1] == '`= link("lila-5 04-21 Hospitation", [[lila-5 04-21 Hospitation]].Stundenthema)`'
+    assert "HO " not in table.rows[0][1]
     assert plan_repo.saved is True
 
     assert lesson_repo.saved_lesson is not None

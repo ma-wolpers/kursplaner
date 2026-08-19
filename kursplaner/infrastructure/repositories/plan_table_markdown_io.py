@@ -14,10 +14,12 @@ from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.course_subject import normalize_course_subject
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import COLUMN_DATUM, COLUMN_INHALT, COLUMN_THEMA_AUSFALL, PlanTableData
 from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
 
 PLAN_DATE_RE = re.compile(r"\d{2}-\d{2}-\d{2}")
+_EXPECTED_HEADERS = [COLUMN_DATUM.lower(), COLUMN_INHALT.lower(), COLUMN_THEMA_AUSFALL.lower()]
+"""Erwartete Header der Planungstabelle, aus den kanonischen Spaltennamen abgeleitet."""
 
 
 def _split_row(row_line: str) -> list[str]:
@@ -114,14 +116,14 @@ def _locate_plan_table_block(lines: list[str], markdown_path: Path) -> tuple[int
             continue
 
         lowered = [cell.lower().strip() for cell in head]
-        if lowered == ["datum", "inhalt", "thema/ausfall"]:
+        if lowered == _EXPECTED_HEADERS:
             selected = (start, end)
             headers = head
 
     if selected is None:
         raise RuntimeError(
             "Keine gültige Planungstabelle gefunden. "
-            "Erwartet wird exakt: Datum | Inhalt | Thema/Ausfall. "
+            f"Erwartet wird exakt: {COLUMN_DATUM} | {COLUMN_INHALT} | {COLUMN_THEMA_AUSFALL}. "
             "Alte 4-Spalten-Tabellen bitte mit 'python tools/migrate_plan_table_schema.py' migrieren."
         )
 

@@ -4,8 +4,11 @@ import re
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
-from kursplaner.core.domain.wiki_links import build_wiki_link
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import LessonFileRepository, LessonRepository
+
+_DATAVIEW_QUERY_RE = re.compile(r"`=[^`]*`")
+"""Erkennt eine bereits vorhandene Dataview-Inline-Query in einer Inhalt-Zelle."""
 
 
 class LessonTransferUseCase:
@@ -49,41 +52,61 @@ class LessonTransferUseCase:
     def relink_row_to_stem(
         self, table: PlanTableData, row_index: int, stem: str, *, preserve_alias: bool = True
     ) -> None:
-        """Setzt den Wiki-Link einer Tabellenzeile auf den übergebenen Dateistem."""
+        """Setzt die `Inhalt`-Zelle einer Tabellenzeile auf einen Dataview-Link zum Dateistem.
+
+        Baut die Zelle über `build_dataview_lesson_link` (siehe `wiki_links.py`)
+        statt eines rohen Wiki-Links — der Anzeigetext kommt dadurch live aus
+        dem `Stundenthema`-YAML-Feld der verlinkten Einheit.
+
+        `preserve_alias` bleibt ausschließlich aus Aufrufer-Kompatibilität auf
+        der Signatur (`action_controller.py` und `lesson_context_controller.py`
+        rufen diese Methode mit unterschiedlichem Wert auf) und hat **keine
+        funktionale Wirkung mehr**: das Dataview-Format kennt keinen
+        statischen Alias — die Anzeige leitet sich immer live aus
+        `Stundenthema` ab. Vor der Umstellung wurde hier ein evtl. in der
+        Zelle vorhandener Alt-Alias (`[[stem|Alias]]`) erkannt und in den neu
+        gebauten Link übernommen; das entfällt bewusst (Root-Cause-Cleanup),
+        nicht als übriggelassenes totes Duplikat.
+
+        Args:
+            table: Planungstabelle.
+            row_index: Zielzeile.
+            stem: Dateistem der zu verlinkenden Einheit.
+            preserve_alias: Ohne Wirkung (siehe oben), nur für API-Stabilität.
+        """
         if not (0 <= row_index < len(table.rows)):
             raise RuntimeError("Ungültige Zeile für Link-Update.")
-        if not preserve_alias:
-            table.rows[row_index][2] = build_wiki_link(stem)
-            return
-        current = str(table.rows[row_index][2]) if len(table.rows[row_index]) > 2 else ""
-        alias_match = re.search(r"\[\[[^\]|]+\|([^\]]+)\]\]", current)
-        if alias_match:
-            alias = alias_match.group(1).strip()
-            table.rows[row_index][2] = build_wiki_link(stem, alias or None)
-            return
-        table.rows[row_index][2] = build_wiki_link(stem)
+        table.set_inhalt(row_index, build_dataview_lesson_link(stem))
 
     def replace_or_append_first_link(self, table: PlanTableData, row_index: int, stem: str) -> None:
-        """Ersetzt den ersten Wiki-Link in einer Zeile oder ergänzt einen neuen Link am Ende."""
+        """Ersetzt den bestehenden Einheiten-Link in der `Inhalt`-Zelle oder hängt ihn an.
+
+        Der Stem kommt im Dataview-Format zweimal in der Zelle vor
+        (``link("stem", ...)`` und ``[[stem]]``) — ein reiner Teilstring-Ersatz
+        des alten `[[...]]`-Musters würde dabei inkonsistente Reste
+        hinterlassen. Erkennungsreihenfolge: (1) vorhandene Dataview-Query
+        komplett ersetzen; (2) sonst einen noch nicht migrierten Alt-Format-
+        Link `[[...]]` ersetzen (Rückwärtskompatibilität für Zeilen, die seit
+        der Formatumstellung noch nicht neu geschrieben wurden — kein
+        Migrationsskript angefordert, das ist der normale In-Place-Upgrade-
+        Pfad); (3) sonst den Link an vorhandenen Text anhängen.
+        """
         if not (0 <= row_index < len(table.rows)):
             raise RuntimeError("Ungültige Zeile für Link-Update.")
 
-        link = build_wiki_link(stem)
-        if len(table.rows[row_index]) <= 2:
-            while len(table.rows[row_index]) <= 2:
-                table.rows[row_index].append("")
-        current = table.rows[row_index][2]
-        if not isinstance(current, str):
-            table.rows[row_index][2] = link
+        link = build_dataview_lesson_link(stem)
+        current = table.inhalt(row_index)
+
+        if _DATAVIEW_QUERY_RE.search(current):
+            table.set_inhalt(row_index, _DATAVIEW_QUERY_RE.sub(link, current, count=1))
             return
 
         if "[[" in current and "]]" in current:
-            replaced = re.sub(r"\[\[[^\]]+\]\]", link, current, count=1)
-            table.rows[row_index][2] = replaced
+            table.set_inhalt(row_index, re.sub(r"\[\[[^\]]+\]\]", link, current, count=1))
             return
 
         prefix = current.strip()
-        table.rows[row_index][2] = f"{prefix} {link}".strip() if prefix else link
+        table.set_inhalt(row_index, f"{prefix} {link}".strip() if prefix else link)
 
     def next_unique_stem_path(self, target_dir: Path, preferred_stem: str) -> Path:
         """Erzeugt einen kollisionsfreien Zielpfad aus einem bevorzugten Titelstem."""

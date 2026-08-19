@@ -35,7 +35,9 @@ class _LessonTransferStub:
         self.lesson_repo = lesson_repo
         self.source_ub_link = source_ub_link
 
-    def write_pasted_lesson(self, target_path: Path, content: str, source_stem: str, *, clear_ub_link: bool = True) -> Path:
+    def write_pasted_lesson(
+        self, target_path: Path, content: str, source_stem: str, *, clear_ub_link: bool = True
+    ) -> Path:
         lesson_data = {
             "Stundenthema": target_path.stem,
             "Unterrichtsbesuch": "" if clear_ub_link else self.source_ub_link,
@@ -43,8 +45,10 @@ class _LessonTransferStub:
         self.lesson_repo.save_lesson_yaml(LessonYamlData(lesson_path=target_path, data=lesson_data))
         return target_path
 
-    def relink_row_to_stem(self, table: PlanTableData, row_index: int, stem: str, *, preserve_alias: bool = False) -> None:
-        table.rows[row_index][2] = f"[[{stem}]]"
+    def relink_row_to_stem(
+        self, table: PlanTableData, row_index: int, stem: str, *, preserve_alias: bool = False
+    ) -> None:
+        table.set_inhalt(row_index, f"[[{stem}]]")
 
     def delete_lesson_file(self, path: Path) -> None:
         path.unlink(missing_ok=True)
@@ -62,8 +66,8 @@ class _LessonTransferStub:
 def _table(markdown_path: Path) -> PlanTableData:
     return PlanTableData(
         markdown_path=markdown_path,
-        headers=["datum", "stunden", "inhalt"],
-        rows=[["2026-05-12", "1", ""]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["2026-05-12", "", ""]],
         start_line=1,
         end_line=1,
         source_lines=[],

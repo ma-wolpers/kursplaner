@@ -19,7 +19,7 @@ class _LessonRepoStub:
         self.saved: list[LessonYamlData] = []
 
     def resolve_row_link_path(self, table: PlanTableData, row_index: int) -> Path | None:
-        cell = table.rows[row_index][2] if len(table.rows[row_index]) > 2 else ""
+        cell = table.inhalt(row_index)
         raw = str(cell).strip().replace("[[", "").replace("]]", "")
         stem = raw.split("|", 1)[0].strip() if raw else ""
         return self.by_stem.get(stem)
@@ -37,7 +37,9 @@ class _LessonTransferStub:
     def __init__(self, lesson_repo: _LessonRepoStub):
         self.lesson_repo = lesson_repo
 
-    def write_pasted_lesson(self, target_path: Path, content: str, source_stem: str, *, clear_ub_link: bool = True) -> Path:
+    def write_pasted_lesson(
+        self, target_path: Path, content: str, source_stem: str, *, clear_ub_link: bool = True
+    ) -> Path:
         self.lesson_repo.save_lesson_yaml(
             LessonYamlData(
                 lesson_path=target_path,
@@ -49,8 +51,10 @@ class _LessonTransferStub:
         )
         return target_path
 
-    def relink_row_to_stem(self, table: PlanTableData, row_index: int, stem: str, *, preserve_alias: bool = False) -> None:
-        table.rows[row_index][2] = f"[[{stem}]]"
+    def relink_row_to_stem(
+        self, table: PlanTableData, row_index: int, stem: str, *, preserve_alias: bool = False
+    ) -> None:
+        table.set_inhalt(row_index, f"[[{stem}]]")
 
     def delete_lesson_file(self, path: Path) -> None:
         path.unlink(missing_ok=True)
@@ -68,8 +72,8 @@ class _LessonTransferStub:
 def _table(markdown_path: Path, target_stem: str) -> PlanTableData:
     return PlanTableData(
         markdown_path=markdown_path,
-        headers=["datum", "stunden", "inhalt"],
-        rows=[["2026-05-14", "1", f"[[{target_stem}]]"]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["2026-05-14", f"[[{target_stem}]]", ""]],
         start_line=1,
         end_line=1,
         source_lines=[],

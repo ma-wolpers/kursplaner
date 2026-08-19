@@ -2,11 +2,21 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Sequence
 
 from kursplaner.core.domain.course_rhythm import is_valid_rhythm_value
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.sequence_planning import SEQUENCE_YAML_COURSE_PLAN_KEY
+
+WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
+MARKDOWN_LINK_VALUE_RE = re.compile(r"^\s*\[[^\]]+\]\([^\)]+\.md\)\s*$", re.IGNORECASE)
+"""Erkennen YAML-Skalarwerte, die selbst ein Wiki-/Markdown-Link sind.
+
+Zentrale Ablösung der zuvor wortwörtlich duplizierten Definitionen in
+`plan_table_file_repository.py` und `ub_repository.py` — genutzt von
+`render_yaml_frontmatter()`, um solche Werte beim Rendern in Anführungszeichen
+zu setzen (sonst würde YAML die eckigen Klammern als Flow-Sequence lesen).
+"""
 
 
 @dataclass(frozen=True)
@@ -190,3 +200,91 @@ def parse_yaml_frontmatter(
         )
 
     return data, text
+
+
+def body_after_frontmatter(raw_text: str) -> str:
+    """Liefert den Markdown-Body nach dem YAML-Frontmatter (ohne `---`-Block).
+
+    Zentrale Ablösung der zuvor 3x unabhängig duplizierten Hand-Roll-Logik
+    (`plan_table_file_repository.py::save_linked_lesson_yaml`/
+    `.set_lesson_markdown_sections`, `ub_repository.py::load_ub_markdown`).
+    Reine Funktion auf bereits eingelesenem Text — komponierbar mit
+    `parse_yaml_frontmatter`s vorhandenem `(data, text)`-Rückgabewert
+    (`body_after_frontmatter(parse_yaml_frontmatter(...)[1])`) oder direkt auf
+    frisch gelesenem Rohtext, ohne `parse_yaml_frontmatter`s bestehende
+    Signatur/Vertrag zu verändern. Kein Validator: liefert bei fehlendem oder
+    unterminiertem Frontmatter einfach den Text unverändert zurück, statt zu
+    werfen — Validierung ist Aufgabe von `parse_yaml_frontmatter`.
+
+    Args:
+        raw_text: Vollständiger Dateiinhalt inkl. Frontmatter, oder Text ohne
+            Frontmatter (wird dann unverändert zurückgegeben).
+
+    Returns:
+        Der Body-Text ohne führende Leerzeilen.
+
+    Example::
+
+        body_after_frontmatter("---\\nStundenthema: X\\n---\\n\\nBody")
+        # -> "Body"
+    """
+    if not raw_text.startswith("---\n"):
+        return raw_text
+    end = raw_text.find("\n---", 4)
+    if end == -1:
+        return raw_text
+    return raw_text[end + 4 :].lstrip("\n")
+
+
+def _yaml_scalar_line(key: str, value: object) -> str:
+    """Rendert eine einzelne skalare YAML-Zeile, mit Link-Escaping bei Bedarf."""
+    text = "true" if value is True else "false" if value is False else str(value or "")
+    if WIKI_LINK_VALUE_RE.fullmatch(text) or MARKDOWN_LINK_VALUE_RE.fullmatch(text):
+        escaped = text.replace('"', '\\"')
+        return f'{key}: "{escaped}"'
+    return f"{key}: {text}"
+
+
+def render_yaml_frontmatter(ordered_keys: Sequence[str], values: dict[str, object]) -> str:
+    """Rendert einen YAML-Frontmatter-Block aus geordneten Schlüsseln + Werten.
+
+    Zentrale Ablösung der zuvor 2x unabhängig duplizierten Renderer
+    (`plan_table_file_repository.py::_render_yaml_frontmatter`,
+    `ub_repository.py::FileSystemUbRepository._render_yaml_frontmatter`)
+    inklusive der dort ebenfalls doppelt definierten
+    `WIKI_LINK_VALUE_RE`/`MARKDOWN_LINK_VALUE_RE`. Übernimmt nur die reine
+    Rendering-Mechanik (Listenwerte als ``key:\\n  - "x"``, Skalare als
+    ``key: value``/``key: "escaped"``); welche Keys in welcher Reihenfolge
+    gerendert werden, bleibt bewusst Aufrufer-Entscheidung (Lesson-Seite:
+    `canonicalize_lesson_yaml`+`allowed_keys_for_type`, Stundentyp-abhängig;
+    UB-Seite: feste 4-Key-Tuple) — diese Policy wird hier nicht dupliziert,
+    nur die gemeinsame Zeilen-Komposition.
+
+    Args:
+        ordered_keys: Zu rendernde Keys, in Ausgabereihenfolge.
+        values: Dict mit den Werten; fehlende Keys werden übersprungen. Ein
+            Aufrufer, der jeden Key immer rendern will (unabhängig davon, ob
+            er im Quelldict vorkommt), muss `values` vorab entsprechend
+            vorbefüllen (z. B. per `{k: data.get(k, "") for k in keys}`).
+
+    Returns:
+        Frontmatter-Block inkl. öffnendem/schließendem `---` und
+        abschließender Leerzeile, bereit zur Konkatenation mit dem Body.
+
+    Example::
+
+        render_yaml_frontmatter(["Stundentyp", "Kompetenzen"], {"Stundentyp": "LZK", "Kompetenzen": ["PK1"]})
+        # -> '---\\nStundentyp: LZK\\nKompetenzen:\\n  - "PK1"\\n---\\n\\n'
+    """
+    lines = ["---"]
+    for key in ordered_keys:
+        if key not in values:
+            continue
+        value = values[key]
+        if isinstance(value, list):
+            lines.append(f"{key}:")
+            lines.extend(f'  - "{item}"' for item in value)
+        else:
+            lines.append(_yaml_scalar_line(key, value))
+    lines.append("---")
+    return "\n".join(lines) + "\n\n"

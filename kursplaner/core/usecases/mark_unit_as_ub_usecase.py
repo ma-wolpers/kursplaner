@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.course_subject import normalize_course_subject
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import COLUMN_DATUM, PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_KIND_FACH,
     UB_KIND_PAEDAGOGIK,
@@ -39,14 +39,6 @@ class MarkUnitAsUbUseCase:
         """Initialisiert den Use Case mit Port-basierten Repositoryabhaengigkeiten."""
         self.lesson_repo = lesson_repo
         self.ub_repo = ub_repo
-
-    @staticmethod
-    def _header_index(table: PlanTableData, key: str) -> int:
-        mapping = {name.lower(): idx for idx, name in enumerate(table.headers)}
-        idx = mapping.get(key.lower())
-        if idx is None:
-            raise RuntimeError(f"Plan-Tabelle muss Spalte '{key}' enthalten.")
-        return idx
 
     def _resolve_existing_ub_path(self, workspace_root: Path, lesson_data: dict[str, object]) -> Path | None:
         raw_link = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
@@ -99,7 +91,7 @@ class MarkUnitAsUbUseCase:
         if str(lesson_data.get("Stundentyp", "")).strip() != "Unterricht":
             return MarkUnitAsUbResult(proceed=False, error_message="UB-Markierung ist nur für Unterricht erlaubt.")
 
-        idx_datum = self._header_index(table, "datum")
+        idx_datum = table.column_index(COLUMN_DATUM)
         date_text = table.rows[row_index][idx_datum] if idx_datum < len(table.rows[row_index]) else ""
         unit_title = self._unit_title_from_lesson_stem(lesson_path)
 

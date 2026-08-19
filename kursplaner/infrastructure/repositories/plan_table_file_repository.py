@@ -16,9 +16,21 @@ from kursplaner.core.domain.lesson_yaml_policy import (
     canonicalize_lesson_yaml,
     infer_stundentyp,
 )
-from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData, sanitize_hour_title
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
-from kursplaner.core.domain.yaml_registry import LESSON_SCHEMA, parse_yaml_frontmatter
+from kursplaner.core.domain.markdown_lists import render_markdown_bullet_section
+from kursplaner.core.domain.plan_table import (
+    COLUMN_INHALT,
+    COLUMN_THEMA_AUSFALL,
+    LessonYamlData,
+    PlanTableData,
+    sanitize_hour_title,
+)
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.yaml_registry import (
+    LESSON_SCHEMA,
+    body_after_frontmatter,
+    parse_yaml_frontmatter,
+    render_yaml_frontmatter,
+)
 from kursplaner.infrastructure.repositories.plan_table_markdown_io import (
     PLAN_DATE_RE,
     _parse_plan_metadata,
@@ -40,8 +52,6 @@ __all__ = [
 ]
 
 LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
-WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
-MARKDOWN_LINK_VALUE_RE = re.compile(r"^\s*\[[^\]]+\]\([^\)]+\.md\)\s*$", re.IGNORECASE)
 
 
 def _resolve_hours_link(plan_path: Path, content: str) -> Path | None:
@@ -90,8 +100,7 @@ def validate_managed_markdown_yaml(base_dir: Path):
 
         _parse_plan_metadata(plan_md)
         table = load_last_plan_table(plan_md)
-        header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
-        idx_inhalt = header_map.get("inhalt")
+        idx_inhalt = table.column_index_optional(COLUMN_INHALT)
         if idx_inhalt is None:
             continue
 
@@ -113,37 +122,22 @@ def validate_managed_markdown_yaml(base_dir: Path):
 
 
 def _render_yaml_frontmatter(data: dict[str, object]) -> str:
+    """Rendert die Lesson-Frontmatter mit Stundentyp-abhängiger Schlüsselauswahl.
+
+    Dünner Wrapper um die zentrale `yaml_registry.render_yaml_frontmatter` —
+    nur die Lesson-spezifische Policy (welche Keys, in welcher Reihenfolge)
+    lebt hier, die Rendering-Mechanik selbst ist zentralisiert.
+    """
     canonical = canonicalize_lesson_yaml(data)
     ordered_keys = allowed_keys_for_type(infer_stundentyp(canonical))
-
-    lines = ["---"]
-    for key in ordered_keys:
-        if key not in canonical:
-            continue
-
-        value = canonical[key]
-        if isinstance(value, list):
-            lines.append(f"{key}:")
-            for item in value:
-                lines.append(f'  - "{str(item)}"')
-        else:
-            value_text = str(value)
-            if WIKI_LINK_VALUE_RE.fullmatch(value_text) or MARKDOWN_LINK_VALUE_RE.fullmatch(value_text):
-                escaped = value_text.replace('"', '\\"')
-                lines.append(f'{key}: "{escaped}"')
-            else:
-                lines.append(f"{key}: {value_text}")
-
-    lines.append("---")
-    return "\n".join(lines) + "\n\n"
+    return render_yaml_frontmatter(ordered_keys, canonical)
 
 
 def get_row_link_path(table: PlanTableData, row_index: int) -> Path | None:
     if row_index < 0 or row_index >= len(table.rows):
         return None
 
-    header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
-    idx_inhalt = header_map.get("inhalt")
+    idx_inhalt = table.column_index_optional(COLUMN_INHALT)
     if idx_inhalt is None:
         return None
 
@@ -163,12 +157,7 @@ def save_linked_lesson_yaml(lesson: LessonYamlData):
         body = raw
         parsed_raw = read_or_default(lambda: _parse_yaml_frontmatter(lesson.lesson_path)[1], default=None)
         if parsed_raw is not None:
-            body = parsed_raw
-            if parsed_raw.startswith("---\n"):
-                end = parsed_raw.find("\n---", 4)
-                if end != -1:
-                    body = parsed_raw[end + 4 :]
-                    body = body.lstrip("\n")
+            body = body_after_frontmatter(parsed_raw)
 
     normalized = canonicalize_lesson_yaml(lesson.data, topic_hint=lesson.lesson_path.stem)
     frontmatter = _render_yaml_frontmatter(normalized)
@@ -221,11 +210,10 @@ def create_linked_lesson_file(
     lesson = LessonYamlData(lesson_path=candidate, data=initial)
     save_linked_lesson_yaml(lesson)
 
-    header_map = {name.lower(): idx for idx, name in enumerate(plan_table.headers)}
-    idx_inhalt = header_map.get("inhalt")
-    idx_thema_ausfall = header_map.get("thema/ausfall")
+    idx_inhalt = plan_table.column_index_optional(COLUMN_INHALT)
+    idx_thema_ausfall = plan_table.column_index_optional(COLUMN_THEMA_AUSFALL)
     if idx_inhalt is not None and 0 <= row_index < len(plan_table.rows):
-        link_text = build_wiki_link(candidate.stem)
+        link_text = build_dataview_lesson_link(candidate.stem)
         if link_text:
             plan_table.rows[row_index][idx_inhalt] = link_text
     if idx_thema_ausfall is not None and 0 <= row_index < len(plan_table.rows):
@@ -275,8 +263,7 @@ def sync_thema_ausfall_to_plan_row(
     """
     if row_index < 0 or row_index >= len(table.rows):
         return
-    header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
-    idx_thema_ausfall = header_map.get("thema/ausfall")
+    idx_thema_ausfall = table.column_index_optional(COLUMN_THEMA_AUSFALL)
     if idx_thema_ausfall is None:
         return
     row = table.rows[row_index]
@@ -307,26 +294,16 @@ def set_lesson_markdown_sections(
     methodik_refs: list[str],
 ):
     text = lesson_path.read_text(encoding="utf-8") if lesson_path.exists() else ""
-    body = text
-
-    if body.startswith("---\n"):
-        end = body.find("\n---", 4)
-        if end != -1:
-            body = body[end + 4 :]
-            body = body.lstrip("\n")
+    body = body_after_frontmatter(text)
 
     cleaned_body = body.strip()
     sections: list[str] = []
 
     if inhalte_refs:
-        lines = ["## Inhalte", ""]
-        lines.extend(f"- {build_wiki_link(ref)}" for ref in inhalte_refs)
-        sections.append("\n".join(lines))
+        sections.append(render_markdown_bullet_section("Inhalte", [build_wiki_link(ref) for ref in inhalte_refs]))
 
     if methodik_refs:
-        lines = ["## Methodik", ""]
-        lines.extend(f"- {build_wiki_link(ref)}" for ref in methodik_refs)
-        sections.append("\n".join(lines))
+        sections.append(render_markdown_bullet_section("Methodik", [build_wiki_link(ref) for ref in methodik_refs]))
 
     composed = cleaned_body
     if sections:

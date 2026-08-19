@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.plan_table import COLUMN_INHALT, PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository
 
 
@@ -16,29 +16,19 @@ class LessonEditUseCase:
         """Initialisiert den Use Case für tabellarische und YAML-Feldänderungen an Stunden."""
         self.lesson_repo = lesson_repo
 
-    @staticmethod
-    def _header_map(table: PlanTableData) -> dict[str, int]:
-        """Erzeugt ein robustes Header-Index-Mapping für Tabellenoperationen."""
-        return {name.lower(): idx for idx, name in enumerate(table.headers)}
-
     def validate_table(self, table: PlanTableData) -> int:
         """Prüft die Mindeststruktur der Planungstabelle für Edit-Operationen.
 
-        Invariante: Spalte ``inhalt`` muss vorhanden sein.
+        Invariante: Spalte ``Inhalt`` muss vorhanden sein.
 
         Returns:
-            Spaltenindex von ``inhalt``.
+            Spaltenindex von ``Inhalt``.
         """
-        header_map = self._header_map(table)
-        idx_inhalt = header_map.get("inhalt")
-        if idx_inhalt is None:
-            raise RuntimeError("Plan-Tabelle muss Datum und Inhalt enthalten.")
-        return idx_inhalt
+        return table.column_index(COLUMN_INHALT)
 
     def set_content_value(self, table: PlanTableData, row_index: int, value: str) -> None:
         """Setzt den Inhaltswert einer Tabellenzeile ohne YAML-Nebenwirkungen."""
-        idx_inhalt = self.validate_table(table)
-        table.rows[row_index][idx_inhalt] = value
+        table.set_inhalt(row_index, value)
 
     def set_lesson_duration(self, lesson_path: Path, value: str) -> None:
         """Schreibt die Unterrichtsdauer in die verlinkte Stunden-YAML."""

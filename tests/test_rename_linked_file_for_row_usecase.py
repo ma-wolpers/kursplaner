@@ -34,7 +34,7 @@ class _StubLessonTransfer:
     @staticmethod
     def relink_row_to_stem(table: PlanTableData, row_index: int, stem: str, preserve_alias: bool = True) -> None:
         _ = preserve_alias
-        table.rows[row_index][2] = f"[[{stem}]]"
+        table.set_inhalt(row_index, f"[[{stem}]]")
 
 
 def _write_lesson(path: Path, ub_link: str) -> None:
@@ -80,8 +80,8 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
 
     table = PlanTableData(
         markdown_path=plan_dir / "Mathe Kurs.md",
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["31-03-26", "2", "[[gruen-6 03-31 Funktionen]]"]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["31-03-26", "[[gruen-6 03-31 Funktionen]]", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -130,8 +130,8 @@ def test_rename_without_plan_save_succeeds_for_intermediate_flow(tmp_path):
 
     table = PlanTableData(
         markdown_path=tmp_path / "Plan.md",
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["06.02.2026", "2", "[[gruen-6 02-06 Fach-Diagnose]]"]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["06.02.2026", "[[gruen-6 02-06 Fach-Diagnose]]", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -159,5 +159,5 @@ def test_rename_without_plan_save_succeeds_for_intermediate_flow(tmp_path):
     assert result.target_path is not None
     assert result.target_path.name == "gruen-6 02-06 Supertrumpf Kodierung.md"
     assert result.target_path.exists()
-    assert table.rows[0][2] == "[[gruen-6 02-06 Supertrumpf Kodierung]]"
+    assert table.rows[0][1] == "[[gruen-6 02-06 Supertrumpf Kodierung]]"
     assert plan_repo.save_calls == 0

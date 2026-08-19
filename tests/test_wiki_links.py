@@ -1,6 +1,6 @@
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.plan_table import PlanTableData, read_yaml_oberthema
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_group_prefixed_link
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, build_wiki_link, strip_group_prefixed_link
 from kursplaner.infrastructure.repositories.plan_repository import FileSystemPlanRepository
 from kursplaner.infrastructure.repositories.plan_table_file_repository import create_linked_lesson_file
 
@@ -11,6 +11,30 @@ def test_build_wiki_link_formats_target_and_alias():
     built = build_wiki_link(" gruen-6 ]", " Lautstaerke [ im Raum ")
 
     assert built == "[[gruen-6|Lautstaerke im Raum]]"
+
+
+def test_build_dataview_lesson_link_formats_stem():
+    built = build_dataview_lesson_link("ab12cd")
+
+    assert built == '`= link("ab12cd", [[ab12cd]].Stundenthema)`'
+
+
+def test_build_dataview_lesson_link_normalizes_brackets_and_whitespace():
+    built = build_dataview_lesson_link(" gruen-6 ]\n02-06[ Thema ")
+
+    assert built == '`= link("gruen-6 02-06 Thema", [[gruen-6 02-06 Thema]].Stundenthema)`'
+
+
+def test_build_dataview_lesson_link_empty_stem_is_empty():
+    assert build_dataview_lesson_link("") == ""
+    assert build_dataview_lesson_link("   ") == ""
+
+
+def test_build_dataview_lesson_link_strips_backtick():
+    built = build_dataview_lesson_link("ab`12cd")
+
+    assert "`" not in built[1:-1]
+    assert built == '`= link("ab12cd", [[ab12cd]].Stundenthema)`'
 
 
 def test_strip_group_prefixed_link_decodes_bracketed_group_prefixed_text():
@@ -45,15 +69,15 @@ def test_read_yaml_oberthema_missing_field_is_empty():
     assert read_yaml_oberthema({}, "11.1") == ""
 
 
-def test_create_linked_lesson_file_writes_balanced_wiki_link(tmp_path):
+def test_create_linked_lesson_file_writes_dataview_link(tmp_path):
     plan_path = tmp_path / "Informatik" / "Informatik.md"
     plan_path.parent.mkdir(parents=True)
     plan_path.write_text("", encoding="utf-8")
 
     table = PlanTableData(
         markdown_path=plan_path,
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["2026-03-09", "2", ""]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["2026-03-09", "", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -69,11 +93,11 @@ def test_create_linked_lesson_file_writes_balanced_wiki_link(tmp_path):
     )
 
     assert lesson_path.exists()
-    inhalt_value = table.rows[0][2]
-    assert inhalt_value.startswith("[[")
-    assert inhalt_value.endswith("]]")
-    assert "|" not in inhalt_value
-    assert lesson_path.stem in inhalt_value
+    inhalt_value = table.rows[0][1]
+    assert inhalt_value.startswith('`= link("')
+    assert inhalt_value.endswith("`")
+    assert f'"{lesson_path.stem}"' in inhalt_value
+    assert f"[[{lesson_path.stem}]].Stundenthema" in inhalt_value
 
 
 def test_create_linked_lesson_file_generates_unique_random_stem(tmp_path):
@@ -91,8 +115,8 @@ def test_create_linked_lesson_file_generates_unique_random_stem(tmp_path):
 
     table = PlanTableData(
         markdown_path=plan_path,
-        headers=["Datum", "Stunden", "Inhalt"],
-        rows=[["10-03-26", "2", ""]],
+        headers=["Datum", "Inhalt", "Thema/Ausfall"],
+        rows=[["10-03-26", "", ""]],
         start_line=0,
         end_line=0,
         source_lines=[],
@@ -111,7 +135,7 @@ def test_create_linked_lesson_file_generates_unique_random_stem(tmp_path):
     assert len(lesson_path.stem) == 6
     assert lesson_path.stem.isalnum() and lesson_path.stem == lesson_path.stem.lower()
     assert lesson_path.stem != existing_stem
-    assert table.rows[0][2] == f"[[{lesson_path.stem}]]"
+    assert table.rows[0][1] == f'`= link("{lesson_path.stem}", [[{lesson_path.stem}]].Stundenthema)`'
 
 
 def test_write_plan_metadata_uses_valid_wiki_link(tmp_path):
