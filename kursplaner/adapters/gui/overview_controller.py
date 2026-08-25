@@ -439,11 +439,14 @@ class MainWindowOverviewController:
 
         self.app.preview_title_var.set(f"Kursplan · {path.name}")
         self.app._rebuild_grid()
-        next_index = self._next_lesson_column_index()
-        if next_index is not None:
-            self.app._set_single_column_selection(next_index, ensure_visible=True)
+        try:
+            next_index = self._next_lesson_column_index()
+            if next_index is not None:
+                self.app._set_single_column_selection(next_index, ensure_visible=True)
+        except Exception:
+            next_index = None
         self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
-        if bool(self.app.auto_scroll_next_unit_var.get()):
+        if next_index is not None and bool(self.app.auto_scroll_next_unit_var.get()):
             self.app.after_idle(self._scroll_to_next_unit)
 
     def close_detail_view(self):
@@ -504,13 +507,13 @@ class MainWindowOverviewController:
         fallback_first_occurring: int | None = None
 
         for idx, day_info in enumerate(self.app.day_columns):
-            if bool(day_info.get("is_cancel", False)):
+            if day_info.is_cancel():
                 continue
 
             if fallback_first_occurring is None:
                 fallback_first_occurring = idx
 
-            day_date = self._parse_day_date(day_info.get("datum", ""))
+            day_date = self._parse_day_date(day_info.datum)
             if day_date is None:
                 continue
             if day_date >= today:
