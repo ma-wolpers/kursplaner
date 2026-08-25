@@ -8,6 +8,16 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-08-25) — Naechste-Einheit-Markierung: DayColumn-Migration unvollstaendig
+
+**Bug**: `MainWindowOverviewController._next_lesson_column_index()` (`adapters/gui/overview_controller.py`) rief weiterhin `day_info.get("is_cancel", False)`/`day_info.get("datum", "")` auf — Rest des `dict`-basierten Zwischenstands vor der `DayColumn`-Objektkapselung (`c737e2c`, 2026-08-15). Diese Migration hat `overview_controller.py` selbst nur bei der Typannotation von `_project_visible_day_columns` beruehrt, den Koerper von `_next_lesson_column_index()` aber uebersehen (dessen `>=`-Datumsvergleich und Fallback-Logik sind seitdem unveraendert). `DayColumn` ist ein frozen Dataclass ohne `.get()` → `AttributeError` bei jedem Aufruf, sobald `day_columns` nicht leer war. Betraf: automatische Markierung der naechsten Einheit beim Oeffnen eines Kursplans (`load_selected_table`), Auto-Scroll dorthin (`_scroll_to_next_unit`), sowie den Pfeiltasten-Navigationsstart ohne aktive Auswahl (`selection_controller.move_selection_to_adjacent{,_occurring}`).
+
+**Testluecke**: `test_selection_controller.py` und `test_row_filter_navigation.py` stubben `_next_lesson_column_index` komplett via `SimpleNamespace(_next_lesson_column_index=lambda: 0)` weg — die echte Implementierung lief in keinem bestehenden Test gegen echte `DayColumn`-Instanzen. Repo-weiter Grep ueber alle `DayColumn`-Feldnamen als String-Key bestaetigt, dass dies die einzigen zwei verbliebenen dict-artigen Zugriffe im gesamten Baum waren (der Migrationscommit selbst hatte drei aehnliche Bugs an anderer Stelle bereits behoben und korrekt umgestellt).
+
+**Fix**: `day_info.get("is_cancel", False)` → `day_info.is_cancel()`, `day_info.get("datum", "")` → `day_info.datum`. Zusaetzlich den zuvor ungeschuetzten Aufruf in `load_selected_table` eng mit einem stillen `except Exception`-Guard umschlossen (bestehendes Pattern aus `new_course_window.py`/`screen_builder.py` fuer optionale UI-Anreicherungen), damit ein kuenftiger Fehler in der Next-Unit-Berechnung nur die Markierung verliert statt den gesamten Kursplan-Load abzubrechen.
+
+**Tests**: Neue Datei `tests/test_next_lesson_column_index.py` fuehrt die echte Methode gegen echte `DayColumn`-Instanzen (via `tests/day_column_factory.py::make_day_column`) — leere Spaltenliste, zukuenftige/heutige Einheit, Ausfall-Spalten, Fallback bei ausschliesslich vergangenen Daten, unparsierbares Datum. 600/600 Tests gruen.
+
 ### Fixed/Changed (2026-08-19) — Inhalt/Thema-Ausfall-Spaltenindex-Bug + Dataview-Links + Spalten-Kapselung
 
 **Bug**: `LessonTransferUseCase.relink_row_to_stem`/`.replace_or_append_first_link` schrieben hartkodiert auf `table.rows[row_index][2]` — Rest eines alten 4-Spalten-Schemas (`Datum|Stunden|Inhalt|Thema/Ausfall`), in dem `Inhalt` Index 2 hatte. Seit Entfernung der `Stunden`-Spalte (siehe CHANGELOG "Stunden-Spalte der Plantabelle entfällt") liegt `Inhalt` auf Index 1 — beide Methoden wurden dabei nicht mitgezogen. Effekt: `PlanRegularLessonUseCase.execute_write` ruft `sync_thema_ausfall_to_plan_row` (schreibt den korrekten Themenfolge-Link nach `Thema/Ausfall`) und direkt danach `relink_row_to_stem` auf, das denselben `Thema/Ausfall`-Zellwert über den `[2]`-Bug sofort wieder überschrieb.
