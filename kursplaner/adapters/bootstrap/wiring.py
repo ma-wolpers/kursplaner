@@ -432,6 +432,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     query_ub_plan_usecase = QueryUbPlanUseCase(
         ub_repo=ub_repo,
         plan_repo=plan_repo,
+        past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
     load_last_ub_insights_usecase = LoadLastUbInsightsUseCase(
         ub_repo=ub_repo,

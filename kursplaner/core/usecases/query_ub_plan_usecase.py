@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
 from pathlib import Path
+from typing import Callable
 
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
@@ -36,9 +37,26 @@ class UbPlanResult:
 class QueryUbPlanUseCase:
     """Liefert UB-Plan-Daten fuer die GUI als kommende und absolvierte Listen."""
 
-    def __init__(self, ub_repo: UbRepository, plan_repo: PlanRepository):
+    def __init__(
+        self,
+        ub_repo: UbRepository,
+        plan_repo: PlanRepository,
+        past_cutoff_time_provider: Callable[[], time] | None = None,
+    ):
         self.ub_repo = ub_repo
         self.plan_repo = plan_repo
+        self._past_cutoff_time_provider = past_cutoff_time_provider
+
+    def _past_cutoff_time(self) -> time:
+        if self._past_cutoff_time_provider is None:
+            return time(hour=15, minute=0)
+        try:
+            configured = self._past_cutoff_time_provider()
+        except Exception:
+            return time(hour=15, minute=0)
+        if not isinstance(configured, time):
+            return time(hour=15, minute=0)
+        return configured
 
     @staticmethod
     def _to_domain_list(value: object) -> list[str]:
@@ -81,6 +99,7 @@ class QueryUbPlanUseCase:
         course_map = self._build_course_map(unterricht_base_dir)
 
         now = datetime.now()
+        cutoff = self._past_cutoff_time()
         upcoming: list[tuple[date, UbPlanRow]] = []
         past: list[tuple[date, UbPlanRow]] = []
 
@@ -105,7 +124,7 @@ class QueryUbPlanUseCase:
                 kurs=course_name,
             )
 
-            if ub_date_counts_as_past(ub_date, now=now):
+            if ub_date_counts_as_past(ub_date, now=now, cutoff_hour=cutoff.hour, cutoff_minute=cutoff.minute):
                 past.append((ub_date, row))
             else:
                 upcoming.append((ub_date, row))

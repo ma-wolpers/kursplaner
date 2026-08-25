@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import time
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
@@ -90,3 +91,47 @@ def test_query_ub_plan_splits_upcoming_and_past(tmp_path, monkeypatch):
     assert result.upcoming_rows[0].plus == "+"
     assert result.upcoming_rows[0].kurs == "Inf Kurs"
     assert result.past_rows[0].datum == "01.04.26"
+
+
+def test_query_ub_plan_uses_configured_cutoff_instead_of_hardcoded_default(tmp_path, monkeypatch):
+    """Regression: execute() rief ub_date_counts_as_past() bisher ohne cutoff_hour/-minute auf
+    und nutzte damit stumm den hartkodierten 15:00-Default statt des konfigurierten
+    past_cutoff_time_provider -- unabhaengig davon, was der User in den Einstellungen
+    hinterlegt hat.
+    """
+    workspace_root = tmp_path / "7thCloud"
+    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    unterricht_root = workspace_root / "7thVault" / "Unterricht"
+    unterricht_root.mkdir(parents=True)
+
+    _write_ub(
+        ub_root / "ub 26-05-18.md",
+        domains=["Mathematik"],
+        langentwurf=False,
+        einheit="gruen-6 05-18 Funktionen",
+    )
+
+    class _FixedDateTime:
+        @staticmethod
+        def now():
+            from datetime import datetime
+
+            return datetime(2026, 5, 18, 16, 0)
+
+    monkeypatch.setattr("kursplaner.core.usecases.query_ub_plan_usecase.datetime", _FixedDateTime)
+
+    # Hartkodierter Default (15:00): 16:00 liegt danach -> "vergangen".
+    default_usecase = QueryUbPlanUseCase(ub_repo=FileSystemUbRepository(), plan_repo=_FakePlanRepo(tables=[]))
+    default_result = default_usecase.execute(workspace_root=workspace_root, unterricht_base_dir=unterricht_root)
+    assert len(default_result.past_rows) == 1
+    assert len(default_result.upcoming_rows) == 0
+
+    # Konfigurierter Cutoff 17:00: 16:00 liegt noch davor -> "kommend".
+    configured_usecase = QueryUbPlanUseCase(
+        ub_repo=FileSystemUbRepository(),
+        plan_repo=_FakePlanRepo(tables=[]),
+        past_cutoff_time_provider=lambda: time(hour=17, minute=0),
+    )
+    configured_result = configured_usecase.execute(workspace_root=workspace_root, unterricht_base_dir=unterricht_root)
+    assert len(configured_result.upcoming_rows) == 1
+    assert len(configured_result.past_rows) == 0
