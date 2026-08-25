@@ -42,6 +42,18 @@ class GridRenderer:
         self._row_layout_cache: dict[str, tuple[int, bool, bool, str]] = {}
         self._sequence_field_renderer = SequenceFieldGridRenderer(app, self._create_text_cell)
         self._zoom_rebuild_after_id: str | None = None
+        self._next_unit_index: int | None = None
+
+    def set_next_unit_index(self, value: int | None) -> None:
+        """Setzt den Spaltenindex der 'nächsten Einheit' für die Header-Markierung.
+
+        Reiner Datenzugriff — der Renderer berechnet diesen Wert nicht selbst
+        (keine Zeit-/Policy-Logik, kein Controller-Aufruf). Aufrufer (die
+        `_rebuild_grid`/`_refresh_grid_content`-Wrapper in `main_window.py`)
+        berechnen ihn einmal pro Render-Durchlauf über
+        `overview_controller._next_lesson_column_index()`.
+        """
+        self._next_unit_index = value
 
     def _apply_marker_kind_fill(self, canvas: ui.Canvas, item_id: int, kind: str) -> None:
         """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
@@ -96,20 +108,34 @@ class GridRenderer:
 
         Returns:
             (date_text, col_type) — col_type ∈ {'normal', 'cancel', 'hospitation',
-            'lzk', 'unresolved'}.  Pass both to ``_apply_header_color``.
+            'lzk', 'unresolved', 'next_unit'}. Pass both to ``_apply_header_color``.
+
+        Die "nächste Einheit"-Markierung (persistente, spaltenkopf-only
+        Kennzeichnung, unabhängig von der aktuellen Zellauswahl und vom
+        UB-/Datumslos-Rahmen aus ``_apply_ub_border``) nutzt zwei getrennte,
+        nie kollidierende Kanäle: einen eigenen Hintergrund-`col_type`
+        ``"next_unit"`` für den häufigsten Fall (keine speziellere Einfärbung
+        aktiv), und ein angehängtes Glyph im Header-Text als Fallback, wenn
+        der Hintergrund bereits durch cancel/hospitation/lzk/unresolved belegt
+        ist — analog zum bestehenden ``⚠``-Muster für `unresolved`.
         """
         if day_index >= len(self.app.day_columns):
             return "", "normal"
         day = self.app.day_columns[day_index]
         date_text = self._format_header_date(day.datum)
+        is_next_unit = day_index == self._next_unit_index
+        next_unit_marker = " ▶" if is_next_unit else ""
+
         if day.is_cancel():
-            return date_text, "cancel"
+            return f"{date_text}{next_unit_marker}", "cancel"
         if day.is_hospitation():
-            return date_text, "hospitation"
+            return f"{date_text}{next_unit_marker}", "hospitation"
         if day.is_lzk():
-            return date_text, "lzk"
+            return f"{date_text}{next_unit_marker}", "lzk"
         if day.is_unresolved_link():
-            return f"{date_text} ⚠", "unresolved"
+            return f"{date_text} ⚠{next_unit_marker}", "unresolved"
+        if is_next_unit:
+            return date_text, "next_unit"
         return date_text, "normal"
 
     def _apply_header_color(self, label: ui.Label, col_type: str) -> None:
@@ -122,6 +148,8 @@ class GridRenderer:
             theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
         elif col_type == "unresolved":
             theme_label_token(label, bg_token="warning_soft")
+        elif col_type == "next_unit":
+            theme_label_tinted(label, "info_soft", degree=0.5, base_token="panel_strong")
         else:
             theme_label_token(label, bg_token="panel_strong")
 

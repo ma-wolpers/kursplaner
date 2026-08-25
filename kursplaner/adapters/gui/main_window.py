@@ -575,14 +575,17 @@ class KursplanerApp(BwBaseWindow):
 
     def _rebuild_grid(self):
         """High-frequency Entry: rendert das komplette Plan-Grid neu."""
+        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
         return self.grid_renderer._rebuild_grid()
 
     def _refresh_grid_content(self):
         """Aktualisiert Header/Zellen ohne kompletten Widget-Neuaufbau."""
+        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
         return self.grid_renderer.refresh_grid_content()
 
     def _update_grid_column(self, day_index: int):
         """Aktualisiert Header und alle Zellen einer bestehenden Spalte."""
+        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
         return self.grid_renderer.update_column(day_index)
 
     def _update_grid_cell(self, field_key: str, day_index: int):
@@ -591,6 +594,7 @@ class KursplanerApp(BwBaseWindow):
 
     def _update_grid_header(self, day_index: int):
         """Aktualisiert nur den Header einer bestehenden Spalte."""
+        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
         return self.grid_renderer.update_header(day_index)
 
     def _update_grid_row_style(self, field_key: str):
