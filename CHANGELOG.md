@@ -34,6 +34,9 @@ The format is based on Keep a Changelog.
   - Tests: `tests/test_timetable_change_usecase.py` (15 Tests), `tests/test_apply_timetable_change_usecase.py` (7 Tests).
 
 ### Changed
+- **"Nächste Einheit" wird jetzt standardmäßig anhand der tatsächlichen Startzeit bestimmt**: Eine Einheit gilt als "nächste", solange ihre Startzeit (aus dem Wochenrhythmus) noch nicht erreicht ist — nicht mehr pauschal der ganze Tag. Gilt einheitlich für die Grid-Markierung/-Auswahl beim Öffnen, die Pfeiltasten-Navigation ohne Auswahl, die Kursübersicht-Fettung und die Spalte "Nächster UB". Wer stattdessen weiterhin einen einzelnen festen Cutoff-Zeitpunkt für alle Kurse möchte, kann das in den Einstellungen ("Nächste Einheit bestimmen anhand" → "Feste Uhrzeit", Standard 15:00) aktivieren.
+  - Die "nächste Einheit" wird jetzt zusätzlich dauerhaft am Spaltenkopf markiert (dezente Hintergrundfarbe bzw. ein "▶"-Zeichen), unabhängig davon, welche Spalte gerade ausgewählt ist.
+  - Neu: Zifferntasten `0`–`9` wählen im Spaltenauswahlmodus direkt relativ zur nächsten Einheit aus (`0` = diese, `1` = die danach folgende stattfindende Einheit, `2` = die übernächste, …).
 - **"Neuer Unterricht" heißt jetzt "Neuer Kurs"**: Der Dialog legt einen ganzen Kurs an, keine einzelne Stunde — der bisherige Name war irreführend.
 - **Stunden-Spalte der Plantabelle entfällt**: Die Stundenzahl je Kurstag wird jetzt aus dem neuen Wochenrhythmus abgeleitet, statt in jeder Zeile einzeln gespeichert zu werden (dadurch war sie bisher redundant zum tatsächlichen Rhythmus). Bestehende Kurse wurden automatisch auf das neue Format gehoben.
 - **Ferien jetzt am Markierungsformat erkennbar**: Ferien-/Feiertagszeilen tragen jetzt `X Grund X` (mit Schluss-X) in der Thema/Ausfall-Spalte, ein normaler Ausfall (z. B. Krankheit) bleibt beim einfachen `X Grund`. Dadurch sind Ferien direkt im Text erkennbar, statt sich nur aus der jetzt entfallenen Stundenzahl=0 zu ergeben.
