@@ -9,17 +9,22 @@ from kursplaner.core.config.school_wide_cancellations_store import (
     load_school_wide_cancellations,
     save_school_wide_cancellations,
 )
-from kursplaner.core.config.ui_preferences_store import load_ub_past_cutoff_time
+from kursplaner.core.config.ui_preferences_store import (
+    NEXT_UNIT_MODE_FEST,
+    load_next_unit_cutoff_time,
+    load_next_unit_mode,
+    load_ub_past_cutoff_time,
+)
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlow
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlow
 from kursplaner.core.flows.plan_lesson_flow import PlanLessonFlow
 from kursplaner.core.flows.school_wide_cancellation_flow import SchoolWideCancellationFlow
 from kursplaner.core.ports.repositories import LessonIndexRepository, PlanRepository
 from kursplaner.core.usecases.action_button_state_usecase import ActionButtonStateUseCase
-from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.apply_school_wide_cancellations_to_new_rows_usecase import (
     ApplySchoolWideCancellationsToNewRowsUseCase,
 )
+from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.archive_former_courses_usecase import ArchiveFormerCoursesUseCase
 from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.core.usecases.bulk_cancellation_coordinator import BulkCancellationCoordinator
@@ -230,6 +235,8 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         lesson_index_repo=lesson_index_repo,
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
+        next_unit_global_cutoff_enabled_provider=lambda: load_next_unit_mode() == NEXT_UNIT_MODE_FEST,
+        next_unit_global_cutoff_time_provider=load_next_unit_cutoff_time,
     )
     list_lessons_usecase = ListLessonsUseCase(plan_repo=plan_repo, plan_overview_query=plan_overview_query)
     load_plan_detail_usecase = LoadPlanDetailUseCase(plan_repo=plan_repo, lesson_repo=lesson_repo, ub_repo=ub_repo)

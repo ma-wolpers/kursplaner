@@ -6,8 +6,9 @@ from typing import Callable
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.content_markers import normalize_marker_text
-from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm
+from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, hours_for_date, parse_rhythm, start_time_for_date
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
@@ -45,16 +46,31 @@ class PlanOverviewQueryUseCase:
         lesson_index_repo: LessonIndexRepository | None = None,
         ub_repo: UbRepository | None = None,
         past_cutoff_time_provider: Callable[[], time] | None = None,
+        now_provider: Callable[[], datetime] | None = None,
+        next_unit_global_cutoff_enabled_provider: Callable[[], bool] | None = None,
+        next_unit_global_cutoff_time_provider: Callable[[], time] | None = None,
     ):
         """Initialisiert den Überblicks-Use-Case mit optionalem Metadaten-Index.
 
         Bei vorhandenem `lesson_index_repo` werden Themen-Metadaten indexbasiert geladen.
         Ohne Index erfolgt ein Fallback auf `lesson_repo` mit voller YAML-Ladung.
+
+        `now_provider` liefert den "jetzt"-Zeitpunkt für `summarize_plan`, wenn
+        dessen `now`-Parameter nicht explizit übergeben wird — vermeidet einen
+        unbeobachtbaren `datetime.now()`-Aufruf tief in der Query-Logik.
+        `next_unit_global_cutoff_{enabled,time}_provider` steuern, ob "nächste
+        Einheit"/"nächster UB" per fester Uhrzeit statt per tatsächlicher
+        Startzeit bestimmt werden (siehe `next_unit_policy`); unabhängig von
+        `past_cutoff_time_provider`, das ein anderes Konzept bedient ("UB
+        bereits abgehalten").
         """
         self.lesson_repo = lesson_repo
         self.lesson_index_repo = lesson_index_repo
         self.ub_repo = ub_repo
         self._past_cutoff_time_provider = past_cutoff_time_provider
+        self._now_provider = now_provider or datetime.now
+        self._next_unit_global_cutoff_enabled_provider = next_unit_global_cutoff_enabled_provider
+        self._next_unit_global_cutoff_time_provider = next_unit_global_cutoff_time_provider
 
     def _past_cutoff_time(self) -> time:
         if self._past_cutoff_time_provider is None:
@@ -67,24 +83,50 @@ class PlanOverviewQueryUseCase:
             return time(hour=15, minute=0)
         return configured
 
+    def _next_unit_global_cutoff_enabled(self) -> bool:
+        if self._next_unit_global_cutoff_enabled_provider is None:
+            return False
+        try:
+            return bool(self._next_unit_global_cutoff_enabled_provider())
+        except Exception:
+            return False
+
+    def _next_unit_global_cutoff_time(self) -> time:
+        if self._next_unit_global_cutoff_time_provider is None:
+            return time(hour=15, minute=0)
+        try:
+            configured = self._next_unit_global_cutoff_time_provider()
+        except Exception:
+            return time(hour=15, minute=0)
+        if not isinstance(configured, time):
+            return time(hour=15, minute=0)
+        return configured
+
     def _is_row_upcoming(
         self,
         row_day: date,
         *,
         reference_day: date | None,
         now: datetime,
+        start_time_text: str = "",
     ) -> bool:
+        """Delegiert an `next_unit_policy.unit_counts_as_upcoming`.
+
+        Ausnahme: `reference_day` ist ein expliziter, rein datumsbasierter
+        Determinismus-/Sonderpfad für Tests und ignoriert Uhrzeit/Cutoff/
+        Startzeit komplett. Dieser Zweig bleibt bewusst unverändert und wird
+        NICHT auf die Policy umgestellt — nicht "konsolidieren".
+        """
         if reference_day is not None:
             return row_day >= reference_day
 
-        today = now.date()
-        if row_day > today:
-            return True
-        if row_day < today:
-            return False
-
-        cutoff = self._past_cutoff_time()
-        return now.time() < cutoff
+        return unit_counts_as_upcoming(
+            row_day,
+            start_time_text,
+            now=now,
+            global_cutoff_enabled=self._next_unit_global_cutoff_enabled(),
+            global_cutoff_time=self._next_unit_global_cutoff_time(),
+        )
 
     @staticmethod
     def _parse_date(value: str) -> date | None:
@@ -152,7 +194,7 @@ class PlanOverviewQueryUseCase:
         ignoriert Ausfallmarker bei Reststunden/Nächster-Einheit und nutzt sofern
         verfügbar den Lesson-Index.
         """
-        current_now = now or datetime.now()
+        current_now = now if now is not None else self._now_provider()
 
         header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
         idx_datum = header_map.get("datum")
@@ -187,7 +229,12 @@ class PlanOverviewQueryUseCase:
             if row_date is None:
                 continue
             has_any_dated_unit = True
-            if not self._is_row_upcoming(row_date, reference_day=reference_day, now=current_now):
+            if not self._is_row_upcoming(
+                row_date,
+                reference_day=reference_day,
+                now=current_now,
+                start_time_text=start_time_for_date(rhythm, row_date),
+            ):
                 continue
 
             content = row[idx_inhalt].strip()
@@ -271,7 +318,12 @@ class PlanOverviewQueryUseCase:
                 ub_date = row_date_values.get(row_index)
             if ub_date is None:
                 continue
-            if not self._is_row_upcoming(ub_date, reference_day=reference_day, now=current_now):
+            if not self._is_row_upcoming(
+                ub_date,
+                reference_day=reference_day,
+                now=current_now,
+                start_time_text=start_time_for_date(rhythm, ub_date),
+            ):
                 continue
 
             ub_domains: list[str] = []

@@ -11,6 +11,12 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
+from kursplaner.core.config.ui_preferences_store import (
+    NEXT_UNIT_MODE_FEST,
+    load_next_unit_cutoff_time,
+    load_next_unit_mode,
+)
+from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming
 from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError
 from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict
 
@@ -498,12 +504,18 @@ class MainWindowOverviewController:
 
         return None
 
-    def _next_lesson_column_index(self) -> int | None:
-        """Bestimmt die nächste Unterrichtsspalte relativ zum heutigen Datum."""
+    def _next_lesson_column_index(self, *, now: datetime | None = None) -> int | None:
+        """Bestimmt die nächste Unterrichtsspalte per `next_unit_policy` (einziger Wahrheitsort).
+
+        `now` ist für Tests explizit übergebbar; Produktionsaufrufer lassen es
+        weg (Default: `datetime.now()`).
+        """
         if not self.app.day_columns:
             return None
 
-        today = date.today()
+        now = now if now is not None else datetime.now()
+        global_cutoff_enabled = load_next_unit_mode() == NEXT_UNIT_MODE_FEST
+        global_cutoff_time = load_next_unit_cutoff_time()
         fallback_first_occurring: int | None = None
 
         for idx, day_info in enumerate(self.app.day_columns):
@@ -514,9 +526,13 @@ class MainWindowOverviewController:
                 fallback_first_occurring = idx
 
             day_date = self._parse_day_date(day_info.datum)
-            if day_date is None:
-                continue
-            if day_date >= today:
+            if unit_counts_as_upcoming(
+                day_date,
+                day_info.startzeit(),
+                now=now,
+                global_cutoff_enabled=global_cutoff_enabled,
+                global_cutoff_time=global_cutoff_time,
+            ):
                 return idx
 
         return fallback_first_occurring
