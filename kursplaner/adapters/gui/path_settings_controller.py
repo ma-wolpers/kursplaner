@@ -10,10 +10,14 @@ from kursplaner.core.config.ui_preferences_store import (
     LessonBuilderFieldSettings,
     load_course_overview_highlight_days,
     load_lesson_builder_field_settings,
+    load_next_unit_cutoff_time,
+    load_next_unit_mode,
     load_school_wide_cancellations_path_override,
     load_ub_past_cutoff_time,
     save_course_overview_highlight_days,
     save_lesson_builder_field_settings,
+    save_next_unit_cutoff_time,
+    save_next_unit_mode,
     save_ub_past_cutoff_time,
 )
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
@@ -71,6 +75,10 @@ class MainWindowPathSettingsController:
             on_course_overview_highlight_days_saved=self.on_course_overview_highlight_days_saved,
             school_wide_cancellations_path=load_school_wide_cancellations_path_override(),
             on_school_wide_cancellations_path_saved=set_store_path_override,
+            next_unit_mode=load_next_unit_mode(),
+            on_next_unit_mode_saved=self.on_next_unit_mode_saved,
+            next_unit_cutoff_time=load_next_unit_cutoff_time(),
+            on_next_unit_cutoff_time_saved=self.on_next_unit_cutoff_time_saved,
             theme_key=self.app.theme_var.get(),
             path_settings_usecase=self.path_settings_usecase,
         )
@@ -91,6 +99,18 @@ class MainWindowPathSettingsController:
         save_course_overview_highlight_days(normalized)
         self.app.course_overview_highlight_days = normalized
         self.app.refresh_overview()
+
+    def on_next_unit_mode_saved(self, mode: str) -> None:
+        """Persistiert den Modus für 'nächste Einheit' und aktualisiert die Ansicht live."""
+        save_next_unit_mode(mode)
+        self.app.refresh_overview()
+        self.app._refresh_grid_content()
+
+    def on_next_unit_cutoff_time_saved(self, cutoff: time) -> None:
+        """Persistiert den globalen Cutoff für 'nächste Einheit' und aktualisiert die Ansicht live."""
+        save_next_unit_cutoff_time(cutoff)
+        self.app.refresh_overview()
+        self.app._refresh_grid_content()
 
     def on_paths_saved(self, values: dict[str, str]):
         """Übernimmt gespeicherte Pfade und lädt die Übersicht neu."""

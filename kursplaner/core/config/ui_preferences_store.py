@@ -11,6 +11,10 @@ from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 _THEME_KEY = "theme"
 _COLUMN_VISIBILITY_KEY = "column_visibility"
 _UB_PAST_CUTOFF_KEY = "ub_past_cutoff_time"
+_NEXT_UNIT_MODE_KEY = "next_unit_mode"
+_NEXT_UNIT_CUTOFF_TIME_KEY = "next_unit_cutoff_time"
+NEXT_UNIT_MODE_STARTZEIT = "startzeit"
+NEXT_UNIT_MODE_FEST = "fest"
 _LESSON_BUILDER_FIELDS_KEY = "lesson_builder_fields"
 _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _ROW_FILTER_KEY = "row_filter"
@@ -130,6 +134,58 @@ def save_ub_past_cutoff_time(value: time) -> None:
     """Persistiert die UB-Vergangenheitsgrenze als HH:MM-String."""
     payload = _load_payload()
     payload[_UB_PAST_CUTOFF_KEY] = f"{int(value.hour):02d}:{int(value.minute):02d}"
+    _save_payload(payload)
+
+
+def load_next_unit_mode(default: str = NEXT_UNIT_MODE_STARTZEIT) -> str:
+    """Lädt den Modus für "nächste Einheit": Startzeit (Default) oder fester Cutoff.
+
+    Unabhängig von `ub_past_cutoff_time` (anderes Konzept: "UB bereits
+    abgehalten" statt "Einheit noch anstehend").
+    """
+    payload = _load_payload()
+    raw = payload.get(_NEXT_UNIT_MODE_KEY)
+    if raw in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST):
+        return raw
+    return default
+
+
+def save_next_unit_mode(value: str) -> None:
+    """Persistiert den Modus für "nächste Einheit"."""
+    payload = _load_payload()
+    payload[_NEXT_UNIT_MODE_KEY] = value if value in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST) else NEXT_UNIT_MODE_STARTZEIT
+    _save_payload(payload)
+
+
+def load_next_unit_cutoff_time(default: time | None = None) -> time:
+    """Lädt den globalen Cutoff für "nächste Einheit" (nur im Modus `fest` genutzt)."""
+    fallback = default or time(hour=15, minute=0)
+    payload = _load_payload()
+    raw = payload.get(_NEXT_UNIT_CUTOFF_TIME_KEY)
+    if not isinstance(raw, str):
+        return fallback
+    text = raw.strip()
+    if not text:
+        return fallback
+
+    parts = text.split(":", 1)
+    if len(parts) != 2:
+        return fallback
+    hour_text, minute_text = parts
+    if not (hour_text.isdigit() and minute_text.isdigit()):
+        return fallback
+
+    hour = int(hour_text)
+    minute = int(minute_text)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return fallback
+    return time(hour=hour, minute=minute)
+
+
+def save_next_unit_cutoff_time(value: time) -> None:
+    """Persistiert den globalen Cutoff für "nächste Einheit" als HH:MM-String."""
+    payload = _load_payload()
+    payload[_NEXT_UNIT_CUTOFF_TIME_KEY] = f"{int(value.hour):02d}:{int(value.minute):02d}"
     _save_payload(payload)
 
 

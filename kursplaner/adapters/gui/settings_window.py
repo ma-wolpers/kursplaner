@@ -13,7 +13,11 @@ from bw_gui.dialogs import (
 )
 
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox
-from kursplaner.core.config.ui_preferences_store import LessonBuilderFieldSettings
+from kursplaner.core.config.ui_preferences_store import (
+    NEXT_UNIT_MODE_FEST,
+    NEXT_UNIT_MODE_STARTZEIT,
+    LessonBuilderFieldSettings,
+)
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
 
 _UB_CUTOFF_HOUR_KEY = "ub_past_cutoff_hour"
@@ -22,6 +26,9 @@ _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _SHOW_KOMPETENZEN_KEY = "lesson_builder_show_kompetenzen"
 _SHOW_STUNDENZIEL_KEY = "lesson_builder_show_stundenziel"
 _SCHOOL_WIDE_CANCELLATIONS_PATH_KEY = "school_wide_cancellations_path"
+_NEXT_UNIT_MODE_KEY = "next_unit_mode"
+_NEXT_UNIT_CUTOFF_HOUR_KEY = "next_unit_cutoff_hour"
+_NEXT_UNIT_CUTOFF_MINUTE_KEY = "next_unit_cutoff_minute"
 
 
 def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> SettingsDialogSpec:
@@ -87,6 +94,42 @@ def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> Settings
                 ),
             ),
             SettingsSectionSpec(
+                key="next_unit",
+                label="Nächste Einheit",
+                fields=(
+                    SettingsFieldSpec(
+                        key=_NEXT_UNIT_MODE_KEY,
+                        label="Nächste Einheit bestimmen anhand",
+                        field_type="enum",
+                        enum_values=(NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST),
+                        default=NEXT_UNIT_MODE_STARTZEIT,
+                        hint=(
+                            f"'{NEXT_UNIT_MODE_STARTZEIT}' = tatsächliche Startzeit der jeweiligen Einheit "
+                            f"(Standard); '{NEXT_UNIT_MODE_FEST}' = einzelner globaler Cutoff-Zeitpunkt."
+                        ),
+                    ),
+                    SettingsFieldSpec(
+                        key=_NEXT_UNIT_CUTOFF_HOUR_KEY,
+                        label="Cutoff Stunde",
+                        field_type="int",
+                        default=15,
+                        min_value=0,
+                        max_value=23,
+                        visible_when=(_NEXT_UNIT_MODE_KEY, NEXT_UNIT_MODE_FEST),
+                    ),
+                    SettingsFieldSpec(
+                        key=_NEXT_UNIT_CUTOFF_MINUTE_KEY,
+                        label="Cutoff Minute",
+                        field_type="int",
+                        default=0,
+                        min_value=0,
+                        max_value=59,
+                        hint="24h-Format.",
+                        visible_when=(_NEXT_UNIT_MODE_KEY, NEXT_UNIT_MODE_FEST),
+                    ),
+                ),
+            ),
+            SettingsSectionSpec(
                 key="course_overview",
                 label="Kursübersicht",
                 fields=(
@@ -128,6 +171,8 @@ def _initial_values(
     lesson_builder_field_settings: LessonBuilderFieldSettings,
     course_overview_highlight_days: int,
     school_wide_cancellations_path: str,
+    next_unit_mode: str,
+    next_unit_cutoff_time: time,
 ) -> dict[str, object]:
     values: dict[str, object] = {key: value for key, value in path_values.items()}
     values[_UB_CUTOFF_HOUR_KEY] = int(ub_past_cutoff_time.hour)
@@ -136,6 +181,9 @@ def _initial_values(
     values[_SHOW_STUNDENZIEL_KEY] = bool(lesson_builder_field_settings.show_stundenziel)
     values[_COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY] = max(0, min(60, int(course_overview_highlight_days)))
     values[_SCHOOL_WIDE_CANCELLATIONS_PATH_KEY] = str(school_wide_cancellations_path or "")
+    values[_NEXT_UNIT_MODE_KEY] = next_unit_mode
+    values[_NEXT_UNIT_CUTOFF_HOUR_KEY] = int(next_unit_cutoff_time.hour)
+    values[_NEXT_UNIT_CUTOFF_MINUTE_KEY] = int(next_unit_cutoff_time.minute)
     return values
 
 
@@ -150,6 +198,19 @@ def _extract_path_values(payload: dict[str, object], path_settings_usecase: Path
 def _extract_cutoff_time(payload: dict[str, object]) -> time:
     hour = int(payload.get(_UB_CUTOFF_HOUR_KEY, 15))
     minute = int(payload.get(_UB_CUTOFF_MINUTE_KEY, 0))
+    hour = max(0, min(23, hour))
+    minute = max(0, min(59, minute))
+    return time(hour=hour, minute=minute)
+
+
+def _extract_next_unit_mode(payload: dict[str, object]) -> str:
+    raw = payload.get(_NEXT_UNIT_MODE_KEY, NEXT_UNIT_MODE_STARTZEIT)
+    return raw if raw in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST) else NEXT_UNIT_MODE_STARTZEIT
+
+
+def _extract_next_unit_cutoff_time(payload: dict[str, object]) -> time:
+    hour = int(payload.get(_NEXT_UNIT_CUTOFF_HOUR_KEY, 15))
+    minute = int(payload.get(_NEXT_UNIT_CUTOFF_MINUTE_KEY, 0))
     hour = max(0, min(23, hour))
     minute = max(0, min(59, minute))
     return time(hour=hour, minute=minute)
@@ -230,6 +291,10 @@ def open_settings_dialog(
     on_course_overview_highlight_days_saved=None,
     school_wide_cancellations_path: str = "",
     on_school_wide_cancellations_path_saved=None,
+    next_unit_mode: str | None = None,
+    on_next_unit_mode_saved=None,
+    next_unit_cutoff_time: time | None = None,
+    on_next_unit_cutoff_time_saved=None,
     theme_key: str | None = None,
     path_settings_usecase: PathSettingsUseCase | None = None,
 ) -> None:
@@ -249,6 +314,8 @@ def open_settings_dialog(
     active_lesson_builder_settings = lesson_builder_field_settings or LessonBuilderFieldSettings()
     active_course_overview_highlight_days = max(0, min(60, int(course_overview_highlight_days)))
     active_school_wide_cancellations_path = str(school_wide_cancellations_path or "")
+    active_next_unit_mode = next_unit_mode if next_unit_mode in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST) else NEXT_UNIT_MODE_STARTZEIT
+    active_next_unit_cutoff_time = next_unit_cutoff_time or time(hour=15, minute=0)
     active_section: str | None = None
     effective_theme_key = str(theme_key or "slate_indigo")
 
@@ -259,6 +326,8 @@ def open_settings_dialog(
             lesson_builder_field_settings=active_lesson_builder_settings,
             course_overview_highlight_days=active_course_overview_highlight_days,
             school_wide_cancellations_path=active_school_wide_cancellations_path,
+            next_unit_mode=active_next_unit_mode,
+            next_unit_cutoff_time=active_next_unit_cutoff_time,
         )
         result = open_tabbed_settings_dialog(
             master,
@@ -276,6 +345,8 @@ def open_settings_dialog(
         proposed_lesson_builder = _extract_lesson_builder_settings(result)
         proposed_course_overview_highlight_days = _extract_course_overview_highlight_days(result)
         proposed_school_wide_cancellations_path = _extract_school_wide_cancellations_path(result)
+        proposed_next_unit_mode = _extract_next_unit_mode(result)
+        proposed_next_unit_cutoff_time = _extract_next_unit_cutoff_time(result)
 
         issues = path_settings_usecase.validate_values(proposed_path_values)
         if issues:
@@ -300,6 +371,8 @@ def open_settings_dialog(
             active_lesson_builder_settings = proposed_lesson_builder
             active_course_overview_highlight_days = proposed_course_overview_highlight_days
             active_school_wide_cancellations_path = proposed_school_wide_cancellations_path
+            active_next_unit_mode = proposed_next_unit_mode
+            active_next_unit_cutoff_time = proposed_next_unit_cutoff_time
             active_section = "paths"
             continue
 
@@ -312,6 +385,8 @@ def open_settings_dialog(
                 active_cutoff = proposed_cutoff
                 active_lesson_builder_settings = proposed_lesson_builder
                 active_course_overview_highlight_days = proposed_course_overview_highlight_days
+                active_next_unit_mode = proposed_next_unit_mode
+                active_next_unit_cutoff_time = proposed_next_unit_cutoff_time
                 active_section = "school_wide_cancellations"
                 continue
 
@@ -324,5 +399,9 @@ def open_settings_dialog(
             on_lesson_builder_fields_saved(proposed_lesson_builder)
         if on_course_overview_highlight_days_saved:
             on_course_overview_highlight_days_saved(proposed_course_overview_highlight_days)
+        if on_next_unit_mode_saved:
+            on_next_unit_mode_saved(proposed_next_unit_mode)
+        if on_next_unit_cutoff_time_saved:
+            on_next_unit_cutoff_time_saved(proposed_next_unit_cutoff_time)
         return
 

@@ -82,6 +82,64 @@ def test_load_ub_past_cutoff_time_falls_back_for_invalid_payload(tmp_path, monke
     assert loaded == time(hour=15, minute=0)
 
 
+def test_next_unit_mode_defaults_to_startzeit(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    assert ui_preferences_store.load_next_unit_mode() == ui_preferences_store.NEXT_UNIT_MODE_STARTZEIT
+
+
+def test_save_and_load_next_unit_mode_roundtrip(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    ui_preferences_store.save_next_unit_mode(ui_preferences_store.NEXT_UNIT_MODE_FEST)
+    loaded = ui_preferences_store.load_next_unit_mode()
+
+    assert loaded == ui_preferences_store.NEXT_UNIT_MODE_FEST
+
+
+def test_load_next_unit_mode_falls_back_for_invalid_payload(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    target.write_text(json.dumps({"next_unit_mode": "unbekannt"}), encoding="utf-8")
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    loaded = ui_preferences_store.load_next_unit_mode()
+
+    assert loaded == ui_preferences_store.NEXT_UNIT_MODE_STARTZEIT
+
+
+def test_save_and_load_next_unit_cutoff_time_roundtrip(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    ui_preferences_store.save_next_unit_cutoff_time(time(hour=16, minute=30))
+    loaded = ui_preferences_store.load_next_unit_cutoff_time()
+
+    assert loaded == time(hour=16, minute=30)
+
+
+def test_load_next_unit_cutoff_time_falls_back_for_invalid_payload(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    target.write_text(json.dumps({"next_unit_cutoff_time": "invalid"}), encoding="utf-8")
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    loaded = ui_preferences_store.load_next_unit_cutoff_time()
+
+    assert loaded == time(hour=15, minute=0)
+
+
+def test_next_unit_mode_and_ub_past_cutoff_are_independent(tmp_path, monkeypatch):
+    target = tmp_path / "ui_preferences.json"
+    monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
+
+    ui_preferences_store.save_ub_past_cutoff_time(time(hour=13, minute=0))
+    ui_preferences_store.save_next_unit_cutoff_time(time(hour=17, minute=0))
+
+    assert ui_preferences_store.load_ub_past_cutoff_time() == time(hour=13, minute=0)
+    assert ui_preferences_store.load_next_unit_cutoff_time() == time(hour=17, minute=0)
+
+
 def test_save_and_load_lesson_builder_field_settings_roundtrip(tmp_path, monkeypatch):
     target = tmp_path / "ui_preferences.json"
     monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
