@@ -296,6 +296,8 @@ class MainWindowUiIntentController:
             return self.intent_clipboard_shortcut(payload.get("event"), operation="copy")
         if intent == UiIntent.SHORTCUT_PASTE:
             return self.intent_clipboard_shortcut(payload.get("event"), operation="paste")
+        if intent == UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET:
+            return self.intent_select_unit_by_offset(self.app._to_int(payload.get("offset", -1), -1))
         if intent == UiIntent.GLOBAL_CLICK_COMMIT_CELL:
             return self.intent_global_click_commit_cell(payload.get("event"))
 
@@ -466,6 +468,15 @@ class MainWindowUiIntentController:
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent(1)
         return "break" if moved else None
+
+    def intent_select_unit_by_offset(self, offset: int):
+        """Wählt die Einheit relativ zur "nächsten Einheit" (0-9); nur im Spaltenauswahl-Modus aktiv."""
+        if not bool(getattr(self.app, "is_detail_view", False)):
+            return None
+        if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
+            return None
+        selected = self.app.selection_controller.select_unit_at_offset_from_next(offset)
+        return "break" if selected else None
 
     def intent_escape(self):
         has_popup = ScrollablePopupWindow.has_active_popup()

@@ -644,6 +644,14 @@ class ScreenBuilder:
         self._bind_runtime_shortcut("<Right>", self._on_detail_right, binding_id="detail.right", intent=UiIntent.SHORTCUT_DETAIL_RIGHT, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<Alt-Left>", self._on_detail_left_all, binding_id="detail.left.all", intent=UiIntent.SHORTCUT_DETAIL_LEFT_ALL, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<Alt-Right>", self._on_detail_right_all, binding_id="detail.right.all", intent=UiIntent.SHORTCUT_DETAIL_RIGHT_ALL, modes=(UI_MODE_PREVIEW,))
+        for digit in range(10):
+            self._bind_runtime_shortcut(
+                f"<Key-{digit}>",
+                lambda _event, offset=digit: self._emit_intent(UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET, offset=offset),
+                binding_id=f"detail.select-unit-offset.{digit}",
+                intent=UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET,
+                modes=(UI_MODE_PREVIEW,),
+            )
         self._bind_runtime_shortcut("<Home>", self._on_home, binding_id="grid.home", intent=UiIntent.GRID_HOME, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<End>", self._on_end, binding_id="grid.end", intent=UiIntent.GRID_END, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<Delete>", self._on_grid_delete, binding_id="grid.delete", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))

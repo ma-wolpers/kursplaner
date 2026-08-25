@@ -36,3 +36,7 @@ Quelle der aktuellen Belegung:
 - Verbleibende Belegungen sind überwiegend mittleres Risiko, durch Modus-Gating vertretbar.
 - Größte Kandidaten für spätere Entschärfung: `Strg+O`, `Strg+Q`, `Strg+T`, `Strg+Links/Rechts`.
 - Shortcut-Merkregeln werden zentral in `kursplaner/resources/shortcuts/shortcut_guide.json` gepflegt.
+
+## Reine Navigationstasten (nicht in `shortcut_guide.json`, direkt in `screen_builder.py::_bind_shortcuts` gebunden)
+
+Analog zu `Links`/`Rechts`/`Pos1`/`Ende` (ebenfalls nicht in obiger Tabelle, da keine Ctrl-Merkregel nötig ist): Zifferntasten `0`–`9` wählen im Detailraster relativ zur markierten "nächsten Einheit" (0 = diese, 1–9 = die N-te folgende stattfindende Einheit). Gebunden nur im Spaltenauswahlmodus (`allow_when_text_input=False` + zusätzliche `SELECTION_LEVEL_COLUMN`-Prüfung im Intent-Handler) — keine Kollision mit Zifferneingabe in Textfeldern. Geprüft: keine bestehende Belegung von `0`–`9` in `shortcut_guide.json` oder anderswo in `_bind_shortcuts`.

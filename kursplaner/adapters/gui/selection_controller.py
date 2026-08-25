@@ -331,6 +331,42 @@ class MainWindowSelectionController:
             probe += direction
         return False
 
+    def select_unit_at_offset_from_next(self, offset_from_next_unit: int) -> bool:
+        """Wählt die Einheit relativ zur "nächsten Einheit" (0 = diese, 1 = die darauf folgende stattfindende, …).
+
+        `offset_from_next_unit` ist explizit KEIN roher Spaltenindex, sondern
+        ein Versatz relativ zum Next-Unit-Anker — derselben Quelle wie die
+        persistente Markierung und die automatische Auswahl beim Öffnen (ein
+        einziger Wahrheitsort). Ausfall-Spalten werden übersprungen (wie
+        `move_selection_to_adjacent_occurring`). Kein Wrap-around: existiert
+        keine nächste Einheit oder der Ziel-Offset nicht (z. B. Offset 9 bei
+        nur 3 folgenden stattfindenden Spalten), passiert nichts (No-op).
+        """
+        if offset_from_next_unit < 0:
+            return False
+        if not self.app.day_columns:
+            return False
+
+        anchor = self.app.overview_controller._next_lesson_column_index()
+        if anchor is None:
+            return False
+
+        if offset_from_next_unit == 0:
+            self.set_single_column_selection(anchor, ensure_visible=True)
+            return True
+
+        remaining = offset_from_next_unit
+        probe = anchor
+        while remaining > 0:
+            probe += 1
+            if not (0 <= probe < len(self.app.day_columns)):
+                return False
+            if self._is_occurring_column(self.app.day_columns[probe]):
+                remaining -= 1
+
+        self.set_single_column_selection(probe, ensure_visible=True)
+        return True
+
     def update_selected_column_label(self):
         """Aktualisiert die Statusanzeige der aktuell selektierten Spalte."""
         if len(self.app.selected_day_indices) != 1:

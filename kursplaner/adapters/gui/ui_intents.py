@@ -88,4 +88,5 @@ class UiIntent:
     SHORTCUT_CUT = "shortcut.cut"
     SHORTCUT_COPY = "shortcut.copy"
     SHORTCUT_PASTE = "shortcut.paste"
+    SHORTCUT_SELECT_UNIT_BY_OFFSET = "shortcut.select_unit_by_offset"
     GLOBAL_CLICK_COMMIT_CELL = "global.click_commit_cell"

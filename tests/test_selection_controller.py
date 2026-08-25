@@ -273,6 +273,78 @@ def test_move_selection_to_adjacent_occurring_does_not_skip_non_cancel_holiday_c
     assert app.selected_day_indices == {1}
 
 
+def test_select_unit_at_offset_from_next_zero_selects_the_anchor_itself():
+    app = _SelectionAppStub(
+        day_columns=[
+            make_day_column(row_index=0, datum="2026-03-27"),
+            make_day_column(row_index=1, datum="2026-03-28"),
+            make_day_column(row_index=2, datum="2026-03-29"),
+        ],
+        row_defs=[("Stundenthema", "Thema")],
+        editable_cells={("Stundenthema", 0), ("Stundenthema", 1), ("Stundenthema", 2)},
+    )
+    app.overview_controller = SimpleNamespace(_next_lesson_column_index=lambda: 1)
+    controller = MainWindowSelectionController(app)
+
+    selected = controller.select_unit_at_offset_from_next(0)
+
+    assert selected is True
+    assert app.selected_day_indices == {1}
+
+
+def test_select_unit_at_offset_from_next_skips_cancelled_columns():
+    app = _SelectionAppStub(
+        day_columns=[
+            make_day_column(row_index=0, datum="2026-03-27"),  # Anker (offset 0)
+            make_day_column(row_index=1, datum="2026-03-28", thema_ausfall="X Grund"),  # uebersprungen
+            make_day_column(row_index=2, datum="2026-03-29"),  # offset 1
+            make_day_column(row_index=3, datum="2026-03-30"),  # offset 2
+        ],
+        row_defs=[("Stundenthema", "Thema")],
+        editable_cells={("Stundenthema", idx) for idx in range(4)},
+    )
+    app.overview_controller = SimpleNamespace(_next_lesson_column_index=lambda: 0)
+    controller = MainWindowSelectionController(app)
+
+    selected = controller.select_unit_at_offset_from_next(2)
+
+    assert selected is True
+    assert app.selected_day_indices == {3}
+
+
+def test_select_unit_at_offset_from_next_is_noop_when_offset_exceeds_available_columns():
+    app = _SelectionAppStub(
+        day_columns=[
+            make_day_column(row_index=0, datum="2026-03-27"),
+            make_day_column(row_index=1, datum="2026-03-28"),
+        ],
+        row_defs=[("Stundenthema", "Thema")],
+        editable_cells={("Stundenthema", 0), ("Stundenthema", 1)},
+    )
+    app.overview_controller = SimpleNamespace(_next_lesson_column_index=lambda: 0)
+    app.selected_day_indices = {1}
+    controller = MainWindowSelectionController(app)
+
+    selected = controller.select_unit_at_offset_from_next(5)
+
+    assert selected is False
+    assert app.selected_day_indices == {1}  # unveraendert, kein Wrap-around
+
+
+def test_select_unit_at_offset_from_next_is_noop_when_no_next_unit_exists():
+    app = _SelectionAppStub(
+        day_columns=[make_day_column(row_index=0, datum="2026-03-27")],
+        row_defs=[("Stundenthema", "Thema")],
+        editable_cells={("Stundenthema", 0)},
+    )
+    app.overview_controller = SimpleNamespace(_next_lesson_column_index=lambda: None)
+    controller = MainWindowSelectionController(app)
+
+    selected = controller.select_unit_at_offset_from_next(0)
+
+    assert selected is False
+
+
 def test_vertical_navigation_scrolls_selected_cell_into_view():
     app = _SelectionAppStub(
         day_columns=[make_day_column(row_index=0, datum="2026-03-27")],

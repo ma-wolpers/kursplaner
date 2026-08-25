@@ -86,6 +86,7 @@ MAIN_WINDOW_HELP: dict[str, str] = {
     "detail_navigation": (
         "Navigation im Detailraster: Links/Rechts wechselt Spalten (Alt+Links/Rechts ohne Skip), Enter startet Zellauswahl/Bearbeitung.\n"
         "In Zellauswahl: Hoch/Runter = nächste editierbare Zelle, Strg+Runter/Strg+Hoch = aktuelle Zeile auf-/zuklappen, Pos1/Ende = oberste/unterste, Entf/Backspace = Zelle leeren, Esc geht stufenweise zurück.\n"
+        "Nur im Spaltenauswahlmodus: Zifferntasten 0-9 wählen relativ zur markierten nächsten Einheit (0 = diese, 1 = die danach folgende stattfindende, 2 = die übernächste, …; Ausfalltage übersprungen, kein Wrap-around).\n"
         "Maus: 1. Klick auf editierbare Zelle markiert, 2. Klick startet Bearbeitung; Klick außerhalb beendet Bearbeitung; Klick auf Datum markiert die Spalte."
     ),
 }
