@@ -97,6 +97,9 @@ from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import Expec
 from kursplaner.infrastructure.export.topic_units_markdown_renderer import TopicUnitsMarkdownRenderer
 from kursplaner.infrastructure.export.topic_units_pdf_renderer import TopicUnitsPdfRenderer
 from kursplaner.infrastructure.repositories import FileSystemLessonIndexRepository
+from kursplaner.infrastructure.repositories.achievement_grade_requirements_repository import (
+    FileSystemAchievementGradeRequirementsRepository,
+)
 from kursplaner.infrastructure.repositories.file_relation_registry_repository import (
     FileSystemFileRelationRegistryRepository,
 )
@@ -428,6 +431,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     query_ub_achievements_usecase = QueryUbAchievementsUseCase(
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
+        grade_requirements_repo=FileSystemAchievementGradeRequirementsRepository(),
     )
     query_ub_plan_usecase = QueryUbPlanUseCase(
         ub_repo=ub_repo,

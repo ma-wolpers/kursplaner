@@ -8,6 +8,24 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-27) — Jahrgangsstufenabhängige Achievement-Struktur (Phase 2b, noch ohne Fach-Vorgaben)
+
+**Kein Changelog-Eintrag**: diese Änderung ist reine Infrastruktur ohne aktuell sichtbaren Effekt — `resources/achievements/grade_requirements.json` enthält für alle vier Fächer bewusst leere Regel-Listen (keine erfundenen Platzhalterwerte), sodass sich am Achievement-Tab nichts ändert, solange keine echten Vorgaben eingetragen sind (durch `test_query_ub_achievements_without_grade_requirements_repo_adds_no_grade_items`/`..._with_empty_requirements_adds_no_grade_items` abgesichert).
+
+**Architektur (Ports/Adapter, analog zu `KompetenzkatalogRepository`)**: neues Protokoll `AchievementGradeRequirementsRepository` (`core/ports/repositories.py`) mit `load_requirements() -> dict[str, tuple[GradeRequirement, ...]]`; konkrete Implementierung `FileSystemAchievementGradeRequirementsRepository` (`infrastructure/repositories/`) liest/parst die JSON-Ressource. Reine Rechenlogik liegt getrennt in `core/domain/achievement_grade_rules.py` (`GradeRequirement`, `GradeGroupProgress`, `parse_grade_requirements`, `compute_grade_group_progress`) — keine I/O im Domain-Layer.
+
+**Zentrale Fachliste nicht dupliziert**: die JSON-Ressource verwendet als Top-Level-Schlüssel exakt die Strings aus `QueryUbAchievementsUseCase.DOMAIN_ORDER` (bereits bestehende, maßgebliche Fachliste) — `test_default_resource_file_keys_match_domain_order` verhindert stillen Drift zwischen beiden Stellen.
+
+**Bestehende current/target-Semantik unverändert wiederverwendet, nicht neu erfunden**: jede konfigurierte Jahrgangsstufen-Gruppe wird zu einem zusätzlichen, ganz gewöhnlichen `AchievementProgress`-Item über die bestehende `_achievement()`-Methode (`current` = rohe, auf `target` gekappte Trefferzahl, `is_fulfilled = current>=target`, exakt wie bei den bestehenden half/full/ubplus/bub-Kategorien) — kein neues UI-Konzept, keine zweite Item-Liste. `_achievement()` bekommt dafür einen neuen optionalen Parameter `label_override`, da die Kachel-Beschriftung bislang aus einer domainübergreifend statischen `CATEGORY_LABELS`-Zuordnung kam, Jahrgangsstufen-Gruppenlabels aber pro Fach unterschiedlich sind (kein Verhaltensunterschied für bestehende Aufrufer, `label_override` ist überall sonst `None`).
+
+**Ein Fach ohne konfigurierte Gruppen erzeugt keine zusätzlichen Items** (`_append_grade_group_items()` bricht bei leerem `requirements`-Tupel sofort ab) — kein `0/0`-Fake-Fortschritt, keine neue "nicht konfiguriert"-UI-Zustandsart nötig.
+
+**Zeilenlimit**: `query_ub_achievements_usecase.py` lag bereits bei 263/300 Zeilen — die eigentliche Berechnung wurde deshalb bewusst nach `achievement_grade_rules.py` ausgelagert statt inline erweitert; die Datei liegt danach bei ~273 ausführbaren Zeilen.
+
+**Tests**: `tests/test_achievement_grade_rules.py` (Parsing/Berechnung), `tests/test_achievement_grade_requirements_repository.py` (Laden, fehlende Datei, Fachlisten-Abgleich), `tests/test_query_ub_achievements_usecase.py` (kein Item ohne Repo/bei leeren Vorgaben, korrekte current/target/Label-Zuordnung bei konfigurierten Vorgaben, andere Fächer bleiben unberührt). 665/665 Tests grün.
+
+**Nächster Schritt** (separat, Datenänderung statt Codearbeit): Rückfrage an den Nutzer nach den konkreten Grenzen/Mindestanzahlen je Fach, danach `grade_requirements.json` befüllen und diesen Changelog-Eintrag nachträglich um einen `CHANGELOG.md`-Eintrag ergänzen.
+
 ### Added (2026-08-27) — Jahrgangsstufe als UB-Datenfeld (Phase 2a der Achievement-Jahrgangsstufen-Vorbereitung)
 
 **Neuer YAML-Key `Jahrgangsstufe`** auf UB-Dateien ([`unterrichtsbesuch_policy.py`](kursplaner/core/domain/unterrichtsbesuch_policy.py), analog zu `UB_YAML_KEY_BEREICH`). Neue reine Funktion `parse_jahrgangsstufe(value) -> int | None`: numerisch 5-13 (dieselbe Konvention wie `core/domain/grade_groups.py` und das Informatik-Kompetenzkatalog-Manifest), alles andere (fehlend, leer, nicht-numerisch, außerhalb 5-13) liefert `None` statt einer Exception — Altbestand ohne dieses Feld bleibt dadurch ladbar.

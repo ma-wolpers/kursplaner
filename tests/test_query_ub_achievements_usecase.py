@@ -2,14 +2,21 @@ from datetime import datetime, time
 from pathlib import Path
 from typing import cast
 
-from kursplaner.core.ports.repositories import UbRepository
+from kursplaner.core.domain.achievement_grade_rules import GradeRequirement
+from kursplaner.core.ports.repositories import AchievementGradeRequirementsRepository, UbRepository
 from kursplaner.core.usecases.query_ub_achievements_usecase import QueryUbAchievementsUseCase
 
 
 class _FakeUbRepo:
-    def __init__(self, rows: list[tuple[list[str], bool]], paths: list[Path] | None = None):
+    def __init__(
+        self,
+        rows: list[tuple[list[str], bool]],
+        paths: list[Path] | None = None,
+        jahrgangsstufen: list[int | None] | None = None,
+    ):
         self._paths = paths or [Path(f"ub 20-01-{idx + 1:02d}.md") for idx, _ in enumerate(rows)]
         self._rows = rows
+        self._jahrgangsstufen = jahrgangsstufen or [None] * len(rows)
 
     def list_ub_markdown_files(self, _workspace_root: Path) -> list[Path]:
         return list(self._paths)
@@ -20,8 +27,17 @@ class _FakeUbRepo:
         yaml_data = {
             "Bereich": list(bereiche),
             "Langentwurf": bool(langentwurf),
+            "Jahrgangsstufe": self._jahrgangsstufen[idx],
         }
         return yaml_data, ""
+
+
+class _FakeGradeRequirementsRepo:
+    def __init__(self, requirements: dict[str, tuple[GradeRequirement, ...]]):
+        self._requirements = requirements
+
+    def load_requirements(self) -> dict[str, tuple[GradeRequirement, ...]]:
+        return self._requirements
 
 
 def test_query_ub_achievements_exposes_structured_fields_and_symbols():
@@ -165,3 +181,65 @@ def test_query_ub_achievements_ignores_domainless_zusatzbesuch_entries():
     mat_half = next(item for item in result.items if item.key == "Mathematik_half")
     assert paed_half.current == 1
     assert mat_half.current == 0
+
+
+def test_query_ub_achievements_without_grade_requirements_repo_adds_no_grade_items():
+    """Regressionstest: ohne konfiguriertes Repo darf sich an der bestehenden
+    Achievement-Liste nichts aendern (current/target-Semantik unangetastet)."""
+    repo = _FakeUbRepo([(["Pädagogik"], False)], jahrgangsstufen=[5])
+    usecase = QueryUbAchievementsUseCase(ub_repo=cast(UbRepository, repo))
+
+    result = usecase.execute(workspace_root=Path("A:/7thCloud"))
+
+    assert not any(item.key.startswith("Pädagogik_grade_") for item in result.items)
+
+
+def test_query_ub_achievements_with_empty_requirements_adds_no_grade_items():
+    """Ein Fach mit leerer Vorgaben-Liste gilt als nicht konfiguriert -- keine Fake-Items."""
+    repo = _FakeUbRepo([(["Pädagogik"], False)], jahrgangsstufen=[5])
+    usecase = QueryUbAchievementsUseCase(
+        ub_repo=cast(UbRepository, repo),
+        grade_requirements_repo=cast(AchievementGradeRequirementsRepository, _FakeGradeRequirementsRepo({})),
+    )
+
+    result = usecase.execute(workspace_root=Path("A:/7thCloud"))
+
+    assert not any(item.key.startswith("Pädagogik_grade_") for item in result.items)
+
+
+def test_query_ub_achievements_reports_configured_grade_group_progress():
+    repo = _FakeUbRepo(
+        [
+            (["Pädagogik"], False),
+            (["Pädagogik"], False),
+            (["Pädagogik"], False),
+        ],
+        jahrgangsstufen=[5, 5, 9],
+    )
+    requirements = {
+        "Pädagogik": (
+            GradeRequirement(label="5./6.", grade_min=5, grade_max=6, min_count=1),
+            GradeRequirement(label="7.-10.", grade_min=7, grade_max=10, min_count=1),
+            GradeRequirement(label="11.-13.", grade_min=11, grade_max=13, min_count=1),
+        )
+    }
+    usecase = QueryUbAchievementsUseCase(
+        ub_repo=cast(UbRepository, repo),
+        grade_requirements_repo=cast(AchievementGradeRequirementsRepository, _FakeGradeRequirementsRepo(requirements)),
+    )
+
+    result = usecase.execute(workspace_root=Path("A:/7thCloud"))
+
+    group_5_6 = next(item for item in result.items if item.key == "Pädagogik_grade_0")
+    group_7_10 = next(item for item in result.items if item.key == "Pädagogik_grade_1")
+    group_11_13 = next(item for item in result.items if item.key == "Pädagogik_grade_2")
+
+    assert group_5_6.title == "Päd 5./6."
+    # `current` wird wie bei allen anderen Achievements auf `target` gekappt (2 tatsaechliche
+    # Treffer, aber Anzeige nie > target) -- dieselbe bestehende Semantik, keine neue.
+    assert (group_5_6.current, group_5_6.target, group_5_6.is_fulfilled) == (1, 1, True)
+    assert (group_7_10.current, group_7_10.target, group_7_10.is_fulfilled) == (1, 1, True)
+    assert (group_11_13.current, group_11_13.target, group_11_13.is_fulfilled) == (0, 1, False)
+
+    # Fach ohne Vorgaben bleibt unberuehrt.
+    assert not any(item.key.startswith("Mathematik_grade_") for item in result.items)

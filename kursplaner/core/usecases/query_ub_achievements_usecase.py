@@ -5,13 +5,16 @@ from datetime import datetime, time
 from pathlib import Path
 from typing import Callable
 
+from kursplaner.core.domain.achievement_grade_rules import GradeRequirement, compute_grade_group_progress
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
+    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_LANGENTWURF,
+    parse_jahrgangsstufe,
     parse_ub_date_from_stem,
     ub_date_counts_as_past,
 )
-from kursplaner.core.ports.repositories import UbRepository
+from kursplaner.core.ports.repositories import AchievementGradeRequirementsRepository, UbRepository
 
 
 @dataclass(frozen=True)
@@ -66,9 +69,11 @@ class QueryUbAchievementsUseCase:
         self,
         ub_repo: UbRepository,
         past_cutoff_time_provider: Callable[[], time] | None = None,
+        grade_requirements_repo: AchievementGradeRequirementsRepository | None = None,
     ):
         self.ub_repo = ub_repo
         self._past_cutoff_time_provider = past_cutoff_time_provider
+        self._grade_requirements_repo = grade_requirements_repo
 
     @staticmethod
     def _now() -> datetime:
@@ -108,10 +113,17 @@ class QueryUbAchievementsUseCase:
         current: int,
         target: int,
         tooltip: str,
+        label_override: str | None = None,
     ) -> AchievementProgress:
+        """Baut ein einzelnes Achievement-Item.
+
+        `label_override` deckt dynamische, pro Vorgabe unterschiedliche Labels
+        ab (z. B. Jahrgangsstufen-Gruppen), die nicht in die statische,
+        domainuebergreifende `CATEGORY_LABELS`-Zuordnung passen.
+        """
         bounded = max(0, min(int(current), int(target)))
         short_domain = self.DOMAIN_SHORT_LABELS.get(domain, "?")
-        category_label = self.CATEGORY_LABELS.get(category, "?")
+        category_label = label_override if label_override is not None else self.CATEGORY_LABELS.get(category, "?")
         return AchievementProgress(
             key=key,
             domain=domain,
@@ -123,6 +135,49 @@ class QueryUbAchievementsUseCase:
             tooltip=str(tooltip),
             is_fulfilled=bounded >= int(target),
         )
+
+    def _load_grade_requirements(self) -> dict[str, tuple[GradeRequirement, ...]]:
+        """Laedt die Jahrgangsstufen-Vorgaben; fehlt der Repo/die Ressource, gilt nichts als konfiguriert."""
+        if self._grade_requirements_repo is None:
+            return {}
+        try:
+            return self._grade_requirements_repo.load_requirements()
+        except Exception:
+            return {}
+
+    def _append_grade_group_items(
+        self,
+        items: list[AchievementProgress],
+        *,
+        domain: str,
+        domain_rows: list[dict[str, object]],
+        requirements_by_domain: dict[str, tuple[GradeRequirement, ...]],
+    ) -> None:
+        """Haengt je konfigurierter Jahrgangsstufen-Vorgabe ein Achievement-Item an.
+
+        Ein Fach ohne Vorgaben (nicht im Manifest oder leere Liste) bekommt
+        keine zusaetzlichen Items -- kein vorgetaeuschter Fortschritt.
+        """
+        requirements = requirements_by_domain.get(domain, ())
+        if not requirements:
+            return
+
+        jahrgangsstufen = [row["jahrgangsstufe"] for row in domain_rows if isinstance(row["jahrgangsstufe"], int)]
+        for index, progress in enumerate(
+            compute_grade_group_progress(jahrgangsstufen=jahrgangsstufen, requirements=requirements)
+        ):
+            items.append(
+                self._achievement(
+                    key=f"{domain}_grade_{index}",
+                    domain=domain,
+                    category=f"grade_{index}",
+                    title=domain,
+                    current=progress.current,
+                    target=progress.target,
+                    tooltip=f"Mind. {progress.target} UB(s) in Jahrgangsstufe {progress.label}.",
+                    label_override=progress.label,
+                )
+            )
 
     def execute(self, *, workspace_root: Path) -> UbAchievementsResult:
         """Berechnet Teil- und Vollziele für alle Fächer und Pädagogik."""
@@ -146,12 +201,15 @@ class QueryUbAchievementsUseCase:
                 {
                     "bereiche": self._list(yaml_data.get(UB_YAML_KEY_BEREICH, [])),
                     "langentwurf": self._bool(yaml_data.get(UB_YAML_KEY_LANGENTWURF, False)),
+                    "jahrgangsstufe": parse_jahrgangsstufe(yaml_data.get(UB_YAML_KEY_JAHRGANGSSTUFE)),
                 }
             )
 
+        grade_requirements_by_domain = self._load_grade_requirements()
         items: list[AchievementProgress] = []
 
-        paed_total = sum(1 for row in rows if "Pädagogik" in row["bereiche"])
+        paed_rows = [row for row in rows if "Pädagogik" in row["bereiche"]]
+        paed_total = len(paed_rows)
         items.append(
             self._achievement(
                 key="paed_half",
@@ -192,6 +250,9 @@ class QueryUbAchievementsUseCase:
                 target=2,
                 tooltip="2 BUBs mit pädagogischer Beteiligung (Mathematik und Informatik).",
             )
+        )
+        self._append_grade_group_items(
+            items, domain="Pädagogik", domain_rows=paed_rows, requirements_by_domain=grade_requirements_by_domain
         )
 
         for subject in self.SUBJECTS:
@@ -249,6 +310,10 @@ class QueryUbAchievementsUseCase:
                         tooltip="Langentwurf-UB mit Pädagogik im Fach.",
                     )
                 )
+
+            self._append_grade_group_items(
+                items, domain=subject, domain_rows=subject_rows, requirements_by_domain=grade_requirements_by_domain
+            )
 
         category_rank = {name: index for index, name in enumerate(self.CATEGORY_ORDER)}
         domain_rank = {name: index for index, name in enumerate(self.DOMAIN_ORDER)}
