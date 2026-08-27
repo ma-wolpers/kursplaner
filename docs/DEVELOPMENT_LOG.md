@@ -8,6 +8,16 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-27) — Jahrgangsstufe als UB-Datenfeld (Phase 2a der Achievement-Jahrgangsstufen-Vorbereitung)
+
+**Neuer YAML-Key `Jahrgangsstufe`** auf UB-Dateien ([`unterrichtsbesuch_policy.py`](kursplaner/core/domain/unterrichtsbesuch_policy.py), analog zu `UB_YAML_KEY_BEREICH`). Neue reine Funktion `parse_jahrgangsstufe(value) -> int | None`: numerisch 5-13 (dieselbe Konvention wie `core/domain/grade_groups.py` und das Informatik-Kompetenzkatalog-Manifest), alles andere (fehlend, leer, nicht-numerisch, außerhalb 5-13) liefert `None` statt einer Exception — Altbestand ohne dieses Feld bleibt dadurch ladbar.
+
+**Wichtig — `required_keys` bewusst NICHT erweitert**: `ub_repository.py::_UB_SCHEMA.required_keys` prüft beim Laden auf Vorhandensein der Keys und wirft sonst `RuntimeError` — `UB_YAML_KEY_JAHRGANGSSTUFE` wurde deshalb nur zu `_UB_ORDERED_KEYS` (Schreib-Reihenfolge beim Speichern) hinzugefügt, nicht zu `required_keys`, damit bestehende UB-Dateien ohne dieses Feld weiterhin ladbar bleiben (manuell verifiziert: Laden einer UB-Datei ohne den Key erzeugt keinen Fehler, `parse_jahrgangsstufe(None)` liefert `None`).
+
+**GUI**: `ub_mark_dialog.py::UbMarkDialog` bekommt ein optionales Zahlenfeld „Jahrgangsstufe (5-13, optional)" neben Beobachtungsschwerpunkt; ungültige (nicht-leere, aber nicht parsebare) Eingabe wird wie die bestehende „mindestens eine UB-Art"-Prüfung mit `messagebox.showerror` abgelehnt, statt stillschweigend verworfen zu werden. `action_controller.py::_ub_dialog_defaults_for_day()` liest den Wert für bestehende UB-Verknüpfungen als Dialog-Default (zwei Aufrufstellen: Bearbeiten-Dialog und die Detail-Anzeige beim Löschen einer verlinkten Einheit).
+
+**Tests**: `tests/test_course_subject_and_ub_policy.py` (`parse_jahrgangsstufe`-Wertebereich/Fehlerfälle), `tests/test_mark_unit_as_ub_usecase.py` (Schreiben eines Werts, sowie Regressionstest für den unveränderten Fall ohne Wert). 651/651 Tests grün.
+
 ### Added (2026-08-27) — Sonderziele + AFB-Hinweis im Erwartungshorizont
 
 **Neues Feld `Sonderziele`**: Liste wie `Teilziele`, in `lesson_yaml_policy.py` (`LIST_FIELDS`, `_ALLOWED_BY_TYPE["Unterricht"]` direkt nach `Teilziele`, Default `[]`). Fachliche Abgrenzung zu `Teilziele`: Teilziele stecken den verpflichtenden Weg aller Lernenden zum Stundenziel ab (AFB I/II), Sonderziele sind zusätzliche, freiwillige Ziele für schnellere/interessierte Lernende — bewusst ein eigenständiges Feld statt einer Markierung bestehender Teilziele, u. a. weil sie im Erwartungshorizont-Export separat (kursiv) erscheinen sollen.

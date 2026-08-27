@@ -16,6 +16,10 @@ UB_YAML_KEY_BEREICH = "Bereich"
 UB_YAML_KEY_LANGENTWURF = "Langentwurf"
 UB_YAML_KEY_BEOBACHTUNG = "Beobachtungsschwerpunkt"
 UB_YAML_KEY_EINHEIT = "Einheit"
+UB_YAML_KEY_JAHRGANGSSTUFE = "Jahrgangsstufe"
+
+JAHRGANGSSTUFE_MIN = 5
+JAHRGANGSSTUFE_MAX = 13
 
 _UB_STEM_PREFIX = "ub"
 _UB_STEM_DATE_FORMAT = "%y-%m-%d"
@@ -33,6 +37,29 @@ def normalize_ub_kinds(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
             resolved.append(text)
 
     return tuple(resolved)
+
+
+def parse_jahrgangsstufe(value: object) -> int | None:
+    """Parst die UB-Jahrgangsstufe robust zu ``int`` (5-13) oder ``None``.
+
+    Numerische Stufen 5-13, konsistent mit der bestehenden Konvention in
+    ``core/domain/grade_groups.py`` und dem Informatik-Kompetenzkatalog-
+    Manifest. Fehlende oder ungueltige Werte (Altbestand, Tippfehler,
+    Stufe ausserhalb 5-13) liefern ``None`` statt einer Exception, damit
+    Altdateien ohne dieses Feld nicht crashen.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        parsed = int(text)
+    except ValueError:
+        return None
+    if JAHRGANGSSTUFE_MIN <= parsed <= JAHRGANGSSTUFE_MAX:
+        return parsed
+    return None
 
 
 def parse_ub_yy_mm_dd(date_text: str) -> str:

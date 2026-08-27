@@ -7,6 +7,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UbStem,
     build_ub_stem,
     normalize_ub_kinds,
+    parse_jahrgangsstufe,
     parse_ub_date_from_stem,
     parse_ub_yy_mm_dd,
 )
@@ -77,3 +78,17 @@ def test_parse_ub_date_from_stem_returns_none_for_old_format():
 
 def test_parse_ub_date_from_stem_returns_date_for_new_format():
     assert parse_ub_date_from_stem("ub 26-03-31") == date(2026, 3, 31)
+
+
+def test_parse_jahrgangsstufe_accepts_valid_range():
+    assert parse_jahrgangsstufe("5") == 5
+    assert parse_jahrgangsstufe(13) == 13
+    assert parse_jahrgangsstufe("9") == 9
+
+
+def test_parse_jahrgangsstufe_returns_none_for_missing_or_invalid():
+    assert parse_jahrgangsstufe(None) is None
+    assert parse_jahrgangsstufe("") is None
+    assert parse_jahrgangsstufe("keine Zahl") is None
+    assert parse_jahrgangsstufe("4") is None
+    assert parse_jahrgangsstufe("14") is None

@@ -11,6 +11,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_EINHEIT,
+    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_LANGENTWURF,
     build_ub_stem,
     normalize_ub_kinds,
@@ -60,6 +61,7 @@ class MarkUnitAsUbUseCase:
         ub_kinds: list[str] | tuple[str, ...],
         langentwurf: bool,
         beobachtungsschwerpunkt: str,
+        jahrgangsstufe: int | None = None,
     ) -> MarkUnitAsUbResult:
         """Fuehrt die UB-Markierung fuer genau eine Unterrichtseinheit aus."""
         if row_index < 0 or row_index >= len(table.rows):
@@ -110,6 +112,7 @@ class MarkUnitAsUbUseCase:
             UB_YAML_KEY_BEREICH: bereich,
             UB_YAML_KEY_LANGENTWURF: bool(langentwurf),
             UB_YAML_KEY_BEOBACHTUNG: str(beobachtungsschwerpunkt or "").strip(),
+            UB_YAML_KEY_JAHRGANGSSTUFE: jahrgangsstufe if jahrgangsstufe is not None else "",
             UB_YAML_KEY_EINHEIT: build_wiki_link(lesson_path.stem),
         }
 

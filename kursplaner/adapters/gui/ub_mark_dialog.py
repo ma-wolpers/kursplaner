@@ -8,6 +8,11 @@ from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    JAHRGANGSSTUFE_MAX,
+    JAHRGANGSSTUFE_MIN,
+    parse_jahrgangsstufe,
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +22,7 @@ class UbMarkDialogResult:
     ub_kinds: tuple[str, ...]
     langentwurf: bool
     beobachtungsschwerpunkt: str
+    jahrgangsstufe: int | None = None
     delete_requested: bool = False
 
 
@@ -31,6 +37,7 @@ class UbMarkDialog(ScrollablePopupWindow):
         initial_ub_kinds: tuple[str, ...] = ("Pädagogik",),
         initial_langentwurf: bool = False,
         initial_beobachtungsschwerpunkt: str = "",
+        initial_jahrgangsstufe: int | None = None,
         allow_delete: bool = False,
     ):
         super().__init__(
@@ -51,6 +58,9 @@ class UbMarkDialog(ScrollablePopupWindow):
         self.kind_fach = ui.BooleanVar(value=("Fach" in normalized_kinds))
         self.langentwurf_var = ui.BooleanVar(value=bool(initial_langentwurf))
         self.beobachtung_var = ui.StringVar(value=str(initial_beobachtungsschwerpunkt or "").strip())
+        self.jahrgangsstufe_var = ui.StringVar(
+            value=str(initial_jahrgangsstufe) if initial_jahrgangsstufe is not None else ""
+        )
         self._initial_state = self._current_state()
 
         self._build_ui()
@@ -80,6 +90,11 @@ class UbMarkDialog(ScrollablePopupWindow):
         focus_entry = widgets.Entry(container, textvariable=self.beobachtung_var)
         focus_entry.pack(fill="x", pady=(4, 12))
 
+        widgets.Label(container, text=f"Jahrgangsstufe ({JAHRGANGSSTUFE_MIN}-{JAHRGANGSSTUFE_MAX}, optional)").pack(
+            anchor="w"
+        )
+        widgets.Entry(container, textvariable=self.jahrgangsstufe_var, width=6).pack(anchor="w", pady=(4, 12))
+
         button_row = widgets.Frame(container)
         button_row.pack(fill="x", pady=(6, 0))
         widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right")
@@ -89,12 +104,13 @@ class UbMarkDialog(ScrollablePopupWindow):
 
         self.after_idle(focus_entry.focus_set)
 
-    def _current_state(self) -> tuple[bool, bool, bool, str]:
+    def _current_state(self) -> tuple[bool, bool, bool, str, str]:
         return (
             bool(self.kind_paedagogik.get()),
             bool(self.kind_fach.get()),
             bool(self.langentwurf_var.get()),
             self.beobachtung_var.get().strip(),
+            self.jahrgangsstufe_var.get().strip(),
         )
 
     def _requires_close_confirmation(self) -> bool:
@@ -123,10 +139,22 @@ class UbMarkDialog(ScrollablePopupWindow):
             )
             return
 
+        jahrgangsstufe_text = self.jahrgangsstufe_var.get().strip()
+        jahrgangsstufe = parse_jahrgangsstufe(jahrgangsstufe_text)
+        if jahrgangsstufe_text and jahrgangsstufe is None:
+            messagebox.showerror(
+                "Unterrichtsbesuch markieren",
+                f"Jahrgangsstufe muss eine Zahl zwischen {JAHRGANGSSTUFE_MIN} und {JAHRGANGSSTUFE_MAX} sein "
+                "oder leer bleiben.",
+                parent=self,
+            )
+            return
+
         self.result = UbMarkDialogResult(
             ub_kinds=tuple(kinds),
             langentwurf=bool(self.langentwurf_var.get()),
             beobachtungsschwerpunkt=self.beobachtung_var.get().strip(),
+            jahrgangsstufe=jahrgangsstufe,
             delete_requested=False,
         )
         self.destroy()
@@ -158,6 +186,7 @@ def ask_mark_unit_as_ub(
     initial_ub_kinds: tuple[str, ...] = ("Pädagogik",),
     initial_langentwurf: bool = False,
     initial_beobachtungsschwerpunkt: str = "",
+    initial_jahrgangsstufe: int | None = None,
     allow_delete: bool = False,
 ) -> UbMarkDialogResult | None:
     """Öffnet den UB-Dialog modal und liefert die Auswahl oder ``None``."""
@@ -167,6 +196,7 @@ def ask_mark_unit_as_ub(
         initial_ub_kinds=initial_ub_kinds,
         initial_langentwurf=initial_langentwurf,
         initial_beobachtungsschwerpunkt=initial_beobachtungsschwerpunkt,
+        initial_jahrgangsstufe=initial_jahrgangsstufe,
         allow_delete=allow_delete,
     )
     dialog.wait_window()

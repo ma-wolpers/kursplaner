@@ -10,6 +10,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_EINHEIT,
+    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_LANGENTWURF,
 )
 from kursplaner.core.domain.yaml_registry import (
@@ -24,10 +25,15 @@ _UB_SCHEMA = YamlSchema(
     required_keys=(UB_YAML_KEY_BEREICH, UB_YAML_KEY_LANGENTWURF, UB_YAML_KEY_BEOBACHTUNG, UB_YAML_KEY_EINHEIT),
     non_empty_keys=(UB_YAML_KEY_EINHEIT,),
 )
+"""`UB_YAML_KEY_JAHRGANGSSTUFE` ist bewusst NICHT in `required_keys`: bestehende
+UB-Dateien vor Einfuehrung dieses Felds tragen den Key noch nicht und duerfen
+beim Laden nicht mit einem RuntimeError abgewiesen werden (Altbestand gilt als
+"nicht gesetzt", siehe `parse_jahrgangsstufe`)."""
 _UB_ORDERED_KEYS = (
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_LANGENTWURF,
     UB_YAML_KEY_BEOBACHTUNG,
+    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_EINHEIT,
 )
 
@@ -69,7 +75,7 @@ class FileSystemUbRepository:
     def _render_yaml_frontmatter(yaml_data: dict[str, object]) -> str:
         """Rendert die UB-Frontmatter über die zentrale `yaml_registry.render_yaml_frontmatter`.
 
-        UB-Dateien tragen immer alle vier Schlüssel (auch leer), anders als
+        UB-Dateien tragen immer alle fünf Schlüssel (auch leer), anders als
         Lesson-Dateien, die fehlende Schlüssel überspringen — daher wird
         `values` hier vorab mit `.get(key, "")` für jeden Key befüllt, statt
         `yaml_data` direkt durchzureichen.
