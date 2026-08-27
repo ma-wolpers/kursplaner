@@ -265,18 +265,6 @@ class MainWindowLessonContextController:
         self._cached_group_token_table_id = current_id
         return result
 
-    def parse_subject_token(self) -> str:
-        """Liest und normalisiert das Fachkürzel aus Plan-Metadaten."""
-        if self.app.current_table is None:
-            return "Fach"
-        return sanitize_hour_title(str(self.app.current_table.metadata.get("Kursfach", "Fach"))) or "Fach"
-
-    def parse_grade_token(self) -> str:
-        """Liest und normalisiert die Stufenangabe aus Plan-Metadaten."""
-        if self.app.current_table is None:
-            return "?"
-        return sanitize_hour_title(str(self.app.current_table.metadata.get("Stufe", "?"))) or "?"
-
     def build_regular_stem(self, topic: str, date_label: str = "") -> str:
         """Erzeugt den Standard-Dateistamm für reguläre Stunden."""
         gruppe = self.parse_group_token()

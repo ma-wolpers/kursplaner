@@ -89,17 +89,6 @@ class PasteLessonUseCase:
         """Leitet den Workspace-Stamm robust aus einem Projektpfad ab."""
         return infer_workspace_root_from_path(path)
 
-    @staticmethod
-    def _unit_title_from_lesson_stem(lesson_path: Path) -> str:
-        """Leitet den inhaltlichen Einheitstitel aus dem Dateistamm ab."""
-        stem = str(lesson_path.stem).strip()
-        if not stem:
-            return ""
-        parts = stem.split(" ", 2)
-        if len(parts) >= 3:
-            return parts[2].strip()
-        return stem
-
     def _copy_linked_ub_for_created_lesson(
         self,
         *,
@@ -128,7 +117,6 @@ class PasteLessonUseCase:
         if isinstance(date_idx, int) and date_idx < len(table.rows[row_index]):
             date_text = str(table.rows[row_index][date_idx]).strip()
 
-        unit_title = self._unit_title_from_lesson_stem(created_path)
         desired_stem = build_ub_stem(date_text)
         target_ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_stem)
 

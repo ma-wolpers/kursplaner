@@ -8,6 +8,18 @@ Regel:
 
 ## [Unreleased]
 
+### Removed (2026-08-27) — Migrationsleichen der alten Stem-Semantik entfernt
+
+**Kontext**: Bei der Planung einer Kopierfunktions-Anpassung stellte sich heraus, dass Einheiten-Dateinamen seit der Umstellung auf `generate_random_lesson_stem()` reine 6-stellige Zufallscodes ohne semantischen Inhalt sind — Lerngruppe/Datum/Thema werden nirgends mehr aus dem Dateistamm abgeleitet oder abgeleitet werden sollen. Eine repoweite Aufrufer-Analyse (alle Verwendungen von `build_lesson_stem`/`build_regular_stem`/`parse_*_token`) ergab sechs vollständig unerreichbare Symbole aus der Zeit vor dieser Migration, die entfernt wurden:
+
+- `MainWindow._parse_group_token()`, `_parse_subject_token()`, `_parse_grade_token()`, `_build_regular_stem()` (`adapters/gui/main_window.py`): vier delegierende Wrapper-Methoden ohne jeden Aufrufer (repoweit geprüft) — der tatsächliche, weiterhin aktive Aufrufer der Funktion „Einheit umbenennen" (`action_controller.py::rename_selected_lesson`) geht direkt über `lesson_context_controller`, nicht über diese Wrapper.
+- `LessonContextController.parse_subject_token()`, `.parse_grade_token()` (`adapters/gui/lesson_context_controller.py`): einzig von den nun entfernten `main_window`-Wrappern referenziert, sonst ohne Aufrufer.
+- `PasteLessonUseCase._unit_title_from_lesson_stem()` und `MarkUnitAsUbUseCase._unit_title_from_lesson_stem()` (jeweils eigene, identische Kopie): leiteten einen „Einheitstitel" aus dem Dateistamm ab (Annahme: Schema „Gruppe mm-dd Inhalt") — das berechnete Ergebnis (`unit_title`) wurde an beiden Aufrufstellen nie gelesen, reine tote Berechnung, seit Zufallscode-Stems zusätzlich inhaltlich bedeutungslos.
+
+**Bewusst nicht angefasst**: `build_lesson_stem`/`build_regular_stem`/`parse_group_token`/`parse_mmdd`/`row_mmdd` (`core/domain/lesson_naming.py`, `adapters/gui/lesson_context_controller.py`) bleiben unverändert — sie tragen weiterhin die aktive Funktion „Einheit umbenennen" (`action_controller.py:1752`). Deren Zukunft (behalten/auf `Stundenthema`-Update umstellen/entfernen) ist eine eigenständige, hier bewusst nicht getroffene Produktentscheidung.
+
+**Tests**: keine Verhaltensänderung, da alle sechs Fundstellen nachweislich ohne Aufrufer waren — 644/644 Tests weiterhin grün, keine neuen Tests nötig.
+
 ### Changed (2026-08-25) — "Naechste Einheit" auf Startzeit umgestellt, persistente Markierung, nummerische Navigation
 
 **Kernsemantik**: "Naechste Einheit" = die erste stattfindende Einheit, deren Startzeit noch nicht erreicht ist (statt bisher: reiner Datumsvergleich im Grid bzw. fester globaler 15:00-Cutoff in der Kursuebersicht). Einziger Wahrheitsort: `core/domain/next_unit_policy.py::unit_counts_as_upcoming()` (reines Domain-Modul, kein GUI/Tk) -- Grid-Markierung/-Auswahl (`overview_controller._next_lesson_column_index`), Kursuebersicht (`PlanOverviewQueryUseCase._is_row_upcoming`, betrifft `next_unit`/`next_topic`/`next_lzk`/`remaining_hours`/`next_ub`) und nummerische Spaltenauswahl nutzen ausnahmslos dieselbe Funktion. Fehlende Startzeit (kein Rhythmus-Eintrag) gilt bewusst konservativ als anstehend. Der `reference_day`-Determinismus-Bypass in `summarize_plan` bleibt unveraendert rein datumsbasiert (Docstring + Regressionstest halten das fest).

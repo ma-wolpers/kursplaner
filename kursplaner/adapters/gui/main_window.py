@@ -485,22 +485,6 @@ class KursplanerApp(BwBaseWindow):
         """Liest Halbjahres-Token aus aktueller Planmetadatenlage."""
         return self.lesson_context_controller.parse_halfyear_token()
 
-    def _parse_group_token(self) -> str:
-        """Liest Lerngruppen-Token aus aktueller Planmetadatenlage."""
-        return self.lesson_context_controller.parse_group_token()
-
-    def _parse_subject_token(self) -> str:
-        """Liest Fach-Token aus aktueller Planmetadatenlage."""
-        return self.lesson_context_controller.parse_subject_token()
-
-    def _parse_grade_token(self) -> str:
-        """Liest Stufen-Token aus aktueller Planmetadatenlage."""
-        return self.lesson_context_controller.parse_grade_token()
-
-    def _build_regular_stem(self, topic: str, date_label: str = "") -> str:
-        """Erzeugt einen normalisierten Dateistamm für regulären Unterricht."""
-        return self.lesson_context_controller.build_regular_stem(topic, date_label)
-
     def _is_lzk_row(self, row_index: int) -> bool:
         """Prüft, ob die gegebene Tabellenzeile als LZK klassifiziert ist."""
         return self.lesson_context_controller.is_lzk_row(row_index)

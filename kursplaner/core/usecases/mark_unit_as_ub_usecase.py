@@ -51,17 +51,6 @@ class MarkUnitAsUbUseCase:
             return candidate
         return None
 
-    @staticmethod
-    def _unit_title_from_lesson_stem(lesson_path: Path) -> str:
-        """Leitet den inhaltlichen Einheitstitel aus dem Dateistamm ab."""
-        stem = str(lesson_path.stem).strip()
-        if not stem:
-            return ""
-        parts = stem.split(" ", 2)
-        if len(parts) >= 3:
-            return parts[2].strip()
-        return stem
-
     def execute(
         self,
         *,
@@ -93,7 +82,6 @@ class MarkUnitAsUbUseCase:
 
         idx_datum = table.column_index(COLUMN_DATUM)
         date_text = table.rows[row_index][idx_datum] if idx_datum < len(table.rows[row_index]) else ""
-        unit_title = self._unit_title_from_lesson_stem(lesson_path)
 
         bereich: list[str] = []
         if UB_KIND_PAEDAGOGIK in kinds:
