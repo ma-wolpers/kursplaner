@@ -2,12 +2,26 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from reportlab.lib import colors  # type: ignore[import-not-found]
-from reportlab.lib.pagesizes import A4, landscape  # type: ignore[import-not-found]
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # type: ignore[import-not-found]
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle  # type: ignore[import-not-found]
-
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import TopicUnitsPdfDocument
+
+try:
+    from reportlab.lib import colors  # type: ignore[import-not-found]
+    from reportlab.lib.pagesizes import A4, landscape  # type: ignore[import-not-found]
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # type: ignore[import-not-found]
+    from reportlab.platypus import (  # type: ignore[import-not-found]
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+"""`reportlab` ist optional -- fehlt es, bleibt diese Klasse importierbar (fuer
+`wiring.py`), darf aber nicht instanziiert werden. Die Verfuegbarkeitspruefung
+liegt bei der Composition Root (`wiring.py`), nicht hier."""
 
 
 class TopicUnitsPdfRenderer:

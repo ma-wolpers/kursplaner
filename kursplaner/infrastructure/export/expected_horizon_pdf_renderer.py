@@ -2,33 +2,44 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from reportlab.graphics.shapes import Circle, Drawing, Line  # type: ignore[import-not-found]
-from reportlab.lib import colors  # type: ignore[import-not-found]
-from reportlab.lib.pagesizes import A4  # type: ignore[import-not-found]
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # type: ignore[import-not-found]
-from reportlab.platypus import (  # type: ignore[import-not-found]
-    BaseDocTemplate,
-    Frame,
-    PageTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-)
-
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
+
+try:
+    from reportlab.graphics.shapes import Circle, Drawing, Line  # type: ignore[import-not-found]
+    from reportlab.lib import colors  # type: ignore[import-not-found]
+    from reportlab.lib.pagesizes import A4  # type: ignore[import-not-found]
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # type: ignore[import-not-found]
+    from reportlab.platypus import (  # type: ignore[import-not-found]
+        BaseDocTemplate,
+        Frame,
+        PageTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+"""`reportlab` ist optional -- fehlt es, bleibt diese Klasse importierbar (fuer
+`wiring.py`), darf aber nicht instanziiert werden. Die Verfuegbarkeitspruefung
+liegt bei der Composition Root (`wiring.py`), nicht hier."""
 
 
 class ExpectedHorizonPdfRenderer:
     """Rendert den Kompetenzhorizont als PDF-Tabelle im Hochformat."""
 
-    _PAGE_WIDTH, _PAGE_HEIGHT = A4
     _TOP_MARGIN = 28
     _BOTTOM_MARGIN = 24
     _INNER_BINDING_MARGIN = 60
     _OUTER_MARGIN = 28
 
     def __init__(self):
+        # `A4` erst hier (statt als Klassenattribut) aufloesen, damit die Klasse
+        # auch importierbar bleibt, wenn `reportlab` fehlt -- nur die Instanziierung
+        # soll dann fehlschlagen, nicht schon der Modul-Import.
+        self._PAGE_WIDTH, self._PAGE_HEIGHT = A4
         styles = getSampleStyleSheet()
         self._title_style = ParagraphStyle(
             "ExpectedHorizonTitle",
@@ -139,25 +150,23 @@ class ExpectedHorizonPdfRenderer:
         factors = [0.10, 0.64, 0.08, 0.08, 0.08]
         return [frame_width * factor for factor in factors]
 
-    @classmethod
-    def _odd_frame(cls) -> Frame:
-        width = cls._PAGE_WIDTH - cls._INNER_BINDING_MARGIN - cls._OUTER_MARGIN
-        height = cls._PAGE_HEIGHT - cls._TOP_MARGIN - cls._BOTTOM_MARGIN
+    def _odd_frame(self) -> Frame:
+        width = self._PAGE_WIDTH - self._INNER_BINDING_MARGIN - self._OUTER_MARGIN
+        height = self._PAGE_HEIGHT - self._TOP_MARGIN - self._BOTTOM_MARGIN
         return Frame(
-            cls._INNER_BINDING_MARGIN,
-            cls._BOTTOM_MARGIN,
+            self._INNER_BINDING_MARGIN,
+            self._BOTTOM_MARGIN,
             width,
             height,
             id="odd_frame",
         )
 
-    @classmethod
-    def _even_frame(cls) -> Frame:
-        width = cls._PAGE_WIDTH - cls._OUTER_MARGIN - cls._INNER_BINDING_MARGIN
-        height = cls._PAGE_HEIGHT - cls._TOP_MARGIN - cls._BOTTOM_MARGIN
+    def _even_frame(self) -> Frame:
+        width = self._PAGE_WIDTH - self._OUTER_MARGIN - self._INNER_BINDING_MARGIN
+        height = self._PAGE_HEIGHT - self._TOP_MARGIN - self._BOTTOM_MARGIN
         return Frame(
-            cls._OUTER_MARGIN,
-            cls._BOTTOM_MARGIN,
+            self._OUTER_MARGIN,
+            self._BOTTOM_MARGIN,
             width,
             height,
             id="even_frame",

@@ -93,7 +93,10 @@ from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUse
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
-from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import ExpectedHorizonPdfRenderer
+from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import (
+    REPORTLAB_AVAILABLE,
+    ExpectedHorizonPdfRenderer,
+)
 from kursplaner.infrastructure.export.topic_units_markdown_renderer import TopicUnitsMarkdownRenderer
 from kursplaner.infrastructure.export.topic_units_pdf_renderer import TopicUnitsPdfRenderer
 from kursplaner.infrastructure.repositories import FileSystemLessonIndexRepository
@@ -192,11 +195,14 @@ class GuiDependencies:
     school_wide_cancellation_diagnostics_usecase: SchoolWideCancellationDiagnosticsUseCase
     school_wide_cancellation_overlap_query_usecase: SchoolWideCancellationOverlapQueryUseCase
     apply_school_wide_cancellations_to_new_rows_usecase: ApplySchoolWideCancellationsToNewRowsUseCase
-    export_topic_units_pdf_usecase: ExportTopicUnitsPdfUseCase
+    export_topic_units_pdf_usecase: ExportTopicUnitsPdfUseCase | None
     export_topic_units_markdown_usecase: ExportTopicUnitsPdfUseCase
-    export_expected_horizon_pdf_usecase: ExportExpectedHorizonUseCase
+    export_expected_horizon_pdf_usecase: ExportExpectedHorizonUseCase | None
     export_expected_horizon_markdown_usecase: ExportExpectedHorizonUseCase
-    export_lzk_expected_horizon_usecase: ExportLzkExpectedHorizonUseCase
+    export_lzk_expected_horizon_usecase: ExportLzkExpectedHorizonUseCase | None
+    """`None`, wenn `reportlab` fehlt (siehe `REPORTLAB_AVAILABLE`) -- diese drei
+    Usecases erzeugen ausschliesslich PDFs bzw. (LZK) zwingend PDF+Markdown im
+    selben Zug und sind ohne `reportlab` nicht sinnvoll nutzbar."""
     cleanup_lzk_expected_horizon_links_usecase: CleanupLzkExpectedHorizonLinksUseCase
     lesson_index_repo: LessonIndexRepository
     daily_course_log_usecase: DailyCourseLogUseCase
@@ -397,18 +403,31 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         sequence_plan_repo=sequence_plan_repo, sequence_export_sync=sync_sequence_export_table_usecase
     )
     update_sequence_goal_field_usecase = UpdateSequenceGoalFieldUseCase(sequence_plan_repo=sequence_plan_repo)
-    export_topic_units_pdf_usecase = ExportTopicUnitsPdfUseCase(
-        renderer=TopicUnitsPdfRenderer(), sequence_export_sync=sync_sequence_export_table_usecase
+    # `reportlab` ist eine optionale Laufzeitabhaengigkeit (siehe requirements.txt):
+    # fehlt sie, bleiben nur die drei PDF-/LZK-Exportwege deaktiviert (GUI zeigt
+    # dann einen Hinweis statt abzustuerzen), der Rest der App startet normal.
+    export_topic_units_pdf_usecase = (
+        ExportTopicUnitsPdfUseCase(
+            renderer=TopicUnitsPdfRenderer(), sequence_export_sync=sync_sequence_export_table_usecase
+        )
+        if REPORTLAB_AVAILABLE
+        else None
     )
     export_topic_units_markdown_usecase = ExportTopicUnitsPdfUseCase(
         renderer=TopicUnitsMarkdownRenderer(), sequence_export_sync=sync_sequence_export_table_usecase
     )
-    export_expected_horizon_pdf_usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonPdfRenderer())
+    export_expected_horizon_pdf_usecase = (
+        ExportExpectedHorizonUseCase(renderer=ExpectedHorizonPdfRenderer()) if REPORTLAB_AVAILABLE else None
+    )
     export_expected_horizon_markdown_usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
-    export_lzk_expected_horizon_usecase = ExportLzkExpectedHorizonUseCase(
-        lesson_repo=lesson_repo,
-        export_markdown_usecase=export_expected_horizon_markdown_usecase,
-        export_pdf_usecase=export_expected_horizon_pdf_usecase,
+    export_lzk_expected_horizon_usecase = (
+        ExportLzkExpectedHorizonUseCase(
+            lesson_repo=lesson_repo,
+            export_markdown_usecase=export_expected_horizon_markdown_usecase,
+            export_pdf_usecase=export_expected_horizon_pdf_usecase,
+        )
+        if export_expected_horizon_pdf_usecase is not None
+        else None
     )
     cleanup_lzk_expected_horizon_links_usecase = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=lesson_repo)
     daily_course_log_usecase = DailyCourseLogUseCase(

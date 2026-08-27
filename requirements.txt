@@ -1,1 +1,4 @@
+# Fuer PDF-Export (Sequenzplan-/Kompetenzhorizont-PDFs, LZK-Kompetenzhorizont).
+# Bleibt Teil der Standardinstallation -- fehlt es dennoch in einer konkreten
+# Umgebung, startet die App trotzdem, nur der PDF-Export ist dann deaktiviert.
 reportlab==4.4.2

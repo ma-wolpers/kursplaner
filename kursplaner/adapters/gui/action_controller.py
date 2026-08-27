@@ -1334,6 +1334,13 @@ class MainWindowActionController:
                 if selection.output_format == "pdf"
                 else self._export_expected_horizon_markdown_uc
             )
+            if export_uc is None:
+                messagebox.showerror(
+                    "Exportieren als...",
+                    "PDF-Export benötigt das Paket 'reportlab', das in dieser Umgebung nicht installiert ist.",
+                    parent=self.app,
+                )
+                return
             try:
                 result = export_uc.execute(
                     table=self.app.current_table,
@@ -1356,6 +1363,13 @@ class MainWindowActionController:
         export_uc = (
             self._export_topic_units_pdf_uc if selection.output_format == "pdf" else self._export_topic_units_markdown_uc
         )
+        if export_uc is None:
+            messagebox.showerror(
+                "Exportieren als...",
+                "PDF-Export benötigt das Paket 'reportlab', das in dieser Umgebung nicht installiert ist.",
+                parent=self.app,
+            )
+            return
         try:
             result = export_uc.execute(
                 table=self.app.current_table,
@@ -1389,6 +1403,14 @@ class MainWindowActionController:
 
     def export_selected_lzk_expected_horizon_action(self):
         """Exportiert den Kompetenzhorizont der ausgewählten LZK als Markdown und PDF."""
+        if self._export_lzk_expected_horizon_uc is None:
+            messagebox.showerror(
+                "LZK-Kompetenzhorizont",
+                "Dieser Export benötigt das Paket 'reportlab', das in dieser Umgebung nicht installiert ist.",
+                parent=self.app,
+            )
+            return
+
         context = self._single_selection_context()
         if context is None or self.app.current_table is None:
             return

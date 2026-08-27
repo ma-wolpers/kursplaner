@@ -8,6 +8,26 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-27) — App startet auch ohne `reportlab` (nur PDF-Export deaktiviert)
+
+**Präzisierung**: `reportlab` bleibt in `requirements.txt` und wird bei der Standardinstallation ganz normal mitinstalliert — es geht ausschließlich um Laufzeit-Robustheit, falls das Paket in einer konkreten Umgebung (kaputte/unvollständige venv) dennoch fehlt.
+
+**Ist-Zustand vor der Änderung**: `reportlab` wurde ungeschützt auf Modulebene importiert in `topic_units_pdf_renderer.py`/`expected_horizon_pdf_renderer.py`, die wiederum ungeschützt in `wiring.py` importiert wurden → Absturz vor `main()`.
+
+**Packaging-Modell verifiziert, bevor die Lösung feststand**: `pyproject.toml` hat keine `[project]`-Sektion (keine Möglichkeit für „optional-dependencies"-Extras), kein Build-/Freeze-Tooling im Repo — Installation läuft ausschließlich über `requirements.txt` + venv. Ein formaler Extras-Mechanismus wäre hier ungenutzt geblieben; der richtige Ansatz ist ein Code-seitiger Verfügbarkeits-Guard, kein Packaging-Umbau.
+
+**Guard-Muster**: beide Renderer-Module kapseln ihren `reportlab`-Import in `try/except ImportError` und exportieren `REPORTLAB_AVAILABLE: bool`. Die jeweilige Renderer-*Klasse* bleibt dabei immer importierbar (auch ohne `reportlab`) — nur ihre *Instanziierung* würde ohne `reportlab` mit `NameError` fehlschlagen, was `wiring.py` durch den Guard aber nie versucht. Wichtiger Stolperstein dabei: `ExpectedHorizonPdfRenderer` hatte `_PAGE_WIDTH, _PAGE_HEIGHT = A4` als **Klassenattribut** — das wird schon beim Modul-Import ausgewertet (nicht erst bei Instanziierung) und hätte den Guard wirkungslos gemacht (Modul-Import selbst wäre mit `NameError: A4` gescheitert). Verschoben nach `__init__` (Instanzattribut), `_odd_frame`/`_even_frame` dafür von `@classmethod` auf Instanzmethoden umgestellt (einzige Aufrufer sind ohnehin `self._odd_frame()`/`self._even_frame()`, keine Test- oder sonstigen Aufrufer ohne Instanz gefunden).
+
+**Composition Root bleibt einzige Stelle mit diesem Wissen**: `wiring.py` konstruiert `export_topic_units_pdf_usecase`, `export_expected_horizon_pdf_usecase` und `export_lzk_expected_horizon_usecase` (Letzterer braucht PDF zwingend, da er Markdown+PDF als eine kombinierte Aktion erzeugt) nur bei `REPORTLAB_AVAILABLE`, sonst `None` — kein `Optional[Renderer]` quer durch Usecase-Signaturen. Die drei `AppDependencies`-Felder sind entsprechend `| None` typisiert; die Markdown-Gegenstücke (`export_topic_units_markdown_usecase`, `export_expected_horizon_markdown_usecase`) bleiben immer verfügbar.
+
+**GUI**: `action_controller.py` prüft an den drei Aufrufstellen (`export_selected_topic_as_pdf_action` für beide PDF-Varianten, `export_selected_lzk_expected_horizon_action`) auf `None` und zeigt `messagebox.showerror(...)` mit Hinweis auf das fehlende Paket, statt abzustürzen — Verb/Muster übernommen von bestehenden Fehlermeldungen in denselben Methoden, keine neue UI-Konvention.
+
+**Bewusst nicht angetastet**: die Toolbar-Aktivierung von „LZK-Kompetenzhorizont" (`action_button_state_usecase.py::can_export_lzk_expected_horizon`) bleibt rein selektionsbasiert und weiß nichts von `reportlab`-Verfügbarkeit — das würde eine reine Selektions-Zustandsberechnung um eine Startup-Umgebungsabfrage erweitern, unverhältnismäßig für einen seltenen Ausnahmefall. Der Klick-Zeitpunkt-Guard fängt den Fall zuverlässig ab.
+
+**Warum dieses Muster hier anders zu bewerten ist als ein früher entferntes** (`DEVELOPMENT_LOG.md`, „Theme-Sonderpfade entfernt"): dort war die Abhängigkeit strukturell verpflichtend (Kernfunktion), hier betrifft es ausschließlich den isolierten, optionalen PDF-Export.
+
+**Tests**: `tests/test_wiring_reportlab_guard.py` (neue Datei — `wiring.py` hatte zuvor keine direkten Tests; `build_gui_dependencies()` läuft ohne Fixture-Aufwand durch und eignet sich daher für einen direkten Regressionstest). Zusätzlich manuell verifiziert: `builtins.__import__` simuliert fehlendes `reportlab` → beide Renderer-Module importieren weiterhin sauber, `build_gui_dependencies()` läuft vollständig durch, die drei PDF-Felder sind `None`, alles andere unverändert. 667/667 Tests grün.
+
 ### Added (2026-08-27) — Jahrgangsstufenabhängige Achievement-Struktur (Phase 2b, noch ohne Fach-Vorgaben)
 
 **Kein Changelog-Eintrag**: diese Änderung ist reine Infrastruktur ohne aktuell sichtbaren Effekt — `resources/achievements/grade_requirements.json` enthält für alle vier Fächer bewusst leere Regel-Listen (keine erfundenen Platzhalterwerte), sodass sich am Achievement-Tab nichts ändert, solange keine echten Vorgaben eingetragen sind (durch `test_query_ub_achievements_without_grade_requirements_repo_adds_no_grade_items`/`..._with_empty_requirements_adds_no_grade_items` abgesichert).

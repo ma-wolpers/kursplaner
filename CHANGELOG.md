@@ -7,6 +7,7 @@ The format is based on Keep a Changelog.
 ## [Unreleased]
 
 ### Added
+- **Robuster Start ohne `reportlab`**: Fehlt das Paket `reportlab` in der Umgebung (normalerweise Teil der Standardinstallation), startet Kursplaner trotzdem — nur der PDF-Export (Sequenzplan/Kompetenzhorizont sowie der automatische LZK-Kompetenzhorizont-Export) ist dann deaktiviert und zeigt einen entsprechenden Hinweis statt abzustürzen.
 - **Jahrgangsstufe bei Unterrichtsbesuchen**: Der UB-Markierungsdialog fragt jetzt zusätzlich optional die Jahrgangsstufe (5-13) ab — Grundlage für eine künftige jahrgangsstufenbezogene Achievement-Auswertung, aktuell rein informativ gespeichert.
 - **Sonderziele**: Neues, freiwilliges Zielfeld für Unterrichtseinheiten (neben Stundenziel/Teilziele), editierbar wie gewohnt über die Zeilenfelder im Grid. Erscheinen im Kompetenzhorizont-Export (Markdown und PDF) kursiv, getrennt vom fett dargestellten Stundenziel. Zusätzlicher Hinweistext bei Stundenziel/Teilziele: Teilziele stecken den Weg ab (AFB I/II), das Stundenziel sollte darüber liegen (AFB III: Transfer/Vertiefung).
 
