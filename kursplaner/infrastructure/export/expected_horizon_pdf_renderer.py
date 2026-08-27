@@ -16,7 +16,7 @@ from reportlab.platypus import (  # type: ignore[import-not-found]
     TableStyle,
 )
 
-from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument
+from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
 
 
 class ExpectedHorizonPdfRenderer:
@@ -70,6 +70,11 @@ class ExpectedHorizonPdfRenderer:
             parent=self._cell_style,
             fontName="Helvetica-Bold",
         )
+        self._cell_italic_style = ParagraphStyle(
+            "ExpectedHorizonCellItalic",
+            parent=self._cell_style,
+            fontName="Helvetica-Oblique",
+        )
         self._header_style = ParagraphStyle(
             "ExpectedHorizonHeader",
             parent=styles["Normal"],
@@ -110,7 +115,12 @@ class ExpectedHorizonPdfRenderer:
         ]
 
         for line in document.rows:
-            text_style = self._cell_bold_style if line.is_main_goal else self._cell_style
+            if line.kind == GoalKind.STUNDENZIEL:
+                text_style = self._cell_bold_style
+            elif line.kind == GoalKind.SONDERZIEL:
+                text_style = self._cell_italic_style
+            else:
+                text_style = self._cell_style
             rows.append(
                 [
                     Paragraph(str(line.datum or ""), text_style),

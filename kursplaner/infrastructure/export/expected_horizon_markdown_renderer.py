@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from bw_libs.safe_read import read_text_or_default
-from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument
+from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class _ExistingEhRow:
 
 class _PlannedRow(TypedDict):
     old_index: int | None
-    row: tuple[str, str, bool, str, str, str]
+    row: tuple[str, str, GoalKind, str, str, str]
 
 
 class ExpectedHorizonMarkdownRenderer:
@@ -40,6 +40,13 @@ class ExpectedHorizonMarkdownRenderer:
         return f"**{text}**"
 
     @staticmethod
+    def _italic(value: str) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        return f"*{text}*"
+
+    @staticmethod
     def _split_row(line: str) -> list[str]:
         text = str(line or "").strip()
         if not text.startswith("|"):
@@ -52,7 +59,7 @@ class ExpectedHorizonMarkdownRenderer:
         changed = True
         while changed and text:
             changed = False
-            for marker in ("**", "~~"):
+            for marker in ("**", "~~", "*"):
                 if text.startswith(marker) and text.endswith(marker) and len(text) >= 2 * len(marker):
                     text = text[len(marker) : -len(marker)].strip()
                     changed = True
@@ -117,7 +124,7 @@ class ExpectedHorizonMarkdownRenderer:
         *,
         document: ExpectedHorizonDocument,
         output_path: Path,
-    ) -> list[tuple[str, str, bool, str, str, str]]:
+    ) -> list[tuple[str, str, GoalKind, str, str, str]]:
         existing_rows = cls._load_existing_rows(output_path)
         by_key: dict[tuple[str, str], list[int]] = {}
         for index, old in enumerate(existing_rows):
@@ -143,13 +150,13 @@ class ExpectedHorizonMarkdownRenderer:
             planned_rows.append(
                 {
                     "old_index": old_index,
-                    "row": (row.datum, row.ich_kann, row.is_main_goal, carry_afb, carry_aufg, carry_pkte),
+                    "row": (row.datum, row.ich_kann, row.kind, carry_afb, carry_aufg, carry_pkte),
                 }
             )
 
         # New rows are anchored before the next matched old row, so old rows stay in place.
-        before_old: dict[int, list[tuple[str, str, bool, str, str, str]]] = {}
-        tail_new: list[tuple[str, str, bool, str, str, str]] = []
+        before_old: dict[int, list[tuple[str, str, GoalKind, str, str, str]]] = {}
+        tail_new: list[tuple[str, str, GoalKind, str, str, str]] = []
         for pos, entry in enumerate(planned_rows):
             if entry["old_index"] is not None:
                 continue
@@ -167,13 +174,13 @@ class ExpectedHorizonMarkdownRenderer:
             else:
                 before_old.setdefault(anchor, []).append(row_tuple)
 
-        matched_by_old_index: dict[int, tuple[str, str, bool, str, str, str]] = {}
+        matched_by_old_index: dict[int, tuple[str, str, GoalKind, str, str, str]] = {}
         for entry in planned_rows:
             old_index = entry["old_index"]
             if isinstance(old_index, int):
                 matched_by_old_index[old_index] = entry["row"]
 
-        merged: list[tuple[str, str, bool, str, str, str]] = []
+        merged: list[tuple[str, str, GoalKind, str, str, str]] = []
         for old_index, old in enumerate(existing_rows):
             merged.extend(before_old.get(old_index, []))
 
@@ -190,7 +197,7 @@ class ExpectedHorizonMarkdownRenderer:
                 (
                     cls._strip_markdown_wrappers(old.datum),
                     cls._as_deleted_goal(old.ich_kann),
-                    False,
+                    GoalKind.TEILZIEL,  # plain (neither bold noch kursiv) fuer entfernte, bewertete Ziele
                     old.afb,
                     old.aufg,
                     old.pkte,
@@ -214,12 +221,14 @@ class ExpectedHorizonMarkdownRenderer:
             "| --- | --- | --- | --- | --- |",
         ]
 
-        for datum_value, goal_value, is_main_goal, afb, aufg, pkte in merged_rows:
+        for datum_value, goal_value, kind, afb, aufg, pkte in merged_rows:
             datum = self._escape_cell(datum_value)
             ich_kann = self._escape_cell(goal_value)
-            if is_main_goal:
+            if kind == GoalKind.STUNDENZIEL:
                 datum = self._bold(datum)
                 ich_kann = self._bold(ich_kann)
+            elif kind == GoalKind.SONDERZIEL:
+                ich_kann = self._italic(ich_kann)
             lines.append(
                 "| "
                 + " | ".join(

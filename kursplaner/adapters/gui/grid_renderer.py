@@ -101,6 +101,8 @@ class GridRenderer:
             return LESSON_BUILDER_HELP.get("stundenziel", "")
         if field_key == "Teilziele":
             return LESSON_BUILDER_HELP.get("teilziele", "")
+        if field_key == "Sonderziele":
+            return LESSON_BUILDER_HELP.get("sonderziele", "")
         return ""
 
     def _header_visual_state(self, day_index: int) -> tuple[str, str]:

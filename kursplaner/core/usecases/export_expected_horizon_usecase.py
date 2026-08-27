@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import Enum
 from pathlib import Path
 from typing import Protocol
 
@@ -11,13 +12,21 @@ from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 
+class GoalKind(Enum):
+    """Art eines Ziels im Erwartungshorizont-Export (steuert Bold/Kursiv-Darstellung)."""
+
+    STUNDENZIEL = "stundenziel"
+    TEILZIEL = "teilziel"
+    SONDERZIEL = "sonderziel"
+
+
 @dataclass(frozen=True)
 class ExpectedHorizonLine:
     """Eine einzelne Zeile im Kompetenzhorizont-Export."""
 
     datum: str
     ich_kann: str
-    is_main_goal: bool
+    kind: GoalKind
 
 
 @dataclass(frozen=True)
@@ -110,18 +119,23 @@ class ExportExpectedHorizonUseCase:
         return cls._COMPETENCY_PREFIX_RE.sub("", str(text or "").strip()).strip()
 
     @classmethod
-    def _goals_for_day(cls, yaml_data: dict[str, object]) -> list[str]:
-        goals: list[str] = []
+    def _goals_for_day(cls, yaml_data: dict[str, object]) -> list[tuple[str, GoalKind]]:
+        goals: list[tuple[str, GoalKind]] = []
         lesson_goal = cls._strip_competency_prefix(str(yaml_data.get("Stundenziel", "")).strip())
         if lesson_goal:
-            goals.append(lesson_goal)
+            goals.append((lesson_goal, GoalKind.STUNDENZIEL))
         goals.extend(
-            cls._strip_competency_prefix(item) for item in cls._parse_text_list(yaml_data.get("Teilziele", []))
+            (cls._strip_competency_prefix(item), GoalKind.TEILZIEL)
+            for item in cls._parse_text_list(yaml_data.get("Teilziele", []))
         )
-        goals = [goal for goal in goals if goal]
+        goals.extend(
+            (cls._strip_competency_prefix(item), GoalKind.SONDERZIEL)
+            for item in cls._parse_text_list(yaml_data.get("Sonderziele", []))
+        )
+        goals = [(text, kind) for text, kind in goals if text]
         if not goals:
-            goals.append("")
-        return [f"... {goal}" if goal else "..." for goal in goals]
+            goals.append(("", GoalKind.STUNDENZIEL))
+        return [(f"... {text}" if text else "...", kind) for text, kind in goals]
 
     @classmethod
     def _export_rows_for_oberthema(
@@ -140,12 +154,12 @@ class ExportExpectedHorizonUseCase:
 
             formatted_date = cls._format_day_date(day.datum)
             goals = cls._goals_for_day(day.yaml)
-            for index, goal in enumerate(goals):
+            for index, (goal, kind) in enumerate(goals):
                 rows.append(
                     ExpectedHorizonLine(
                         datum=formatted_date if index == 0 else "",
                         ich_kann=goal,
-                        is_main_goal=(index == 0),
+                        kind=kind,
                     )
                 )
 

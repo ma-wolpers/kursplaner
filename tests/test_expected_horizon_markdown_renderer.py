@@ -22,7 +22,17 @@ def _table() -> PlanTableData:
     )
 
 
-def _day(tmp_path, *, row_index: int, datum: str, kind: str, obert: str, ziel: str, teilziele: list[str]):
+def _day(
+    tmp_path,
+    *,
+    row_index: int,
+    datum: str,
+    kind: str,
+    obert: str,
+    ziel: str,
+    teilziele: list[str],
+    sonderziele: list[str] | None = None,
+):
     lesson_dir = tmp_path / "Einheiten"
     lesson_dir.mkdir(exist_ok=True)
     link = lesson_dir / f"unit-{row_index}.md"
@@ -36,6 +46,7 @@ def _day(tmp_path, *, row_index: int, datum: str, kind: str, obert: str, ziel: s
             "Oberthema": obert,
             "Stundenziel": ziel,
             "Teilziele": teilziele,
+            "Sonderziele": sonderziele or [],
         },
     )
 
@@ -72,6 +83,37 @@ def test_expected_horizon_markdown_uses_swapped_headings_and_bold_main_goals(tmp
     assert "| Datum | Die SuS können ... | AFB | Aufg | Pkte |" in text
     assert "| **01.09.25** | **... Sortierverfahren vergleichen** |  |  |  |" in text
     assert "|  | ... Bubble Sort erklären |  |  |  |" in text
+
+
+def test_expected_horizon_markdown_renders_sonderziele_in_italics(tmp_path: Path):
+    output = tmp_path / "Kompetenzhorizont.md"
+    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+
+    day_columns = [
+        _day(
+            tmp_path,
+            row_index=0,
+            datum="01-09-25",
+            kind="Unterricht",
+            obert="Algorithmen",
+            ziel="Sortierverfahren vergleichen",
+            teilziele=["Bubble Sort erklären"],
+            sonderziele=["Laufzeitkomplexität vergleichen"],
+        )
+    ]
+
+    usecase.execute(
+        table=_table(),
+        day_columns=day_columns,
+        selected_day_index=0,
+        output_path=output,
+        export_date=date(2026, 4, 2),
+    )
+
+    text = output.read_text(encoding="utf-8")
+    assert "| **01.09.25** | **... Sortierverfahren vergleichen** |  |  |  |" in text
+    assert "|  | ... Bubble Sort erklären |  |  |  |" in text
+    assert "|  | *... Laufzeitkomplexität vergleichen* |  |  |  |" in text
 
 
 def test_markdown_renderer_merges_existing_scores_and_marks_removed_rows(tmp_path: Path) -> None:

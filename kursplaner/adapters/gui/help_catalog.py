@@ -23,12 +23,19 @@ LESSON_BUILDER_HELP: dict[str, str] = {
         "Didaktischer Rahmen (implizit): 'Am Ende dieser Einheit können die Lernenden insbesondere ...'.\n"
         "Beginne mit Kompetenzverweis, z. B. 'I.1 ...'.\n"
         "Im Auswahlfenster toggelt Leertaste den aktiven Eintrag (setzen/löschen), Enter übernimmt und schließt.\n"
-        "Esc entspricht Abbrechen und schließt das Fenster sofort."
+        "Esc entspricht Abbrechen und schließt das Fenster sofort.\n"
+        "AFB-Hinweis: Teilziele stecken AFB I/II ab, das Stundenziel sollte darüber liegen (AFB III: Transfer/Vertiefung)."
     ),
     "teilziele": (
         "Mehrere Teilziele, die in dieser Einheit auf das Stundenziel hinarbeiten.\n"
         "Didaktischer Rahmen (implizit): 'Am Ende dieser Einheit können die Lernenden auch ...'.\n"
-        "Teilziele dürfen frei formuliert werden; ein Kompetenzverweis ist optional."
+        "Teilziele dürfen frei formuliert werden; ein Kompetenzverweis ist optional.\n"
+        "AFB-Hinweis: Teilziele stecken AFB I/II ab, das Stundenziel sollte darüber liegen (AFB III: Transfer/Vertiefung)."
+    ),
+    "sonderziele": (
+        "Zusätzliche, freiwillige Ziele über das Stundenziel hinaus – für schnellere/interessierte Lernende.\n"
+        "Anders als Teilziele kein verpflichtender Zwischenschritt zum Stundenziel.\n"
+        "Erscheinen im Erwartungshorizont-Export kursiv, getrennt von Stundenziel und Teilzielen."
     ),
     "inhalte": (
         "Inhaltsquellen aus dem Fach-Baukasten.\nTippen filtert die Liste, ausgewählte Einträge erscheinen als Chips."

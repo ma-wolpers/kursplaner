@@ -81,6 +81,7 @@ class MainWindowLessonContextController:
         if field_key in {
             "Kompetenzen",
             "Teilziele",
+            "Sonderziele",
             "Material",
             "Vertretungsmaterial",
             "Ressourcen",

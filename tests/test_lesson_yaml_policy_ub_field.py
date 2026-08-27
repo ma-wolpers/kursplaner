@@ -43,6 +43,24 @@ def test_unterricht_preserves_teilziele_values():
     ]
 
 
+def test_unterricht_defaults_include_sonderziele_field():
+    normalized = canonicalize_lesson_yaml({"Stundentyp": "Unterricht", "Stundenthema": "Test", "Dauer": "2"})
+    assert "Sonderziele" in normalized
+    assert normalized["Sonderziele"] == []
+
+
+def test_unterricht_preserves_sonderziele_values():
+    normalized = canonicalize_lesson_yaml(
+        {
+            "Stundentyp": "Unterricht",
+            "Stundenthema": "Test",
+            "Dauer": "2",
+            "Sonderziele": ["III.1 eine eigene Lösung auf einen neuen Kontext übertragen."],
+        }
+    )
+    assert normalized["Sonderziele"] == ["III.1 eine eigene Lösung auf einen neuen Kontext übertragen."]
+
+
 def test_non_unterricht_drops_unterrichtsbesuch_field():
     normalized = canonicalize_lesson_yaml(
         {

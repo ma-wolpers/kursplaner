@@ -41,7 +41,15 @@ class LessonEditUseCase:
     ) -> None:
         """Aktualisiert ein einzelnes YAML-Feld einer Stunde (skalare oder Listenfelder)."""
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
-        if field_key in {"Kompetenzen", "Teilziele", "Material", "Vertretungsmaterial", "Ressourcen", "Baustellen"}:
+        if field_key in {
+            "Kompetenzen",
+            "Teilziele",
+            "Sonderziele",
+            "Material",
+            "Vertretungsmaterial",
+            "Ressourcen",
+            "Baustellen",
+        }:
             lesson.data[field_key] = list_entries or []
         else:
             lesson.data[field_key] = value

@@ -9,6 +9,7 @@ LESSON_TYPE_VALUES: tuple[LessonType, ...] = ("Unterricht", "LZK", "Ausfall", "H
 LIST_FIELDS = {
     "Kompetenzen",
     "Teilziele",
+    "Sonderziele",
     "Material",
     "Vertretungsmaterial",
     "Ressourcen",
@@ -35,6 +36,7 @@ _ALLOWED_BY_TYPE: dict[LessonType, tuple[str, ...]] = {
         "Oberthema",
         "Stundenziel",
         "Teilziele",
+        "Sonderziele",
         "Kompetenzen",
         "Material",
         "Unterrichtsbesuch",
@@ -132,6 +134,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
                 "Oberthema": "",
                 "Stundenziel": "",
                 "Teilziele": [],
+                "Sonderziele": [],
                 "Kompetenzen": [],
                 "Material": [],
                 "Unterrichtsbesuch": "",

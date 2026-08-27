@@ -72,6 +72,8 @@ Die verlinkten Einheiten-Dateien tragen die inhaltlichen Daten in YAML, z. B.:
 - `Oberthema`
 - `Stundenthema`
 - `Stundenziel`
+- `Teilziele` (Liste)
+- `Sonderziele` (Liste, zusätzliche freiwillige Ziele über das Stundenziel hinaus)
 - `Kompetenzen` (Liste)
 - `Material` (Liste)
 

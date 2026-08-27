@@ -31,6 +31,7 @@ class RowDisplayModeUseCase:
         ("Oberthema", "Welches Oberthema"),
         ("Stundenziel", "Welches Stundenziel"),
         ("Teilziele", "Welche Teilziele"),
+        ("Sonderziele", "Welche Sonderziele"),
         ("Kompetenzen", "Welche Kompetenzen"),
         ("Material", "Welche Materialien"),
         ("Professionalisierungsschritte", "Welche Professionalisierungsschritte"),
@@ -168,6 +169,7 @@ class RowDisplayModeUseCase:
         return {
             "Kompetenzen",
             "Teilziele",
+            "Sonderziele",
             "Material",
             "Vertretungsmaterial",
             "Ressourcen",

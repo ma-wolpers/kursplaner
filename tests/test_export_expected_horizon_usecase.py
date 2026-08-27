@@ -9,6 +9,7 @@ from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_expected_horizon_usecase import (
     ExpectedHorizonDocument,
     ExportExpectedHorizonUseCase,
+    GoalKind,
 )
 from tests.day_column_factory import make_day_column
 
@@ -43,6 +44,7 @@ def _day(
     obert: str,
     ziel: str,
     teilziele: list[str],
+    sonderziele: list[str] | None = None,
     group_name: str = "lila-5",
 ):
     lesson_dir = tmp_path / "Einheiten"
@@ -59,6 +61,7 @@ def _day(
             "Oberthema": obert,
             "Stundenziel": ziel,
             "Teilziele": teilziele,
+            "Sonderziele": sonderziele or [],
         },
     )
 
@@ -117,7 +120,49 @@ def test_expected_horizon_exports_only_unterricht_and_flattens_goals(tmp_path):
         "... Bubble Sort erklären",
         "... Merge Sort einordnen",
     ]
-    assert [row.is_main_goal for row in document.rows] == [True, False, False]
+    assert [row.kind for row in document.rows] == [
+        GoalKind.STUNDENZIEL,
+        GoalKind.TEILZIEL,
+        GoalKind.TEILZIEL,
+    ]
+
+
+def test_expected_horizon_appends_sonderziele_after_teilziele_with_sonderziel_kind(tmp_path):
+    renderer = _RendererSpy()
+    usecase = ExportExpectedHorizonUseCase(renderer=renderer)
+
+    day_columns = [
+        _day(
+            tmp_path,
+            row_index=0,
+            datum="01-09-25",
+            kind="Unterricht",
+            obert="Algorithmen",
+            ziel="Sortierverfahren vergleichen",
+            teilziele=["Bubble Sort erklären"],
+            sonderziele=["Laufzeitkomplexität von Sortieralgorithmen vergleichen"],
+        )
+    ]
+
+    usecase.execute(
+        table=_table(),
+        day_columns=day_columns,
+        selected_day_index=0,
+        output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
+        export_date=date(2026, 4, 1),
+    )
+
+    document, _ = renderer.calls[0]
+    assert [row.ich_kann for row in document.rows] == [
+        "... Sortierverfahren vergleichen",
+        "... Bubble Sort erklären",
+        "... Laufzeitkomplexität von Sortieralgorithmen vergleichen",
+    ]
+    assert [row.kind for row in document.rows] == [
+        GoalKind.STUNDENZIEL,
+        GoalKind.TEILZIEL,
+        GoalKind.SONDERZIEL,
+    ]
 
 
 def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema(tmp_path):

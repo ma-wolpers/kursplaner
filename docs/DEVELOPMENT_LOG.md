@@ -8,6 +8,20 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-27) — Sonderziele + AFB-Hinweis im Erwartungshorizont
+
+**Neues Feld `Sonderziele`**: Liste wie `Teilziele`, in `lesson_yaml_policy.py` (`LIST_FIELDS`, `_ALLOWED_BY_TYPE["Unterricht"]` direkt nach `Teilziele`, Default `[]`). Fachliche Abgrenzung zu `Teilziele`: Teilziele stecken den verpflichtenden Weg aller Lernenden zum Stundenziel ab (AFB I/II), Sonderziele sind zusätzliche, freiwillige Ziele für schnellere/interessierte Lernende — bewusst ein eigenständiges Feld statt einer Markierung bestehender Teilziele, u. a. weil sie im Erwartungshorizont-Export separat (kursiv) erscheinen sollen.
+
+**GUI**: Sonderziele nutzen durchgehend dieselbe generische „Zeilenfelder"-Infrastruktur wie Teilziele (kein eigenes Dialog-Widget nötig) — ergänzt in `row_display_mode_usecase.py` (`UNTERRICHT_ROWS`, `list_like_fields()`), `lesson_edit_usecase.py::set_lesson_field()`, `lesson_context_controller.py` (Anzeigeformatierung), `grid_renderer.py::_field_help_text()`. Tooltip-Text in `help_catalog.py`, dort auch der AFB-Hinweis bei `stundenziel`/`teilziele` ergänzt: „Teilziele stecken AFB I/II ab, das Stundenziel sollte darüber liegen (AFB III: Transfer/Vertiefung)" — **reiner Hinweistext, keine Validierung, keine Speicher-Blockade, keine automatische Ableitung**.
+
+**Erwartungshorizont-Export**: `ExpectedHorizonLine.is_main_goal: bool` durch `kind: GoalKind` (`STUNDENZIEL | TEILZIEL | SONDERZIEL`, neues Enum in `export_expected_horizon_usecase.py`) ersetzt — kein zusätzliches Bool-Feld, da genau zwei Konsumenten (Markdown- und PDF-Renderer) dieselbe Unterscheidung von zwei auf drei Zustände erweitern mussten (per Grep verifiziert, keine weiteren Verbraucher). `_goals_for_day()` hängt `Sonderziele` nach `Teilziele` an. `expected_horizon_markdown_renderer.py` bekommt `_italic()` neben `_bold()`, das interne Zeilen-Tupel führt `kind` statt `is_main_goal`; `_strip_markdown_wrappers()` erkennt jetzt zusätzlich einfache `*...*`-Kursivmarker (Reihenfolge `("**", "~~", "*")` wichtig, damit `**fett**` nicht fälschlich als „außen kursiv" erkannt wird), damit der AFB/Aufg/Pkte-Carry-Over beim erneuten Export weiterhin funktioniert. `expected_horizon_pdf_renderer.py` bekommt einen `_cell_italic_style` (Helvetica-Oblique) und denselben Drei-Wege-Stil-Entscheid.
+
+**Nebeneffekt (bewusst, kein Bug)**: Ist `Stundenziel` leer, aber `Teilziele` gesetzt, wurde die erste Zeile bisher rein positionsbedingt fett dargestellt (`is_main_goal = index==0`). Mit `kind` wird nur noch die tatsächliche `Stundenziel`-Zeile fett markiert — kein bestehender Test deckte den alten, rein positionsbedingten Fall ab.
+
+**Tests**: `tests/test_lesson_yaml_policy_ub_field.py` (Default/Erhalt von `Sonderziele`), `tests/test_export_expected_horizon_usecase.py` (Reihenfolge/`kind`-Zuordnung inkl. Sonderziele), `tests/test_expected_horizon_markdown_renderer.py` (kursive Markdown-Ausgabe), manueller PDF-Rendering-Smoketest mit allen drei `GoalKind`-Werten. 648/648 Tests grün.
+
+**Nebenbei korrigiert**: `README.md`s Einheiten-Dateien-Feldliste war bereits vor dieser Änderung unvollständig (führte `Teilziele` nicht auf, obwohl seit längerem Schema-Feld) — beim Ergänzen von `Sonderziele` direkt mitkorrigiert, da dieselbe Liste betroffen war.
+
 ### Removed (2026-08-27) — Migrationsleichen der alten Stem-Semantik entfernt
 
 **Kontext**: Bei der Planung einer Kopierfunktions-Anpassung stellte sich heraus, dass Einheiten-Dateinamen seit der Umstellung auf `generate_random_lesson_stem()` reine 6-stellige Zufallscodes ohne semantischen Inhalt sind — Lerngruppe/Datum/Thema werden nirgends mehr aus dem Dateistamm abgeleitet oder abgeleitet werden sollen. Eine repoweite Aufrufer-Analyse (alle Verwendungen von `build_lesson_stem`/`build_regular_stem`/`parse_*_token`) ergab sechs vollständig unerreichbare Symbole aus der Zeit vor dieser Migration, die entfernt wurden:
