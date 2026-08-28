@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "Pädagogik": {
+    "targets": {"half": 5, "full": 9, "bub": 2},
+    "grade_groups": [
+      {"label": "5./6.", "grade_min": 5, "grade_max": 6, "min_count": 1},
+      {"label": "7.-10.", "grade_min": 7, "grade_max": 10, "min_count": 1},
+      {"label": "11.-13.", "grade_min": 11, "grade_max": 13, "min_count": 1}
+    ]
+  },
+  "Mathematik": {
+    "targets": {"half": 4, "full": 8, "ubplus": 1, "bub": 1},
+    "grade_groups": []
+  },
+  "Informatik": {
+    "targets": {"half": 4, "full": 8, "ubplus": 1, "bub": 1},
+    "grade_groups": []
+  },
+  "Darstellendes Spiel": {
+    "targets": {"half": 4, "full": 8},
+    "grade_groups": []
+  }
+}

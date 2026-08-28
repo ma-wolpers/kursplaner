@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Protocol
 
-from kursplaner.core.domain.achievement_grade_rules import GradeRequirement
+from kursplaner.core.domain.achievement_requirements import DomainAchievementRequirements
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.file_relation_registry import FileRelationRegistrySnapshot
 from kursplaner.core.domain.kompetenzkatalog import Kompetenzkatalog, KompetenzkatalogManifestEntry
@@ -360,13 +360,13 @@ class CommandRepository(Protocol):
         ...
 
 
-class AchievementGradeRequirementsRepository(Protocol):
-    """Definiert den Vertrag fuer JSON-basierte Jahrgangsstufen-Vorgaben je Fach."""
+class AchievementRequirementsRepository(Protocol):
+    """Definiert den Vertrag fuer JSON-basierte Achievement-Vorgaben je Fach."""
 
-    def load_requirements(self) -> dict[str, tuple[GradeRequirement, ...]]:
-        """Laedt die konfigurierten Jahrgangsstufen-Vorgaben je Fach.
+    def load_requirements(self) -> dict[str, DomainAchievementRequirements]:
+        """Laedt die konfigurierten Achievement-Vorgaben (Schwellenwerte + Jahrgangsstufen-Gruppen) je Fach.
 
-        Ein Fach ohne Eintrag oder mit leerer Liste gilt als nicht konfiguriert.
+        Fehlende/leere `grade_groups` gelten als "Jahrgangsstufen-Tracking nicht konfiguriert".
         """
         ...
 

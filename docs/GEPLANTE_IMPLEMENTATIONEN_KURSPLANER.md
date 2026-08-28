@@ -99,16 +99,16 @@ Keine direkte Fachlogik im Adapter, keine I/O-Logik im Domain-Layer.
   - feldgenaue Write-Operationen ohne Nebenwirkung auf andere Bereiche,
   - konsistente Validierung und Delta-faehiges Undo/Redo fuer jede Einzelnachpflege.
 
-## Bereits umgesetzt (Jahrgangsstufen-Achievements, Struktur ohne Fach-Vorgaben)
+## Bereits umgesetzt (Jahrgangsstufen-Achievements)
 
 - UB-Dateien tragen optional eine `Jahrgangsstufe` (5-13).
-- `QueryUbAchievementsUseCase` kann pro Fach konfigurierte Jahrgangsstufen-Gruppen
-  (z. B. „5./6.", „7.-10.", „11.-13." fuer Paedagogik) als zusaetzliche
-  Achievement-Kacheln anzeigen -- Quelle ist `kursplaner/resources/achievements/grade_requirements.json`.
-- **Aktuell fuer alle vier Faecher mit leeren Listen ausgeliefert** (bewusst keine
-  erfundenen Platzhalterwerte) -- am Achievement-Tab aendert sich dadurch noch nichts.
-- **Offen**: konkrete Grenzen/Mindestanzahlen je Fach mit dem Nutzer klaeren, dann
-  `grade_requirements.json` befuellen und einen `CHANGELOG.md`-Eintrag ergaenzen.
+- Alle Achievement-Vorgaben (bestehende Halbzeit/Voll/UBplus/BUB-Schwellenwerte **und**
+  Jahrgangsstufen-Gruppen) liegen gemeinsam in `kursplaner/resources/achievements/requirements.json`
+  (ein gemeinsames JSON statt Zahlen im Usecase + separater Jahrgangsstufen-Datei).
+- **Paedagogik ist scharf konfiguriert**: je mind. 1 UB in 5./6., 7.-10., 11.-13. — sichtbar
+  im Achievements-Tab.
+- **Offen**: konkrete Grenzen/Mindestanzahlen fuer Mathematik/Informatik/Darstellendes Spiel
+  mit dem Nutzer klaeren, dann `requirements.json` ergaenzen (nur Datenaenderung, kein Code).
 
 ## Architekturleitplanken
 

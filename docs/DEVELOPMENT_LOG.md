@@ -8,6 +8,26 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-08-28) — Achievement-Vorgaben in einem gemeinsamen JSON zusammengefuehrt
+
+**Anlass**: Nutzer-Feedback nach der vorherigen Jahrgangsstufen-Achievement-Session — die neu gebaute `grade_requirements.json` deckte nur die Jahrgangsstufen-Gruppen ab, waehrend die *bereits bestehenden* Halbzeit/Voll/UBplus/BUB-Schwellenwerte weiterhin als Zahlen-Literale direkt in `query_ub_achievements_usecase.py` standen. Zwei Konfigurationsquellen fuer dieselbe fachliche Kategorie sind ein Smell ("die Zahlen sollten definitiv nicht in einem Usecase stehen").
+
+**Eine Ressource statt zwei**: `resources/achievements/requirements.json` (ersetzt `grade_requirements.json`) enthaelt jetzt pro Fach sowohl `targets` (half/full/ubplus/bub) als auch `grade_groups` — inkl. eines `schema_version`-Felds analog zum bestehenden, unvalidierten Praezedenzfall in `resources/kompetenzkataloge/catalog_manifest.json:2`.
+
+**Getyptes Domain-Modell statt `dict[str, int]`**: `core/domain/achievement_grade_rules.py` → `achievement_requirements.py`, neues `AchievementTargets(half, full, ubplus=None, bub=None)` (frozen dataclass, analog zu `Kompetenzkatalog`/`KompetenzkatalogManifestEntry` — keine generischen Dicts fuer strukturierte Fachdaten). Neuer dedizierter Fehlertyp `AchievementRequirementsParseError(RuntimeError)` ersetzt das zuvor verwendete generische `ValueError` (Konventionsangleichung an `KompetenzkatalogParseError`). Parser prueft `half`/`full` als Pflicht-Positivwerte, `ubplus`/`bub` optional aber wenn vorhanden positiv, unbekannte Target-Keys als Fehler.
+
+**`UBPLUS_BUB_SUBJECTS`-Konstante entfernt, zwei Bedeutungen entkoppelt** (vorher zufaellig dieselbe Fachliste fuer zwei unterschiedliche Zwecke): die Kachel-Gates eines Fachs (eigene UBplus-/BUB-Kachel) pruefen jetzt unabhaengig `targets.ubplus is not None` bzw. `targets.bub is not None`; Paedagogiks BUB-Kreuzverweis (`paed_bub_total`) leitet die relevanten Fremdfaecher spezifisch aus `targets.bub is not None` ab (die fachlich gemeinte Bedingung: "Fach trackt BUB"), nicht aus `ubplus`. Mit den heutigen Werten liefert das dieselben zwei Faecher (Mathematik, Informatik) wie zuvor — Regressionstest `test_query_ub_achievements_ubplus_and_bub_are_independently_gated_per_subject` deckt den Fall ab, in dem beide Bedingungen erstmals auseinanderfallen wuerden.
+
+**Konfiguration ist jetzt Pflicht statt optional**: `QueryUbAchievementsUseCase.__init__` verlangt `achievement_requirements_repo` ohne Default; ein fehlendes/kaputtes Manifest wirft `AchievementRequirementsParseError` statt still eine leere Achievement-Liste zu liefern (vorher: `try/except` mit `{}`-Fallback nur fuer die Jahrgangsstufen-Teilmenge).
+
+**Nebenbei entfernt**: der `title`-Parameter von `_achievement()` wurde nie gelesen (die Methode baute den Titel immer selbst aus `DOMAIN_SHORT_LABELS`/`CATEGORY_LABELS`) — beim vollstaendigen Neuschreiben der Methode mitentfernt, da direkt im ueberarbeiteten Code sichtbar.
+
+**Paedagogik scharf geschaltet**: `requirements.json` enthaelt jetzt die vom Nutzer bereits zu Beginn der Achievement-Arbeit genannten Jahrgangsstufen-Vorgaben (je mind. 1 UB in 5./6., 7.-10., 11.-13.) — sichtbar im Achievements-Tab. Mathematik/Informatik/Darstellendes Spiel bleiben mit `grade_groups: []` unkonfiguriert.
+
+**Migrationskontrolle**: repoweiter Grep bestaetigt keine verbliebenen Referenzen auf `grade_requirements`, `AchievementGradeRequirementsRepository`, `FileSystemAchievementGradeRequirementsRepository`, `parse_grade_requirements` oder `UBPLUS_BUB_SUBJECTS` (ausser erklaerenden Kommentaren, die den Wegfall dokumentieren); alte Modul-/Test-/JSON-Dateien geloescht, nicht nur umbenannt-und-liegen-gelassen.
+
+**Tests**: `tests/test_achievement_requirements.py` (Parser-Validierung inkl. unbekannter Keys, fehlender Pflichtfelder, ungueltiger Werte), `tests/test_achievement_requirements_repository.py` (reale Produktivwerte, fehlende Datei → Fehler statt leerem Ergebnis), `tests/test_query_ub_achievements_usecase.py` (neuer Verhaltensgleichheits-Test `test_query_ub_achievements_matches_full_production_baseline` vergleicht alle current/target-Werte gegen die vorherige Zahlen-Baseline, plus die entkoppelte ubplus/bub-Logik). 676/676 Tests gruen.
+
 ### Added (2026-08-27) — App startet auch ohne `reportlab` (nur PDF-Export deaktiviert)
 
 **Präzisierung**: `reportlab` bleibt in `requirements.txt` und wird bei der Standardinstallation ganz normal mitinstalliert — es geht ausschließlich um Laufzeit-Robustheit, falls das Paket in einer konkreten Umgebung (kaputte/unvollständige venv) dennoch fehlt.
