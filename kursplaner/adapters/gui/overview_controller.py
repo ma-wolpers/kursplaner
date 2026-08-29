@@ -556,14 +556,33 @@ class MainWindowOverviewController:
         max_fraction = max(0.0, 1.0 - (viewport_width / float(full_width)))
         self.app.grid_canvas.xview_moveto(min(max(target_fraction, 0.0), max_fraction))
 
-    def collect_day_columns(self):
-        """Erzeugt die Grid-Read-Projektion (`day_columns`) aus der aktuellen Tabelle."""
+    def collect_day_columns(self, changed_row_indices: set[int] | None = None) -> None:
+        """Erzeugt die Grid-Read-Projektion (`day_columns`) aus der aktuellen Tabelle.
+
+        Args:
+            changed_row_indices: Zeilenindizes, die seit dem letzten Aufruf
+                *nachweislich* die einzigen Änderungen waren (typischerweise
+                eine einzelne bearbeitete Zelle) — löst dann den günstigeren
+                `build_day_columns_incremental()`-Pfad aus, der nur diese
+                (und Zeilen mit derselben verlinkten Datei) neu von der
+                Platte liest, statt den gesamten Plan. ``None`` (Standard)
+                bedeutet "unbekannt, evtl. mehr als eine Zeile betroffen"
+                (Spaltentausch, Konvertierungen, …) und bewahrt das bisherige
+                Verhalten eines vollständigen Neuaufbaus — nur die drei
+                bekannten Einzelzell-Edit-Aufrufer in `editor_controller.py`
+                übergeben diesen Parameter.
+        """
         if self.app.current_table is None:
             self.app.raw_day_columns = []
             self.app.day_columns = []
             self.app.topic_sequence_plans = []
             return
-        self.app.raw_day_columns = self.load_plan_detail_usecase.build_day_columns(self.app.current_table)
+        if changed_row_indices is not None:
+            self.app.raw_day_columns = self.load_plan_detail_usecase.build_day_columns_incremental(
+                self.app.current_table, self.app.raw_day_columns, changed_row_indices
+            )
+        else:
+            self.app.raw_day_columns = self.load_plan_detail_usecase.build_day_columns(self.app.current_table)
         self.app.day_columns = self._project_visible_day_columns(self.app.raw_day_columns)
         self.app.grid_renderer.invalidate_row_layout_cache()
         self._sync_topic_sequence_plans()

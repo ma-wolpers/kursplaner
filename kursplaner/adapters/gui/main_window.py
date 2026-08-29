@@ -449,9 +449,13 @@ class KursplanerApp(BwBaseWindow):
         """Zeigt die Einheitenansicht als alleinige Hauptansicht."""
         self.screen_builder.show_course_detail()
 
-    def _collect_day_columns(self):
-        """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle."""
-        self.overview_controller.collect_day_columns()
+    def _collect_day_columns(self, changed_row_indices: set[int] | None = None) -> None:
+        """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle.
+
+        Args:
+            changed_row_indices: Siehe `OverviewController.collect_day_columns()`.
+        """
+        self.overview_controller.collect_day_columns(changed_row_indices)
 
     def _field_value(self, day: DayColumn, field_key: str) -> str:
         """Liefert den darzustellenden Zellwert für ein Feld aus `day_columns`."""

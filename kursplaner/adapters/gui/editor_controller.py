@@ -106,7 +106,7 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return True
 
-        self.app._collect_day_columns()
+        self.app._collect_day_columns({day_index})
         self.app._update_grid_column(day_index)
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
@@ -160,7 +160,7 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return False
 
-        self.app._collect_day_columns()
+        self.app._collect_day_columns({day_index})
         self.app._update_grid_column(day_index)
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
