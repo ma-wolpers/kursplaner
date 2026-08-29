@@ -36,7 +36,7 @@ EXPORT_TABLE_HEADERS: tuple[str, ...] = ("Datum", "Std.", "Thema", "Stundenziel"
 def row_lesson_type(day: DayColumn) -> str:
     """Liest den Stundentyp einer Tages-Spalte.
 
-    Bevorzugt `day.stundentyp()` (YAML-Typ der verlinkten Stundendatei).
+    Bevorzugt `day.stundentyp` (YAML-Typ der verlinkten Stundendatei).
     Ausfall-Tage haben jedoch nie eine verlinkte Datei und werden stattdessen
     über `day.is_cancel()` erkannt; Hospitation kann ebenso ohne Link
     vorkommen (`day.is_hospitation()`). Dieser Fallback spiegelt exakt die
@@ -57,7 +57,7 @@ def row_lesson_type(day: DayColumn) -> str:
         return "Hospitation"
     if day.is_lzk():
         return "LZK"
-    return day.stundentyp()
+    return day.stundentyp
 
 
 def row_oberthema(day: DayColumn) -> str:

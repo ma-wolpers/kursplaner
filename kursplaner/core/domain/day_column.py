@@ -5,22 +5,29 @@ suggerierte, dass Felder wie `stunden`/`is_cancel` gespeicherte Zellwerte
 seien, obwohl sie tatsächlich bei jedem Zugriff aus wenigen rohen Feldern neu
 abgeleitet werden. `DayColumn` macht diesen Unterschied explizit: rohe Felder
 sind Attribute (kommen 1:1 aus Tabellenzeile/Repo-Auflösung), alles fachlich
-Hergeleitete ist eine parameterlose Methode ohne Setter.
+Hergeleitete ist eine parameterlose Methode ohne Setter — mit zwei
+Ausnahmen (`is_valid_unterricht_file`, `stundentyp`), die als
+`functools.cached_property` implementiert sind (Perf-Fix 2026-08-29, siehe
+DEVELOPMENT_LOG): ohne `()` aufgerufen, aber ansonsten mit derselben
+Zusicherung eines reinen, seiteneffektfreien Werts.
 
 Konstruktion bleibt Aufgabe der Usecase-Schicht (siehe
 `core.usecases.load_plan_detail_usecase.LoadPlanDetailUseCase.build_day_columns`):
 diese lädt YAML-Dateien und löst Links auf (I/O), bevor sie ein `DayColumn`
-mit bereits vollständig geladenen Rohdaten baut. Alle Methoden auf `DayColumn`
-selbst sind reine, IO-freie Ableitungen dieser Rohdaten — inklusive
-`is_valid_unterricht_file()`, deren `Path.exists()`-Prüfung zwar technisch
-Dateisystemzugriff ist, aber ein reiner, unveränderlicher Zustandscheck ohne
-Seiteneffekt (kein Schreiben, kein YAML-Laden).
+mit bereits vollständig geladenen Rohdaten baut. Alle Methoden/Properties auf
+`DayColumn` selbst sind reine, IO-freie Ableitungen dieser Rohdaten —
+inklusive `is_valid_unterricht_file`, deren `Path.exists()`-Prüfung zwar
+technisch Dateisystemzugriff ist, aber ein reiner, unveränderlicher
+Zustandscheck ohne Seiteneffekt (kein Schreiben, kein YAML-Laden) — und
+genau deshalb sicher cachebar innerhalb einer Instanz: `self.yaml`/`self.link`
+werden nirgends im Codebestand nach der Konstruktion in-place mutiert.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date
+from functools import cached_property
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import (
@@ -114,29 +121,51 @@ class DayColumn:
         """Normalisierter `Inhalt`-Text (Wiki-Klammern entfernt) für Marker-Interpretation."""
         return normalize_marker_text(self.inhalt)
 
+    @cached_property
     def is_valid_unterricht_file(self) -> bool:
-        """Prüft, ob `link` auf eine verwaltete Stunden-Datei zeigt (``Einheiten/``/``Alteinheiten/``)."""
+        """Prüft, ob `link` auf eine verwaltete Stunden-Datei zeigt (``Einheiten/``/``Alteinheiten/``).
+
+        `@cached_property` statt Methode: `DayColumn` ist per Konvention ein
+        unveränderlicher Daten-Snapshot, der bei jeder Datenänderung neu
+        gebaut wird (siehe Klassendocstring) — der bei jedem Aufruf erneute
+        `Path.exists()`/`is_file()`-Check von `is_valid_unterricht_link()`
+        (wird transitiv auch von `stundentyp()` gebraucht, das wiederum von
+        `is_lzk()`/`is_hospitation()`/`is_unterricht()` gelesen wird, teils
+        mehrfach pro Grid-Zelle) ist innerhalb ein und derselben Instanz
+        immer dasselbe Ergebnis. Vor der Umsetzung im Code verifiziert statt
+        nur angenommen: `self.yaml`/`self.link` werden nirgends im
+        Codebestand nach der Konstruktion in-place mutiert (nur gelesen oder
+        über neue Instanzen ersetzt), die Cache-Sicherheit ist also nicht
+        nur eine Annahme.
+        """
         return is_valid_unterricht_link(self.link)
 
+    @cached_property
     def stundentyp(self) -> str:
-        """Stundentyp aus der verlinkten YAML (`infer_stundentyp`), ``"Unterricht"`` ohne gültigen Link."""
-        if self.is_valid_unterricht_file() and isinstance(self.link, Path):
+        """Stundentyp aus der verlinkten YAML (`infer_stundentyp`), ``"Unterricht"`` ohne gültigen Link.
+
+        `@cached_property` aus demselben Grund wie `is_valid_unterricht_file`
+        (siehe dort) — zusätzlich cacht dies implizit auch `infer_stundentyp()`,
+        das ohne Cache bei jedem der (teils mehrfachen) Aufrufe erneut über
+        `self.yaml` gelaufen wäre.
+        """
+        if self.is_valid_unterricht_file and isinstance(self.link, Path):
             return infer_stundentyp(self.yaml)
         return "Unterricht"
 
     def is_lzk(self) -> bool:
         """``True``, wenn die verlinkte YAML `Stundentyp: LZK` trägt."""
-        return self.stundentyp() == "LZK"
+        return self.stundentyp == "LZK"
 
     def is_hospitation(self) -> bool:
         """Hospitation über YAML-Typ ODER Textmarker (`HO <Gruppe> ...`) erkannt."""
-        if self.stundentyp() == "Hospitation":
+        if self.stundentyp == "Hospitation":
             return True
         return is_hospitation_marker(self.content_marker_text(), self.group_name)
 
     def is_unterricht(self) -> bool:
         """Regulärer Unterricht über YAML-Typ ODER Gruppentoken-Marker erkannt."""
-        if self.stundentyp() == "Unterricht":
+        if self.stundentyp == "Unterricht":
             return True
         return is_unterricht_marker(self.content_marker_text(), self.group_name)
 
