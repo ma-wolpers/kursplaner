@@ -8,6 +8,19 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-08-29) — Performance: "partielle" Grid-Updates wirklich partiell (Kursplaner Item 2)
+
+**Anlass**: Fortsetzung der App-uebergreifenden Performance-Analyse. `grid_renderer.update_column(day_index)` hiess so, war aber trotz Namen ein voller Grid-Sweep: es rief fuer jedes Feld `update_row_style(field_key)` auf, das seinerseits ueber ALLE Tage loopt (`for day_index in range(len(self.app.day_columns))`), sowie `_refresh_header_styles()` (alle Header). Spalten-Navigation (`toggle_column_selection()`/`set_single_column_selection()` in `selection_controller.py`) rief unbedingt denselben vollen Header-Sweep plus `_refresh_grid_content()` (kompletter Grid-Sweep) auf — obwohl fuer den Zell-Selektions-Fast-Path in `set_selected_cell()` bereits ein echtes Vorbild existierte (`_apply_single_header_style()`, dort bereits fuer genau diesen Zweck gebaut, hier bisher ungenutzt).
+
+**Fix, drei Stellen, alle nach demselben bereits etablierten Fast-Path-Muster**:
+1. `update_column()` (`grid_renderer.py`) patcht jetzt nur noch die Zellen der einen betroffenen Spalte (`update_cell(..., sync_row_style=False)`, derselbe Baustein, den `update_row_style()` intern nutzt) und nur deren Header (`_apply_single_header_style()`). Neue `_grow_row_minsize_for_cell()`: vergroessert die Zeilenhoehe bei Bedarf, verkleinert sie aber bewusst NICHT (das muesste alle Zellen der Zeile neu vermessen — genau die vermiedenen Kosten). Eine Zeile, die kurzzeitig hoeher bleibt als fuer diese eine Zelle noetig, ist rein kosmetisch und heilt beim naechsten vollen `refresh_grid_content()` selbst aus.
+2. `toggle_column_selection()`/`set_single_column_selection()` (`selection_controller.py`) restylen jetzt nur die Header, deren Selektionszugehoerigkeit sich tatsaechlich geaendert hat (`_restyle_headers_for_selection_change()`, neue kleine Hilfsmethode), und rufen `_refresh_grid_content()` gar nicht mehr auf — verifiziert im Code, dass Zell-Styling (`_border_thickness()`/`_apply_cell_selection_style()`) nirgends von `selected_day_indices` abhaengt, nur Header-Styling tut das.
+3. `clear_selected_cell()` (`selection_controller.py`) restylt jetzt nur das Widget der zuvor selektierten Zelle statt den ganzen Grid-Inhalt neu zu zeichnen — analog zum bestehenden Fast Path in `set_selected_cell()`.
+
+Alle drei fallen auf den vollen Sweep zurueck, solange das Grid noch nicht aufgebaut ist oder gerade neu aufgebaut wird (`cell_widgets` leer bzw. `_is_rebuilding_grid`) — derselbe Guard wie beim bereits bestehenden Fast Path.
+
+**Tests**: `tests/test_selection_controller_column_fast_path.py` (7 Faelle: nur betroffene Header werden gestylt, alte UND neue Spalte bei Wechsel, Toggle an/aus, `clear_selected_cell()` trifft nur die vorherige Zelle, No-Op wenn nichts selektiert war, Fallback bei leerem `cell_widgets`/laufendem Rebuild), `tests/test_grid_renderer_column_fast_path.py` (3 Faelle fuer `_grow_row_minsize_for_cell()`: vergroessert bei Bedarf, verkleinert bewusst nicht, No-Op fuer unbekanntes Feld). Alle 698 Tests gruen.
+
 ### Changed (2026-08-29) — Performance: Einzelzeilen-Patching statt Voll-Reload bei jeder Zellenbearbeitung (Kursplaner Item 1)
 
 **Anlass**: App-uebergreifende Performance-Analyse, Nutzerbeschwerde "manchmal viel zu langsam". `editor_controller.save_cell()`/`handle_editor_focus_in()` riefen nach jedem einzelnen Zellen-Edit `_collect_day_columns()` auf, das `LoadPlanDetailUseCase.build_day_columns()` fuer die **gesamte** Planungstabelle neu ausfuehrte: fuer jede verlinkte Zeile die YAML-Datei erneut lesen und parsen, unabhaengig davon, welche einzelne Zeile tatsaechlich bearbeitet wurde. Bei einem ueber ein Schuljahr gewachsenen Plan mit Dutzenden bis ~100 verlinkten Dateien las damit ein einzelner Tastendruck-Commit den gesamten Kurs neu ein.

@@ -17,42 +17,85 @@ class MainWindowSelectionController:
         self.app = app
 
     def toggle_column_selection(self, day_index: int):
-        """Schaltet die Selektion einer Tages-Spalte um und aktualisiert Header/UI-Status."""
+        """Schaltet die Selektion einer Tages-Spalte um und aktualisiert Header/UI-Status.
+
+        Fast Path (analog zu `set_selected_cell()`): stylt nur die Header neu,
+        deren Selektionszugehörigkeit sich tatsächlich geändert hat, statt
+        alle Header und den gesamten Grid-Inhalt neu zu zeichnen — eine
+        Spaltenselektion ändert kein Zell-Styling (das hängt nur von
+        `ui_state.selected_cell`, nicht von `selected_day_indices`, ab;
+        `_border_thickness()`/`_apply_cell_selection_style()` lesen nirgends
+        `selected_day_indices`).
+        """
+        old_selected = set(self.app.selected_day_indices)
         if day_index in self.app.selected_day_indices:
             self.app.selected_day_indices = set()
-            self.clear_selected_cell()
-            self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         else:
             self.app.selected_day_indices = {day_index}
-            self.clear_selected_cell()
-            self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
+        self.clear_selected_cell()
+        self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
-        self.refresh_header_styles()
-        self.app._refresh_grid_content()
+        self._restyle_headers_for_selection_change(old_selected, self.app.selected_day_indices)
         self.app.action_controller.update_action_controls()
 
     def set_single_column_selection(self, day_index: int, *, ensure_visible: bool = False):
-        """Setzt genau eine selektierte Spalte und optional den horizontalen Viewport darauf."""
+        """Setzt genau eine selektierte Spalte und optional den horizontalen Viewport darauf.
+
+        Fast Path wie `toggle_column_selection()` (siehe dort) — restylt nur
+        die betroffenen Header statt Header und Grid-Inhalt vollständig neu
+        aufzubauen.
+        """
         if not (0 <= day_index < len(self.app.day_columns)):
             return
+        old_selected = set(self.app.selected_day_indices)
         self.app.selected_day_indices = {day_index}
         self.clear_selected_cell()
         self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
-        self.refresh_header_styles()
-        self.app._refresh_grid_content()
+        self._restyle_headers_for_selection_change(old_selected, self.app.selected_day_indices)
         self.app.action_controller.update_action_controls()
         if ensure_visible:
             self.ensure_column_visible(day_index)
 
+    def _restyle_headers_for_selection_change(self, old_selected: set[int], new_selected: set[int]) -> None:
+        """Stylt nur die Header neu, deren Selektionszugehörigkeit sich geändert hat.
+
+        Fällt auf den vollen `refresh_header_styles()`-Sweep zurück, solange
+        das Grid noch nicht (vollständig) aufgebaut ist — derselbe Guard wie
+        beim bestehenden Fast Path in `set_selected_cell()`.
+
+        Args:
+            old_selected: `selected_day_indices` vor der Änderung.
+            new_selected: `selected_day_indices` nach der Änderung.
+        """
+        if not self.app.cell_widgets or self.app._is_rebuilding_grid:
+            self.refresh_header_styles()
+            return
+        for idx in old_selected.symmetric_difference(new_selected):
+            if idx in self.app.header_labels:
+                self._apply_single_header_style(idx)
+
     def clear_selected_cell(self):
-        """Entfernt die aktuelle Zellmarkierung und aktualisiert das Grid-Styling."""
-        if self.app.ui_state.selected_cell is None:
+        """Entfernt die aktuelle Zellmarkierung; aktualisiert nur deren bisherigen Zellstil.
+
+        Fast Path (analog zu `set_selected_cell()`): nur das Widget der
+        zuvor selektierten Zelle wird neu gestylt, statt den gesamten
+        Grid-Inhalt neu zu zeichnen.
+        """
+        old_sel = self.app.ui_state.selected_cell
+        if old_sel is None:
             return
         self.app.ui_state.clear_selected_cell()
-        self.app._refresh_grid_content()
+        if self.app.cell_widgets and not self.app._is_rebuilding_grid:
+            old_widget = self.app.cell_widgets.get((old_sel.field_key, old_sel.day_index))
+            if old_widget is not None:
+                self.app.grid_renderer._apply_cell_selection_style(
+                    old_widget, field_key=old_sel.field_key, day_index=old_sel.day_index
+                )
+        else:
+            self.app._refresh_grid_content()
 
     def set_selected_cell(self, field_key: str, day_index: int, *, ensure_visible: bool = False) -> bool:
         """Markiert eine editierbare Zelle als aktive Navigationszelle.

@@ -720,12 +720,51 @@ class GridRenderer:
         self.app.grid_inner.grid_rowconfigure(row_idx, minsize=max_height)
 
     def update_column(self, day_index: int):
-        """Aktualisiert Header und alle Feldzellen einer Tages-Spalte."""
+        """Aktualisiert Header und alle Feldzellen NUR dieser einen Tages-Spalte.
+
+        Trotz des schon vorher existierenden Namens rief diese Methode bislang
+        `update_row_style()` je Feld auf, das seinerseits über ALLE Tage
+        loopt — `update_column()` war also in Wahrheit ein voller Grid-Sweep,
+        nur mit Umweg über die Zeilen-Update-Methode. Jetzt werden nur die
+        Zellen dieser einen Spalte angefasst (über `update_cell(...,
+        sync_row_style=False)`, denselben Baustein, den auch `update_row_style()`
+        intern nutzt) sowie nur dieser eine Spalten-Header (`_apply_single_header_style()`,
+        das bereits fuer den Zell-Selektions-Fast-Path existierte, aber hier
+        bisher ungenutzt blieb).
+        """
         self.update_header(day_index)
         for field_key, _label in self.app.row_defs:
-            self.update_row_style(field_key)
-        self.app._refresh_header_styles()
+            cell = self.app.cell_widgets.get((field_key, day_index))
+            if cell is None:
+                continue
+            self.update_cell(field_key, day_index, sync_row_style=False)
+            self._grow_row_minsize_for_cell(field_key, cell)
+        if day_index in self.app.header_labels:
+            self.app.selection_controller._apply_single_header_style(day_index)
         self.app._on_grid_inner_configure()
+
+    def _grow_row_minsize_for_cell(self, field_key: str, cell) -> None:
+        """Vergrößert die Zeilenhöhe (`minsize`), falls diese eine Zelle mehr Platz braucht.
+
+        Bewusst nur GRÖSSER, nie kleiner: eine Verkleinerung müsste alle
+        Zellen der Zeile neu vermessen — genau die Kosten, die
+        `update_column()` für eine einzelne Spalte vermeiden soll (das
+        übernimmt weiterhin `update_row_style()`, z. B. beim vollen
+        `refresh_grid_content()`). Eine Zeile, die kurzzeitig höher bleibt
+        als für diese eine Zelle nötig, ist ein rein kosmetischer,
+        selbstheilender Zustand (der nächste volle Refresh vermisst neu) —
+        kein Sichtbarkeits- oder Datenverlust wie bei einer zu niedrigen Zeile.
+        """
+        row_idx = self._row_index_for_field(field_key)
+        if row_idx is None:
+            return
+        needed = int(cell.winfo_reqheight())
+        if needed <= 0:
+            return
+        current = self.app.fixed_inner.grid_rowconfigure(row_idx).get("minsize") or 0
+        if needed > current:
+            self.app.fixed_inner.grid_rowconfigure(row_idx, minsize=needed)
+            self.app.grid_inner.grid_rowconfigure(row_idx, minsize=needed)
 
     def refresh_grid_content(self):
         """Aktualisiert den kompletten Grid-Inhalt ohne Widget-Neuaufbau."""
