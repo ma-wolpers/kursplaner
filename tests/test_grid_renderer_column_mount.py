@@ -325,3 +325,37 @@ def test_remount_uses_domain_value_when_no_pending_text(tk_root):
 
     cell = app.cell_widgets[("Stundenthema", 0)]
     assert cell.get("1.0", "end-1c") == "Domain-Wert"
+
+
+def test_full_round_trip_dirty_text_survives_cold_eviction_and_remount(tk_root):
+    """End-zu-Ende: tippen (Widget-Text weicht vom Domain-Wert ab), aus dem
+
+    Sichtbereich scrollen (COLD-Eviction faengt den Text ab), zurueckscrollen
+    (Remount stellt ihn wieder her) -- der eigentliche Zweck von Stufe 4, als
+    durchgehender Zyklus statt nur in Einzelteilen getestet (Pflichttest laut
+    Plan: "ungespeicherte Eingabe uebersteht COLD-Eviction").
+    """
+    renderer, app = _real_renderer_for_remount(tk_root, field_value="Domain-Wert", pending_text=None)
+
+    # 1. Initiales Mounten (Tag 0 im Fenster) -- Widget zeigt den Domain-Wert.
+    app.viewport_sync_h = SimpleNamespace(mounted_day_index_range=lambda: (0, 0))
+    renderer._reconcile_column_mounts()
+    original_cell = app.cell_widgets[("Stundenthema", 0)]
+    assert original_cell.get("1.0", "end-1c") == "Domain-Wert"
+
+    # 2. "Tippen": Widget-Text weicht jetzt ab, ohne dass committet wurde.
+    original_cell.delete("1.0", "end")
+    original_cell.insert("1.0", "Frisch getippt, nicht gespeichert")
+
+    # 3. Wegscrollen: Tag 0 faellt aus dem Fenster -> COLD-Eviction.
+    app.viewport_sync_h = SimpleNamespace(mounted_day_index_range=lambda: (5, 7))
+    renderer._reconcile_column_mounts()
+    assert ("Stundenthema", 0) not in app.cell_widgets
+    assert app.pending_cell_text[("Stundenthema", 0)] == "Frisch getippt, nicht gespeichert"
+
+    # 4. Zurueckscrollen: Tag 0 wieder im Fenster -> Remount aus pending_cell_text.
+    app.viewport_sync_h = SimpleNamespace(mounted_day_index_range=lambda: (0, 0))
+    renderer._reconcile_column_mounts()
+    remounted_cell = app.cell_widgets[("Stundenthema", 0)]
+    assert remounted_cell.get("1.0", "end-1c") == "Frisch getippt, nicht gespeichert"
+    assert remounted_cell is not original_cell  # neues Widget, aber Inhalt blieb erhalten
