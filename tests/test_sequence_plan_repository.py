@@ -72,6 +72,47 @@ def test_sequence_document_brainstorming_and_table_update(tmp_path):
     assert "| 17-03-26 | Quadratische Funktionen |" in final_text
 
 
+def test_replace_trailing_table_skips_write_when_content_unchanged(tmp_path):
+    """Regressionstest für den Perf-Fix (2026-08-29): `replace_trailing_table`
+
+    darf die Datei nicht anfassen, wenn das Ergebnis ohnehin identisch wäre —
+    `SyncTopicSequencePlansUseCase` ruft dies für JEDE erkannte Sequenz bei
+    JEDEM Zellen-Edit auf, unabhängig davon, ob dieser Edit die Sequenz
+    überhaupt betrifft.
+    """
+    plan_dir = tmp_path / "Unterricht" / "M GK blau-1 26-2"
+    plan_dir.mkdir(parents=True, exist_ok=True)
+    plan_path = plan_dir / "M GK blau-1 26-2.md"
+    plan_path.write_text("# Kursplan\n", encoding="utf-8")
+
+    table = _build_table(plan_path)
+    repo = FileSystemSequencePlanRepository()
+    sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
+
+    table_lines = repo.render_markdown_table(
+        headers=["Datum", "Thema"],
+        rows=[["10-03-26", "Lineare Funktionen"]],
+    )
+    repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
+    content_after_first_write = sequence_path.read_text(encoding="utf-8")
+    mtime_after_first_write = sequence_path.stat().st_mtime_ns
+
+    # Erneuter Aufruf mit identischem Inhalt -- simuliert einen Edit, der diese
+    # Sequenz nicht betrifft (die berechneten table_lines bleiben gleich).
+    repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
+
+    assert sequence_path.read_text(encoding="utf-8") == content_after_first_write
+    assert sequence_path.stat().st_mtime_ns == mtime_after_first_write
+
+    # Tatsächlich geänderter Inhalt muss weiterhin geschrieben werden.
+    changed_table_lines = repo.render_markdown_table(
+        headers=["Datum", "Thema"],
+        rows=[["10-03-26", "Andere Einheit"]],
+    )
+    repo.replace_trailing_table(sequence_path=sequence_path, table_lines=changed_table_lines)
+    assert "Andere Einheit" in sequence_path.read_text(encoding="utf-8")
+
+
 def test_new_sequence_document_has_empty_goal_and_focus_competency(tmp_path):
     plan_dir = tmp_path / "Unterricht" / "M GK blau-1 26-2"
     plan_dir.mkdir(parents=True, exist_ok=True)

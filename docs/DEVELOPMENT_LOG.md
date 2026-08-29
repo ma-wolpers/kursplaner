@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-08-29) — Performance: Sequenzdatei-Sync schreibt nur noch bei echter Aenderung
+
+**Anlass**: App-uebergreifende Performance-Analyse (Kartograph/Kursplaner/Blattwerk, siehe Plan `f-hre-eine-analyse-durch-polished-journal.md`) — Nutzerbeschwerde "Zellen-Navigation/-Bearbeitung manchmal viel zu langsam". Beim Einstieg in den geplanten Kursplaner-Item-1-Fix (Einzelzeilen-Patching statt Voll-Reload bei jedem Zellen-Edit) ein eigenstaendiger, zusaetzlicher Fund: `SyncTopicSequencePlansUseCase.execute()` laeuft nach *jedem* `collect_day_columns()`-Aufruf, also nach jedem einzelnen Zellen-Edit irgendwo im Plan — fuer *jede* erkannte Themen-Sequenz (2+ benachbarte Einheiten mit gleichem Oberthema) rief das bisher unconditional `replace_trailing_table()` auf: Datei lesen, Export-Tabelle neu rendern, **immer** zurueckschreiben, danach nochmal lesen (`read_goal_and_focus_competency`). Bei z. B. 15 ueber ein Schuljahr erkannten Sequenzen also potenziell ~45 Datei-Operationen pro Edit, unabhaengig davon, ob der Edit die jeweilige Sequenz ueberhaupt betrifft.
+
+**Fix**: `FileSystemSequencePlanRepository.replace_trailing_table()` (`infrastructure/repositories/sequence_plan_repository.py`) berechnet den neuen Dateiinhalt jetzt vor dem Schreiben und vergleicht ihn mit dem bereits eingelesenen Originaltext — bei Uebereinstimmung wird `atomic_write_text()` gar nicht erst aufgerufen. Minimal-invasiv: keine Verhaltensaenderung am Enddateizustand, nur ein uebersprungener No-Op-Schreibvorgang. `read_goal_and_focus_competency()`s separater Lesevorgang direkt danach sowie `_prune_stale_sequence_documents()`s Verzeichnis-Scan bleiben bewusst unveraendert (reine Lesevorgaenge, deutlich guenstiger als die vermiedenen Schreibvorgaenge; nicht im Rahmen dieses Fixes angefasst).
+
+**Tests**: `tests/test_sequence_plan_repository.py::test_replace_trailing_table_skips_write_when_content_unchanged` (neu) — zweiter Aufruf mit identischem Tabelleninhalt laesst `mtime_ns` der Datei unveraendert, ein dritter Aufruf mit tatsaechlich geaendertem Inhalt schreibt weiterhin. Alle 677 Tests gruen.
+
 ### Changed (2026-08-28) — Achievement-Vorgaben in einem gemeinsamen JSON zusammengefuehrt
 
 **Anlass**: Nutzer-Feedback nach der vorherigen Jahrgangsstufen-Achievement-Session — die neu gebaute `grade_requirements.json` deckte nur die Jahrgangsstufen-Gruppen ab, waehrend die *bereits bestehenden* Halbzeit/Voll/UBplus/BUB-Schwellenwerte weiterhin als Zahlen-Literale direkt in `query_ub_achievements_usecase.py` standen. Zwei Konfigurationsquellen fuer dieselbe fachliche Kategorie sind ein Smell ("die Zahlen sollten definitiv nicht in einem Usecase stehen").

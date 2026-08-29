@@ -179,12 +179,22 @@ class FileSystemSequencePlanRepository:
         atomic_write_text(path, "\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
     def replace_trailing_table(self, *, sequence_path: Path, table_lines: list[str]) -> None:
-        """Replace only the trailing markdown table while preserving all other content."""
+        """Replace only the trailing markdown table while preserving all other content.
+
+        Skips the actual write if the resulting content is byte-identical to
+        what's already on disk. This is called on *every* grid rebuild for
+        *every* recognized topic sequence (`SyncTopicSequencePlansUseCase`,
+        which itself runs after every single cell edit anywhere in the plan)
+        — without this check, a plan with N sequences would touch N sequence
+        files on disk per edit even when the edit has nothing to do with any
+        of them, since the previous code always wrote unconditionally.
+        """
         if not table_lines:
             return
 
         path = sequence_path.expanduser().resolve()
-        lines = path.read_text(encoding="utf-8").splitlines()
+        original_text = path.read_text(encoding="utf-8")
+        lines = original_text.splitlines()
         blocks = self._extract_table_blocks(lines)
 
         if blocks:
@@ -200,7 +210,10 @@ class FileSystemSequencePlanRepository:
                 lines.append("")
             lines.extend(table_lines)
 
-        atomic_write_text(path, "\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        new_text = "\n".join(lines).rstrip() + "\n"
+        if new_text == original_text:
+            return
+        atomic_write_text(path, new_text, encoding="utf-8")
 
     @staticmethod
     def render_markdown_table(*, headers: list[str], rows: list[list[str]]) -> list[str]:
