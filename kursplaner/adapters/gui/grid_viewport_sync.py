@@ -61,6 +61,7 @@ class HorizontalViewportSync:
 
     def __init__(self, app):
         self.app = app
+        self._reconcile_after_id: str | None = None
 
     def xview(self, *args) -> None:
         """Wendet einen horizontalen Scroll-Befehl synchron auf Header und Grid-Spalte an."""
@@ -91,6 +92,30 @@ class HorizontalViewportSync:
         """
         self.app.x_scroll.set(first, last)
         self.app.header_canvas.xview_moveto(first)
+        self._schedule_mount_reconciliation()
+
+    def _schedule_mount_reconciliation(self, delay_ms: int = 40) -> None:
+        """Debounced Aufruf von ``grid_renderer._reconcile_column_mounts()``.
+
+        Reine Zellen-Sichtbarkeitsänderung (``grid()``/``grid_remove()``,
+        s. ``_reconcile_column_mounts()``-Docstring) -- löst nie einen Save
+        aus. Ein schneller Drag-Scroll feuert ``on_view_changed()`` viele
+        Male pro Sekunde; ohne Debounce würde jeder Tick synchron über die
+        gesamte ``cell_widgets``-Map laufen. Analog zu
+        ``GridRenderer._schedule_zoom_rebuild()``.
+        """
+        if self._reconcile_after_id is not None:
+            try:
+                self.app.after_cancel(self._reconcile_after_id)
+            except Exception:
+                pass
+            self._reconcile_after_id = None
+        self._reconcile_after_id = self.app.after(delay_ms, self._run_scheduled_mount_reconciliation)
+
+    def _run_scheduled_mount_reconciliation(self) -> None:
+        """Führt die geplante Mount-Fenster-Reconciliation aus und löscht die Pending-ID."""
+        self._reconcile_after_id = None
+        self.app.grid_renderer._reconcile_column_mounts()
 
     def visible_day_index_range(self) -> tuple[int, int] | None:
         """Berechnet die aktuell sichtbaren Tages-Indizes aus der X-Viewport-Fraction.

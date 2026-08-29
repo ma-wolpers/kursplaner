@@ -46,6 +46,14 @@ class _ScrollbarStub:
         self.set_calls.append((first, last))
 
 
+class _GridRendererSpy:
+    def __init__(self):
+        self.reconcile_calls = 0
+
+    def _reconcile_column_mounts(self):
+        self.reconcile_calls += 1
+
+
 class _AppStub:
     def __init__(self, *, day_count: int = 10, day_column_width: int = 260):
         self.header_canvas = _CanvasStub()
@@ -55,6 +63,19 @@ class _AppStub:
         self.day_column_width = day_column_width
         self.day_column_x_positions = {i: i * day_column_width for i in range(day_count)}
         self.day_columns = list(range(day_count))
+        self.grid_renderer = _GridRendererSpy()
+        self.after_calls: list[tuple] = []
+        self.after_cancel_calls: list[str] = []
+        self._next_timer_id = 0
+
+    def after(self, delay_ms, callback):
+        self._next_timer_id += 1
+        timer_id = f"timer-{self._next_timer_id}"
+        self.after_calls.append((delay_ms, callback, timer_id))
+        return timer_id
+
+    def after_cancel(self, timer_id):
+        self.after_cancel_calls.append(timer_id)
 
 
 def test_xview_moveto_updates_both_canvases():
@@ -109,6 +130,48 @@ def test_on_view_changed_syncs_scrollbar_and_header():
 
     assert app.x_scroll.set_calls == [(0.1, 0.4)]
     assert ("xview_moveto", 0.1) in app.header_canvas.calls
+
+
+def test_on_view_changed_schedules_reconciliation_but_does_not_run_it_synchronously():
+    app = _AppStub()
+    sync = HorizontalViewportSync(app)
+
+    sync.on_view_changed(0.1, 0.4)
+
+    assert len(app.after_calls) == 1
+    assert app.after_calls[0][0] == 40  # Standard-Debounce-Verzoegerung
+    assert app.grid_renderer.reconcile_calls == 0  # noch nicht ausgefuehrt
+
+
+def test_rapid_view_changes_collapse_into_a_single_pending_reconciliation():
+    """Schnelles Drag-Scrollen darf nicht bei jedem Tick synchron ueber
+
+    cell_widgets laufen -- jeder neue Aufruf storniert den vorherigen
+    geplanten Reconciliation-Timer, nur der letzte bleibt stehen.
+    """
+    app = _AppStub()
+    sync = HorizontalViewportSync(app)
+
+    for i in range(5):
+        sync.on_view_changed(0.1 * i, 0.1 * i + 0.2)
+
+    assert len(app.after_calls) == 5
+    assert len(app.after_cancel_calls) == 4
+    last_timer_id = app.after_calls[-1][2]
+    assert last_timer_id not in app.after_cancel_calls
+    assert app.grid_renderer.reconcile_calls == 0  # nichts synchron ausgefuehrt
+
+
+def test_scheduled_reconciliation_callback_invokes_grid_renderer():
+    app = _AppStub()
+    sync = HorizontalViewportSync(app)
+    sync.on_view_changed(0.1, 0.4)
+    _delay, callback, _timer_id = app.after_calls[0]
+
+    callback()  # simuliert das tatsaechliche Feuern des after()-Timers
+
+    assert app.grid_renderer.reconcile_calls == 1
+    assert sync._reconcile_after_id is None  # Pending-ID wird nach Ausfuehrung geloescht
 
 
 def test_visible_day_index_range_returns_none_before_layout():

@@ -257,6 +257,46 @@ class GridRenderer:
 
         return True
 
+    def _reconcile_column_mounts(self) -> None:
+        """Blendet Zellen-Widgets ausserhalb des aktuellen Mount-Fensters per
+
+        ``grid_remove()`` aus, und zuvor ausgeblendete Widgets innerhalb des
+        Fensters wieder per ``grid()`` ein (Kursplaner Item 4, Stufe 3).
+
+        Reine Layout-Sichtbarkeit, keine Widget-Erzeugung/-Zerstörung:
+        ``grid_remove()`` entfernt ein Widget nur aus dem Geometrie-Manager,
+        das Objekt (inkl. Textinhalt, Undo-Stack) bleibt vollständig
+        bestehen -- ``grid()`` ohne Argumente stellt exakt dieselbe
+        Grid-Platzierung wieder her (Tk-natives Verhalten). Deshalb braucht
+        dieser Schritt (anders als eine spätere ``destroy()``-basierte
+        COLD-Stufe) keinerlei Datenrettungsmechanismus: nichts kann hier
+        verloren gehen, und diese Methode löst nie einen Save aus -- sie
+        berührt weder ``active_editor`` noch den Fokus noch
+        ``save_cell()``.
+
+        ``grid()``/``grid_remove()`` sind idempotent (wiederholtes Aufrufen
+        im bereits gewünschten Zustand ist ein sicherer No-op), daher bewusst
+        ohne zusätzliche "ist schon im Zielzustand"-Buchführung -- ein
+        vollständiger Durchlauf über ``cell_widgets`` pro Aufruf ist einfach
+        und korrekt; sollte sich das als Kostenfaktor erweisen, ist das ein
+        separat zu messendes Folgethema, keine Vorab-Optimierung hier.
+
+        Nur ``cell_widgets`` ist betroffen -- Header (immer vollständig
+        gemountet) und ``sequence_field_widgets`` (bewusst isoliert,
+        eigene spätere Stufe) bleiben unangetastet.
+        """
+        if self.app._is_rebuilding_grid:
+            return
+        mounted_range = self.app.viewport_sync_h.mounted_day_index_range()
+        if mounted_range is None:
+            return
+        lo, hi = mounted_range
+        for (_field_key, day_index), cell in self.app.cell_widgets.items():
+            if lo <= day_index <= hi:
+                cell.grid()
+            else:
+                cell.grid_remove()
+
     def _row_layout(self, field_key: str) -> tuple[int, bool, bool, str]:
         """Berechnet Höhe, Kollaps-Status und Labeltext einer Feldzeile und cacht das Ergebnis.
 
@@ -688,6 +728,10 @@ class GridRenderer:
         self.app._refresh_header_styles()
         self.app._on_grid_inner_configure()
         self.app.action_controller.update_action_controls()
+        # Nach _on_grid_inner_configure(), damit bbox()/scrollregion bereits
+        # aktuelle Geometrie hat -- sonst koennte visible_day_index_range()
+        # mit veralteten Massen rechnen.
+        self._reconcile_column_mounts()
 
     def update_header(self, day_index: int):
         """Aktualisiert Text/Basisfarbe eines existierenden Tages-Headers."""
