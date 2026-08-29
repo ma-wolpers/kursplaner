@@ -781,10 +781,16 @@ class MainWindowUiIntentController:
         selected = self.app.ui_state.selected_cell
         if selected is None:
             return None
-        cell_widget = self.app.cell_widgets.get((selected.field_key, selected.day_index))
-        if cell_widget is None:
+        if selected.day_index >= len(self.app.day_columns):
             return None
-        value = cell_widget.get("1.0", "end-1c")
+        # Liest den Domain-Wert statt des Widget-Texts: Kopieren ist nur auf
+        # SELECTION_LEVEL_CELL erreichbar (nie waehrend eines laufenden Edits),
+        # der Wert ist an dieser Stelle also ohnehin identisch -- und macht
+        # den Zugriff unabhaengig davon, ob die Zelle gerade ein Widget hat
+        # (relevant sobald cell_widgets durch Virtualisierung nur noch die
+        # sichtbaren Zellen enthaelt, s. Kursplaner Item 4).
+        day = self.app.day_columns[selected.day_index]
+        value = self.app._field_value(day, selected.field_key)
         try:
             self.app.clipboard_clear()
             self.app.clipboard_append(value)
@@ -837,11 +843,17 @@ class MainWindowUiIntentController:
 
         field_key = str(getattr(selected, "field_key", "") or "")
         day_index = int(getattr(selected, "day_index", -1))
-        if not field_key or day_index < 0:
+        if not field_key or day_index < 0 or day_index >= len(self.app.day_columns):
             return
 
-        cell_widgets = getattr(self.app, "cell_widgets", {})
-        if (field_key, day_index) not in cell_widgets:
+        # Domain-Frage ("ist das Feld fuer diesen Tag ueberhaupt relevant"),
+        # nicht Widget-Praesenz: der fruehere `not in cell_widgets`-Check war
+        # selbstwidersprechend, da genau der Fall, in dem die Zelle noch
+        # ausserhalb des Sichtbereichs liegt und erst durch ensure_*_visible()
+        # hineingescrollt werden soll, hier faelschlich als "nichts zu tun"
+        # gelesen wurde.
+        day = self.app.day_columns[day_index]
+        if not self.app.grid_renderer._field_is_visible_for_day(field_key, day):
             return
 
         selection_controller = getattr(self.app, "selection_controller", None)

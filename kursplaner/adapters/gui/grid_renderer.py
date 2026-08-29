@@ -301,6 +301,29 @@ class GridRenderer:
                 return False
         return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day, self.app.row_filter_settings)
 
+    def _clear_selection_if_selected_cell_no_longer_visible(self) -> None:
+        """Löscht die Zellauswahl, falls die zuvor ausgewählte Zelle nach einem
+        Rebuild (z. B. Modus-/Filterwechsel) nicht mehr existiert.
+
+        Prüft die Domain-Sichtbarkeit (`_field_is_visible_for_day()`), nicht
+        Widget-Präsenz in `cell_widgets` -- letzteres ist heute zwar noch
+        vollständig (keine Virtualisierung), aber die Domain-Frage ist die
+        eigentliche, stabile Quelle der Wahrheit dafür.
+        """
+        selected = self.app.ui_state.selected_cell
+        if selected is None:
+            return
+        selected_day = (
+            self.app.day_columns[selected.day_index]
+            if selected.day_index < len(self.app.day_columns)
+            else None
+        )
+        if selected_day is not None and self._field_is_visible_for_day(selected.field_key, selected_day):
+            return
+        self.app.ui_state.clear_selected_cell()
+        if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
+            self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
+
     def _apply_cell_state(
         self,
         widget: ui.Text,
@@ -640,11 +663,7 @@ class GridRenderer:
             self.app.grid_inner.grid_rowconfigure(row_idx, minsize=pixel_height)
 
         self.app._is_rebuilding_grid = False
-        selected = self.app.ui_state.selected_cell
-        if selected is not None and (selected.field_key, selected.day_index) not in self.app.cell_widgets:
-            self.app.ui_state.clear_selected_cell()
-            if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
-                self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
+        self._clear_selection_if_selected_cell_no_longer_visible()
         self.app._refresh_header_styles()
         self.app._on_grid_inner_configure()
         self.app.action_controller.update_action_controls()
@@ -770,7 +789,11 @@ class GridRenderer:
         """Aktualisiert den kompletten Grid-Inhalt ohne Widget-Neuaufbau."""
         if self.app._is_rebuilding_grid:
             return
-        if not self.app.header_labels or not self.app.cell_widgets:
+        # "Ist das Grid ueberhaupt schon aufgebaut" ist eine Frage an
+        # header_labels (ein Header pro Tag, unabhaengig von Feld-Sichtbarkeit)
+        # -- nicht an cell_widgets, das bei restriktiven Zeilenfiltern legitim
+        # leer sein kann, obwohl das Grid korrekt aufgebaut ist.
+        if not self.app.header_labels:
             self._rebuild_grid()
             return
         if not self._grid_structure_matches_state():

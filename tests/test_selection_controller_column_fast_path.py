@@ -36,9 +36,12 @@ def _app_with_headers(num_columns: int) -> _SelectionAppStub:
         editable_cells={("Stundenthema", i) for i in range(num_columns)},
     )
     app.header_labels = {i: _HeaderLabelStub() for i in range(num_columns)}
-    # Fast Path in set_selected_cell()/clear_selected_cell() prueft cell_widgets
-    # nicht-leer + kein laufender Rebuild -- fuer diese Tests soll das Grid als
-    # "bereits aufgebaut" gelten.
+    # Fast Path in set_selected_cell()/clear_selected_cell()/
+    # _restyle_headers_for_selection_change() prueft header_labels nicht-leer
+    # + kein laufender Rebuild ("ist das Grid ueberhaupt aufgebaut") -- fuer
+    # diese Tests soll das Grid als "bereits aufgebaut" gelten. cell_widgets
+    # bekommt zusaetzlich einen Eintrag, damit auch die davon unabhaengigen
+    # Einzel-Widget-Lookups innerhalb des Fast Path etwas zum Finden haben.
     app.cell_widgets[("Stundenthema", 0)] = object()
     return app
 
@@ -110,19 +113,40 @@ def test_clear_selected_cell_is_noop_when_nothing_was_selected():
 
 
 def test_column_selection_falls_back_to_full_refresh_when_grid_not_built():
-    """Wenn `cell_widgets` leer ist (Grid noch nicht aufgebaut), muss der volle
+    """Wenn `header_labels` leer ist (Grid noch nie aufgebaut), muss der volle
 
-    `refresh_header_styles()`-Sweep laufen statt des Fast Path -- erkennbar
-    daran, dass ALLE Header (nicht nur die betroffene Spalte) gestylt werden.
+    `refresh_header_styles()`-Sweep laufen statt des Fast Path. Da in diesem
+    Zustand noch keine Header-Objekte existieren, gibt es nichts, das der
+    Sweep sichtbar umstylen koennte -- der Test beweist stattdessen, dass
+    nichts abstuerzt und der Selektionszustand trotzdem korrekt gesetzt wird.
     """
     app = _app_with_headers(2)
-    app.cell_widgets = {}  # simuliert: Grid noch nicht aufgebaut
+    app.header_labels = {}  # simuliert: Grid noch nie aufgebaut
     controller = MainWindowSelectionController(app)
 
-    controller.set_single_column_selection(0)
+    controller.set_single_column_selection(0)  # darf nicht abstuerzen (leerer Sweep ueber {})
 
-    assert app.header_labels[0].configure_calls  # betroffene Spalte
-    assert app.header_labels[1].configure_calls  # UNBETROFFENE Spalte -- nur der volle Sweep stylt auch sie
+    assert app.selected_day_indices == {0}
+
+
+def test_column_selection_takes_fast_path_even_when_cell_widgets_empty():
+    """Header-Fast-Path haengt NUR an `header_labels`, nicht an `cell_widgets` --
+
+    Zellen koennen (z.B. durch Viewport-Virtualisierung, Kursplaner Item 4)
+    routinemaessig unvollstaendig gemountet sein, ohne dass das Grid deshalb
+    als "nicht aufgebaut" gelten darf. Beweis: bei leerem `cell_widgets`, aber
+    vorhandenen Headern, wird weiterhin NUR die betroffene Spalte umgestylt,
+    nicht alle -- der volle Sweep bleibt aus.
+    """
+    app = _app_with_headers(3)
+    app.cell_widgets = {}  # Zellen (noch) nicht gemountet, Grid selbst aber sehr wohl aufgebaut
+    controller = MainWindowSelectionController(app)
+
+    controller.set_single_column_selection(1)
+
+    assert app.header_labels[1].configure_calls  # neu selektiert -> gestylt
+    assert not app.header_labels[0].configure_calls  # unberuehrt -- kein voller Sweep
+    assert not app.header_labels[2].configure_calls  # unberuehrt -- kein voller Sweep
 
 
 def test_column_selection_falls_back_to_full_refresh_when_rebuilding():

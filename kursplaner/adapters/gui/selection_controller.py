@@ -70,7 +70,13 @@ class MainWindowSelectionController:
             old_selected: `selected_day_indices` vor der Änderung.
             new_selected: `selected_day_indices` nach der Änderung.
         """
-        if not self.app.cell_widgets or self.app._is_rebuilding_grid:
+        # "Ist das Grid ueberhaupt aufgebaut" ist eine Frage an header_labels
+        # (immer vollstaendig, ein Header pro Tag) -- diese Methode stylt
+        # ohnehin ausschliesslich Header, cell_widgets waere hier nur ein
+        # zufaellig mitlaufender Proxy, der bei einer spaeter nur noch
+        # teilweise gemounteten cell_widgets-Map faelschlich staendig auf
+        # den vollen Sweep zurueckfiele.
+        if not self.app.header_labels or self.app._is_rebuilding_grid:
             self.refresh_header_styles()
             return
         for idx in old_selected.symmetric_difference(new_selected):
@@ -88,7 +94,12 @@ class MainWindowSelectionController:
         if old_sel is None:
             return
         self.app.ui_state.clear_selected_cell()
-        if self.app.cell_widgets and not self.app._is_rebuilding_grid:
+        # header_labels statt cell_widgets als "ist das Grid aufgebaut"-Signal
+        # (s. _restyle_headers_for_selection_change) -- der eigentliche
+        # Widget-Lookup direkt darunter bleibt unveraendert defensiv
+        # (None-Check), das ist eine separate, hier bewusst nicht angefasste
+        # Frage ("existiert das Widget fuer GENAU diese Zelle gerade").
+        if self.app.header_labels and not self.app._is_rebuilding_grid:
             old_widget = self.app.cell_widgets.get((old_sel.field_key, old_sel.day_index))
             if old_widget is not None:
                 self.app.grid_renderer._apply_cell_selection_style(
@@ -106,8 +117,9 @@ class MainWindowSelectionController:
         werden neu gezeichnet. Alle anderen Zellen bleiben unberührt.
 
         Bei erstem Grid-Aufbau, nach einem Modus-Wechsel (der `_rebuild_grid()`
-        auslöst) oder wenn `cell_widgets` noch leer ist, fällt die Methode auf den
-        vollen `_refresh_grid_content()` zurück.
+        auslöst) oder wenn `header_labels` noch leer ist (Grid insgesamt noch
+        nicht aufgebaut), fällt die Methode auf den vollen `_refresh_grid_content()`
+        zurück.
 
         Args:
             field_key: Schlüssel der Feld-Zeile (z.B. ``"Stundenthema"``).
@@ -132,7 +144,10 @@ class MainWindowSelectionController:
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
 
-        if self.app.cell_widgets and not self.app._is_rebuilding_grid:
+        # header_labels statt cell_widgets als "ist das Grid aufgebaut"-Signal,
+        # s. Kommentar in clear_selected_cell(). Die Widget-Lookups darunter
+        # (Zeile mit old_widget/new_widget) bleiben unveraendert defensiv.
+        if self.app.header_labels and not self.app._is_rebuilding_grid:
             gr = self.app.grid_renderer
             if old_field_key is not None and old_day_index is not None:
                 old_widget = self.app.cell_widgets.get((old_field_key, old_day_index))
