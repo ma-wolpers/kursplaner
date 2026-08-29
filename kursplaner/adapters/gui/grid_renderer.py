@@ -217,7 +217,19 @@ class GridRenderer:
         return visible
 
     def _grid_structure_matches_state(self) -> bool:
-        """Prüft, ob vorhandene Widgets zur aktuellen fachlichen Sichtbarkeit passen."""
+        """Prüft, ob vorhandene Widgets zur aktuellen fachlichen Sichtbarkeit passen.
+
+        Dreiwertig statt binär (Kursplaner Item 4, Stufe 2): für Zellen
+        AUSSERHALB des aktuellen Mount-Fensters ist "domain-sichtbar, aber
+        kein Widget" ein legitimer Zustand, kein struktureller Fehler mehr --
+        die spätere Virtualisierung mountet dort bewusst nichts. Solange kein
+        echtes Mount/Unmount existiert (vor Stufe 3), bleibt `cell_widgets`
+        aber für jede domain-sichtbare Zelle vollständig befüllt, das
+        Mount-Fenster wirkt sich also noch nicht aus -- diese Änderung ist
+        eine strikte Lockerung der alten Gleichheitsprüfung, keine
+        Verhaltensänderung: alles, was die alte Prüfung erfüllte, erfüllt
+        auch diese.
+        """
         if len(self.app.header_labels) != len(self.app.day_columns):
             return False
 
@@ -227,12 +239,21 @@ class GridRenderer:
         if actual_fields != expected_fields:
             return False
 
+        viewport_sync_h = getattr(self.app, "viewport_sync_h", None)
+        mounted_range = viewport_sync_h.mounted_day_index_range() if viewport_sync_h is not None else None
+
         for field_key in expected_fields:
             for day_index, day in enumerate(self.app.day_columns):
                 expected_visible = self._field_is_visible_for_day(field_key, day)
-                actual_visible = (field_key, day_index) in self.app.cell_widgets
-                if expected_visible != actual_visible:
-                    return False
+                has_widget = (field_key, day_index) in self.app.cell_widgets
+                if not expected_visible:
+                    if has_widget:
+                        return False  # verwaistes Widget fuer eine jetzt irrelevante Zelle: immer ein Fehler
+                    continue
+                if mounted_range is not None and not (mounted_range[0] <= day_index <= mounted_range[1]):
+                    continue  # domain-sichtbar, aber ausserhalb des Mount-Fensters: erlaubt
+                if not has_widget:
+                    return False  # sollte gerade gemountet sein, ist es nicht: ein Fehler
 
         return True
 
