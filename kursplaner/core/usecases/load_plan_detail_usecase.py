@@ -334,8 +334,17 @@ class LoadPlanDetailUseCase:
         for row_index in range(len(table.rows)):
             needs_rebuild = row_index in changed_row_indices
             if not needs_rebuild and dirty_paths:
-                current_link = self.lesson_repo.resolve_row_link_path(table, row_index)
-                if isinstance(current_link, Path) and current_link.resolve() in dirty_paths:
+                # Kein erneutes resolve_row_link_path() (Dateisystemzugriff) noetig:
+                # eine nicht in changed_row_indices enthaltene Zeile hat ihre
+                # Inhalt-Zelle per Definition nicht angefasst, ihr Link ist also
+                # noch derselbe wie beim Bau von previous_day_columns[row_index]
+                # (bereits aufgeloest, s. _build_one_day_column). Externe
+                # Aenderungen an NICHT betroffenen Dateien sind ohnehin explizit
+                # ausserhalb des Scopes dieses Einzelzeilen-Patches (siehe
+                # Klassendocstring/DEVELOPMENT_LOG) -- ein voller Reload deckt
+                # sie ab, dieselbe Grenze wie beim mtime-Cache.
+                previous_link = previous_day_columns[row_index].link
+                if isinstance(previous_link, Path) and previous_link in dirty_paths:
                     needs_rebuild = True
 
             if needs_rebuild:
