@@ -17,7 +17,7 @@ from kursplaner.adapters.gui.action_controller import MainWindowActionController
 from kursplaner.adapters.gui.column_reorder_controller import MainWindowColumnReorderController
 from kursplaner.adapters.gui.editor_controller import MainWindowEditorController
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
-from kursplaner.adapters.gui.grid_viewport_sync import GridViewportSync
+from kursplaner.adapters.gui.grid_viewport_sync import GridViewportSync, HorizontalViewportSync
 from kursplaner.adapters.gui.lesson_context_controller import MainWindowLessonContextController
 from kursplaner.adapters.gui.lesson_conversion_controller import MainWindowLessonConversionController
 from kursplaner.adapters.gui.overview_controller import MainWindowOverviewController
@@ -140,6 +140,7 @@ class KursplanerApp(BwBaseWindow):
         self._is_rebuilding_grid = False
         self.is_detail_view = False
         self.viewport_sync = GridViewportSync(self)
+        self.viewport_sync_h = HorizontalViewportSync(self)
 
         self.overview_controller = MainWindowOverviewController(self)
         self.selection_controller = MainWindowSelectionController(self)

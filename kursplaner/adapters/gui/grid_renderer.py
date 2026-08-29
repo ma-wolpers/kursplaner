@@ -878,8 +878,7 @@ class GridRenderer:
 
     def _on_horizontal_scroll(self, *args):
         """Scrollt Kopfzeile und Grid-Inhalt synchron in X-Richtung."""
-        self.app.header_canvas.xview(*args)
-        self.app.grid_canvas.xview(*args)
+        self.app.viewport_sync_h.xview(*args)
 
     def _on_grid_mousewheel(self, event):
         """Behandelt Scroll- und Zoom-Interaktion im Grid (Ctrl+Wheel = Spaltenbreite)."""

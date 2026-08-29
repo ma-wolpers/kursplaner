@@ -98,6 +98,19 @@ class _ViewportSyncStub:
         self._grid_canvas.yview_moveto(fraction)
 
 
+class _HorizontalViewportSyncStub:
+    def __init__(self, grid_canvas: _GridCanvasStub):
+        self._grid_canvas = grid_canvas
+        self.last_xview_moveto = None
+
+    def xview_range(self):
+        return self._grid_canvas.xview()
+
+    def xview_moveto(self, fraction):
+        self.last_xview_moveto = fraction
+        self._grid_canvas.xview_moveto(fraction)
+
+
 class _CellWidgetStub:
     def __init__(self, *, y: int, height: int):
         self._y = y
@@ -148,6 +161,7 @@ class _SelectionAppStub(SimpleNamespace):
             overview_controller=SimpleNamespace(_next_lesson_column_index=lambda: 0),
         )
         self.viewport_sync = _ViewportSyncStub(self.grid_canvas)
+        self.viewport_sync_h = _HorizontalViewportSyncStub(self.grid_canvas)
         self.refresh_calls = 0
 
     def _update_row_mode_from_selection(self):

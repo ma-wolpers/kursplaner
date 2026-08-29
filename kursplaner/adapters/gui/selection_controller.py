@@ -318,7 +318,7 @@ class MainWindowSelectionController:
         column_start = int(x_positions.get(day_index, day_index * self.app.day_column_width))
         column_end = column_start + self.app.day_column_width
 
-        x_start, x_end = self.app.grid_canvas.xview()
+        x_start, x_end = self.app.viewport_sync_h.xview_range()
         visible_start = x_start * full_width
         visible_end = x_end * full_width
 
@@ -329,7 +329,7 @@ class MainWindowSelectionController:
             target_start = (column_end - viewport_width) / float(full_width)
 
         max_start = max(0.0, 1.0 - (viewport_width / float(full_width)))
-        self.app.grid_canvas.xview_moveto(min(max(target_start, 0.0), max_start))
+        self.app.viewport_sync_h.xview_moveto(min(max(target_start, 0.0), max_start))
 
     def ensure_row_visible(self, field_key: str, day_index: int):
         """Scrollt vertikal so, dass die aktive Zelle im sichtbaren Grid-Bereich bleibt."""

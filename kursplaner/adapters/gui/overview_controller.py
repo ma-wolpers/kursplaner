@@ -554,7 +554,7 @@ class MainWindowOverviewController:
         target_pixel = int(x_positions.get(target_index, target_index * self.app.day_column_width))
         target_fraction = target_pixel / float(full_width)
         max_fraction = max(0.0, 1.0 - (viewport_width / float(full_width)))
-        self.app.grid_canvas.xview_moveto(min(max(target_fraction, 0.0), max_fraction))
+        self.app.viewport_sync_h.xview_moveto(min(max(target_fraction, 0.0), max_fraction))
 
     def collect_day_columns(self, changed_row_indices: set[int] | None = None) -> None:
         """Erzeugt die Grid-Read-Projektion (`day_columns`) aus der aktuellen Tabelle.
