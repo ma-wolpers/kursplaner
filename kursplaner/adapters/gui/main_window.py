@@ -113,6 +113,7 @@ class KursplanerApp(BwBaseWindow):
         self.current_table: PlanTableData | None = None
         self.day_columns: list[DayColumn] = []
         self.day_column_x_positions: dict[int, int] = {}
+        self.day_grid_columns: dict[int, int] = {}
         self.lesson_load_errors: dict[str, str] = {}
         self._plan_overview_query = self.gui_dependencies.plan_overview_query
         self.row_display_mode_usecase = self.gui_dependencies.row_display_mode_usecase
@@ -132,6 +133,12 @@ class KursplanerApp(BwBaseWindow):
         self.raw_day_columns: list[DayColumn] = []
 
         self.cell_widgets: dict[tuple[str, int], ui.Text] = {}
+        # Ungespeicherter Zellentext, unabhaengig vom Widget gehalten (Kursplaner
+        # Item 4, Stufe 4 -- COLD-Eviction via destroy()). Wird nur befuellt, wenn
+        # eine Zelle mit vom Domain-Wert abweichendem Text destroy()t wird, und
+        # ausschliesslich bei einem erfolgreichen echten Commit (save_cell()
+        # durch Fokusverlust) wieder geleert -- niemals durch reines Scrollen.
+        self.pending_cell_text: dict[tuple[str, int], str] = {}
         self.header_labels: dict[int, ui.Label] = {}
         self.row_labels: dict[str, ui.Label] = {}
         self.corner_label: ui.Label | None = None
