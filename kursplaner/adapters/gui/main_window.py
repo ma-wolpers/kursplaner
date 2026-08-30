@@ -108,6 +108,15 @@ class KursplanerApp(BwBaseWindow):
         self.clipboard_lesson_path: pathlib.Path | None = None
         self.sequence_fields_visible_var = ui.BooleanVar(value=True)
         self.topic_sequence_plans: list[TopicSequencePlanView] = []
+        # Seit der Viewport-Virtualisierung (Kursplaner Item 4) bedeutet ein
+        # Eintrag hier "diese Spannzelle ist gerade materialisiert", NICHT
+        # "dieser Sequenzlauf existiert" -- vor der Virtualisierung waren
+        # beide Aussagen deckungsgleich (jeder Lauf hatte immer ein Widget),
+        # seither nicht mehr. Domain-/Grid-Fragen (z.B. "ueberspannt dieser
+        # Lauf Tag X") gehoeren auf `topic_sequence_plans`/Grid-Konfiguration,
+        # nicht auf dieses Dict; nur echte Materialisierungs-/UI-Fragen
+        # ("hat diese Zelle gerade ein Widget zum Stylen/Fokussieren") duerfen
+        # es lesen. S. `GridRenderer._reconcile_sequence_field_mounts()`.
         self.sequence_field_widgets: dict[tuple[str, int], ui.Text] = {}
 
         self.current_table: PlanTableData | None = None
@@ -132,6 +141,18 @@ class KursplanerApp(BwBaseWindow):
         self.show_former_courses = False
         self.raw_day_columns: list[DayColumn] = []
 
+        # Seit der Viewport-Virtualisierung (Kursplaner Item 4) bedeutet ein
+        # Eintrag hier "diese Zelle ist gerade materialisiert", NICHT "diese
+        # logische Zelle existiert" -- vor der Virtualisierung waren beide
+        # Aussagen deckungsgleich (jede domain-sichtbare Zelle hatte immer
+        # ein Widget), seither nicht mehr. Domain-/Grid-Fragen ("ist dieses
+        # Feld an diesem Tag relevant", "wo liegt Grid-Zeile X") gehoeren auf
+        # Domain-Daten bzw. Grid-Konfiguration (`grid_rowconfigure`/
+        # `day_column_x_positions`/`day_grid_columns`), NIE auf dieses Dict;
+        # nur echte Materialisierungs-/UI-Fragen ("hat diese Zelle gerade ein
+        # Widget zum Stylen/Fokussieren") duerfen es lesen. S.
+        # `GridRenderer._reconcile_column_mounts()`,
+        # `MainWindowSelectionController.ensure_row_visible()`.
         self.cell_widgets: dict[tuple[str, int], ui.Text] = {}
         # Ungespeicherter Zellentext, unabhaengig vom Widget gehalten (Kursplaner
         # Item 4, Stufe 4 -- COLD-Eviction via destroy()). Wird nur befuellt, wenn

@@ -144,9 +144,25 @@ class MainWindowSelectionController:
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
 
+        if ensure_visible:
+            self.ensure_column_visible(day_index)
+            # Invariante: kehrt set_selected_cell(..., ensure_visible=True)
+            # zurueck, ist die Zielzelle synchron materialisiert (cell_widgets
+            # enthaelt einen Eintrag dafuer). Styling direkt unten, ein
+            # anschliessendes ensure_row_visible() sowie nachfolgende
+            # Editing-Aktionen (z.B. ui_intent_controller.intent_grid_enter())
+            # duerfen sich darauf verlassen -- die Materialisierungs-
+            # Verantwortung liegt hier, nicht bei den Konsumenten. Reine
+            # Sichtbarkeits-/Materialisierungslogik, loest nie einen Save aus
+            # (s. flush_pending_reconciliation()).
+            self.app.viewport_sync_h.flush_pending_reconciliation()
+
         # header_labels statt cell_widgets als "ist das Grid aufgebaut"-Signal,
         # s. Kommentar in clear_selected_cell(). Die Widget-Lookups darunter
-        # (Zeile mit old_widget/new_widget) bleiben unveraendert defensiv.
+        # (Zeile mit old_widget/new_widget) bleiben unveraendert defensiv --
+        # cell_widgets heisst "gerade materialisiert", nicht "existiert"; der
+        # obige Flush macht die Existenz fuer die neu selektierte Zelle bei
+        # ensure_visible=True aber bereits verlaesslich, bevor hier gestylt wird.
         if self.app.header_labels and not self.app._is_rebuilding_grid:
             gr = self.app.grid_renderer
             if old_field_key is not None and old_day_index is not None:
@@ -167,7 +183,6 @@ class MainWindowSelectionController:
             self.app.action_controller.update_action_controls()
 
         if ensure_visible:
-            self.ensure_column_visible(day_index)
             self.ensure_row_visible(field_key, day_index)
         return True
 
@@ -332,10 +347,25 @@ class MainWindowSelectionController:
         self.app.viewport_sync_h.xview_moveto(min(max(target_start, 0.0), max_start))
 
     def ensure_row_visible(self, field_key: str, day_index: int):
-        """Scrollt vertikal so, dass die aktive Zelle im sichtbaren Grid-Bereich bleibt."""
-        cell_widgets = getattr(self.app, "cell_widgets", {})
-        cell_widget = cell_widgets.get((field_key, day_index))
-        if cell_widget is None:
+        """Scrollt vertikal so, dass die aktive Zelle im sichtbaren Grid-Bereich bleibt.
+
+        Fragt die Zeilen-Geometrie bewusst beim GRID ab (`grid_bbox()`), nicht
+        bei einem konkreten Zellen-Widget: "wo liegt Grid-Zeile X" ist eine
+        Frage an die Grid-Konfiguration (`grid_rowconfigure`, für JEDE Zeile
+        immer gesetzt -- Zeilen werden nie virtualisiert), nicht an ein
+        Widget, das gerade materialisiert sein mag oder nicht. `cell_widgets`
+        bedeutet seit der Viewport-Virtualisierung "diese Zelle ist gerade
+        materialisiert", nicht "diese logische Zelle existiert" -- Domain-/
+        Grid-Fragen wie diese hier duerfen sich darauf nicht stuetzen (analog
+        zu `ensure_column_visible()`, das die Spalten-Position schon immer
+        aus `day_column_x_positions` statt aus einem Widget liest).
+
+        `day_index` wird fuer die Berechnung selbst nicht mehr gebraucht,
+        bleibt aber in der Signatur (unveraenderte Aufrufer, kein Anlass fuer
+        einen Signatur-Refactor an dieser Stelle).
+        """
+        row_idx = self.app.grid_renderer._row_index_for_field(field_key)
+        if row_idx is None:
             return
 
         self.app.grid_canvas.update_idletasks()
@@ -346,8 +376,11 @@ class MainWindowSelectionController:
         full_height = max(1, bbox[3] - bbox[1])
         viewport_height = max(1, int(self.app.grid_canvas.winfo_height()))
 
-        row_start = int(cell_widget.winfo_y())
-        row_height = max(1, int(cell_widget.winfo_height()))
+        row_bbox = self.app.grid_inner.grid_bbox(0, row_idx)
+        if row_bbox is None:
+            return
+        row_start = int(row_bbox[1])
+        row_height = max(1, int(row_bbox[3]))
         row_end = row_start + row_height
 
         y_start, y_end = self.app.viewport_sync.yview_range()

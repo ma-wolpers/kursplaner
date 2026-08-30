@@ -174,6 +174,33 @@ def test_scheduled_reconciliation_callback_invokes_grid_renderer():
     assert sync._reconcile_after_id is None  # Pending-ID wird nach Ausfuehrung geloescht
 
 
+def test_flush_pending_reconciliation_cancels_pending_timer_and_reconciles_once():
+    """Kein redundanter zweiter Reconcile: der zuvor geplante Debounce-Timer
+
+    wird storniert (sein Aufruf würde sonst ein zweites Mal reconcilen),
+    der synchrone Flush übernimmt dessen Aufgabe genau einmal."""
+    app = _AppStub()
+    sync = HorizontalViewportSync(app)
+    sync.on_view_changed(0.1, 0.4)
+    pending_timer_id = app.after_calls[0][2]
+
+    sync.flush_pending_reconciliation()
+
+    assert app.grid_renderer.reconcile_calls == 1
+    assert pending_timer_id in app.after_cancel_calls
+    assert sync._reconcile_after_id is None
+
+
+def test_flush_pending_reconciliation_without_pending_timer_still_reconciles_once():
+    app = _AppStub()
+    sync = HorizontalViewportSync(app)
+
+    sync.flush_pending_reconciliation()
+
+    assert app.grid_renderer.reconcile_calls == 1
+    assert app.after_cancel_calls == []
+
+
 def test_visible_day_index_range_returns_none_before_layout():
     app = _AppStub()
     app.day_column_x_positions = {}  # Grid noch nicht aufgebaut

@@ -342,6 +342,13 @@ class GridRenderer:
         (Tk-Fokus hängt nicht von Sichtbarkeit ab); `<FocusOut>` feuert nicht
         zuverlässig vor `destroy()`, daher wird der State hier explizit
         bereinigt, statt sich auf das Event zu verlassen.
+
+        Save-Grenze (bewusst, nicht nur Nebenwirkung): COLD-Eviction einer
+        gerade editierten Zelle löst **niemals** selbst einen Commit aus --
+        auch nicht über den `active_editor`-Cleanup oben. Nur ein echter
+        `<FocusOut>` (`GRID_COMMIT_CELL`-Intent) committet. Scrollen/
+        Sichtbarkeitswechsel bleiben damit garantiert save-frei, exakt wie
+        von Anfang an gefordert ("Scrollen speichert nie").
         """
         day = self.app.day_columns[day_index] if day_index < len(self.app.day_columns) else None
         if day is not None:
@@ -456,7 +463,10 @@ class GridRenderer:
         """Entfernt eine einzelne Sequenzfeld-Spannzelle vollständig (COLD).
 
         Spiegelt `_evict_cell_to_cold()` für den Sequenzfeld-Fall -- reines
-        Lesen-und-Merken nach `pending_cell_text`, dann `destroy()`.
+        Lesen-und-Merken nach `pending_cell_text`, dann `destroy()`. Löst
+        ebenso nie einen Save aus (Sequenzfeld-Zellen haben ohnehin kein
+        `active_editor`-Äquivalent -- Fokus-Intents sind bewusste No-ops,
+        s. `ui_intent_controller.py`).
         """
         current_text = cell.get("1.0", "end-1c")
         if current_text != domain_value:
@@ -977,7 +987,21 @@ class GridRenderer:
             self.update_row_style(field_key)
 
     def update_row_style(self, field_key: str):
-        """Aktualisiert Label, Hoehe und Zellstile einer Feldzeile."""
+        """Aktualisiert Label, Hoehe und Zellstile einer Feldzeile.
+
+        Bekannte, bewusst akzeptierte Grenze seit der Viewport-Virtualisierung:
+        die Hoehenmessung unten loopt ueber ALLE Tage, misst aber nur aktuell
+        materialisierte Zellen (`cell_widgets.get(...)`, `continue` bei COLD)
+        -- ist die inhaltlich hoechste Zelle eines Feldes gerade ausserhalb
+        des Mount-Fensters, kann die Zeile kurzzeitig zu niedrig gesetzt
+        werden. Rein kosmetisch (Zeilenhoehe, kein Daten-/Sichtbarkeitsverlust)
+        und selbstheilend: sobald diese Zelle wieder gemountet wird, greift
+        der bestehende Grow-only-Mechanismus (`_grow_row_minsize_for_cell()`)
+        und korrigiert die Hoehe. Der Save-Pfad selbst ruft diese volle
+        Messung nicht auf (`update_column()` nutzt bewusst
+        `sync_row_style=False`) -- nur `refresh_grid_content()` (externe
+        Aenderungen, Undo/Redo, Modus-Wechsel) erreicht diesen Codepfad.
+        """
         row_idx = self._row_index_for_field(field_key)
         if row_idx is None:
             return

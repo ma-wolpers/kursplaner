@@ -117,6 +117,33 @@ class HorizontalViewportSync:
         self._reconcile_after_id = None
         self.app.grid_renderer._reconcile_column_mounts()
 
+    def flush_pending_reconciliation(self) -> None:
+        """Storniert einen ggf. anstehenden Debounce-Timer und führt die
+
+        Mount-Fenster-Reconciliation sofort synchron aus.
+
+        Bewusst eng geschnitten -- ausschließlich Viewport-Reconciliation,
+        kein Vorbild für eine allgemeine "GUI, mach jetzt alles Anstehende"-
+        Methode: kein Save (Reconciliation war und bleibt reine Sichtbarkeits-/
+        Materialisierungslogik, s. ``GridRenderer._reconcile_column_mounts()``-
+        Docstring), keine Selection-/Fokus-Zuständigkeit, kein Flush anderer
+        "pending"-Operationen (z.B. Debounced-Save aus anderen Komponenten).
+
+        Aufrufer (aktuell: ``MainWindowSelectionController.set_selected_cell(
+        ..., ensure_visible=True)``) verlassen sich darauf, dass die
+        Zielzelle direkt danach materialisiert ist -- ``_reconcile_column_
+        mounts()`` ist idempotent und für die typische Fenstergröße (~10-20
+        Spalten × ~10-12 Zeilen) günstig genug für einen synchronen Aufruf
+        bei einer einzelnen, diskreten Nutzeraktion (kein Scroll-Hotpath).
+        """
+        if self._reconcile_after_id is not None:
+            try:
+                self.app.after_cancel(self._reconcile_after_id)
+            except Exception:
+                pass
+            self._reconcile_after_id = None
+        self.app.grid_renderer._reconcile_column_mounts()
+
     def visible_day_index_range(self) -> tuple[int, int] | None:
         """Berechnet die aktuell sichtbaren Tages-Indizes aus der X-Viewport-Fraction.
 
