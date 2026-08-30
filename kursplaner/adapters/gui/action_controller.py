@@ -55,6 +55,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_LANGENTWURF,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.yaml_registry import parse_stufe
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlowWriteRequest
 from kursplaner.core.usecases.query_ub_achievements_usecase import (
     UbAchievementsResult,
@@ -1923,11 +1924,11 @@ class MainWindowActionController:
                 markdown_path=self.app.current_table.markdown_path,
                 calendar_dir=calendar_dir,
             )
-            stufe_raw = str(self.app.current_table.metadata.get("Stufe", "")).strip()
-            if stufe_raw.isdigit():
+            stufe = parse_stufe(self.app.current_table.metadata.get("Stufe"))
+            if stufe is not None:
                 self._apply_school_wide_cancellations_to_new_course(
                     markdown_path=self.app.current_table.markdown_path,
-                    grade_level=int(stufe_raw),
+                    grade_level=stufe,
                     date_from=result.range_start,
                     date_to=result.range_end,
                 )

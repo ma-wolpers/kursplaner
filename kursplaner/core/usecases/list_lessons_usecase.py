@@ -4,6 +4,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.course_lifecycle import is_archived_course_path
 from kursplaner.core.domain.models import LessonOverviewItem, ListLessonsResult
+from kursplaner.core.domain.yaml_registry import parse_stufe
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
 
@@ -114,6 +115,7 @@ class ListLessonsUseCase:
                     has_any_dated_unit=has_any_dated_unit,
                     is_archived=is_archived,
                     load_error=None,
+                    grade_level=parse_stufe(table.metadata.get("Stufe")),
                 )
             )
 

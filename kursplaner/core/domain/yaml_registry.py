@@ -34,12 +34,31 @@ def _is_valid_lerngruppe(value: object) -> bool:
     return bool(re.fullmatch(r"\[\[[^\[\]\|]+\]\]", text))
 
 
-def _is_valid_stufe(value: object) -> bool:
+STUFE_MIN = 1
+STUFE_MAX = 13
+
+
+def parse_stufe(value: object) -> int | None:
+    """Parst einen Kurs-`Stufe`-Metadatenwert robust zu ``int`` (1-13) oder ``None``.
+
+    Volle Kurs-Jahrgangsbandbreite (1-13) -- anders als das UB-spezifische
+    `parse_jahrgangsstufe` (5-13, `unterrichtsbesuch_policy.py`), das dieselbe
+    Rohangabe zusaetzlich auf UB-Tracking-Eignung einschraenkt. Fuer bereits
+    per `PLAN_METADATA_SCHEMA` validierte Kurse liefert dies immer einen Wert;
+    das Signatur-``None`` deckt Aufrufstellen ab, die (noch) keine Schema-
+    Validierung garantieren koennen.
+    """
     text = str(value or "").strip()
     if not text.isdigit():
-        return False
+        return None
     number = int(text)
-    return 1 <= number <= 13
+    if STUFE_MIN <= number <= STUFE_MAX:
+        return number
+    return None
+
+
+def _is_valid_stufe(value: object) -> bool:
+    return parse_stufe(value) is not None
 
 
 def _is_valid_kursfach(value: object) -> bool:

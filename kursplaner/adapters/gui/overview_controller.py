@@ -295,6 +295,7 @@ class MainWindowOverviewController:
                 iid=iid,
                 values=(
                     name,
+                    str(lesson.grade_level) if lesson.grade_level is not None else "",
                     lesson.next_topic,
                     lesson.next_unit,
                     str(lesson.remaining_hours),

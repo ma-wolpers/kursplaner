@@ -80,6 +80,7 @@ class LessonOverviewItem:
     has_any_dated_unit: bool = False
     is_archived: bool = False
     load_error: str | None = None
+    grade_level: int | None = None
 
 
 @dataclass(frozen=True)

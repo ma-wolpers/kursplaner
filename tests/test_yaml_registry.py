@@ -1,4 +1,4 @@
-from kursplaner.core.domain.yaml_registry import body_after_frontmatter, render_yaml_frontmatter
+from kursplaner.core.domain.yaml_registry import body_after_frontmatter, parse_stufe, render_yaml_frontmatter
 
 
 def test_body_after_frontmatter_strips_frontmatter_block():
@@ -51,3 +51,17 @@ def test_render_yaml_frontmatter_renders_bool_as_lowercase():
     rendered = render_yaml_frontmatter(["Langentwurf"], {"Langentwurf": True})
 
     assert "Langentwurf: true" in rendered
+
+
+def test_parse_stufe_accepts_full_1_to_13_range():
+    assert parse_stufe("1") == 1
+    assert parse_stufe(7) == 7
+    assert parse_stufe("13") == 13
+
+
+def test_parse_stufe_returns_none_for_missing_or_out_of_range():
+    assert parse_stufe(None) is None
+    assert parse_stufe("") is None
+    assert parse_stufe("keine Zahl") is None
+    assert parse_stufe("0") is None
+    assert parse_stufe("14") is None

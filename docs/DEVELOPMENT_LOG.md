@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-30) — Stufe-Spalte in der Kursübersicht
+
+`LessonOverviewItem` (`core/domain/models.py`) um `grade_level: int | None` erweitert, in `ListLessonsUseCase.execute()` aus `table.metadata.get("Stufe")` befuellt. Dafuer neue oeffentliche `parse_stufe()` in `yaml_registry.py` (volle 1-13-Bandbreite, anders als das UB-spezifische, auf 5-13 eingeschraenkte `parse_jahrgangsstufe`) -- `_is_valid_stufe()` (Schema-Validator) delegiert jetzt an dieselbe Funktion statt eine zweite, potenziell abweichende Pruefung zu pflegen. Der bereits bestehende Ad-hoc-Umgang mit `Stufe` in `action_controller.py` (`extend_plan_to_next_vacation`-Flow, `stufe_raw.isdigit()`/`int(stufe_raw)`) auf `parse_stufe()` umgestellt -- ein Mechanismus statt zweier.
+
+Kursübersicht (`screen_builder.py`/`overview_controller.py`): neue Spalte "Stufe" direkt nach dem Kursnamen, leer wenn `grade_level` `None` ist.
+
+**Tests**: `test_yaml_registry.py` um `parse_stufe`-Faelle ergaenzt. Neue `test_list_lessons_usecase.py` (bisher keine direkte Testdatei fuer diesen Usecase) mit zwei Faellen: Stufe wird uebernommen, fehlende/ungueltige Stufe bleibt `None`.
+
 ### Added (2026-08-30) — PDF-Export des Achievement-Reports
 
 Neuer Button "Als PDF exportieren" im Achievements-Tab, exakt nach dem bestehenden `reportlab`-Renderer-Muster (`ExpectedHorizonPdfRenderer`/`TopicUnitsPdfRenderer`): `ExportAchievementsReportUseCase` (`core/usecases/export_achievements_report_usecase.py`) nimmt das bereits geladene `UbAchievementsResult` entgegen (dasselbe, das auch die Ringe zeichnet -- kein erneutes Abfragen von Stufen/Fortschritt), baut daraus per `group_achievements_by_domain()` ein `AchievementsReportDocument` und uebergibt es an `AchievementsReportPdfRenderer` (`infrastructure/export/achievements_report_pdf_renderer.py`, `SimpleDocTemplate`, eine Tabelle pro Fach: Titel/Stand/Status). Renderer enthaelt keine eigene Gruppierungs-/Sortierlogik -- stellt nur dar, was ankommt. Wie die drei bestehenden PDF-Exporte hinter `REPORTLAB_AVAILABLE` in `wiring.py` verdrahtet (`None` ohne `reportlab`, GUI zeigt dann denselben Hinweis wie bei den anderen drei Exportstellen).
