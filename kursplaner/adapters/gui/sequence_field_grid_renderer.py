@@ -10,6 +10,36 @@ from kursplaner.core.domain.day_column import DayColumn
 
 CreateTextCell = Callable[..., ui.Text]
 
+# Reihenfolge, in der Sequenzfeld-Zeilen gerendert werden -- einzige Quelle
+# der Wahrheit für ihren (immer deterministischen) `row_idx`: `render()`
+# rendert beide Zeilen immer ab `row_idx=0` in dieser Reihenfolge, wenn
+# `topic_sequence_plans` nicht leer ist. Von `GridRenderer._reconcile_
+# sequence_field_mounts()` (Kursplaner Item 4, Stufe 6) genutzt, um den
+# `row_idx` einer Zeile ohne Voll-Rebuild aufzulösen, statt die Reihenfolge
+# ein zweites Mal hart zu kodieren.
+SEQUENCE_FIELD_ROW_ORDER = ("Sequenzziel", "Leitkompetenz")
+
+
+def compute_row_index_to_grid_col(
+    day_columns: list, day_grid_columns: dict[int, int]
+) -> dict[int, int]:
+    """Bildet `DayColumn.row_index` auf die tatsächliche Tk-Grid-Spalte ab.
+
+    Gemeinsam von `render()` (während des vollen Rebuilds, `day_grid_columns`
+    als lokale, gerade erst aufgebaute Variable) und der Mount-Fenster-
+    Reconciliation (`day_grid_columns` als bereits persistiertes
+    `self.app.day_grid_columns`) genutzt, damit beide garantiert dieselbe
+    Abbildung berechnen statt zweier potenziell divergierender Kopien.
+    """
+    row_index_to_grid_col: dict[int, int] = {}
+    for day_index, day in enumerate(day_columns):
+        if not isinstance(day, DayColumn):
+            continue
+        grid_col = day_grid_columns.get(day_index)
+        if grid_col is not None:
+            row_index_to_grid_col[day.row_index] = grid_col
+    return row_index_to_grid_col
+
 
 class SequenceFieldGridRenderer:
     """Rendert die über mehrere Tages-Spalten spannenden Sequenzziel-/Leitkompetenz-Zeilen.
@@ -62,21 +92,18 @@ class SequenceFieldGridRenderer:
         if not self.app.topic_sequence_plans:
             return row_idx
 
-        row_index_to_grid_col: dict[int, int] = {}
-        grid_col_is_cancel: dict[int, bool] = {}
-        for day_index, day in enumerate(self.app.day_columns):
-            if not isinstance(day, DayColumn):
-                continue
-            grid_col = day_grid_columns.get(day_index)
-            if grid_col is not None:
-                row_index_to_grid_col[day.row_index] = grid_col
-                grid_col_is_cancel[grid_col] = day.is_cancel()
+        row_index_to_grid_col = compute_row_index_to_grid_col(self.app.day_columns, day_grid_columns)
+        grid_col_is_cancel: dict[int, bool] = {
+            day_grid_columns[day_index]: day.is_cancel()
+            for day_index, day in enumerate(self.app.day_columns)
+            if isinstance(day, DayColumn) and day_index in day_grid_columns
+        }
 
-        for field_key, label_text in (("Sequenzziel", "Sequenzziel"), ("Leitkompetenz", "Leitkompetenz")):
+        for field_key in SEQUENCE_FIELD_ROW_ORDER:
             row_idx = self._render_one_row(
                 row_idx=row_idx,
                 field_key=field_key,
-                label_text=label_text,
+                label_text=field_key,
                 row_index_to_grid_col=row_index_to_grid_col,
                 grid_col_is_cancel=grid_col_is_cancel,
                 row_pixel_heights=row_pixel_heights,

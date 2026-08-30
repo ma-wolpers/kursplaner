@@ -29,8 +29,6 @@ from __future__ import annotations
 import tkinter as tk
 from types import SimpleNamespace
 
-import pytest
-
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
@@ -78,6 +76,10 @@ def _renderer(
         _is_rebuilding_grid=is_rebuilding,
         viewport_sync_h=SimpleNamespace(mounted_day_index_range=lambda: mounted_range),
         day_columns=day_columns if day_columns is not None else [],
+        # Sequenzfeld-Reconciliation (Stufe 6) ist fuer diese Tests bewusst
+        # inaktiv -- kein Sequenzlauf vorhanden, kein zusaetzlicher Stub-Bedarf.
+        sequence_fields_visible_var=SimpleNamespace(get=lambda: False),
+        topic_sequence_plans=[],
         pending_cell_text=pending_cell_text if pending_cell_text is not None else {},
         ui_state=ui_state,
         _field_value=lambda day, field_key: field_value_by_key.get((field_key, day.row_index), ""),
@@ -256,14 +258,9 @@ def test_already_mounted_cell_inside_window_is_just_regridded_not_recreated():
 
 
 # --- Remount: braucht echte Widget-Erzeugung -> echter Tk-Root ---
-
-
-@pytest.fixture(scope="module")
-def tk_root():
-    root = tk.Tk()
-    root.geometry("400x300+3000+3000")  # off-screen, s. Kartograph-Testkonvention
-    yield root
-    root.destroy()
+# `tk_root`-Fixture kommt aus tests/conftest.py (session-scope, ein einziger
+# Root fuer die gesamte Suite -- ein zweiter tk.Tk()-Root pro Testdatei
+# schlaegt unzuverlaessig fehl, s. dortiger Docstring).
 
 
 def _real_renderer_for_remount(tk_root, *, field_value: str, pending_text: str | None) -> tuple[GridRenderer, dict]:
@@ -283,6 +280,8 @@ def _real_renderer_for_remount(tk_root, *, field_value: str, pending_text: str |
         day_grid_columns={0: 0},
         pending_cell_text=pending_cell_text,
         cell_widgets={},
+        sequence_fields_visible_var=SimpleNamespace(get=lambda: False),
+        topic_sequence_plans=[],
         row_defs=[("Stundenthema", "Thema")],
         row_labels={"Stundenthema": row_label},
         row_display_mode_usecase=SimpleNamespace(

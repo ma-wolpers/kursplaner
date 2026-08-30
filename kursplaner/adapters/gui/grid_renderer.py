@@ -20,7 +20,11 @@ from bw_gui.theming import (
 )
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
-from kursplaner.adapters.gui.sequence_field_grid_renderer import SequenceFieldGridRenderer
+from kursplaner.adapters.gui.sequence_field_grid_renderer import (
+    SEQUENCE_FIELD_ROW_ORDER,
+    SequenceFieldGridRenderer,
+    compute_row_index_to_grid_col,
+)
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
@@ -282,14 +286,16 @@ class GridRenderer:
         über den bestehenden Pfad (`editor_controller.save_cell()`).
 
         Nur `cell_widgets` ist betroffen -- Header (immer vollständig
-        gemountet) und `sequence_field_widgets` (bewusst isoliert, eigene
-        spätere Stufe) bleiben unangetastet.
+        gemountet) und `sequence_field_widgets` (bewusst isoliert per
+        `_reconcile_sequence_field_mounts()`, s. dort, Kursplaner Item 4
+        Stufe 6) bleiben hier unangetastet.
         """
         if self.app._is_rebuilding_grid:
             return
         mounted_range = self.app.viewport_sync_h.mounted_day_index_range()
         if mounted_range is None:
             return
+        self._reconcile_sequence_field_mounts(mounted_range)
         lo, hi = mounted_range
 
         for (field_key, day_index), cell in list(self.app.cell_widgets.items()):
@@ -350,6 +356,113 @@ class GridRenderer:
 
         cell.destroy()
         del self.app.cell_widgets[(field_key, day_index)]
+
+    def _reconcile_sequence_field_mounts(self, mounted_range: tuple[int, int]) -> None:
+        """Hält Sequenzfeld-Spannzellen (Sequenzziel/Leitkompetenz) auf ihre
+
+        Schnittmenge mit dem aktuellen Mount-Fenster begrenzt (Kursplaner
+        Item 4, Stufe 6). Bewusst als eigene Methode neben
+        `_reconcile_column_mounts()`, da eine Spannzelle nicht "eine Zelle
+        pro Tag" ist, sondern mehrere Tages-Spalten gleichzeitig überspannt
+        -- aber über denselben Aufrufer (s. o.) angebunden, damit nie einer
+        der beiden Reconciliation-Pfade vergessen wird, wenn sich der andere
+        ändert.
+
+        Der volle logische Span eines Sequenzlaufs (`_run_span()`,
+        unverändert) ist immer ein zusammenhängender Grid-Spalten-Bereich;
+        das Mount-Fenster (`mounted_range`, in Tages-Index-Terminologie)
+        wird dafür in denselben Grid-Spalten-Raum übersetzt
+        (`day_grid_columns`). Die Schnittmenge zweier Intervalle ist immer
+        höchstens EIN zusammenhängendes Intervall -- kein Fall für
+        `compute_contiguous_spans()` (das wäre nur nötig, wenn das
+        Mount-Fenster selbst kein einzelnes `(lo, hi)`-Intervall mehr wäre;
+        aktuell ist es das per Konstruktion immer).
+
+        Löst wie `_reconcile_column_mounts()` NIE einen Save aus:
+        Text-Rettung vor der Zerstörung ist reines Lesen-und-Merken in
+        `pending_cell_text` (geschlüsselt als `(field_key, first_row_index)`
+        -- eigener Namensraum ohne Kollisionsrisiko, da "Sequenzziel"/
+        "Leitkompetenz" nie als Feld-Schlüssel normaler Zeilen vorkommen).
+        `save_sequence_field()` wird hier nie aufgerufen -- anders als im
+        ursprünglichen Plan-Entwurf, der noch von einem Force-Commit-
+        Mechanismus ausging, den Stufe 4 zugunsten von `pending_cell_text`
+        verworfen hat; dieselbe Entscheidung gilt konsequent auch hier.
+        Sequenzfeld-Zellen tragen ohnehin kein `active_editor`-Äquivalent
+        (Fokus-/Klick-Intents sind bewusste No-ops, s.
+        `ui_intent_controller.py`) -- nichts zu bereinigen dort.
+        """
+        if not self.app.sequence_fields_visible_var.get() or not self.app.topic_sequence_plans:
+            return
+
+        lo, hi = mounted_range
+        day_grid_columns = self.app.day_grid_columns
+        lo_col = day_grid_columns.get(lo)
+        hi_col = day_grid_columns.get(hi)
+        if lo_col is None or hi_col is None:
+            return
+        mounted_col_range = range(lo_col, hi_col + 1)
+
+        row_index_to_grid_col = compute_row_index_to_grid_col(self.app.day_columns, day_grid_columns)
+
+        for field_key in SEQUENCE_FIELD_ROW_ORDER:
+            row_idx = SEQUENCE_FIELD_ROW_ORDER.index(field_key)
+            for view in self.app.topic_sequence_plans:
+                full_span = self._sequence_field_renderer._run_span(
+                    row_index_to_grid_col, view.run.first_row_index, view.run.last_row_index
+                )
+                widget_key = (field_key, view.run.first_row_index)
+                existing = self.app.sequence_field_widgets.get(widget_key)
+                domain_value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
+
+                sub_span = None
+                if full_span is not None:
+                    start = max(full_span.start, mounted_col_range.start)
+                    stop = min(full_span.stop, mounted_col_range.stop)
+                    if start < stop:
+                        sub_span = range(start, stop)
+
+                if sub_span is None:
+                    if existing is not None:
+                        self._evict_sequence_field_to_cold(field_key, view.run.first_row_index, existing, domain_value)
+                    continue
+
+                if existing is not None:
+                    grid_info = existing.grid_info()
+                    if int(grid_info.get("column", -1)) != sub_span.start or int(
+                        grid_info.get("columnspan", -1)
+                    ) != len(sub_span):
+                        existing.grid(row=row_idx, column=sub_span.start, columnspan=len(sub_span), sticky="nsew")
+                    continue
+
+                pending_text = self.app.pending_cell_text.get(widget_key)
+                value = pending_text if pending_text is not None else domain_value
+                cell = self._sequence_field_renderer._create_text_cell(
+                    self.app.grid_inner,
+                    value,
+                    editable=True,
+                    canceled=False,
+                    unresolved_link=False,
+                    height_lines=self.app.collapsed_row_lines,
+                )
+                cell.grid(row=row_idx, column=sub_span.start, columnspan=len(sub_span), sticky="nsew")
+                self._sequence_field_renderer._bind_events(
+                    cell, field_key=field_key, first_row_index=view.run.first_row_index
+                )
+                self.app.sequence_field_widgets[widget_key] = cell
+
+    def _evict_sequence_field_to_cold(
+        self, field_key: str, first_row_index: int, cell, domain_value: str
+    ) -> None:
+        """Entfernt eine einzelne Sequenzfeld-Spannzelle vollständig (COLD).
+
+        Spiegelt `_evict_cell_to_cold()` für den Sequenzfeld-Fall -- reines
+        Lesen-und-Merken nach `pending_cell_text`, dann `destroy()`.
+        """
+        current_text = cell.get("1.0", "end-1c")
+        if current_text != domain_value:
+            self.app.pending_cell_text[(field_key, first_row_index)] = current_text
+        cell.destroy()
+        del self.app.sequence_field_widgets[(field_key, first_row_index)]
 
     def _row_layout(self, field_key: str) -> tuple[int, bool, bool, str]:
         """Berechnet Höhe, Kollaps-Status und Labeltext einer Feldzeile und cacht das Ergebnis.

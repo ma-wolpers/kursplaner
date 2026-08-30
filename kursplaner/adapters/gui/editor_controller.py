@@ -283,6 +283,9 @@ class MainWindowEditorController:
         value = cell.get("1.0", "end-1c").strip()
         current_value = view.sequenzziel if sequence_field_key == "Sequenzziel" else view.leitkompetenz
         if value == current_value.strip():
+            # s. save_cell(): ein evtl. veralteter pending_cell_text-Eintrag
+            # aus einem frueheren COLD-Zyklus muss auch hier verschwinden.
+            self.app.pending_cell_text.pop((sequence_field_key, first_row_index), None)
             return True
 
         try:
@@ -296,6 +299,7 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return False
 
+        self.app.pending_cell_text.pop((sequence_field_key, first_row_index), None)
         self.app._collect_day_columns()
         self.app._rebuild_grid()
         return True
