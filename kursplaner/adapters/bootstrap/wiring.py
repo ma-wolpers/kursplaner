@@ -38,6 +38,7 @@ from kursplaner.core.usecases.convert_to_lzk_usecase import ConvertToLzkUseCase
 from kursplaner.core.usecases.create_plan_usecase import CreatePlanUseCase
 from kursplaner.core.usecases.daily_course_log_usecase import DailyCourseLogUseCase
 from kursplaner.core.usecases.daily_log_state_usecase import DailyLogStateUseCase
+from kursplaner.core.usecases.export_achievements_report_usecase import ExportAchievementsReportUseCase
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicUnitsPdfUseCase
@@ -92,6 +93,7 @@ from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDev
 from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
+from kursplaner.infrastructure.export.achievements_report_pdf_renderer import AchievementsReportPdfRenderer
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
 from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import (
     REPORTLAB_AVAILABLE,
@@ -200,7 +202,8 @@ class GuiDependencies:
     export_expected_horizon_pdf_usecase: ExportExpectedHorizonUseCase | None
     export_expected_horizon_markdown_usecase: ExportExpectedHorizonUseCase
     export_lzk_expected_horizon_usecase: ExportLzkExpectedHorizonUseCase | None
-    """`None`, wenn `reportlab` fehlt (siehe `REPORTLAB_AVAILABLE`) -- diese drei
+    export_achievements_report_pdf_usecase: ExportAchievementsReportUseCase | None
+    """`None`, wenn `reportlab` fehlt (siehe `REPORTLAB_AVAILABLE`) -- diese vier
     Usecases erzeugen ausschliesslich PDFs bzw. (LZK) zwingend PDF+Markdown im
     selben Zug und sind ohne `reportlab` nicht sinnvoll nutzbar."""
     cleanup_lzk_expected_horizon_links_usecase: CleanupLzkExpectedHorizonLinksUseCase
@@ -429,6 +432,9 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         if export_expected_horizon_pdf_usecase is not None
         else None
     )
+    export_achievements_report_pdf_usecase = (
+        ExportAchievementsReportUseCase(renderer=AchievementsReportPdfRenderer()) if REPORTLAB_AVAILABLE else None
+    )
     cleanup_lzk_expected_horizon_links_usecase = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=lesson_repo)
     daily_course_log_usecase = DailyCourseLogUseCase(
         plan_repo=plan_repo,
@@ -531,6 +537,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         export_expected_horizon_pdf_usecase=export_expected_horizon_pdf_usecase,
         export_expected_horizon_markdown_usecase=export_expected_horizon_markdown_usecase,
         export_lzk_expected_horizon_usecase=export_lzk_expected_horizon_usecase,
+        export_achievements_report_pdf_usecase=export_achievements_report_pdf_usecase,
         cleanup_lzk_expected_horizon_links_usecase=cleanup_lzk_expected_horizon_links_usecase,
         lesson_index_repo=lesson_index_repo,
         daily_course_log_usecase=daily_course_log_usecase,

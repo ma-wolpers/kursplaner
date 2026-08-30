@@ -16,6 +16,7 @@ def test_build_gui_dependencies_disables_only_pdf_dependent_usecases_without_rep
     assert deps.export_topic_units_pdf_usecase is None
     assert deps.export_expected_horizon_pdf_usecase is None
     assert deps.export_lzk_expected_horizon_usecase is None
+    assert deps.export_achievements_report_pdf_usecase is None
 
     # Die Markdown-Gegenstuecke haengen nicht an reportlab und bleiben verfuegbar.
     assert deps.export_topic_units_markdown_usecase is not None
@@ -30,3 +31,4 @@ def test_build_gui_dependencies_wires_pdf_usecases_when_reportlab_available(monk
     assert deps.export_topic_units_pdf_usecase is not None
     assert deps.export_expected_horizon_pdf_usecase is not None
     assert deps.export_lzk_expected_horizon_usecase is not None
+    assert deps.export_achievements_report_pdf_usecase is not None

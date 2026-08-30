@@ -56,7 +56,10 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlowWriteRequest
-from kursplaner.core.usecases.query_ub_achievements_usecase import group_achievements_by_domain
+from kursplaner.core.usecases.query_ub_achievements_usecase import (
+    UbAchievementsResult,
+    group_achievements_by_domain,
+)
 
 
 class MainWindowActionController:
@@ -100,6 +103,7 @@ class MainWindowActionController:
         self._export_expected_horizon_pdf_uc = deps.export_expected_horizon_pdf_usecase
         self._export_expected_horizon_markdown_uc = deps.export_expected_horizon_markdown_usecase
         self._export_lzk_expected_horizon_uc = deps.export_lzk_expected_horizon_usecase
+        self._export_achievements_report_pdf_uc = deps.export_achievements_report_pdf_usecase
         self._mark_unit_as_ub_uc = deps.mark_unit_as_ub_usecase
         self._remove_unit_ub_link_uc = deps.remove_unit_ub_link_usecase
         self._query_ub_achievements_uc = deps.query_ub_achievements_usecase
@@ -897,11 +901,18 @@ class MainWindowActionController:
         notebook.add(tab_plan, text="UB-Plan")
         notebook.add(tab_insights, text="Entwicklungsimpulse")
 
+        achievements_header = widgets.Frame(tab_achievements)
+        achievements_header.pack(fill="x", pady=(0, 8))
         widgets.Label(
-            tab_achievements,
+            achievements_header,
             text="Kursübergreifender UB-Fortschritt (gesamt)",
             font=("Segoe UI", 12, "bold"),
-        ).pack(anchor="w", pady=(0, 8))
+        ).pack(side="left", anchor="w")
+        widgets.Button(
+            achievements_header,
+            text="Als PDF exportieren",
+            command=lambda: self.export_achievements_report_as_pdf(achievements),
+        ).pack(side="right")
 
         for group in group_achievements_by_domain(achievements.items):
             widgets.Label(
@@ -992,6 +1003,45 @@ class MainWindowActionController:
 
         notebook.focus_set()
         dialog.grab_set()
+
+    def export_achievements_report_as_pdf(self, achievements: UbAchievementsResult):
+        """Exportiert den aktuell angezeigten UB-Achievement-Fortschritt als PDF-Report."""
+        if self._export_achievements_report_pdf_uc is None:
+            messagebox.showerror(
+                "Als PDF exportieren",
+                "PDF-Export benötigt das Paket 'reportlab', das in dieser Umgebung nicht installiert ist.",
+                parent=self.app,
+            )
+            return
+
+        default_name = f"Achievement-Report {date.today().strftime('%Y-%m-%d')}.pdf"
+        selected_file = filedialog.asksaveasfilename(
+            parent=self.app,
+            title="Als PDF exportieren",
+            defaultextension=".pdf",
+            initialfile=default_name,
+            filetypes=[("PDF", "*.pdf")],
+        )
+        if not selected_file:
+            return
+
+        output_path = pathlib.Path(selected_file).expanduser().resolve()
+        try:
+            result = self._export_achievements_report_pdf_uc.execute(
+                achievements=achievements,
+                output_path=output_path,
+                export_date=date.today(),
+            )
+        except Exception as exc:
+            messagebox.showerror("Als PDF exportieren", str(exc), parent=self.app)
+            return
+
+        messagebox.showinfo(
+            "Als PDF exportieren",
+            f"PDF erfolgreich exportiert:\n{result.output_path}\n\n"
+            f"Fächer: {result.group_count}\nAchievements: {result.item_count}",
+            parent=self.app,
+        )
 
     def rebuild_lesson_index(self):
         """Führt einen manuellen Lesson-Index-Rebuild über den Wartungs-Use-Case aus."""

@@ -8,6 +8,12 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-30) — PDF-Export des Achievement-Reports
+
+Neuer Button "Als PDF exportieren" im Achievements-Tab, exakt nach dem bestehenden `reportlab`-Renderer-Muster (`ExpectedHorizonPdfRenderer`/`TopicUnitsPdfRenderer`): `ExportAchievementsReportUseCase` (`core/usecases/export_achievements_report_usecase.py`) nimmt das bereits geladene `UbAchievementsResult` entgegen (dasselbe, das auch die Ringe zeichnet -- kein erneutes Abfragen von Stufen/Fortschritt), baut daraus per `group_achievements_by_domain()` ein `AchievementsReportDocument` und uebergibt es an `AchievementsReportPdfRenderer` (`infrastructure/export/achievements_report_pdf_renderer.py`, `SimpleDocTemplate`, eine Tabelle pro Fach: Titel/Stand/Status). Renderer enthaelt keine eigene Gruppierungs-/Sortierlogik -- stellt nur dar, was ankommt. Wie die drei bestehenden PDF-Exporte hinter `REPORTLAB_AVAILABLE` in `wiring.py` verdrahtet (`None` ohne `reportlab`, GUI zeigt dann denselben Hinweis wie bei den anderen drei Exportstellen).
+
+**Tests**: `test_export_achievements_report_usecase.py` (Renderer-Spy, prueft Gruppierung/Sortierung/Datumformat ohne `reportlab`), `test_wiring_reportlab_guard.py` um Assertions fuer die vierte PDF-Usecase erweitert. Manuell verifiziert: echte PDF-Generierung mit echtem `reportlab` end-to-end (Datei entsteht, nicht-triviale Groesse) -- konsistent mit der bestehenden Konvention, dass die Renderer-Klassen selbst (anders als die Usecases) keine automatisierten Tests haben.
+
 ### Added (2026-08-30) — Achievements-Tab nach Fach gruppiert
 
 `show_ub_achievements_view` iteriert jetzt ueber `group_achievements_by_domain(achievements.items)` (siehe vorheriger Log-Eintrag "Kurs statt UB-eigenem Feld") statt ueber die flache `achievements.items`-Liste: pro Fach eine eigene Ueberschrift + eigenes 4-Spalten-Grid, Kacheln innerhalb einer Gruppe nach `current/target` absteigend sortiert. Keine Gruppierungs-/Sortierlogik in der GUI selbst -- kommt vollstaendig aus der bereits vorbereiteten, Framework-unabhaengigen Abstraktion, die als naechstes auch der PDF-Export verwendet.
