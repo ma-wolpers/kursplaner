@@ -50,9 +50,7 @@ from kursplaner.core.domain.models import StartRequest, StartResult
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_BEREICH,
-    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_LANGENTWURF,
-    parse_jahrgangsstufe,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlowWriteRequest
@@ -475,14 +473,11 @@ class MainWindowActionController:
         default_kinds = ("Pädagogik",)
         default_langentwurf = False
         default_beobachtung = ""
-        default_jahrgangsstufe = None
         allow_delete = False
         if ub_link and isinstance(lesson_yaml, dict):
-            default_kinds, default_langentwurf, default_beobachtung, default_jahrgangsstufe = (
-                self._ub_dialog_defaults_for_day(
-                    workspace_root=workspace_root,
-                    lesson_yaml=lesson_yaml,
-                )
+            default_kinds, default_langentwurf, default_beobachtung = self._ub_dialog_defaults_for_day(
+                workspace_root=workspace_root,
+                lesson_yaml=lesson_yaml,
             )
             allow_delete = True
 
@@ -492,7 +487,6 @@ class MainWindowActionController:
             initial_ub_kinds=default_kinds,
             initial_langentwurf=default_langentwurf,
             initial_beobachtungsschwerpunkt=default_beobachtung,
-            initial_jahrgangsstufe=default_jahrgangsstufe,
             allow_delete=allow_delete,
         )
         if dialog_result is None:
@@ -516,7 +510,6 @@ class MainWindowActionController:
                     ub_kinds=dialog_result.ub_kinds,
                     langentwurf=dialog_result.langentwurf,
                     beobachtungsschwerpunkt=dialog_result.beobachtungsschwerpunkt,
-                    jahrgangsstufe=dialog_result.jahrgangsstufe,
                 ),
                 extra_after_from_result=lambda item: [
                     path
@@ -689,23 +682,23 @@ class MainWindowActionController:
         *,
         workspace_root: pathlib.Path,
         lesson_yaml: dict[str, object],
-    ) -> tuple[tuple[str, ...], bool, str, int | None]:
+    ) -> tuple[tuple[str, ...], bool, str]:
         """Leitet UB-Dialog-Defaults aus bestehender UB-Verknüpfung ab."""
         ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
         if not ub_link:
-            return ("Pädagogik",), False, "", None
+            return ("Pädagogik",), False, ""
 
         ub_root = self.app.gui_dependencies.load_plan_detail_usecase.ub_repo
         if ub_root is None:
-            return ("Pädagogik",), False, "", None
+            return ("Pädagogik",), False, ""
         ub_path = ub_root.ensure_ub_root(workspace_root) / f"{ub_link}.md"
         if not ub_path.exists() or not ub_path.is_file():
-            return ("Pädagogik",), False, "", None
+            return ("Pädagogik",), False, ""
 
         try:
             ub_yaml, _ = ub_root.load_ub_markdown(ub_path)
         except Exception:
-            return ("Pädagogik",), False, "", None
+            return ("Pädagogik",), False, ""
 
         domains_value = ub_yaml.get(UB_YAML_KEY_BEREICH, [])
         domains = []
@@ -722,8 +715,7 @@ class MainWindowActionController:
 
         langentwurf = self._bool_value(ub_yaml.get(UB_YAML_KEY_LANGENTWURF, False))
         beobachtung = str(ub_yaml.get(UB_YAML_KEY_BEOBACHTUNG, "")).strip()
-        jahrgangsstufe = parse_jahrgangsstufe(ub_yaml.get(UB_YAML_KEY_JAHRGANGSSTUFE))
-        return tuple(kinds), langentwurf, beobachtung, jahrgangsstufe
+        return tuple(kinds), langentwurf, beobachtung
 
     def _remove_selected_ub_link(self, *, selected_index: int, row_index: int, workspace_root: pathlib.Path) -> bool:
         """Entfernt die UB-Verknüpfung nach expliziter Nutzeraktion."""
@@ -851,7 +843,10 @@ class MainWindowActionController:
             return
 
         try:
-            achievements = self._query_ub_achievements_uc.execute(workspace_root=workspace_root)
+            achievements = self._query_ub_achievements_uc.execute(
+                workspace_root=workspace_root,
+                unterricht_base_dir=unterricht_base_dir,
+            )
             ub_plan = self._query_ub_plan_uc.execute(
                 workspace_root=workspace_root,
                 unterricht_base_dir=unterricht_base_dir,
@@ -1694,11 +1689,9 @@ class MainWindowActionController:
 
         delete_ub_markdown = False
         if ub_link:
-            default_kinds, default_langentwurf, default_beobachtung, default_jahrgangsstufe = (
-                self._ub_dialog_defaults_for_day(
-                    workspace_root=workspace_root,
-                    lesson_yaml=lesson_yaml if isinstance(lesson_yaml, dict) else {},
-                )
+            default_kinds, default_langentwurf, default_beobachtung = self._ub_dialog_defaults_for_day(
+                workspace_root=workspace_root,
+                lesson_yaml=lesson_yaml if isinstance(lesson_yaml, dict) else {},
             )
             detail_lines = [
                 f"Verknüpfter UB: {ub_link}",
@@ -1707,8 +1700,6 @@ class MainWindowActionController:
             ]
             if default_beobachtung:
                 detail_lines.append(f"Beobachtungsschwerpunkt: {default_beobachtung}")
-            if default_jahrgangsstufe is not None:
-                detail_lines.append(f"Jahrgangsstufe: {default_jahrgangsstufe}")
 
             ub_choice = messagebox.askyesnocancel(
                 "Unterrichtsbesuch löschen",

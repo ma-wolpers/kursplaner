@@ -10,7 +10,6 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_EINHEIT,
-    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_LANGENTWURF,
 )
 from kursplaner.core.domain.yaml_registry import (
@@ -25,15 +24,15 @@ _UB_SCHEMA = YamlSchema(
     required_keys=(UB_YAML_KEY_BEREICH, UB_YAML_KEY_LANGENTWURF, UB_YAML_KEY_BEOBACHTUNG, UB_YAML_KEY_EINHEIT),
     non_empty_keys=(UB_YAML_KEY_EINHEIT,),
 )
-"""`UB_YAML_KEY_JAHRGANGSSTUFE` ist bewusst NICHT in `required_keys`: bestehende
-UB-Dateien vor Einfuehrung dieses Felds tragen den Key noch nicht und duerfen
-beim Laden nicht mit einem RuntimeError abgewiesen werden (Altbestand gilt als
-"nicht gesetzt", siehe `parse_jahrgangsstufe`)."""
+"""Kein geschlossenes Schluesselset: Altdateien mit einem inzwischen entfernten
+`Jahrgangsstufe`-Feld (vor der Umstellung auf die Kurs-`Stufe` als Single
+Source of Truth) laden weiterhin fehlerfrei, da nur `required_keys`/
+`non_empty_keys` geprueft werden; das obsolete Feld faellt beim naechsten
+Speichern automatisch weg (siehe `_UB_ORDERED_KEYS`)."""
 _UB_ORDERED_KEYS = (
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_LANGENTWURF,
     UB_YAML_KEY_BEOBACHTUNG,
-    UB_YAML_KEY_JAHRGANGSSTUFE,
     UB_YAML_KEY_EINHEIT,
 )
 

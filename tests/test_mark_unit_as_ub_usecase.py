@@ -61,7 +61,6 @@ def test_mark_unit_as_ub_creates_ub_file_updates_lesson_and_overview(tmp_path):
         ub_kinds=["Pädagogik", "Fach"],
         langentwurf=True,
         beobachtungsschwerpunkt="Aktivierung",
-        jahrgangsstufe=6,
     )
 
     assert result.proceed is True
@@ -79,11 +78,11 @@ def test_mark_unit_as_ub_creates_ub_file_updates_lesson_and_overview(tmp_path):
     assert '  - "Mathematik"' in ub_text
     assert "Langentwurf: true" in ub_text
     assert "Beobachtungsschwerpunkt: Aktivierung" in ub_text
-    assert "Jahrgangsstufe: 6" in ub_text
     assert 'Einheit: "[[gruen-6 03-31 Funktionen]]"' in ub_text
 
 
-def test_mark_unit_as_ub_without_jahrgangsstufe_does_not_crash(tmp_path):
+def test_mark_unit_as_ub_writes_no_jahrgangsstufe_field(tmp_path):
+    """UB-Dateien tragen keine eigene Jahrgangsstufe mehr (Single Source of Truth: Kurs-`Stufe`)."""
     workspace_root = tmp_path / "7thCloud"
     plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
@@ -105,7 +104,7 @@ def test_mark_unit_as_ub_without_jahrgangsstufe_does_not_crash(tmp_path):
     assert result.proceed is True
     assert isinstance(result.ub_path, Path)
     ub_text = result.ub_path.read_text(encoding="utf-8")
-    assert "Jahrgangsstufe: \n" in ub_text
+    assert "Jahrgangsstufe" not in ub_text
 
     overview_text = result.overview_path.read_text(encoding="utf-8")
     assert "# UB Übersicht" in overview_text

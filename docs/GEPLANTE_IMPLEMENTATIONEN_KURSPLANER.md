@@ -101,7 +101,9 @@ Keine direkte Fachlogik im Adapter, keine I/O-Logik im Domain-Layer.
 
 ## Bereits umgesetzt (Jahrgangsstufen-Achievements)
 
-- UB-Dateien tragen optional eine `Jahrgangsstufe` (5-13).
+- Die Jahrgangsstufe kommt ausschließlich aus der `Stufe` des Kurses, zu dem die UB-markierte
+  Einheit gehört (Single Source of Truth) — UB-Dateien tragen kein eigenes Jahrgangsstufe-Feld
+  mehr (`QueryUbAchievementsUseCase._build_course_stufe_map`, siehe DEVELOPMENT_LOG 2026-08-30).
 - Alle Achievement-Vorgaben (bestehende Halbzeit/Voll/UBplus/BUB-Schwellenwerte **und**
   Jahrgangsstufen-Gruppen) liegen gemeinsam in `kursplaner/resources/achievements/requirements.json`
   (ein gemeinsames JSON statt Zahlen im Usecase + separater Jahrgangsstufen-Datei).

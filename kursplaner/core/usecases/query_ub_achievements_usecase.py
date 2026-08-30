@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, time
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 from kursplaner.core.domain.achievement_requirements import (
     AchievementTargets,
@@ -12,13 +12,14 @@ from kursplaner.core.domain.achievement_requirements import (
 )
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
-    UB_YAML_KEY_JAHRGANGSSTUFE,
+    UB_YAML_KEY_EINHEIT,
     UB_YAML_KEY_LANGENTWURF,
     parse_jahrgangsstufe,
     parse_ub_date_from_stem,
     ub_date_counts_as_past,
 )
-from kursplaner.core.ports.repositories import AchievementRequirementsRepository, UbRepository
+from kursplaner.core.domain.wiki_links import extract_wiki_link_target, strip_wiki_link
+from kursplaner.core.ports.repositories import AchievementRequirementsRepository, PlanRepository, UbRepository
 
 
 @dataclass(frozen=True)
@@ -72,10 +73,12 @@ class QueryUbAchievementsUseCase:
         self,
         ub_repo: UbRepository,
         achievement_requirements_repo: AchievementRequirementsRepository,
+        plan_repo: PlanRepository,
         past_cutoff_time_provider: Callable[[], time] | None = None,
     ):
         self.ub_repo = ub_repo
         self._achievement_requirements_repo = achievement_requirements_repo
+        self._plan_repo = plan_repo
         self._past_cutoff_time_provider = past_cutoff_time_provider
 
     @staticmethod
@@ -287,8 +290,55 @@ class QueryUbAchievementsUseCase:
 
         return subject_rows
 
-    def execute(self, *, workspace_root: Path) -> UbAchievementsResult:
+    def _build_course_stufe_map(self, unterricht_base_dir: Path) -> dict[str, int | None]:
+        """Leitet je Einheit (`lesson_stem`) die Jahrgangsstufe ihres Kurses ab.
+
+        Single Source of Truth fuer die UB-Jahrgangs-Achievements: die Stufe
+        kommt ausschliesslich aus der `Stufe`-Metadatenangabe des Kurses, zu
+        dem eine Einheit gehoert -- nie aus einem UB-eigenen Feld (das gibt es
+        bewusst nicht mehr, siehe `unterrichtsbesuch_policy.py`). Der Aufbau
+        spiegelt `QueryUbPlanUseCase._build_course_map` (gleiche "Inhalt"-
+        Spalten-Verlinkung), ergaenzt um eine Eindeutigkeits-Pruefung: da eine
+        Einheit strukturell genau einem Kurs angehoert, waere ein doppelt
+        vergebener `lesson_stem` ein Datenfehler -- das darf nicht
+        stillschweigend eine falsche Stufe liefern, sondern muss laut auffallen.
+
+        Raises:
+            RuntimeError: wenn derselbe `lesson_stem` in mehr als einem Kurs
+                verlinkt ist.
+        """
+        if not unterricht_base_dir.exists() or not unterricht_base_dir.is_dir():
+            return {}
+
+        stufe_by_lesson_stem: dict[str, int | None] = {}
+        course_by_lesson_stem: dict[str, str] = {}
+        for table in self._plan_repo.load_plan_tables(unterricht_base_dir):
+            course_name = table.markdown_path.parent.name
+            header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
+            inhalt_idx = header_map.get("inhalt")
+            if inhalt_idx is None:
+                continue
+            stufe = parse_jahrgangsstufe(table.metadata.get("Stufe"))
+            for row in table.rows:
+                if inhalt_idx >= len(row):
+                    continue
+                stem = extract_wiki_link_target(row[inhalt_idx])
+                if not stem:
+                    continue
+                existing_course = course_by_lesson_stem.get(stem)
+                if existing_course is not None and existing_course != course_name:
+                    raise RuntimeError(
+                        f"Uneindeutige Kurszuordnung: Einheit '{stem}' ist sowohl '{existing_course}' "
+                        f"als auch '{course_name}' zugeordnet. Bitte die Kursdateien bereinigen."
+                    )
+                course_by_lesson_stem[stem] = course_name
+                stufe_by_lesson_stem[stem] = stufe
+        return stufe_by_lesson_stem
+
+    def execute(self, *, workspace_root: Path, unterricht_base_dir: Path) -> UbAchievementsResult:
         """Berechnet Teil- und Vollziele für alle Fächer und Pädagogik."""
+        course_stufe_map = self._build_course_stufe_map(unterricht_base_dir)
+
         rows: list[dict[str, object]] = []
         now = self._now()
         cutoff = self._past_cutoff_time()
@@ -305,11 +355,12 @@ class QueryUbAchievementsUseCase:
                 yaml_data, _ = self.ub_repo.load_ub_markdown(ub_path)
             except Exception:
                 continue
+            lesson_stem = strip_wiki_link(str(yaml_data.get(UB_YAML_KEY_EINHEIT, "")).strip())
             rows.append(
                 {
                     "bereiche": self._list(yaml_data.get(UB_YAML_KEY_BEREICH, [])),
                     "langentwurf": self._bool(yaml_data.get(UB_YAML_KEY_LANGENTWURF, False)),
-                    "jahrgangsstufe": parse_jahrgangsstufe(yaml_data.get(UB_YAML_KEY_JAHRGANGSSTUFE)),
+                    "jahrgangsstufe": course_stufe_map.get(lesson_stem),
                 }
             )
 
@@ -337,3 +388,38 @@ class QueryUbAchievementsUseCase:
         )
 
         return UbAchievementsResult(items=items)
+
+
+@dataclass(frozen=True)
+class AchievementDomainGroup:
+    """Eine Fach-Gruppe von Achievements, bereits nach Erfüllungsgrad sortiert."""
+
+    domain: str
+    items: tuple[AchievementProgress, ...]
+
+
+def group_achievements_by_domain(
+    items: Sequence[AchievementProgress],
+    *,
+    domain_order: tuple[str, ...] = QueryUbAchievementsUseCase.DOMAIN_ORDER,
+) -> tuple[AchievementDomainGroup, ...]:
+    """Gruppiert Achievements nach Fach für die Anzeige (GUI + PDF-Export).
+
+    Einzige Definition von "gruppiert nach Fach, Fachreihenfolge gemäß
+    `domain_order`, innerhalb der Gruppe nach Erfüllungsgrad absteigend
+    sortiert" -- sowohl die GUI (`show_ub_achievements_view`) als auch der
+    PDF-Export (`ExportAchievementsReportUseCase`) rufen ausschließlich diese
+    Funktion auf, statt Gruppierung/Sortierung jeweils eigenständig
+    nachzubauen. Fächer ganz ohne Items werden übersprungen (keine leere
+    Gruppe). Ändert nichts an der Reihenfolge von `items` selbst bzw. an der
+    Sortierung in `QueryUbAchievementsUseCase.execute()` -- das ist eine rein
+    abgeleitete Präsentationsstruktur.
+    """
+    groups: list[AchievementDomainGroup] = []
+    for domain in domain_order:
+        domain_items = [item for item in items if item.domain == domain]
+        if not domain_items:
+            continue
+        domain_items.sort(key=lambda item: item.current / max(1, item.target), reverse=True)
+        groups.append(AchievementDomainGroup(domain=domain, items=tuple(domain_items)))
+    return tuple(groups)

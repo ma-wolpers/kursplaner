@@ -52,3 +52,35 @@ def test_ub_repository_overview_io(tmp_path):
 
     assert target.name == UB_OVERVIEW_FILE_NAME
     assert repo.load_ub_overview(tmp_path).startswith("# UB Übersicht")
+
+
+def test_ub_repository_loads_legacy_jahrgangsstufe_field_and_drops_it_on_resave(tmp_path):
+    """Migration zur Kurs-`Stufe` als Single Source of Truth: Altdateien mit dem inzwischen
+    entfernten `Jahrgangsstufe`-Feld laden weiterhin fehlerfrei (kein geschlossenes
+    Schluesselset), verlieren das obsolete Feld aber beim naechsten Speichern automatisch."""
+    repo = FileSystemUbRepository()
+    path = tmp_path / "ub 26-03-31.md"
+    path.write_text(
+        "---\n"
+        'Bereich:\n  - "Pädagogik"\n'
+        "Langentwurf: false\n"
+        "Beobachtungsschwerpunkt: \n"
+        "Jahrgangsstufe: 7\n"
+        'Einheit: "[[gruen-6 03-31 Funktionen]]"\n'
+        "---\n\n# Reflexion\n",
+        encoding="utf-8",
+    )
+
+    yaml_data, _ = repo.load_ub_markdown(path)
+    assert yaml_data["Einheit"] == "[[gruen-6 03-31 Funktionen]]"
+
+    repo.save_ub_markdown(
+        path,
+        yaml_data,
+        reflection_text="",
+        professional_steps=[],
+        usable_resources=[],
+    )
+
+    resaved_text = path.read_text(encoding="utf-8")
+    assert "Jahrgangsstufe" not in resaved_text

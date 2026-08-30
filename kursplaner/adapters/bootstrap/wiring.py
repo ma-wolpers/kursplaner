@@ -450,6 +450,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     query_ub_achievements_usecase = QueryUbAchievementsUseCase(
         ub_repo=ub_repo,
         achievement_requirements_repo=FileSystemAchievementRequirementsRepository(),
+        plan_repo=plan_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
     )
     query_ub_plan_usecase = QueryUbPlanUseCase(
