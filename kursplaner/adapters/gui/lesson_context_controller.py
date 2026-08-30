@@ -36,7 +36,7 @@ class MainWindowLessonContextController:
             return self._display_content_text(day)
 
         if field_key == "Stundenthema":
-            if not day.is_valid_unterricht_file():
+            if not day.is_valid_unterricht_file:
                 return ""
             topic = str(day.yaml.get("Stundenthema", "")).strip()
             if topic:

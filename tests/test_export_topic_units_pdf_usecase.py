@@ -54,7 +54,7 @@ def _day(
     Thema/Ausfall-Textmarker (siehe `row_lesson_type()`), nicht aus
     `yaml.Stundentyp`. LZK/Hospitation brauchen dagegen einen echten,
     existierenden Link in einem verwalteten Einheitenverzeichnis, da
-    `DayColumn.stundentyp()` nur darüber auflöst (siehe
+    `DayColumn.stundentyp` nur darüber auflöst (siehe
     `is_valid_unterricht_file`).
     """
     yaml_data = {

@@ -130,15 +130,87 @@ class LoadPlanDetailUseCase:
         table = self.plan_repo.load_plan_table(markdown_path)
         return PlanDetailResult(table=table, day_columns=self.build_day_columns(table))
 
+    def _header_indices(self, table: PlanTableData) -> tuple[int, int, int | None]:
+        """Liest die Spaltenindizes von Datum/Inhalt/Thema-Ausfall aus den Tabellen-Headern."""
+        header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
+        return header_map.get("datum", 0), header_map.get("inhalt", 1), header_map.get("thema/ausfall")
+
+    def _plan_level_context(self, table: PlanTableData) -> tuple[str, tuple]:
+        """Leitet die planweiten (nicht pro-Zeile variierenden) Baukontext-Werte ab."""
+        group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
+        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
+        return group_name, rhythm
+
+    def _build_one_day_column(
+        self,
+        table: PlanTableData,
+        row_index: int,
+        *,
+        idx_datum: int,
+        idx_inhalt: int,
+        idx_thema_ausfall: int | None,
+        group_name: str,
+        rhythm: tuple,
+    ) -> DayColumn:
+        """Baut EIN `DayColumn` für genau eine Planzeile (I/O-Orchestrierung, gemeinsamer
+
+        Helfer für :meth:`build_day_columns` und :meth:`build_day_columns_incremental` —
+        beide Pfade müssen dieselbe Zeilen-Konstruktionslogik verwenden, damit ein
+        vollständiger Rebuild und ein Einzelzeilen-Patch niemals auseinanderlaufen.
+        Liest den verlinkten Stunden-YAML tatsächlich von der Festplatte (der
+        eigentliche I/O-Kern dieses Use Cases); ruft `row_index`, um kein
+        `DayColumn` unabsichtlich mit dem falschen Index zu bauen.
+        """
+        row = table.rows[row_index]
+        datum = row[idx_datum] if idx_datum < len(row) else ""
+        inhalt = row[idx_inhalt] if idx_inhalt < len(row) else ""
+        thema_ausfall = (
+            row[idx_thema_ausfall] if idx_thema_ausfall is not None and idx_thema_ausfall < len(row) else ""
+        )
+
+        link = self.lesson_repo.resolve_row_link_path(table, row_index)
+        link_target = extract_wiki_link_target(inhalt)
+
+        yaml_data: dict[str, object] = {}
+        if is_valid_unterricht_link(link) and isinstance(link, Path):
+            extracted_topic = link_target
+            split = link_target.split(" ", 1)
+            if len(split) == 2:
+                extracted_topic = split[1].strip() or link_target
+            lesson = self._ensure_valid_lesson_yaml(link, topic=extracted_topic)
+            yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
+            ub_link = str(yaml_data.get("Unterrichtsbesuch", "")).strip()
+            if ub_link:
+                steps, resources = self._load_ub_development_lists(
+                    workspace_root=self._workspace_root_from_table(table),
+                    ub_link_stem=ub_link,
+                )
+                yaml_data = dict(yaml_data)
+                yaml_data["Professionalisierungsschritte"] = steps
+                yaml_data["Nutzbare Ressourcen"] = resources
+
+        return DayColumn(
+            row_index=row_index,
+            datum=datum,
+            inhalt=inhalt,
+            thema_ausfall=thema_ausfall,
+            link=link,
+            yaml=yaml_data,
+            group_name=group_name,
+            rhythm=rhythm,
+        )
+
     def build_day_columns(self, table: PlanTableData) -> list[DayColumn]:
-        """Erzeugt `DayColumn`-Objekte inkl. geladener YAML-Daten für jede Planzeile.
+        """Erzeugt `DayColumn`-Objekte inkl. geladener YAML-Daten für JEDE Planzeile.
 
         Reine I/O-Orchestrierung: löst Links auf, lädt/kanonisiert YAML
         verlinkter Stunden-Dateien (inkl. UB-Entwicklungslisten) und baut
-        daraus ein `DayColumn` je Zeile. Alle fachlichen Ableitungen
-        (Ausfall-/Hospitation-/Unterricht-/LZK-Erkennung, Stunden/Startzeit
-        aus dem Rhythmus, Kopfzeilentext, Oberthema, …) leben als Methoden
-        auf `DayColumn` selbst (`core.domain.day_column`), nicht hier.
+        daraus ein `DayColumn` je Zeile — über `_build_one_day_column()`, den
+        gemeinsamen Helfer mit `build_day_columns_incremental()`. Alle
+        fachlichen Ableitungen (Ausfall-/Hospitation-/Unterricht-/LZK-
+        Erkennung, Stunden/Startzeit aus dem Rhythmus, Kopfzeilentext,
+        Oberthema, …) leben als Methoden auf `DayColumn` selbst
+        (`core.domain.day_column`), nicht hier.
 
         Liest aus dem 3-Spalten-Format (Datum | Inhalt | Thema/Ausfall):
         - Inhalt (col 1): Wiki-Link zur Stundendatei oder leer
@@ -149,57 +221,145 @@ class LoadPlanDetailUseCase:
         Jedes `DayColumn` trägt den kompletten geparsten `Rhythmus` (nicht
         nur den für seine Zeile relevanten Ausschnitt) — `DayColumn.stunden()`/
         `startzeit()` lösen live gegen ihr eigenes `datum` auf.
+
+        Teuer bei großen Plänen: liest für JEDE verlinkte Zeile die YAML-Datei
+        neu von der Festplatte, auch wenn sich nur eine einzige Zeile geändert
+        hat. Für den Hot Path "eine Zelle bearbeiten" `build_day_columns_incremental()`
+        verwenden, das nur die tatsächlich betroffene(n) Zeile(n) neu liest.
         """
-        header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
-        idx_datum = header_map.get("datum", 0)
-        idx_inhalt = header_map.get("inhalt", 1)
-        idx_thema_ausfall = header_map.get("thema/ausfall")
-        group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
+        idx_datum, idx_inhalt, idx_thema_ausfall = self._header_indices(table)
+        group_name, rhythm = self._plan_level_context(table)
 
-        rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
-
-        collected: list[DayColumn] = []
-        for row_index, row in enumerate(table.rows):
-            datum = row[idx_datum] if idx_datum < len(row) else ""
-            inhalt = row[idx_inhalt] if idx_inhalt < len(row) else ""
-            thema_ausfall = (
-                row[idx_thema_ausfall]
-                if idx_thema_ausfall is not None and idx_thema_ausfall < len(row)
-                else ""
+        return [
+            self._build_one_day_column(
+                table,
+                row_index,
+                idx_datum=idx_datum,
+                idx_inhalt=idx_inhalt,
+                idx_thema_ausfall=idx_thema_ausfall,
+                group_name=group_name,
+                rhythm=rhythm,
             )
+            for row_index in range(len(table.rows))
+        ]
 
-            link = self.lesson_repo.resolve_row_link_path(table, row_index)
-            link_target = extract_wiki_link_target(inhalt)
+    def build_day_columns_incremental(
+        self,
+        table: PlanTableData,
+        previous_day_columns: list[DayColumn] | None,
+        changed_row_indices: set[int],
+    ) -> list[DayColumn]:
+        """Baut `DayColumn`-Objekte, liest aber nur für tatsächlich geänderte Zeilen neu.
 
-            yaml_data: dict[str, object] = {}
-            if is_valid_unterricht_link(link) and isinstance(link, Path):
-                extracted_topic = link_target
-                split = link_target.split(" ", 1)
-                if len(split) == 2:
-                    extracted_topic = split[1].strip() or link_target
-                lesson = self._ensure_valid_lesson_yaml(link, topic=extracted_topic)
-                yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
-                ub_link = str(yaml_data.get("Unterrichtsbesuch", "")).strip()
-                if ub_link:
-                    steps, resources = self._load_ub_development_lists(
-                        workspace_root=self._workspace_root_from_table(table),
-                        ub_link_stem=ub_link,
-                    )
-                    yaml_data = dict(yaml_data)
-                    yaml_data["Professionalisierungsschritte"] = steps
-                    yaml_data["Nutzbare Ressourcen"] = resources
+        Primärfix des Performance-Problems "eine Zellbearbeitung liest den
+        gesamten Plan neu ein" (statt nur die Ursache mit einem Cache zu
+        kaschieren): unveränderte Zeilen bekommen ihr bisheriges `DayColumn`-
+        Objekt zurück (sicher wiederverwendbar, da `DayColumn` per Konvention
+        ein unveränderlicher Snapshot ist, der bei jeder Datenänderung ohnehin
+        neu gebaut wird — s. `DayColumn`-Klassendocstring) statt eines
+        erneuten Festplatten-Lesevorgangs. Nutzt exakt denselben
+        Zeilen-Konstruktionshelfer (`_build_one_day_column`) wie
+        `build_day_columns()` für tatsächlich neu zu bauende Zeilen — keine
+        zweite, potenziell auseinanderlaufende Bau-Logik.
 
-            collected.append(
-                DayColumn(
-                    row_index=row_index,
-                    datum=datum,
-                    inhalt=inhalt,
-                    thema_ausfall=thema_ausfall,
-                    link=link,
-                    yaml=yaml_data,
+        Fällt auf einen vollständigen `build_day_columns()`-Aufruf zurück,
+        sobald eine der Sicherheitsannahmen nicht zutrifft (kein vorheriger
+        Stand, andere Zeilenanzahl, geänderte Lerngruppe/Rhythmus) — lieber
+        einmal zu viel neu lesen als eine strukturelle Änderung übersehen.
+
+        Behandelt zusätzlich den Randfall "mehrere Zeilen verlinken dieselbe
+        Datei" (von `FileSystemLessonRepository.load_lessons_for_rows()` an
+        anderer Stelle bereits als möglich behandelt): jede Zeile, deren
+        aufgelöster Link-Pfad mit dem alten ODER neuen Link-Pfad einer
+        geänderten Zeile übereinstimmt, wird ebenfalls neu gebaut statt aus
+        dem alten Bestand übernommen.
+
+        Args:
+            table: Aktuell geladene Planungstabelle.
+            previous_day_columns: Zuvor gebaute `DayColumn`-Liste (`app.raw_day_columns`),
+                oder ``None``, wenn noch keine existiert.
+            changed_row_indices: Zeilenindizes, die seit `previous_day_columns`
+                tatsächlich editiert wurden (typischerweise eine einzelne Zeile).
+
+        Returns:
+            Vollständige `DayColumn`-Liste für `table`, teils wiederverwendet,
+            teils frisch gebaut.
+        """
+        idx_datum, idx_inhalt, idx_thema_ausfall = self._header_indices(table)
+        group_name, rhythm = self._plan_level_context(table)
+
+        def _full_rebuild() -> list[DayColumn]:
+            return [
+                self._build_one_day_column(
+                    table,
+                    row_index,
+                    idx_datum=idx_datum,
+                    idx_inhalt=idx_inhalt,
+                    idx_thema_ausfall=idx_thema_ausfall,
                     group_name=group_name,
                     rhythm=rhythm,
                 )
-            )
+                for row_index in range(len(table.rows))
+            ]
+
+        if previous_day_columns is None or len(previous_day_columns) != len(table.rows):
+            return _full_rebuild()
+        if previous_day_columns and (
+            previous_day_columns[0].group_name != group_name or previous_day_columns[0].rhythm != rhythm
+        ):
+            return _full_rebuild()
+        for idx in changed_row_indices:
+            if not (0 <= idx < len(previous_day_columns)):
+                return _full_rebuild()
+
+        if not changed_row_indices:
+            # Nichts geändert (Aufrufer behauptet keine Edits) -- der gesamte
+            # vorherige Bestand bleibt gültig, kein Rebuild und schon gar kein
+            # Festplatten-Zugriff nötig. Eigener Zweig statt still im
+            # allgemeinen Pfad mitzulaufen: dirty_paths bliebe sonst leer und
+            # jede Zeile würde denselben (überflüssigen) resolve_row_link_path()-
+            # Aufruf durchlaufen wie im "es gibt geänderte Zeilen"-Fall.
+            return list(previous_day_columns)
+
+        dirty_paths: set[Path] = set()
+        for idx in changed_row_indices:
+            old_link = previous_day_columns[idx].link
+            if isinstance(old_link, Path):
+                dirty_paths.add(old_link.resolve())
+            new_link = self.lesson_repo.resolve_row_link_path(table, idx)
+            if isinstance(new_link, Path):
+                dirty_paths.add(new_link.resolve())
+
+        collected: list[DayColumn] = []
+        for row_index in range(len(table.rows)):
+            needs_rebuild = row_index in changed_row_indices
+            if not needs_rebuild and dirty_paths:
+                # Kein erneutes resolve_row_link_path() (Dateisystemzugriff) noetig:
+                # eine nicht in changed_row_indices enthaltene Zeile hat ihre
+                # Inhalt-Zelle per Definition nicht angefasst, ihr Link ist also
+                # noch derselbe wie beim Bau von previous_day_columns[row_index]
+                # (bereits aufgeloest, s. _build_one_day_column). Externe
+                # Aenderungen an NICHT betroffenen Dateien sind ohnehin explizit
+                # ausserhalb des Scopes dieses Einzelzeilen-Patches (siehe
+                # Klassendocstring/DEVELOPMENT_LOG) -- ein voller Reload deckt
+                # sie ab, dieselbe Grenze wie beim mtime-Cache.
+                previous_link = previous_day_columns[row_index].link
+                if isinstance(previous_link, Path) and previous_link in dirty_paths:
+                    needs_rebuild = True
+
+            if needs_rebuild:
+                collected.append(
+                    self._build_one_day_column(
+                        table,
+                        row_index,
+                        idx_datum=idx_datum,
+                        idx_inhalt=idx_inhalt,
+                        idx_thema_ausfall=idx_thema_ausfall,
+                        group_name=group_name,
+                        rhythm=rhythm,
+                    )
+                )
+            else:
+                collected.append(previous_day_columns[row_index])
 
         return collected

@@ -87,7 +87,7 @@ class DailyCourseLogUseCase:
             return "hospitation"
         if day.is_lzk():
             return "lzk"
-        return day.stundentyp().lower()
+        return day.stundentyp.lower()
 
     @classmethod
     def _cells_for_unit(cls, day: DayColumn) -> dict[str, str | list[str]]:

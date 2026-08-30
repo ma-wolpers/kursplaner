@@ -72,6 +72,36 @@ class _ViewportSyncStub:
         self._grid_canvas.yview_moveto(fraction)
 
 
+class _HorizontalViewportSyncStub:
+    def __init__(self, grid_canvas: _GridCanvasStub):
+        self._grid_canvas = grid_canvas
+        self.flush_calls = 0
+
+    def xview_range(self):
+        return self._grid_canvas.xview()
+
+    def xview_moveto(self, fraction):
+        self._grid_canvas.xview_moveto(fraction)
+
+    def flush_pending_reconciliation(self):
+        self.flush_calls += 1
+
+
+class _GridRendererStub:
+    """Minimal: `_row_index_for_field()` liefert `None`, `ensure_row_visible()`
+
+    no-opt dann sicher -- diese Tests prüfen Navigationslogik, nicht
+    Scroll-Zielwerte."""
+
+    def _row_index_for_field(self, _field_key: str):
+        return None
+
+
+class _GridInnerStub:
+    def grid_bbox(self, _column, _row_idx):
+        return None
+
+
 class _RowDisplayModeUseCaseStub:
     def __init__(self, editable_cells: set[tuple[str, int]]):
         self._editable_cells = editable_cells
@@ -108,9 +138,12 @@ def _make_app(
         grid_canvas=grid_canvas,
         grid_window=object(),
         cell_widgets={},
+        grid_renderer=_GridRendererStub(),
+        grid_inner=_GridInnerStub(),
         overview_controller=SimpleNamespace(_next_lesson_column_index=lambda: 0),
     )
     app.viewport_sync = _ViewportSyncStub(grid_canvas)
+    app.viewport_sync_h = _HorizontalViewportSyncStub(grid_canvas)
     app._update_row_mode_from_selection = lambda: None
     app._refresh_grid_content = lambda: None
     app._is_holiday_column = lambda _day: False

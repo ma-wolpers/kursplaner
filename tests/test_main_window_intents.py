@@ -827,7 +827,11 @@ def test_shortcut_copy_in_cell_selection_copies_selected_cell_content():
     app.is_detail_view = True
     app.ui_state = MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_CELL)
     app.ui_state.set_selected_cell("Stundenthema", 0)
-    app.cell_widgets = {("Stundenthema", 0): _CellWidgetSpy("Alpha\nBeta")}
+    # Liest den Domain-Wert (day_columns/_field_value), nicht den Widget-Text --
+    # cell_widgets bewusst NICHT gesetzt, um zu beweisen, dass das Kopieren
+    # auch ohne gemountetes Widget funktioniert (s. Kursplaner Item 4 Audit).
+    app.day_columns = [make_day_column(row_index=0)]
+    app._field_value = lambda _day, field_key: "Alpha\nBeta" if field_key == "Stundenthema" else ""
     copied_values: list[str] = []
     app.clipboard_clear = lambda: None
     app.clipboard_append = lambda value: copied_values.append(value)
@@ -943,7 +947,7 @@ def test_shortcut_cut_in_cell_selection_copies_and_clears_selected_cell():
         row_filter_settings=RowFilterSettings(),
         ui_state=MainWindowUiState(selection_level=MainWindowUiState.SELECTION_LEVEL_CELL),
         day_columns=[{"datum": "2026-03-27"}],
-        cell_widgets={("Stundenthema", 0): _CellWidgetSpy("Vorher")},
+        _field_value=lambda _day, field_key: "Vorher" if field_key == "Stundenthema" else "",
         _collect_day_columns=lambda: None,
         _update_grid_column=lambda _day_index: None,
         _update_selected_lesson_metrics=lambda: None,
@@ -1070,6 +1074,8 @@ def test_ctrl_down_expands_selected_row_in_cell_mode():
         column_reorder_controller=_ColumnReorderSpy(),
         ui_state=ui_state,
         row_expanded={"Stundenthema": False},
+        day_columns=[make_day_column(row_index=0)],
+        grid_renderer=SimpleNamespace(_field_is_visible_for_day=lambda _field_key, _day: True),
         _rebuild_grid=lambda: rebuild_calls.__setitem__("count", rebuild_calls["count"] + 1),
         is_detail_view=True,
         focus_get=lambda: None,
@@ -1094,6 +1100,8 @@ def test_ctrl_up_collapses_selected_row_in_cell_mode():
         column_reorder_controller=_ColumnReorderSpy(),
         ui_state=ui_state,
         row_expanded={"Stundenthema": True},
+        day_columns=[make_day_column(row_index=0)],
+        grid_renderer=SimpleNamespace(_field_is_visible_for_day=lambda _field_key, _day: True),
         _rebuild_grid=lambda: rebuild_calls.__setitem__("count", rebuild_calls["count"] + 1),
         is_detail_view=True,
         focus_get=lambda: None,
@@ -1145,7 +1153,8 @@ def test_ctrl_down_expand_rebuild_pipeline_ensures_selected_cell_visible():
         selection_controller=selection_controller,
         ui_state=ui_state,
         row_expanded={"Stundenthema": False},
-        cell_widgets={("Stundenthema", 0): object()},
+        day_columns=[make_day_column(row_index=0)],
+        grid_renderer=SimpleNamespace(_field_is_visible_for_day=lambda _field_key, _day: True),
         _rebuild_grid=lambda: rebuild_calls.__setitem__("count", rebuild_calls["count"] + 1),
         is_detail_view=True,
         focus_get=lambda: None,
@@ -1175,7 +1184,8 @@ def test_toggle_expand_mode_uses_rebuild_pipeline_and_ensures_selected_cell_visi
         row_defs=[("Stundenthema", "Thema"), ("Kompetenzen", "Kompetenzen")],
         row_expanded={"Stundenthema": False, "Kompetenzen": False},
         expand_long_rows_var=SimpleNamespace(get=lambda: True),
-        cell_widgets={("Stundenthema", 0): object()},
+        day_columns=[make_day_column(row_index=0)],
+        grid_renderer=SimpleNamespace(_field_is_visible_for_day=lambda _field_key, _day: True),
         _rebuild_grid=lambda: rebuild_calls.__setitem__("count", rebuild_calls["count"] + 1),
         is_detail_view=True,
         focus_get=lambda: None,

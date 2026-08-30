@@ -146,7 +146,7 @@ class ExportExpectedHorizonUseCase:
     ) -> list[ExpectedHorizonLine]:
         rows: list[ExpectedHorizonLine] = []
         for day in day_columns:
-            if day.stundentyp() not in cls._EXPORT_ALLOWED_TYPES:
+            if day.stundentyp not in cls._EXPORT_ALLOWED_TYPES:
                 continue
 
             if day.oberthema() != target_oberthema:
@@ -178,7 +178,7 @@ class ExportExpectedHorizonUseCase:
             raise RuntimeError("Es ist keine gültige Einheit ausgewählt.")
 
         selected_day = day_columns[selected_day_index]
-        selected_type = selected_day.stundentyp()
+        selected_type = selected_day.stundentyp
         if selected_type not in self._SELECTION_ALLOWED_TYPES:
             raise RuntimeError("Der Export ist nur für Unterrichts- oder LZK-Einheiten verfügbar.")
 

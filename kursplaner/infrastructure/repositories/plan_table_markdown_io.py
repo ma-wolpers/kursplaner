@@ -16,6 +16,7 @@ from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.plan_table import COLUMN_DATUM, COLUMN_INHALT, COLUMN_THEMA_AUSFALL, PlanTableData
 from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
+from kursplaner.infrastructure.repositories.file_signature import file_signature as _file_signature
 
 PLAN_DATE_RE = re.compile(r"\d{2}-\d{2}-\d{2}")
 _EXPECTED_HEADERS = [COLUMN_DATUM.lower(), COLUMN_INHALT.lower(), COLUMN_THEMA_AUSFALL.lower()]
@@ -129,12 +130,6 @@ def _locate_plan_table_block(lines: list[str], markdown_path: Path) -> tuple[int
 
     start, end = selected
     return start, end, headers
-
-
-def _file_signature(path: Path) -> tuple[int, int]:
-    """Liefert `(mtime_ns, size)` einer Datei als billig vergleichbare Änderungssignatur."""
-    stat = path.stat()
-    return getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1_000_000_000)), stat.st_size
 
 
 def load_last_plan_table(markdown_path: Path) -> PlanTableData:

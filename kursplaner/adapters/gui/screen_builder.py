@@ -320,15 +320,11 @@ class ScreenBuilder:
         self.app.grid_canvas = ui.Canvas(editor_frame, highlightthickness=0)
         self.app.grid_canvas.grid(row=1, column=1, sticky="nsew")
 
-        def _on_grid_xscroll(first: float, last: float):
-            x_scroll.set(first, last)
-            self.app.header_canvas.xview_moveto(first)
-
         y_scroll = widgets.Scrollbar(editor_frame, orient="vertical", command=self.app._on_vertical_scroll)
-        x_scroll = widgets.Scrollbar(editor_frame, orient="horizontal", command=self.app._on_horizontal_scroll)
-        self.app.grid_canvas.configure(yscrollcommand=y_scroll.set, xscrollcommand=_on_grid_xscroll)
+        self.app.x_scroll = widgets.Scrollbar(editor_frame, orient="horizontal", command=self.app._on_horizontal_scroll)
+        self.app.grid_canvas.configure(yscrollcommand=y_scroll.set, xscrollcommand=self.app.viewport_sync_h.on_view_changed)
         y_scroll.grid(row=1, column=2, sticky="ns")
-        x_scroll.grid(row=2, column=1, sticky="ew")
+        self.app.x_scroll.grid(row=2, column=1, sticky="ew")
 
         editor_frame.rowconfigure(0, weight=0)
         editor_frame.rowconfigure(1, weight=1)

@@ -17,7 +17,7 @@ from kursplaner.adapters.gui.action_controller import MainWindowActionController
 from kursplaner.adapters.gui.column_reorder_controller import MainWindowColumnReorderController
 from kursplaner.adapters.gui.editor_controller import MainWindowEditorController
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
-from kursplaner.adapters.gui.grid_viewport_sync import GridViewportSync
+from kursplaner.adapters.gui.grid_viewport_sync import GridViewportSync, HorizontalViewportSync
 from kursplaner.adapters.gui.lesson_context_controller import MainWindowLessonContextController
 from kursplaner.adapters.gui.lesson_conversion_controller import MainWindowLessonConversionController
 from kursplaner.adapters.gui.overview_controller import MainWindowOverviewController
@@ -108,11 +108,21 @@ class KursplanerApp(BwBaseWindow):
         self.clipboard_lesson_path: pathlib.Path | None = None
         self.sequence_fields_visible_var = ui.BooleanVar(value=True)
         self.topic_sequence_plans: list[TopicSequencePlanView] = []
+        # Seit der Viewport-Virtualisierung (Kursplaner Item 4) bedeutet ein
+        # Eintrag hier "diese Spannzelle ist gerade materialisiert", NICHT
+        # "dieser Sequenzlauf existiert" -- vor der Virtualisierung waren
+        # beide Aussagen deckungsgleich (jeder Lauf hatte immer ein Widget),
+        # seither nicht mehr. Domain-/Grid-Fragen (z.B. "ueberspannt dieser
+        # Lauf Tag X") gehoeren auf `topic_sequence_plans`/Grid-Konfiguration,
+        # nicht auf dieses Dict; nur echte Materialisierungs-/UI-Fragen
+        # ("hat diese Zelle gerade ein Widget zum Stylen/Fokussieren") duerfen
+        # es lesen. S. `GridRenderer._reconcile_sequence_field_mounts()`.
         self.sequence_field_widgets: dict[tuple[str, int], ui.Text] = {}
 
         self.current_table: PlanTableData | None = None
         self.day_columns: list[DayColumn] = []
         self.day_column_x_positions: dict[int, int] = {}
+        self.day_grid_columns: dict[int, int] = {}
         self.lesson_load_errors: dict[str, str] = {}
         self._plan_overview_query = self.gui_dependencies.plan_overview_query
         self.row_display_mode_usecase = self.gui_dependencies.row_display_mode_usecase
@@ -131,7 +141,25 @@ class KursplanerApp(BwBaseWindow):
         self.show_former_courses = False
         self.raw_day_columns: list[DayColumn] = []
 
+        # Seit der Viewport-Virtualisierung (Kursplaner Item 4) bedeutet ein
+        # Eintrag hier "diese Zelle ist gerade materialisiert", NICHT "diese
+        # logische Zelle existiert" -- vor der Virtualisierung waren beide
+        # Aussagen deckungsgleich (jede domain-sichtbare Zelle hatte immer
+        # ein Widget), seither nicht mehr. Domain-/Grid-Fragen ("ist dieses
+        # Feld an diesem Tag relevant", "wo liegt Grid-Zeile X") gehoeren auf
+        # Domain-Daten bzw. Grid-Konfiguration (`grid_rowconfigure`/
+        # `day_column_x_positions`/`day_grid_columns`), NIE auf dieses Dict;
+        # nur echte Materialisierungs-/UI-Fragen ("hat diese Zelle gerade ein
+        # Widget zum Stylen/Fokussieren") duerfen es lesen. S.
+        # `GridRenderer._reconcile_column_mounts()`,
+        # `MainWindowSelectionController.ensure_row_visible()`.
         self.cell_widgets: dict[tuple[str, int], ui.Text] = {}
+        # Ungespeicherter Zellentext, unabhaengig vom Widget gehalten (Kursplaner
+        # Item 4, Stufe 4 -- COLD-Eviction via destroy()). Wird nur befuellt, wenn
+        # eine Zelle mit vom Domain-Wert abweichendem Text destroy()t wird, und
+        # ausschliesslich bei einem erfolgreichen echten Commit (save_cell()
+        # durch Fokusverlust) wieder geleert -- niemals durch reines Scrollen.
+        self.pending_cell_text: dict[tuple[str, int], str] = {}
         self.header_labels: dict[int, ui.Label] = {}
         self.row_labels: dict[str, ui.Label] = {}
         self.corner_label: ui.Label | None = None
@@ -140,6 +168,7 @@ class KursplanerApp(BwBaseWindow):
         self._is_rebuilding_grid = False
         self.is_detail_view = False
         self.viewport_sync = GridViewportSync(self)
+        self.viewport_sync_h = HorizontalViewportSync(self)
 
         self.overview_controller = MainWindowOverviewController(self)
         self.selection_controller = MainWindowSelectionController(self)
@@ -449,9 +478,13 @@ class KursplanerApp(BwBaseWindow):
         """Zeigt die Einheitenansicht als alleinige Hauptansicht."""
         self.screen_builder.show_course_detail()
 
-    def _collect_day_columns(self):
-        """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle."""
-        self.overview_controller.collect_day_columns()
+    def _collect_day_columns(self, changed_row_indices: set[int] | None = None) -> None:
+        """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle.
+
+        Args:
+            changed_row_indices: Siehe `OverviewController.collect_day_columns()`.
+        """
+        self.overview_controller.collect_day_columns(changed_row_indices)
 
     def _field_value(self, day: DayColumn, field_key: str) -> str:
         """Liefert den darzustellenden Zellwert für ein Feld aus `day_columns`."""

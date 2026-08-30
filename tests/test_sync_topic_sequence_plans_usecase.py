@@ -33,7 +33,7 @@ def _table(tmp_path: Path) -> PlanTableData:
 def _day(*, row_index: int, kind: str, obert: str = "", datum: str = "", thema: str = "") -> DayColumn:
     """Baut eine `DayColumn` mit den in diesen Tests ausschließlich verwendeten "Unterricht"-Zeilen.
 
-    Ohne gültigen Link liefert `DayColumn.stundentyp()` immer ``"Unterricht"``
+    Ohne gültigen Link liefert `DayColumn.stundentyp` immer ``"Unterricht"``
     (siehe `day_column.py`), was hier genügt, da diese Testdatei nie andere
     Stundentypen braucht.
     """

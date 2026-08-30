@@ -64,7 +64,7 @@ def test_cancelled_column_as_next_unit_keeps_cancel_background_but_adds_glyph():
 def test_hospitation_column_as_next_unit_keeps_hospitation_background_but_adds_glyph():
     # is_hospitation() ohne echten Datei-Link greift ueber den Textmarker
     # "HO ..." in `inhalt` (Stundentyp-YAML braucht dagegen einen real
-    # existierenden `link`, siehe DayColumn.stundentyp()) -- fuer diesen
+    # existierenden `link`, siehe DayColumn.stundentyp) -- fuer diesen
     # reinen Domain-Test reicht der Marker-Pfad.
     columns = [make_day_column(row_index=0, datum="18-02-26", inhalt="HO Grund")]
     text, col_type = _visual_state(columns, next_unit_index=0)

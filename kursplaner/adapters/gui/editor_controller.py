@@ -106,7 +106,7 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return True
 
-        self.app._collect_day_columns()
+        self.app._collect_day_columns({day_index})
         self.app._update_grid_column(day_index)
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
@@ -152,6 +152,11 @@ class MainWindowEditorController:
         value = cell.get("1.0", "end-1c").strip()
         current_value = self.app._field_value(day, field_key).strip()
         if value == current_value:
+            # Deckt sich wieder mit dem Domain-Wert (z.B. Edit rueckgaengig
+            # gemacht) -- ein evtl. noch vorhandener pending_cell_text-Eintrag
+            # aus einem frueheren COLD-Zyklus (Kursplaner Item 4, Stufe 4)
+            # ist dann veraltet und muss verschwinden.
+            self.app.pending_cell_text.pop((field_key, day_index), None)
             return True
 
         try:
@@ -160,7 +165,11 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return False
 
-        self.app._collect_day_columns()
+        # Erfolgreicher echter Commit: der Widget-Text stimmt jetzt wieder
+        # mit dem Domain-Wert ueberein, ein pending_cell_text-Eintrag ist
+        # damit obsolet.
+        self.app.pending_cell_text.pop((field_key, day_index), None)
+        self.app._collect_day_columns({day_index})
         self.app._update_grid_column(day_index)
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
@@ -274,6 +283,9 @@ class MainWindowEditorController:
         value = cell.get("1.0", "end-1c").strip()
         current_value = view.sequenzziel if sequence_field_key == "Sequenzziel" else view.leitkompetenz
         if value == current_value.strip():
+            # s. save_cell(): ein evtl. veralteter pending_cell_text-Eintrag
+            # aus einem frueheren COLD-Zyklus muss auch hier verschwinden.
+            self.app.pending_cell_text.pop((sequence_field_key, first_row_index), None)
             return True
 
         try:
@@ -287,6 +299,7 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return False
 
+        self.app.pending_cell_text.pop((sequence_field_key, first_row_index), None)
         self.app._collect_day_columns()
         self.app._rebuild_grid()
         return True

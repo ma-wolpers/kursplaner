@@ -17,42 +17,96 @@ class MainWindowSelectionController:
         self.app = app
 
     def toggle_column_selection(self, day_index: int):
-        """Schaltet die Selektion einer Tages-Spalte um und aktualisiert Header/UI-Status."""
+        """Schaltet die Selektion einer Tages-Spalte um und aktualisiert Header/UI-Status.
+
+        Fast Path (analog zu `set_selected_cell()`): stylt nur die Header neu,
+        deren Selektionszugehörigkeit sich tatsächlich geändert hat, statt
+        alle Header und den gesamten Grid-Inhalt neu zu zeichnen — eine
+        Spaltenselektion ändert kein Zell-Styling (das hängt nur von
+        `ui_state.selected_cell`, nicht von `selected_day_indices`, ab;
+        `_border_thickness()`/`_apply_cell_selection_style()` lesen nirgends
+        `selected_day_indices`).
+        """
+        old_selected = set(self.app.selected_day_indices)
         if day_index in self.app.selected_day_indices:
             self.app.selected_day_indices = set()
-            self.clear_selected_cell()
-            self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         else:
             self.app.selected_day_indices = {day_index}
-            self.clear_selected_cell()
-            self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
+        self.clear_selected_cell()
+        self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
-        self.refresh_header_styles()
-        self.app._refresh_grid_content()
+        self._restyle_headers_for_selection_change(old_selected, self.app.selected_day_indices)
         self.app.action_controller.update_action_controls()
 
     def set_single_column_selection(self, day_index: int, *, ensure_visible: bool = False):
-        """Setzt genau eine selektierte Spalte und optional den horizontalen Viewport darauf."""
+        """Setzt genau eine selektierte Spalte und optional den horizontalen Viewport darauf.
+
+        Fast Path wie `toggle_column_selection()` (siehe dort) — restylt nur
+        die betroffenen Header statt Header und Grid-Inhalt vollständig neu
+        aufzubauen.
+        """
         if not (0 <= day_index < len(self.app.day_columns)):
             return
+        old_selected = set(self.app.selected_day_indices)
         self.app.selected_day_indices = {day_index}
         self.clear_selected_cell()
         self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
-        self.refresh_header_styles()
-        self.app._refresh_grid_content()
+        self._restyle_headers_for_selection_change(old_selected, self.app.selected_day_indices)
         self.app.action_controller.update_action_controls()
         if ensure_visible:
             self.ensure_column_visible(day_index)
 
+    def _restyle_headers_for_selection_change(self, old_selected: set[int], new_selected: set[int]) -> None:
+        """Stylt nur die Header neu, deren Selektionszugehörigkeit sich geändert hat.
+
+        Fällt auf den vollen `refresh_header_styles()`-Sweep zurück, solange
+        das Grid noch nicht (vollständig) aufgebaut ist — derselbe Guard wie
+        beim bestehenden Fast Path in `set_selected_cell()`.
+
+        Args:
+            old_selected: `selected_day_indices` vor der Änderung.
+            new_selected: `selected_day_indices` nach der Änderung.
+        """
+        # "Ist das Grid ueberhaupt aufgebaut" ist eine Frage an header_labels
+        # (immer vollstaendig, ein Header pro Tag) -- diese Methode stylt
+        # ohnehin ausschliesslich Header, cell_widgets waere hier nur ein
+        # zufaellig mitlaufender Proxy, der bei einer spaeter nur noch
+        # teilweise gemounteten cell_widgets-Map faelschlich staendig auf
+        # den vollen Sweep zurueckfiele.
+        if not self.app.header_labels or self.app._is_rebuilding_grid:
+            self.refresh_header_styles()
+            return
+        for idx in old_selected.symmetric_difference(new_selected):
+            if idx in self.app.header_labels:
+                self._apply_single_header_style(idx)
+
     def clear_selected_cell(self):
-        """Entfernt die aktuelle Zellmarkierung und aktualisiert das Grid-Styling."""
-        if self.app.ui_state.selected_cell is None:
+        """Entfernt die aktuelle Zellmarkierung; aktualisiert nur deren bisherigen Zellstil.
+
+        Fast Path (analog zu `set_selected_cell()`): nur das Widget der
+        zuvor selektierten Zelle wird neu gestylt, statt den gesamten
+        Grid-Inhalt neu zu zeichnen.
+        """
+        old_sel = self.app.ui_state.selected_cell
+        if old_sel is None:
             return
         self.app.ui_state.clear_selected_cell()
-        self.app._refresh_grid_content()
+        # header_labels statt cell_widgets als "ist das Grid aufgebaut"-Signal
+        # (s. _restyle_headers_for_selection_change) -- der eigentliche
+        # Widget-Lookup direkt darunter bleibt unveraendert defensiv
+        # (None-Check), das ist eine separate, hier bewusst nicht angefasste
+        # Frage ("existiert das Widget fuer GENAU diese Zelle gerade").
+        if self.app.header_labels and not self.app._is_rebuilding_grid:
+            old_widget = self.app.cell_widgets.get((old_sel.field_key, old_sel.day_index))
+            if old_widget is not None:
+                self.app.grid_renderer._apply_cell_selection_style(
+                    old_widget, field_key=old_sel.field_key, day_index=old_sel.day_index
+                )
+        else:
+            self.app._refresh_grid_content()
 
     def set_selected_cell(self, field_key: str, day_index: int, *, ensure_visible: bool = False) -> bool:
         """Markiert eine editierbare Zelle als aktive Navigationszelle.
@@ -63,8 +117,9 @@ class MainWindowSelectionController:
         werden neu gezeichnet. Alle anderen Zellen bleiben unberührt.
 
         Bei erstem Grid-Aufbau, nach einem Modus-Wechsel (der `_rebuild_grid()`
-        auslöst) oder wenn `cell_widgets` noch leer ist, fällt die Methode auf den
-        vollen `_refresh_grid_content()` zurück.
+        auslöst) oder wenn `header_labels` noch leer ist (Grid insgesamt noch
+        nicht aufgebaut), fällt die Methode auf den vollen `_refresh_grid_content()`
+        zurück.
 
         Args:
             field_key: Schlüssel der Feld-Zeile (z.B. ``"Stundenthema"``).
@@ -89,7 +144,26 @@ class MainWindowSelectionController:
         self.update_selected_column_label()
         self.app._update_row_mode_from_selection()
 
-        if self.app.cell_widgets and not self.app._is_rebuilding_grid:
+        if ensure_visible:
+            self.ensure_column_visible(day_index)
+            # Invariante: kehrt set_selected_cell(..., ensure_visible=True)
+            # zurueck, ist die Zielzelle synchron materialisiert (cell_widgets
+            # enthaelt einen Eintrag dafuer). Styling direkt unten, ein
+            # anschliessendes ensure_row_visible() sowie nachfolgende
+            # Editing-Aktionen (z.B. ui_intent_controller.intent_grid_enter())
+            # duerfen sich darauf verlassen -- die Materialisierungs-
+            # Verantwortung liegt hier, nicht bei den Konsumenten. Reine
+            # Sichtbarkeits-/Materialisierungslogik, loest nie einen Save aus
+            # (s. flush_pending_reconciliation()).
+            self.app.viewport_sync_h.flush_pending_reconciliation()
+
+        # header_labels statt cell_widgets als "ist das Grid aufgebaut"-Signal,
+        # s. Kommentar in clear_selected_cell(). Die Widget-Lookups darunter
+        # (Zeile mit old_widget/new_widget) bleiben unveraendert defensiv --
+        # cell_widgets heisst "gerade materialisiert", nicht "existiert"; der
+        # obige Flush macht die Existenz fuer die neu selektierte Zelle bei
+        # ensure_visible=True aber bereits verlaesslich, bevor hier gestylt wird.
+        if self.app.header_labels and not self.app._is_rebuilding_grid:
             gr = self.app.grid_renderer
             if old_field_key is not None and old_day_index is not None:
                 old_widget = self.app.cell_widgets.get((old_field_key, old_day_index))
@@ -109,7 +183,6 @@ class MainWindowSelectionController:
             self.app.action_controller.update_action_controls()
 
         if ensure_visible:
-            self.ensure_column_visible(day_index)
             self.ensure_row_visible(field_key, day_index)
         return True
 
@@ -260,7 +333,7 @@ class MainWindowSelectionController:
         column_start = int(x_positions.get(day_index, day_index * self.app.day_column_width))
         column_end = column_start + self.app.day_column_width
 
-        x_start, x_end = self.app.grid_canvas.xview()
+        x_start, x_end = self.app.viewport_sync_h.xview_range()
         visible_start = x_start * full_width
         visible_end = x_end * full_width
 
@@ -271,13 +344,28 @@ class MainWindowSelectionController:
             target_start = (column_end - viewport_width) / float(full_width)
 
         max_start = max(0.0, 1.0 - (viewport_width / float(full_width)))
-        self.app.grid_canvas.xview_moveto(min(max(target_start, 0.0), max_start))
+        self.app.viewport_sync_h.xview_moveto(min(max(target_start, 0.0), max_start))
 
     def ensure_row_visible(self, field_key: str, day_index: int):
-        """Scrollt vertikal so, dass die aktive Zelle im sichtbaren Grid-Bereich bleibt."""
-        cell_widgets = getattr(self.app, "cell_widgets", {})
-        cell_widget = cell_widgets.get((field_key, day_index))
-        if cell_widget is None:
+        """Scrollt vertikal so, dass die aktive Zelle im sichtbaren Grid-Bereich bleibt.
+
+        Fragt die Zeilen-Geometrie bewusst beim GRID ab (`grid_bbox()`), nicht
+        bei einem konkreten Zellen-Widget: "wo liegt Grid-Zeile X" ist eine
+        Frage an die Grid-Konfiguration (`grid_rowconfigure`, für JEDE Zeile
+        immer gesetzt -- Zeilen werden nie virtualisiert), nicht an ein
+        Widget, das gerade materialisiert sein mag oder nicht. `cell_widgets`
+        bedeutet seit der Viewport-Virtualisierung "diese Zelle ist gerade
+        materialisiert", nicht "diese logische Zelle existiert" -- Domain-/
+        Grid-Fragen wie diese hier duerfen sich darauf nicht stuetzen (analog
+        zu `ensure_column_visible()`, das die Spalten-Position schon immer
+        aus `day_column_x_positions` statt aus einem Widget liest).
+
+        `day_index` wird fuer die Berechnung selbst nicht mehr gebraucht,
+        bleibt aber in der Signatur (unveraenderte Aufrufer, kein Anlass fuer
+        einen Signatur-Refactor an dieser Stelle).
+        """
+        row_idx = self.app.grid_renderer._row_index_for_field(field_key)
+        if row_idx is None:
             return
 
         self.app.grid_canvas.update_idletasks()
@@ -288,8 +376,11 @@ class MainWindowSelectionController:
         full_height = max(1, bbox[3] - bbox[1])
         viewport_height = max(1, int(self.app.grid_canvas.winfo_height()))
 
-        row_start = int(cell_widget.winfo_y())
-        row_height = max(1, int(cell_widget.winfo_height()))
+        row_bbox = self.app.grid_inner.grid_bbox(0, row_idx)
+        if row_bbox is None:
+            return
+        row_start = int(row_bbox[1])
+        row_height = max(1, int(row_bbox[3]))
         row_end = row_start + row_height
 
         y_start, y_end = self.app.viewport_sync.yview_range()

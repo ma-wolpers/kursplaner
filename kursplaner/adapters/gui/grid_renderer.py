@@ -20,7 +20,11 @@ from bw_gui.theming import (
 )
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
-from kursplaner.adapters.gui.sequence_field_grid_renderer import SequenceFieldGridRenderer
+from kursplaner.adapters.gui.sequence_field_grid_renderer import (
+    SEQUENCE_FIELD_ROW_ORDER,
+    SequenceFieldGridRenderer,
+    compute_row_index_to_grid_col,
+)
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
@@ -217,7 +221,19 @@ class GridRenderer:
         return visible
 
     def _grid_structure_matches_state(self) -> bool:
-        """Prüft, ob vorhandene Widgets zur aktuellen fachlichen Sichtbarkeit passen."""
+        """Prüft, ob vorhandene Widgets zur aktuellen fachlichen Sichtbarkeit passen.
+
+        Dreiwertig statt binär (Kursplaner Item 4, Stufe 2): für Zellen
+        AUSSERHALB des aktuellen Mount-Fensters ist "domain-sichtbar, aber
+        kein Widget" ein legitimer Zustand, kein struktureller Fehler mehr --
+        die spätere Virtualisierung mountet dort bewusst nichts. Solange kein
+        echtes Mount/Unmount existiert (vor Stufe 3), bleibt `cell_widgets`
+        aber für jede domain-sichtbare Zelle vollständig befüllt, das
+        Mount-Fenster wirkt sich also noch nicht aus -- diese Änderung ist
+        eine strikte Lockerung der alten Gleichheitsprüfung, keine
+        Verhaltensänderung: alles, was die alte Prüfung erfüllte, erfüllt
+        auch diese.
+        """
         if len(self.app.header_labels) != len(self.app.day_columns):
             return False
 
@@ -227,14 +243,236 @@ class GridRenderer:
         if actual_fields != expected_fields:
             return False
 
+        viewport_sync_h = getattr(self.app, "viewport_sync_h", None)
+        mounted_range = viewport_sync_h.mounted_day_index_range() if viewport_sync_h is not None else None
+
         for field_key in expected_fields:
             for day_index, day in enumerate(self.app.day_columns):
                 expected_visible = self._field_is_visible_for_day(field_key, day)
-                actual_visible = (field_key, day_index) in self.app.cell_widgets
-                if expected_visible != actual_visible:
-                    return False
+                has_widget = (field_key, day_index) in self.app.cell_widgets
+                if not expected_visible:
+                    if has_widget:
+                        return False  # verwaistes Widget fuer eine jetzt irrelevante Zelle: immer ein Fehler
+                    continue
+                if mounted_range is not None and not (mounted_range[0] <= day_index <= mounted_range[1]):
+                    continue  # domain-sichtbar, aber ausserhalb des Mount-Fensters: erlaubt
+                if not has_widget:
+                    return False  # sollte gerade gemountet sein, ist es nicht: ein Fehler
 
         return True
+
+    def _reconcile_column_mounts(self) -> None:
+        """Hält `cell_widgets` auf das aktuelle Mount-Fenster begrenzt
+
+        (Kursplaner Item 4, Stufe 4 -- HOT/WARM bleiben ein gemeinsames
+        `grid()`'d/lebendiges Fenster wie in Stufe 3; alles ausserhalb wird
+        jetzt echt COLD: `destroy()`t und aus `cell_widgets` entfernt, statt
+        nur `grid_remove()`t).
+
+        Zwei Durchläufe:
+        1. Zellen, deren Tag jetzt ausserhalb des Fensters liegt, werden
+           evictet (`_evict_cell_to_cold()`) -- rettet ungespeicherten Text
+           nach `pending_cell_text`, zerstört das Widget.
+        2. Für jedes domain-sichtbare (Feld, Tag) innerhalb des Fensters:
+           existiert das Widget bereits, wird es (wieder) sichtbar gemacht
+           (`grid()`, idempotent falls schon sichtbar); existiert es nicht
+           (zuvor COLD oder erstmals in Reichweite), wird es über
+           `_create_and_mount_cell()` neu erzeugt -- mit `pending_cell_text`
+           als Vorbelegung, falls vorhanden, sonst dem Domain-Wert.
+
+        Löst nie einen Save aus: das Erfassen von `pending_cell_text` ist
+        reines Lesen-und-Merken (kein `save_cell()`-Aufruf, keine
+        Domain-Mutation) -- nur ein echter Fokusverlust committet weiterhin
+        über den bestehenden Pfad (`editor_controller.save_cell()`).
+
+        Nur `cell_widgets` ist betroffen -- Header (immer vollständig
+        gemountet) und `sequence_field_widgets` (bewusst isoliert per
+        `_reconcile_sequence_field_mounts()`, s. dort, Kursplaner Item 4
+        Stufe 6) bleiben hier unangetastet.
+        """
+        if self.app._is_rebuilding_grid:
+            return
+        mounted_range = self.app.viewport_sync_h.mounted_day_index_range()
+        if mounted_range is None:
+            return
+        self._reconcile_sequence_field_mounts(mounted_range)
+        lo, hi = mounted_range
+
+        for (field_key, day_index), cell in list(self.app.cell_widgets.items()):
+            if not (lo <= day_index <= hi):
+                self._evict_cell_to_cold(field_key, day_index, cell)
+
+        for field_key, _label_text in self._visible_row_defs():
+            row_idx = self._row_index_for_field(field_key)
+            if row_idx is None:
+                continue
+            help_text = self._field_help_text(field_key)
+            for day_index in range(max(0, lo), min(hi, len(self.app.day_columns) - 1) + 1):
+                day = self.app.day_columns[day_index]
+                if not self._field_is_visible_for_day(field_key, day):
+                    continue
+                key = (field_key, day_index)
+                existing = self.app.cell_widgets.get(key)
+                if existing is not None:
+                    existing.grid()
+                    continue
+                grid_column = self.app.day_grid_columns.get(day_index, day_index)
+                pending_text = self.app.pending_cell_text.get(key)
+                value = pending_text if pending_text is not None else self.app._field_value(day, field_key)
+                cell = self._create_and_mount_cell(
+                    field_key=field_key,
+                    day=day,
+                    day_index=day_index,
+                    row_idx=row_idx,
+                    grid_column=grid_column,
+                    value=value,
+                    help_text=help_text,
+                )
+                self._grow_row_minsize_for_cell(field_key, cell)
+
+    def _evict_cell_to_cold(self, field_key: str, day_index: int, cell) -> None:
+        """Entfernt eine einzelne Zelle vollständig (COLD): rettet ungespeicherten
+
+        Text nach `pending_cell_text`, zerstört das Widget, entfernt den
+        `cell_widgets`-Eintrag.
+
+        Reines Lesen-und-Merken -- kein I/O, kein `save_cell()`-Aufruf, keine
+        Domain-Mutation. Prüft zusätzlich `active_editor`: ein Nutzer kann
+        eine Zelle fokussiert halten und trotzdem den Viewport wegscrollen
+        (Tk-Fokus hängt nicht von Sichtbarkeit ab); `<FocusOut>` feuert nicht
+        zuverlässig vor `destroy()`, daher wird der State hier explizit
+        bereinigt, statt sich auf das Event zu verlassen.
+
+        Save-Grenze (bewusst, nicht nur Nebenwirkung): COLD-Eviction einer
+        gerade editierten Zelle löst **niemals** selbst einen Commit aus --
+        auch nicht über den `active_editor`-Cleanup oben. Nur ein echter
+        `<FocusOut>` (`GRID_COMMIT_CELL`-Intent) committet. Scrollen/
+        Sichtbarkeitswechsel bleiben damit garantiert save-frei, exakt wie
+        von Anfang an gefordert ("Scrollen speichert nie").
+        """
+        day = self.app.day_columns[day_index] if day_index < len(self.app.day_columns) else None
+        if day is not None:
+            current_text = cell.get("1.0", "end-1c")
+            domain_value = self.app._field_value(day, field_key)
+            if current_text != domain_value:
+                self.app.pending_cell_text[(field_key, day_index)] = current_text
+
+        active_editor = self.app.ui_state.active_editor
+        if active_editor is not None and active_editor.field_key == field_key and active_editor.day_index == day_index:
+            self.app.ui_state.clear_active_editor()
+
+        cell.destroy()
+        del self.app.cell_widgets[(field_key, day_index)]
+
+    def _reconcile_sequence_field_mounts(self, mounted_range: tuple[int, int]) -> None:
+        """Hält Sequenzfeld-Spannzellen (Sequenzziel/Leitkompetenz) auf ihre
+
+        Schnittmenge mit dem aktuellen Mount-Fenster begrenzt (Kursplaner
+        Item 4, Stufe 6). Bewusst als eigene Methode neben
+        `_reconcile_column_mounts()`, da eine Spannzelle nicht "eine Zelle
+        pro Tag" ist, sondern mehrere Tages-Spalten gleichzeitig überspannt
+        -- aber über denselben Aufrufer (s. o.) angebunden, damit nie einer
+        der beiden Reconciliation-Pfade vergessen wird, wenn sich der andere
+        ändert.
+
+        Der volle logische Span eines Sequenzlaufs (`_run_span()`,
+        unverändert) ist immer ein zusammenhängender Grid-Spalten-Bereich;
+        das Mount-Fenster (`mounted_range`, in Tages-Index-Terminologie)
+        wird dafür in denselben Grid-Spalten-Raum übersetzt
+        (`day_grid_columns`). Die Schnittmenge zweier Intervalle ist immer
+        höchstens EIN zusammenhängendes Intervall -- kein Fall für
+        `compute_contiguous_spans()` (das wäre nur nötig, wenn das
+        Mount-Fenster selbst kein einzelnes `(lo, hi)`-Intervall mehr wäre;
+        aktuell ist es das per Konstruktion immer).
+
+        Löst wie `_reconcile_column_mounts()` NIE einen Save aus:
+        Text-Rettung vor der Zerstörung ist reines Lesen-und-Merken in
+        `pending_cell_text` (geschlüsselt als `(field_key, first_row_index)`
+        -- eigener Namensraum ohne Kollisionsrisiko, da "Sequenzziel"/
+        "Leitkompetenz" nie als Feld-Schlüssel normaler Zeilen vorkommen).
+        `save_sequence_field()` wird hier nie aufgerufen -- anders als im
+        ursprünglichen Plan-Entwurf, der noch von einem Force-Commit-
+        Mechanismus ausging, den Stufe 4 zugunsten von `pending_cell_text`
+        verworfen hat; dieselbe Entscheidung gilt konsequent auch hier.
+        Sequenzfeld-Zellen tragen ohnehin kein `active_editor`-Äquivalent
+        (Fokus-/Klick-Intents sind bewusste No-ops, s.
+        `ui_intent_controller.py`) -- nichts zu bereinigen dort.
+        """
+        if not self.app.sequence_fields_visible_var.get() or not self.app.topic_sequence_plans:
+            return
+
+        lo, hi = mounted_range
+        day_grid_columns = self.app.day_grid_columns
+        lo_col = day_grid_columns.get(lo)
+        hi_col = day_grid_columns.get(hi)
+        if lo_col is None or hi_col is None:
+            return
+        mounted_col_range = range(lo_col, hi_col + 1)
+
+        row_index_to_grid_col = compute_row_index_to_grid_col(self.app.day_columns, day_grid_columns)
+
+        for field_key in SEQUENCE_FIELD_ROW_ORDER:
+            row_idx = SEQUENCE_FIELD_ROW_ORDER.index(field_key)
+            for view in self.app.topic_sequence_plans:
+                full_span = self._sequence_field_renderer._run_span(
+                    row_index_to_grid_col, view.run.first_row_index, view.run.last_row_index
+                )
+                widget_key = (field_key, view.run.first_row_index)
+                existing = self.app.sequence_field_widgets.get(widget_key)
+                domain_value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
+
+                sub_span = None
+                if full_span is not None:
+                    start = max(full_span.start, mounted_col_range.start)
+                    stop = min(full_span.stop, mounted_col_range.stop)
+                    if start < stop:
+                        sub_span = range(start, stop)
+
+                if sub_span is None:
+                    if existing is not None:
+                        self._evict_sequence_field_to_cold(field_key, view.run.first_row_index, existing, domain_value)
+                    continue
+
+                if existing is not None:
+                    grid_info = existing.grid_info()
+                    if int(grid_info.get("column", -1)) != sub_span.start or int(
+                        grid_info.get("columnspan", -1)
+                    ) != len(sub_span):
+                        existing.grid(row=row_idx, column=sub_span.start, columnspan=len(sub_span), sticky="nsew")
+                    continue
+
+                pending_text = self.app.pending_cell_text.get(widget_key)
+                value = pending_text if pending_text is not None else domain_value
+                cell = self._sequence_field_renderer._create_text_cell(
+                    self.app.grid_inner,
+                    value,
+                    editable=True,
+                    canceled=False,
+                    unresolved_link=False,
+                    height_lines=self.app.collapsed_row_lines,
+                )
+                cell.grid(row=row_idx, column=sub_span.start, columnspan=len(sub_span), sticky="nsew")
+                self._sequence_field_renderer._bind_events(
+                    cell, field_key=field_key, first_row_index=view.run.first_row_index
+                )
+                self.app.sequence_field_widgets[widget_key] = cell
+
+    def _evict_sequence_field_to_cold(
+        self, field_key: str, first_row_index: int, cell, domain_value: str
+    ) -> None:
+        """Entfernt eine einzelne Sequenzfeld-Spannzelle vollständig (COLD).
+
+        Spiegelt `_evict_cell_to_cold()` für den Sequenzfeld-Fall -- reines
+        Lesen-und-Merken nach `pending_cell_text`, dann `destroy()`. Löst
+        ebenso nie einen Save aus (Sequenzfeld-Zellen haben ohnehin kein
+        `active_editor`-Äquivalent -- Fokus-Intents sind bewusste No-ops,
+        s. `ui_intent_controller.py`).
+        """
+        current_text = cell.get("1.0", "end-1c")
+        if current_text != domain_value:
+            self.app.pending_cell_text[(field_key, first_row_index)] = current_text
+        cell.destroy()
+        del self.app.sequence_field_widgets[(field_key, first_row_index)]
 
     def _row_layout(self, field_key: str) -> tuple[int, bool, bool, str]:
         """Berechnet Höhe, Kollaps-Status und Labeltext einer Feldzeile und cacht das Ergebnis.
@@ -300,6 +538,29 @@ class GridRenderer:
             if field_key not in {"inhalt", "stunden", "startzeit", "Oberthema", "Ausfallgrund"}:
                 return False
         return self.app.row_display_mode_usecase.field_is_relevant_for_day(field_key, day, self.app.row_filter_settings)
+
+    def _clear_selection_if_selected_cell_no_longer_visible(self) -> None:
+        """Löscht die Zellauswahl, falls die zuvor ausgewählte Zelle nach einem
+        Rebuild (z. B. Modus-/Filterwechsel) nicht mehr existiert.
+
+        Prüft die Domain-Sichtbarkeit (`_field_is_visible_for_day()`), nicht
+        Widget-Präsenz in `cell_widgets` -- letzteres ist heute zwar noch
+        vollständig (keine Virtualisierung), aber die Domain-Frage ist die
+        eigentliche, stabile Quelle der Wahrheit dafür.
+        """
+        selected = self.app.ui_state.selected_cell
+        if selected is None:
+            return
+        selected_day = (
+            self.app.day_columns[selected.day_index]
+            if selected.day_index < len(self.app.day_columns)
+            else None
+        )
+        if selected_day is not None and self._field_is_visible_for_day(selected.field_key, selected_day):
+            return
+        self.app.ui_state.clear_selected_cell()
+        if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
+            self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
 
     def _apply_cell_state(
         self,
@@ -409,6 +670,103 @@ class GridRenderer:
         self._apply_cell_selection_style(widget, field_key="", day_index=-1)
         return widget
 
+    def _create_and_mount_cell(
+        self,
+        *,
+        field_key: str,
+        day: DayColumn,
+        day_index: int,
+        row_idx: int,
+        grid_column: int,
+        value: str,
+        help_text: str,
+    ) -> ui.Text:
+        """Erzeugt EIN Zellen-Widget, platziert es im Grid und registriert es in
+
+        ``cell_widgets`` -- gemeinsamer Kern für den vollen `_rebuild_grid()`-
+        Durchlauf UND das Remounten einer einzelnen zuvor COLD-entfernten
+        Zelle (`_reconcile_column_mounts()`, Kursplaner Item 4, Stufe 4).
+        Beide Pfade müssen garantiert dasselbe Zellen-Setup (Theming,
+        Editierbarkeit, Event-Bindings) verwenden, statt zweier unabhängiger,
+        potenziell divergierender Kopien.
+
+        Höhen-Buchführung ist bewusst NICHT Teil dieser Methode: der volle
+        Rebuild sammelt Zeilenhöhen in einem lokalen Dict und wendet sie am
+        Ende gebündelt an, während ein Einzelzellen-Remount stattdessen
+        `_grow_row_minsize_for_cell()` (grow-only, s. Item 2) braucht -- die
+        beiden Aufrufer erledigen das jeweils selbst nach diesem Aufruf.
+        """
+        is_cancel = day.is_cancel()
+        is_unresolved_link = day.is_unresolved_link()
+        is_lzk = day.is_lzk()
+        is_hospitation = day.is_hospitation()
+        editable = self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings)
+        canceled_visual = is_cancel and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
+        row_height, _collapsible, _expanded, _label_text = self._row_layout(field_key)
+
+        cell = self._create_text_cell(
+            self.app.grid_inner,
+            value,
+            editable=editable,
+            canceled=canceled_visual,
+            unresolved_link=is_unresolved_link,
+            height_lines=row_height,
+            is_lzk=is_lzk,
+            is_hospitation=is_hospitation,
+            lzk_masked=False,
+            italic=(field_key == "Kompetenzhorizont" and is_lzk),
+        )
+        cell.grid(row=row_idx, column=grid_column, sticky="nsew")
+        self._apply_cell_selection_style(cell, field_key=field_key, day_index=day_index)
+        if help_text:
+            self._field_help_tooltips.append(HoverTooltip(cell, help_text))
+
+        if editable:
+            cell.bind(
+                "<Button-1>",
+                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
+                    UiIntent.GRID_CELL_CLICK,
+                    field_key=fk,
+                    day_index=di,
+                ),
+            )
+            cell.bind(
+                "<FocusIn>",
+                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
+                    UiIntent.GRID_EDITOR_FOCUS_IN,
+                    field_key=fk,
+                    day_index=di,
+                ),
+            )
+            cell.bind(
+                "<FocusOut>",
+                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
+                    UiIntent.GRID_COMMIT_CELL,
+                    field_key=fk,
+                    day_index=di,
+                ),
+            )
+            cell.bind(
+                "<FocusOut>",
+                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
+                    UiIntent.GRID_EDITOR_FOCUS_OUT,
+                    field_key=fk,
+                    day_index=di,
+                ),
+                add="+",
+            )
+        else:
+            cell.bind(
+                "<Button-1>",
+                lambda _event, di=day_index: self.app._handle_ui_intent(
+                    UiIntent.GRID_DATE_CELL_CLICK,
+                    day_index=di,
+                ),
+            )
+
+        self.app.cell_widgets[(field_key, day_index)] = cell
+        return cell
+
     def _rebuild_grid(self):
         """Baut den gesamten Grid-Inhalt aus dem aktuellen UI-Zustand neu auf."""
         # deliberate exception: long by necessity — muss Fix-Spalte, Header-Zeile,
@@ -462,6 +820,7 @@ class GridRenderer:
             day_grid_columns[day_index] = grid_col
             x_cursor += self.app.day_column_width
             grid_col += 1
+        self.app.day_grid_columns = day_grid_columns
 
         corner = ui.Label(
             self.app.fixed_header_frame,
@@ -559,76 +918,17 @@ class GridRenderer:
             for day_index, day in enumerate(self.app.day_columns):
                 if not self._field_is_visible_for_day(field_key, day):
                     continue
-                is_cancel = day.is_cancel()
-                is_unresolved_link = day.is_unresolved_link()
-                is_lzk = day.is_lzk()
-                is_hospitation = day.is_hospitation()
-                editable = self.app.row_display_mode_usecase.is_editable(field_key, day, self.app.row_filter_settings)
-                canceled_visual = is_cancel and field_key not in {"Vertretungsmaterial", "Ausfallgrund"}
-
                 value = row_values[day_index] if day_index < len(row_values) else ""
-                cell = self._create_text_cell(
-                    self.app.grid_inner,
-                    value,
-                    editable=editable,
-                    canceled=canceled_visual,
-                    unresolved_link=is_unresolved_link,
-                    height_lines=row_height,
-                    is_lzk=is_lzk,
-                    is_hospitation=is_hospitation,
-                    lzk_masked=False,
-                    italic=(field_key == "Kompetenzhorizont" and is_lzk),
-                )
                 grid_column = day_grid_columns.get(day_index, day_index)
-                cell.grid(row=row_idx, column=grid_column, sticky="nsew")
-                self._apply_cell_selection_style(cell, field_key=field_key, day_index=day_index)
-                if help_text:
-                    self._field_help_tooltips.append(HoverTooltip(cell, help_text))
-
-                if editable:
-                    cell.bind(
-                        "<Button-1>",
-                        lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                            UiIntent.GRID_CELL_CLICK,
-                            field_key=fk,
-                            day_index=di,
-                        ),
-                    )
-                    cell.bind(
-                        "<FocusIn>",
-                        lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                            UiIntent.GRID_EDITOR_FOCUS_IN,
-                            field_key=fk,
-                            day_index=di,
-                        ),
-                    )
-                    cell.bind(
-                        "<FocusOut>",
-                        lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                            UiIntent.GRID_COMMIT_CELL,
-                            field_key=fk,
-                            day_index=di,
-                        ),
-                    )
-                    cell.bind(
-                        "<FocusOut>",
-                        lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                            UiIntent.GRID_EDITOR_FOCUS_OUT,
-                            field_key=fk,
-                            day_index=di,
-                        ),
-                        add="+",
-                    )
-                else:
-                    cell.bind(
-                        "<Button-1>",
-                        lambda _event, di=day_index: self.app._handle_ui_intent(
-                            UiIntent.GRID_DATE_CELL_CLICK,
-                            day_index=di,
-                        ),
-                    )
-
-                self.app.cell_widgets[(field_key, day_index)] = cell
+                cell = self._create_and_mount_cell(
+                    field_key=field_key,
+                    day=day,
+                    day_index=day_index,
+                    row_idx=row_idx,
+                    grid_column=grid_column,
+                    value=value,
+                    help_text=help_text,
+                )
                 row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(cell.winfo_reqheight()))
 
             row_idx += 1
@@ -640,14 +940,14 @@ class GridRenderer:
             self.app.grid_inner.grid_rowconfigure(row_idx, minsize=pixel_height)
 
         self.app._is_rebuilding_grid = False
-        selected = self.app.ui_state.selected_cell
-        if selected is not None and (selected.field_key, selected.day_index) not in self.app.cell_widgets:
-            self.app.ui_state.clear_selected_cell()
-            if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
-                self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
+        self._clear_selection_if_selected_cell_no_longer_visible()
         self.app._refresh_header_styles()
         self.app._on_grid_inner_configure()
         self.app.action_controller.update_action_controls()
+        # Nach _on_grid_inner_configure(), damit bbox()/scrollregion bereits
+        # aktuelle Geometrie hat -- sonst koennte visible_day_index_range()
+        # mit veralteten Massen rechnen.
+        self._reconcile_column_mounts()
 
     def update_header(self, day_index: int):
         """Aktualisiert Text/Basisfarbe eines existierenden Tages-Headers."""
@@ -687,7 +987,21 @@ class GridRenderer:
             self.update_row_style(field_key)
 
     def update_row_style(self, field_key: str):
-        """Aktualisiert Label, Hoehe und Zellstile einer Feldzeile."""
+        """Aktualisiert Label, Hoehe und Zellstile einer Feldzeile.
+
+        Bekannte, bewusst akzeptierte Grenze seit der Viewport-Virtualisierung:
+        die Hoehenmessung unten loopt ueber ALLE Tage, misst aber nur aktuell
+        materialisierte Zellen (`cell_widgets.get(...)`, `continue` bei COLD)
+        -- ist die inhaltlich hoechste Zelle eines Feldes gerade ausserhalb
+        des Mount-Fensters, kann die Zeile kurzzeitig zu niedrig gesetzt
+        werden. Rein kosmetisch (Zeilenhoehe, kein Daten-/Sichtbarkeitsverlust)
+        und selbstheilend: sobald diese Zelle wieder gemountet wird, greift
+        der bestehende Grow-only-Mechanismus (`_grow_row_minsize_for_cell()`)
+        und korrigiert die Hoehe. Der Save-Pfad selbst ruft diese volle
+        Messung nicht auf (`update_column()` nutzt bewusst
+        `sync_row_style=False`) -- nur `refresh_grid_content()` (externe
+        Aenderungen, Undo/Redo, Modus-Wechsel) erreicht diesen Codepfad.
+        """
         row_idx = self._row_index_for_field(field_key)
         if row_idx is None:
             return
@@ -720,18 +1034,61 @@ class GridRenderer:
         self.app.grid_inner.grid_rowconfigure(row_idx, minsize=max_height)
 
     def update_column(self, day_index: int):
-        """Aktualisiert Header und alle Feldzellen einer Tages-Spalte."""
+        """Aktualisiert Header und alle Feldzellen NUR dieser einen Tages-Spalte.
+
+        Trotz des schon vorher existierenden Namens rief diese Methode bislang
+        `update_row_style()` je Feld auf, das seinerseits über ALLE Tage
+        loopt — `update_column()` war also in Wahrheit ein voller Grid-Sweep,
+        nur mit Umweg über die Zeilen-Update-Methode. Jetzt werden nur die
+        Zellen dieser einen Spalte angefasst (über `update_cell(...,
+        sync_row_style=False)`, denselben Baustein, den auch `update_row_style()`
+        intern nutzt) sowie nur dieser eine Spalten-Header (`_apply_single_header_style()`,
+        das bereits fuer den Zell-Selektions-Fast-Path existierte, aber hier
+        bisher ungenutzt blieb).
+        """
         self.update_header(day_index)
         for field_key, _label in self.app.row_defs:
-            self.update_row_style(field_key)
-        self.app._refresh_header_styles()
+            cell = self.app.cell_widgets.get((field_key, day_index))
+            if cell is None:
+                continue
+            self.update_cell(field_key, day_index, sync_row_style=False)
+            self._grow_row_minsize_for_cell(field_key, cell)
+        if day_index in self.app.header_labels:
+            self.app.selection_controller._apply_single_header_style(day_index)
         self.app._on_grid_inner_configure()
+
+    def _grow_row_minsize_for_cell(self, field_key: str, cell) -> None:
+        """Vergrößert die Zeilenhöhe (`minsize`), falls diese eine Zelle mehr Platz braucht.
+
+        Bewusst nur GRÖSSER, nie kleiner: eine Verkleinerung müsste alle
+        Zellen der Zeile neu vermessen — genau die Kosten, die
+        `update_column()` für eine einzelne Spalte vermeiden soll (das
+        übernimmt weiterhin `update_row_style()`, z. B. beim vollen
+        `refresh_grid_content()`). Eine Zeile, die kurzzeitig höher bleibt
+        als für diese eine Zelle nötig, ist ein rein kosmetischer,
+        selbstheilender Zustand (der nächste volle Refresh vermisst neu) —
+        kein Sichtbarkeits- oder Datenverlust wie bei einer zu niedrigen Zeile.
+        """
+        row_idx = self._row_index_for_field(field_key)
+        if row_idx is None:
+            return
+        needed = int(cell.winfo_reqheight())
+        if needed <= 0:
+            return
+        current = self.app.fixed_inner.grid_rowconfigure(row_idx).get("minsize") or 0
+        if needed > current:
+            self.app.fixed_inner.grid_rowconfigure(row_idx, minsize=needed)
+            self.app.grid_inner.grid_rowconfigure(row_idx, minsize=needed)
 
     def refresh_grid_content(self):
         """Aktualisiert den kompletten Grid-Inhalt ohne Widget-Neuaufbau."""
         if self.app._is_rebuilding_grid:
             return
-        if not self.app.header_labels or not self.app.cell_widgets:
+        # "Ist das Grid ueberhaupt schon aufgebaut" ist eine Frage an
+        # header_labels (ein Header pro Tag, unabhaengig von Feld-Sichtbarkeit)
+        # -- nicht an cell_widgets, das bei restriktiven Zeilenfiltern legitim
+        # leer sein kann, obwohl das Grid korrekt aufgebaut ist.
+        if not self.app.header_labels:
             self._rebuild_grid()
             return
         if not self._grid_structure_matches_state():
@@ -816,8 +1173,7 @@ class GridRenderer:
 
     def _on_horizontal_scroll(self, *args):
         """Scrollt Kopfzeile und Grid-Inhalt synchron in X-Richtung."""
-        self.app.header_canvas.xview(*args)
-        self.app.grid_canvas.xview(*args)
+        self.app.viewport_sync_h.xview(*args)
 
     def _on_grid_mousewheel(self, event):
         """Behandelt Scroll- und Zoom-Interaktion im Grid (Ctrl+Wheel = Spaltenbreite)."""
