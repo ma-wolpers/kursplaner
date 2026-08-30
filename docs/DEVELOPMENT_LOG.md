@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-08-30) — Achievements-Tab nach Fach gruppiert
+
+`show_ub_achievements_view` iteriert jetzt ueber `group_achievements_by_domain(achievements.items)` (siehe vorheriger Log-Eintrag "Kurs statt UB-eigenem Feld") statt ueber die flache `achievements.items`-Liste: pro Fach eine eigene Ueberschrift + eigenes 4-Spalten-Grid, Kacheln innerhalb einer Gruppe nach `current/target` absteigend sortiert. Keine Gruppierungs-/Sortierlogik in der GUI selbst -- kommt vollstaendig aus der bereits vorbereiteten, Framework-unabhaengigen Abstraktion, die als naechstes auch der PDF-Export verwendet.
+
 ### Fixed (2026-08-30) — Achievement-Ring-/Icon-Rendering (unsichtbarer Fortschritt, leerer Ring bei Komplettierung, statisches Icon)
 
 **Drei getrennte Bugs in `_draw_progress_ring()` (`action_controller.py`), gemeinsam gemeldet als "Ringe wirken nie angefangen"**:

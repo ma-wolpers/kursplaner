@@ -56,6 +56,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlowWriteRequest
+from kursplaner.core.usecases.query_ub_achievements_usecase import group_achievements_by_domain
 
 
 class MainWindowActionController:
@@ -902,23 +903,30 @@ class MainWindowActionController:
             font=("Segoe UI", 12, "bold"),
         ).pack(anchor="w", pady=(0, 8))
 
-        rings_wrap = widgets.Frame(tab_achievements)
-        rings_wrap.pack(fill="x")
+        for group in group_achievements_by_domain(achievements.items):
+            widgets.Label(
+                tab_achievements,
+                text=group.domain,
+                font=("Segoe UI", 11, "bold"),
+            ).pack(anchor="w", pady=(12, 4))
 
-        for idx, item in enumerate(achievements.items):
-            ring = self._draw_progress_ring(
-                rings_wrap,
-                title=str(item.title),
-                domain=str(item.domain),
-                current=int(item.current),
-                target=int(item.target),
-                tooltip=str(item.tooltip),
-                symbol=str(item.symbol),
-                category=str(item.category),
-                is_fulfilled=bool(item.is_fulfilled),
-                tooltip_store=dialog._hover_tooltips,
-            )
-            ring.grid(row=idx // 4, column=idx % 4, padx=8, pady=8, sticky="n")
+            rings_wrap = widgets.Frame(tab_achievements)
+            rings_wrap.pack(fill="x")
+
+            for idx, item in enumerate(group.items):
+                ring = self._draw_progress_ring(
+                    rings_wrap,
+                    title=str(item.title),
+                    domain=str(item.domain),
+                    current=int(item.current),
+                    target=int(item.target),
+                    tooltip=str(item.tooltip),
+                    symbol=str(item.symbol),
+                    category=str(item.category),
+                    is_fulfilled=bool(item.is_fulfilled),
+                    tooltip_store=dialog._hover_tooltips,
+                )
+                ring.grid(row=idx // 4, column=idx % 4, padx=8, pady=8, sticky="n")
 
         upcoming_frame = widgets.LabelFrame(tab_plan, text="Kommende UBs", padding=8)
         upcoming_frame.pack(fill="both", expand=True, pady=(0, 8))
