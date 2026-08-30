@@ -16,6 +16,8 @@ from bw_gui.theming import (
     canvas_fill,
     canvas_outline_color,
     canvas_text_fill,
+    recolor_photo_domain,
+    recolor_photo_token,
     theme_canvas,
 )
 
@@ -63,13 +65,13 @@ class MainWindowActionController:
     """
 
     ACHIEVEMENT_COLORS_LIGHT: dict[str, str] = {
-        "half": "#B8BDC9",
+        "half": "#6B7280",
         "full": "#D4AF37",
         "ubplus": "#1E3A8A",
         "bub": "#8B1A5A",
     }
     ACHIEVEMENT_COLORS_DARK: dict[str, str] = {
-        "half": "#D0D5DF",
+        "half": "#9CA6B8",
         "full": "#E3C257",
         "ubplus": "#5B7FD9",
         "bub": "#C04E8C",
@@ -560,7 +562,10 @@ class MainWindowActionController:
         total = max(1, int(target))
         value = max(0, min(int(current), total))
         ratio = value / float(total)
-        extent = int(360 * ratio)
+        # Tk rendert einen Bogen mit exakt 360 Grad Extent unsichtbar (Sonderfall
+        # start==start+extent) -- ohne dieses Clamping wuerde ein komplettiertes
+        # Achievement wie ein vollstaendig leerer Ring aussehen.
+        extent = min(int(360 * ratio), 359)
         if value == 0:
             extent = max(extent, int(360 * 0.05))
 
@@ -592,7 +597,16 @@ class MainWindowActionController:
 
         icon = self._achievement_icon_for_domain(domain)
         if icon is not None:
-            canvas.create_image(center, center - 2, image=icon)
+            if value == 0:
+                tinted_icon = recolor_photo_token(icon, "fg_muted")
+            elif is_fulfilled:
+                tinted_icon = recolor_photo_domain(icon, light_color=light_c, dark_color=dark_c)
+            else:
+                tinted_icon = recolor_photo_token(icon, "fg_primary")
+            # Referenz am Frame halten, sonst sammelt Tkinter das PhotoImage trotz
+            # aktiver Canvas-Anzeige ein (keine eigene Referenzzaehlung fuer Bilder).
+            frame._achievement_icon_ref = tinted_icon
+            canvas.create_image(center, center - 2, image=tinted_icon)
         else:
             symbol_text = canvas.create_text(
                 center, center - 2, text=symbol, font=("Segoe UI", 14, "bold"),

@@ -8,6 +8,18 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-08-30) — Achievement-Ring-/Icon-Rendering (unsichtbarer Fortschritt, leerer Ring bei Komplettierung, statisches Icon)
+
+**Drei getrennte Bugs in `_draw_progress_ring()` (`action_controller.py`), gemeinsam gemeldet als "Ringe wirken nie angefangen"**:
+
+1. **"Halbzeit"-Kategoriefarbe fast identisch mit der Track-Farbe**: `ACHIEVEMENT_COLORS_LIGHT["half"]` (`#B8BDC9`) lag nur 1-2 RGB-Einheiten neben dem Standard-`border`-Token (`#B9C0CB`, `bw_gui/_theme_data.py`) — der Fortschrittsbogen war gegen den grauen Track-Ring optisch nicht unterscheidbar. Ersetzt durch deutlich kontrastreichere Werte (`#6B7280` hell / `#9CA6B8` dunkel).
+2. **Komplettierter Ring zeigt sich leer**: `canvas.create_arc(..., extent=-360, style="arc")` ist ein bekannter Tk-Sonderfall — bei exakt 360 Grad Extent wird der Bogen unsichtbar gerendert (intern als degeneriert behandelt: `start == start + extent`). `extent` wird jetzt auf maximal 359 gedeckelt.
+3. **Icon-Symbol immer hellgrau**: `canvas.create_image(...)` zeichnete das PNG-Domain-Icon ohne jede Faerbe-Logik — der (bereits vorhandene, aber effektiv nie erreichte) Text-Fallback-Branch hatte zwar `is_fulfilled`-Faerbung, das Icon-Branch aber gar keine.
+
+**Icon-Dreifarbigkeit ergaenzt** (hellgrau/schwarz/vollfarbig je Fortschrittsstatus, wie von den anderen Statustexten der Kachel bereits bekannt): dafuer musste `bw-gui` zunaechst um einen Baustein ergaenzt werden, der ein `PhotoImage` auf eine vom Aufrufer definierte Farbe (statt eines bw_gui-Kontrakttokens) einfaerben kann — `recolor_photo_domain(photo, *, light_color, dark_color)`, das `PhotoImage`-Gegenstueck zu `canvas_domain_fill`/`canvas_domain_outline`, siehe `a:/Code/bw-gui` CHANGELOG/DEVELOPMENT-Historie. Icon-Faerbung in `_draw_progress_ring`: `current == 0` → `recolor_photo_token(icon, "fg_muted")`, `0 < current < target` → `recolor_photo_token(icon, "fg_primary")`, `is_fulfilled` → `recolor_photo_domain(icon, light_color=light_c, dark_color=dark_c)` (dieselbe Kategoriefarbe wie der Fortschrittstext). Die eingefaerbte Kopie wird pro Kachel am `frame`-Widget referenziert gehalten (`frame._achievement_icon_ref`), da Tkinter `PhotoImage`s ohne aktive Python-Referenz einsammelt, auch wenn sie noch auf dem Canvas angezeigt werden.
+
+**Manuell verifiziert** (kein automatisierter GUI-Test, konsistent mit der bestehenden Konvention — weder kursplaner noch bw-gui instanziieren in Tests echte Tk-Widgets): reales `ac_paedagogik.png` mit echtem Tk-Root durch alle drei Zustaende gefaerbt, resultierende Pixelwerte gegen die erwarteten Theme-/Kategoriefarben verglichen (`fg_muted`/`fg_primary`/neue `half`-Farbe), alle drei sichtbar unterschiedlich.
+
 ### Changed (2026-08-30) — Jahrgangsstufe fuer UB-Achievements: Kurs statt UB-eigenem Feld als Single Source of Truth
 
 **Anlass**: Nutzer-Feedback: Paedagogik-UBs zaehlten nicht auf die Jahrgangs-Achievements, obwohl jeder Kurs seine Stufe (`Stufe`-Metadatenfeld, Pflicht bei Kursanlage) laengst kennt. Ursache: die UB-Datei trug ein eigenes, im Markierungsdialog manuell einzutippendes `Jahrgangsstufe`-Feld (optional, oft leer) — eine redundante Zweitquelle statt den bereits vorhandenen Kurswert zu nutzen. Nutzerentscheidung: das Feld wird ersatzlos entfernt, nicht nur per Default vorbefuellt.
