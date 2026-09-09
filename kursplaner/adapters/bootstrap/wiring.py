@@ -343,9 +343,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         else None
     )
     load_kompetenz_graph_body_usecase = (
-        LoadKompetenzNodeBodyUseCase(kompetenzgraph_repo=kompetenzgraph_repo)
-        if KOMPETENZGRAPH_YAML_AVAILABLE
-        else None
+        LoadKompetenzNodeBodyUseCase(kompetenzgraph_repo=kompetenzgraph_repo) if KOMPETENZGRAPH_YAML_AVAILABLE else None
     )
     compute_kompetenz_graph_view_usecase = ComputeKompetenzGraphViewUseCase()
     clear_selected_lesson = ClearSelectedLessonUseCase(

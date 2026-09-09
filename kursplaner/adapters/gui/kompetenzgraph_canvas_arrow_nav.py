@@ -51,7 +51,11 @@ class KompetenzGraphCanvasArrowNav:
 
     def _on_key_press(self, event) -> str:
         now = time.monotonic()
-        self._held_keys = {key: pressed_at for key, pressed_at in self._held_keys.items() if now - pressed_at <= _COMBINE_WINDOW_SECONDS}
+        self._held_keys = {
+            key: pressed_at
+            for key, pressed_at in self._held_keys.items()
+            if now - pressed_at <= _COMBINE_WINDOW_SECONDS
+        }
         self._held_keys[event.keysym] = now
 
         combined_x = sum(_KEYSYM_TO_VECTOR[key][0] for key in self._held_keys)

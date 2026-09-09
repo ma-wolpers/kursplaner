@@ -60,9 +60,7 @@ def test_subjects_none_or_empty_means_all_subjects():
 def test_subjects_multiselect_is_or_combined_other_criteria_stay_and():
     mathe_node = make_node("M-1", subject="Mathematik", kc_zuordnung=(make_kc_zuordnung(jahrgang=8),))
     informatik_node = make_node("I-1", subject="Informatik", kc_zuordnung=(make_kc_zuordnung(jahrgang=8),))
-    informatik_wrong_jahrgang = make_node(
-        "I-2", subject="Informatik", kc_zuordnung=(make_kc_zuordnung(jahrgang=5),)
-    )
+    informatik_wrong_jahrgang = make_node("I-2", subject="Informatik", kc_zuordnung=(make_kc_zuordnung(jahrgang=5),))
     snapshot = build_kompetenz_graph_snapshot([mathe_node, informatik_node, informatik_wrong_jahrgang], [])
 
     both_subjects_filter = KompetenzGraphFilter(subjects=frozenset({"Mathematik", "Informatik"}), jahrgang=8)

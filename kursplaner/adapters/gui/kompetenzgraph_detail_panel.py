@@ -117,7 +117,8 @@ class KompetenzGraphDetailPanel:
         quote_label.pack(anchor="w", fill="x")
         if entry.kc_verweis.strip():
             quote_label.bind(
-                "<Button-1>", lambda _event, text=entry.kc_verweis, label=quote_label: self._copy_to_clipboard(text, label)
+                "<Button-1>",
+                lambda _event, text=entry.kc_verweis, label=quote_label: self._copy_to_clipboard(text, label),
             )
 
     def _copy_to_clipboard(self, text: str, label: widgets.Label) -> None:

@@ -23,9 +23,7 @@ def _extract_single_wikilink(raw_value: object, field: str) -> tuple[str | None,
         return None, KompetenzFieldIssue(field=field, message="Pflichtfeld fehlt oder ist leer.", severity="error")
     target = extract_wiki_link_target(text)
     if not target:
-        return None, KompetenzFieldIssue(
-            field=field, message=f"Kein gültiger Wikilink: {text!r}.", severity="error"
-        )
+        return None, KompetenzFieldIssue(field=field, message=f"Kein gültiger Wikilink: {text!r}.", severity="error")
     return target, None
 
 
@@ -165,9 +163,7 @@ def parse_kompetenz_node_from_raw(
     )
     issues.extend(prozess_issues)
 
-    oberkompetenzen_ids, ober_issues = _extract_wikilink_list(
-        frontmatter_raw.get("oberkompetenzen"), "oberkompetenzen"
-    )
+    oberkompetenzen_ids, ober_issues = _extract_wikilink_list(frontmatter_raw.get("oberkompetenzen"), "oberkompetenzen")
     issues.extend(ober_issues)
 
     voraussetzungen_ids, voraus_issues = _extract_wikilink_list(

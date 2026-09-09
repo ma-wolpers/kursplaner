@@ -108,9 +108,15 @@ def _reorder_by_barycenter(
 
     def sort_key(node_id: str) -> tuple[float, str]:
         neighbor_positions = [
-            other_layer_position[neighbor] for neighbor in neighbor_map.get(node_id, ()) if neighbor in other_layer_position
+            other_layer_position[neighbor]
+            for neighbor in neighbor_map.get(node_id, ())
+            if neighbor in other_layer_position
         ]
-        barycenter = sum(neighbor_positions) / len(neighbor_positions) if neighbor_positions else float(current_position[node_id])
+        barycenter = (
+            sum(neighbor_positions) / len(neighbor_positions)
+            if neighbor_positions
+            else float(current_position[node_id])
+        )
         return (barycenter, node_id)
 
     return tuple(sorted(node_ids, key=sort_key))

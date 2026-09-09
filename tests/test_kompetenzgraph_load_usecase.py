@@ -1,9 +1,9 @@
 from pathlib import Path
 
+from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
 from kursplaner.core.usecases.kompetenzgraph_load_usecase import LoadKompetenzGraphUseCase
 from kursplaner.core.usecases.kompetenzgraph_rebuild_usecase import RebuildKompetenzGraphUseCase
-from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from tests.kompetenzgraph_test_support import make_node
 
 

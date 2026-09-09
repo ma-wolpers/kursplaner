@@ -74,18 +74,28 @@ class KompetenzGraphFilterPanel:
             widgets.Label(self.frame, text="(kein strukturiertes Fach gefunden)", foreground="gray").pack(anchor="w")
 
         self._jahrgang_var = self._build_combobox(
-            "Jahrgang", [str(jahrgang) for jahrgang in self._options.jahrgaenge], str(initial.jahrgang) if initial.jahrgang is not None else None
+            "Jahrgang",
+            [str(jahrgang) for jahrgang in self._options.jahrgaenge],
+            str(initial.jahrgang) if initial.jahrgang is not None else None,
         )
         self._schulform_var = self._build_combobox("Schulform", list(self._options.schulformen), initial.schulform)
         self._bundesland_var = self._build_combobox("Bundesland", list(self._options.bundeslaender), initial.bundesland)
         self._niveau_var = self._build_combobox("Niveau", list(self._options.niveaus), initial.niveau)
         self._status_var = self._build_combobox("Status", list(self._options.status_werte), initial.status)
-        self._anforderung_var = self._build_combobox("Anforderung", list(self._options.anforderungen), initial.anforderung)
+        self._anforderung_var = self._build_combobox(
+            "Anforderung", list(self._options.anforderungen), initial.anforderung
+        )
         self._inhaltsbereich_var = self._build_bereich_combobox(
-            "Inhaltsbereich", self._options.inhaltsbereich_ids, initial.inhaltsbereich_id, self._inhaltsbereich_label_to_id
+            "Inhaltsbereich",
+            self._options.inhaltsbereich_ids,
+            initial.inhaltsbereich_id,
+            self._inhaltsbereich_label_to_id,
         )
         self._prozessbereich_var = self._build_bereich_combobox(
-            "Prozessbereich", self._options.prozessbereich_ids, initial.prozessbereich_id, self._prozessbereich_label_to_id
+            "Prozessbereich",
+            self._options.prozessbereich_ids,
+            initial.prozessbereich_id,
+            self._prozessbereich_label_to_id,
         )
 
         kontexttiefe_label = widgets.Label(self.frame, text="Matchingtiefe", font=("Segoe UI", 9, "bold"))
@@ -102,7 +112,10 @@ class KompetenzGraphFilterPanel:
         spinbox.pack(anchor="w", pady=(0, 8))
         self._kontexttiefe_var.trace_add("write", lambda *_args: self._emit_change())
         tooltip_text = KOMPETENZGRAPH_HELP.get("kontexttiefe", "")
-        self._kontexttiefe_tooltips = [HoverTooltip(kontexttiefe_label, tooltip_text), HoverTooltip(spinbox, tooltip_text)]
+        self._kontexttiefe_tooltips = [
+            HoverTooltip(kontexttiefe_label, tooltip_text),
+            HoverTooltip(spinbox, tooltip_text),
+        ]
 
     def _build_combobox(self, label: str, options: list[str], initial_value: str | None) -> ui.StringVar:
         widgets.Label(self.frame, text=label).pack(anchor="w")

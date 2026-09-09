@@ -23,9 +23,7 @@ class RebuildKompetenzGraphUseCase:
         self.kompetenzgraph_repo = kompetenzgraph_repo
         self.load_usecase = load_usecase
 
-    def execute(
-        self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None
-    ) -> KompetenzGraphLoadResult:
+    def execute(self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None) -> KompetenzGraphLoadResult:
         """Invalidiert den Cache vollständig und lädt den Kompetenzgraphen anschließend frisch."""
         self.kompetenzgraph_repo.invalidate_cache()
         return self.load_usecase.execute(unterricht_dir, subject_folders)

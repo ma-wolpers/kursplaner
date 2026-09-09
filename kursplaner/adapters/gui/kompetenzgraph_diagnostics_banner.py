@@ -44,7 +44,9 @@ class KompetenzGraphDiagnosticsBanner:
 
         duplicate_count = len(load_result.snapshot.duplicate_ids)
         if duplicate_count:
-            messages.append(f"{duplicate_count} doppelt vergebene ID(s) gefunden -- jeweils eine Version wurde ignoriert.")
+            messages.append(
+                f"{duplicate_count} doppelt vergebene ID(s) gefunden -- jeweils eine Version wurde ignoriert."
+            )
 
         if not messages:
             self._label.pack_forget()

@@ -170,7 +170,9 @@ class FileSystemKompetenzGraphRepository:
         if frontmatter_text is None:
             cache.pop(key, None)
             return None, KompetenzFileDiagnostic(
-                path, node_id, (KompetenzFieldIssue("<frontmatter>", "Kein gültiger YAML-Frontmatter-Block gefunden.", "error"),)
+                path,
+                node_id,
+                (KompetenzFieldIssue("<frontmatter>", "Kein gültiger YAML-Frontmatter-Block gefunden.", "error"),),
             )
 
         try:
@@ -227,7 +229,9 @@ class FileSystemKompetenzGraphRepository:
 
         source = SourceRef(path=path, mtime_ns=mtime_ns, size=size, subject=subject)
         node, issues = parse_bereich_node_from_raw(raw_text, node_id=node_id, source=source)
-        cache[key] = CachedFileEntry(mtime_ns=mtime_ns, size=size, kind="bereich", frontmatter=None, body=raw_text, title="")
+        cache[key] = CachedFileEntry(
+            mtime_ns=mtime_ns, size=size, kind="bereich", frontmatter=None, body=raw_text, title=""
+        )
         return node, (KompetenzFileDiagnostic(path, node_id, issues) if issues else None)
 
     def load_snapshot(

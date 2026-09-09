@@ -43,9 +43,7 @@ class LoadKompetenzGraphUseCase:
         """Initialisiert den Use Case mit einem `KompetenzGraphRepository`-Port."""
         self.kompetenzgraph_repo = kompetenzgraph_repo
 
-    def execute(
-        self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None
-    ) -> KompetenzGraphLoadResult:
+    def execute(self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None) -> KompetenzGraphLoadResult:
         """Lädt den Kompetenzgraphen (gecacht, siehe Repository) für die gegebenen Fächer.
 
         Args:

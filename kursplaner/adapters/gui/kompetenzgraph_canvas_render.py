@@ -215,7 +215,11 @@ class KompetenzGraphCanvasRenderer:
         self.canvas.itemconfigure(rect_id, width=2.5 if is_selected else 1.0)
 
         text_id = self.canvas.create_text(
-            position.x, position.y, text=_truncate(bereich.title, _MAX_LABEL_CHARS), width=_BEREICH_WIDTH - 10, tags=(tag,)
+            position.x,
+            position.y,
+            text=_truncate(bereich.title, _MAX_LABEL_CHARS),
+            width=_BEREICH_WIDTH - 10,
+            tags=(tag,),
         )
         canvas_text_fill(self.canvas, text_id, token="fg_primary")
 

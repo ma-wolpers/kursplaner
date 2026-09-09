@@ -100,9 +100,7 @@ def test_context_follows_active_view_mode():
     hierarchy_child = make_node("K-1", oberkompetenzen_ids=("P-1",))
     voraussetzung = make_node("V-1")
     with_prerequisite = make_node("K-1b", voraussetzungen_ids=("V-1",))
-    snapshot = build_kompetenz_graph_snapshot(
-        [hierarchy_parent, hierarchy_child, voraussetzung, with_prerequisite], []
-    )
+    snapshot = build_kompetenz_graph_snapshot([hierarchy_parent, hierarchy_child, voraussetzung, with_prerequisite], [])
 
     ober_teil_context = compute_context_node_ids(snapshot, MODE_OBER_TEIL, frozenset({"K-1"}), depth=1)
     fort_voraus_context = compute_context_node_ids(snapshot, MODE_FORT_VORAUS, frozenset({"K-1b"}), depth=1)
