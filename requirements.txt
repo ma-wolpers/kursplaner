@@ -2,3 +2,12 @@
 # Bleibt Teil der Standardinstallation -- fehlt es dennoch in einer konkreten
 # Umgebung, startet die App trotzdem, nur der PDF-Export ist dann deaktiviert.
 reportlab==4.4.2
+
+# Fuer das Lesen der Kompetenzgraph-YAML-Frontmatter (Kompetenznetz-Popup):
+# `kc_zuordnung` enthaelt verschachtelte Listen von Objekten, die der
+# projekteigene, hand-geschriebene Frontmatter-Parser (yaml_registry.py) nur
+# fuer flache Felder unterstuetzt. Ausschliesslich in genau einer Infrastructure-
+# Datei importiert (kompetenzgraph_repository.py), siehe Mini-ADR in
+# ARCHITEKTUR_KERN.md. Analog reportlab optional: fehlt sie, startet die App
+# trotzdem, nur das Kompetenzgraph-Popup ist dann deaktiviert.
+PyYAML==6.0.3

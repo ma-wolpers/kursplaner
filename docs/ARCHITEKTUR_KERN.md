@@ -985,3 +985,37 @@ Gültige Ausnahmen:
 | `kursplaner/adapters/gui/lesson_builder_dialog.py` | ~785 (2026-08-08 nachgetragen; lag schon vorher bei ~795, durch diese Session reduziert: zwei redundante `_on_escape`-Overrides entfernt, jetzt von der bw-gui-Basisklasse geerbt) | Bündelt den Unterrichtseinheitcreator (`LessonBuilderDialog`) sowie zwei kleinere Auswahl-Popups (`LessonKompetenzenSelectionDialog`, `LessonStundenzielSelectionDialog`) mit gemeinsam genutzten Overlay-/Tab-Navigations-Helfern (`SelectionOverlayController`, `_bind_overlay_field`, `_bind_tab_navigation`). Aufspaltung würde diese geteilten Helfer über Modulgrenzen verteilen oder duplizieren. |
 
 **Pflicht beim Anlegen einer neuen Ausnahme:** Tabelleneintrag hier ergänzen, Begründung ein Satz, Datum.
+
+---
+
+## 29) Mini-ADR: PyYAML für Kompetenzgraph-Parsing (bindend)
+
+**Betroffenes Modul:** `kursplaner/infrastructure/repositories/kompetenzgraph_repository.py`
+(neu, Kompetenznetz-Graph-Popup, siehe `docs/GEPLANTE_IMPLEMENTATIONEN_KURSPLANER.md`).
+
+**Kontext:** Der projekteigene, hand-geschriebene Frontmatter-Parser
+(`kursplaner/core/domain/yaml_registry.py::parse_yaml_frontmatter`) unterstützt
+bewusst nur flache Felder (Skalare + Listen von Skalaren) — ausreichend für alle
+bisherigen Kursplaner-eigenen Dateiformate (Plan/Stunden-/Sequenz-Dateien). Das extern
+im Vault gepflegte Kompetenznetz-Schema (`34 Fachinhalte\<Fach>\*.md`) enthält mit
+`kc_zuordnung` ein Feld aus verschachtelten Objekten (Liste von
+Bundesland/Schulform/Niveau/Jahrgang/Anforderung/Zitat-Zuordnungen) sowie optional
+mehrzeilige YAML-Blockskalare — beides würde der bestehende Parser stillschweigend
+falsch/unvollständig lesen (Unterfelder gehen verloren), statt einen Fehler zu werfen.
+
+**Entscheidung:** **PyYAML** wird als neue Abhängigkeit eingeführt, **ausschließlich**
+in `kompetenzgraph_repository.py` importiert (`yaml.safe_load()` auf den bereits
+extrahierten Frontmatter-Textblock). Kein anderes Modul importiert `yaml` direkt.
+`core/domain/` bleibt PyYAML-frei — die Mapping-Funktionen
+(`kompetenzgraph_mapping.py`/`kompetenzgraph_bereich_mapping.py`) nehmen bereits von
+PyYAML erzeugte, reine `dict`/`list`/`str`/`int`-Primitive entgegen.
+
+**Nicht-Ziel:** `yaml_registry.py` und dessen bestehende Konsumenten (Plan-/Stunden-/
+Sequenz-Repositories) werden nicht angefasst und nicht auf PyYAML umgestellt — dies ist
+eine punktuelle, auf das rein lesende Kompetenzgraph-Feature begrenzte Entscheidung,
+keine Ablösung des projektweiten Frontmatter-Parsers.
+
+**Konsequenz für Robustheit:** `requirements.txt` führt PyYAML analog zu `reportlab`
+als optional-mit-Warnung — fehlt die Bibliothek in einer konkreten Umgebung, startet die
+App trotzdem, nur das Kompetenzgraph-Popup ist deaktiviert (`KOMPETENZGRAPH_YAML_AVAILABLE`-
+Guard in `wiring.py`, analog `REPORTLAB_AVAILABLE`).

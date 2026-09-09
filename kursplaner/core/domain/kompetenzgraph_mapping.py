@@ -102,6 +102,7 @@ def parse_kompetenz_node_from_raw(
     *,
     node_id: str,
     source: SourceRef,
+    title_override: str | None = None,
 ) -> tuple[KompetenzNode | None, tuple[KompetenzFieldIssue, ...]]:
     """Mappt bereits per PyYAML geparstes Frontmatter + Body auf ein `KompetenzNode`-Domain-Objekt.
 
@@ -118,10 +119,16 @@ def parse_kompetenz_node_from_raw(
     Args:
         frontmatter_raw: Rohes Frontmatter-Dict dieser Datei.
         body_text: Markdown-Body nach dem Frontmatter-Block (für die
-            Titel-Ableitung; wird NICHT im zurückgegebenen `KompetenzNode`
-            gespeichert, siehe dessen Docstring zu Lazy Body).
+            Titel-Ableitung, sofern `title_override` nicht gesetzt ist;
+            wird NICHT im zurückgegebenen `KompetenzNode` gespeichert,
+            siehe dessen Docstring zu Lazy Body).
         node_id: Kompetenz-ID (Dateiname ohne `.md`).
         source: Physische Herkunft dieser Datei.
+        title_override: Bereits bekannter Titel (z. B. aus einem
+            Cache-Treffer, bei dem der Body gar nicht erst gelesen wurde)
+            -- wenn gesetzt, wird `body_text` für die Titel-Ableitung
+            ignoriert (die übrigen Felder werden trotzdem regulär aus
+            `frontmatter_raw` gemappt, unabhängig von `body_text`).
 
     Returns:
         `(node, issues)` -- `node` ist `None`, wenn ein harter Fehler
@@ -174,7 +181,10 @@ def parse_kompetenz_node_from_raw(
     if status_issue is not None:
         issues.append(status_issue)
 
-    title = _derive_title(body_text, tuple(entry.kc_verweis for entry in kc_zuordnung), node_id)
+    if title_override is not None:
+        title = title_override
+    else:
+        title = _derive_title(body_text, tuple(entry.kc_verweis for entry in kc_zuordnung), node_id)
 
     node = KompetenzNode(
         id=node_id,

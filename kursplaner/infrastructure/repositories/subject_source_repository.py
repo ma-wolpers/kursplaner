@@ -8,8 +8,9 @@ from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.path_store import (
     BAUKASTEN_DIR_KEY,
     FACHDIDAKTIK_DIR_KEY,
-    FACHINHALTE_DIR_KEY,
+    _find_named_child,
     load_path_values,
+    resolve_fachinhalte_root,
     resolve_path_value,
 )
 
@@ -30,21 +31,6 @@ class FileSystemSubjectSourceRepository:
     def __init__(self):
         """Initialisiert den in-memory Cache pro Unterrichtspfad und Fach."""
         self._cache: dict[tuple[str, str], _SubjectSourceCacheEntry] = {}
-
-    @staticmethod
-    def _find_named_child(parent: Path, keywords: tuple[str, ...]) -> Path | None:
-        """Findet ein Unterverzeichnis, dessen Name eines der Keywords enthält."""
-        if not parent.exists() or not parent.is_dir():
-            return None
-
-        normalized = [keyword.lower().replace(" ", "") for keyword in keywords]
-        for child in parent.iterdir():
-            if not child.is_dir():
-                continue
-            token = child.name.lower().replace(" ", "")
-            if any(keyword in token for keyword in normalized):
-                return child
-        return None
 
     @staticmethod
     def _mtime_ns(path: Path) -> int | None:
@@ -190,25 +176,26 @@ class FileSystemSubjectSourceRepository:
         return self._stems_from_files(updated_files), current_root_mtime
 
     def _subject_roots(self, unterricht_dir: Path) -> tuple[Path | None, Path | None]:
-        """Ermittelt Fachinhalte-/Fachdidaktik-Roots aus Settings mit Fallback."""
+        """Ermittelt Fachinhalte-/Fachdidaktik-Roots aus Settings mit Fallback.
+
+        Die Fachinhalte-Hälfte delegiert an `resolve_fachinhalte_root()`
+        (`core/config/path_store.py`) -- den zentralen, auch vom
+        Kompetenzgraph-Feature genutzten offiziellen Weg zu diesem Ordner,
+        statt die Auflösungslogik hier ein zweites Mal zu pflegen.
+        """
         values = load_path_values()
         baukasten_dir = resolve_path_value(values.get(BAUKASTEN_DIR_KEY, ""))
         if not baukasten_dir.exists() or not baukasten_dir.is_dir():
             baukasten_dir = unterricht_dir.parent / "30 Baukasten"
 
-        fachinhalte_candidate = resolve_path_value(values.get(FACHINHALTE_DIR_KEY, ""))
-        fachinhalte_root: Path | None
-        if fachinhalte_candidate.exists() and fachinhalte_candidate.is_dir():
-            fachinhalte_root = fachinhalte_candidate
-        else:
-            fachinhalte_root = self._find_named_child(baukasten_dir, ("34 fachinhalte", "34 fachenhalte"))
+        fachinhalte_root = resolve_fachinhalte_root(unterricht_dir)
 
         fachdidaktik_candidate = resolve_path_value(values.get(FACHDIDAKTIK_DIR_KEY, ""))
         fachdidaktik_root: Path | None
         if fachdidaktik_candidate.exists() and fachdidaktik_candidate.is_dir():
             fachdidaktik_root = fachdidaktik_candidate
         else:
-            fachdidaktik_root = self._find_named_child(baukasten_dir, ("33 fachdidaktik",))
+            fachdidaktik_root = _find_named_child(baukasten_dir, ("33 fachdidaktik",))
         return fachinhalte_root, fachdidaktik_root
 
     def _available_subjects(self, fachinhalte_root: Path | None, fachdidaktik_root: Path | None) -> list[str]:

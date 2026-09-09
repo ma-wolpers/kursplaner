@@ -19,7 +19,7 @@ from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlow
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlow
 from kursplaner.core.flows.plan_lesson_flow import PlanLessonFlow
 from kursplaner.core.flows.school_wide_cancellation_flow import SchoolWideCancellationFlow
-from kursplaner.core.ports.repositories import LessonIndexRepository, PlanRepository
+from kursplaner.core.ports.repositories import KompetenzGraphRepository, LessonIndexRepository, PlanRepository
 from kursplaner.core.usecases.action_button_state_usecase import ActionButtonStateUseCase
 from kursplaner.core.usecases.apply_school_wide_cancellations_to_new_rows_usecase import (
     ApplySchoolWideCancellationsToNewRowsUseCase,
@@ -48,6 +48,9 @@ from kursplaner.core.usecases.grid_cell_policy_usecase import GridCellPolicyUseC
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
 from kursplaner.core.usecases.invalidate_lesson_index_usecase import InvalidateLessonIndexUseCase
 from kursplaner.core.usecases.invalidate_repository_caches_usecase import InvalidateRepositoryCachesUseCase
+from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
+from kursplaner.core.usecases.kompetenzgraph_load_usecase import LoadKompetenzGraphUseCase
+from kursplaner.core.usecases.kompetenzgraph_rebuild_usecase import RebuildKompetenzGraphUseCase
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
@@ -107,6 +110,10 @@ from kursplaner.infrastructure.repositories.achievement_requirements_repository 
 )
 from kursplaner.infrastructure.repositories.file_relation_registry_repository import (
     FileSystemFileRelationRegistryRepository,
+)
+from kursplaner.infrastructure.repositories.kompetenzgraph_repository import (
+    KOMPETENZGRAPH_YAML_AVAILABLE,
+    FileSystemKompetenzGraphRepository,
 )
 from kursplaner.infrastructure.repositories.markdown_repositories import (
     FileSystemCalendarRepository,
@@ -218,6 +225,12 @@ class GuiDependencies:
     load_last_ub_insights_usecase: LoadLastUbInsightsUseCase
     archive_past_lesson_files_usecase: ArchivePastLessonFilesUseCase
     archive_former_courses_usecase: ArchiveFormerCoursesUseCase
+    load_kompetenz_graph_usecase: LoadKompetenzGraphUseCase | None
+    rebuild_kompetenz_graph_usecase: RebuildKompetenzGraphUseCase | None
+    load_kompetenz_graph_body_usecase: LoadKompetenzNodeBodyUseCase | None
+    """`None`, wenn `PyYAML` fehlt (siehe `KOMPETENZGRAPH_YAML_AVAILABLE`) -- das
+    Kompetenzgraph-Popup ist dann in der GUI deaktiviert statt beim Öffnen
+    abzustürzen (Mini-ADR `docs/ARCHITEKTUR_KERN.md` §29)."""
     app_info: AppInfo
     shell_config: AppShellConfig
 
@@ -241,6 +254,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     subject_source_repo = FileSystemSubjectSourceRepository()
     ub_repo = FileSystemUbRepository()
     kompetenzkatalog_repo = FileSystemKompetenzkatalogRepository()
+    kompetenzgraph_repo: KompetenzGraphRepository = FileSystemKompetenzGraphRepository()
 
     plan_overview_query = PlanOverviewQueryUseCase(
         lesson_repo=lesson_repo,
@@ -313,6 +327,20 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     invalidate_repository_caches = InvalidateRepositoryCachesUseCase(
         plan_repo=plan_repo,
         subject_source_repo=subject_source_repo,
+        kompetenzgraph_repo=kompetenzgraph_repo,
+    )
+    load_kompetenz_graph_usecase = (
+        LoadKompetenzGraphUseCase(kompetenzgraph_repo=kompetenzgraph_repo) if KOMPETENZGRAPH_YAML_AVAILABLE else None
+    )
+    rebuild_kompetenz_graph_usecase = (
+        RebuildKompetenzGraphUseCase(kompetenzgraph_repo=kompetenzgraph_repo, load_usecase=load_kompetenz_graph_usecase)
+        if load_kompetenz_graph_usecase is not None
+        else None
+    )
+    load_kompetenz_graph_body_usecase = (
+        LoadKompetenzNodeBodyUseCase(kompetenzgraph_repo=kompetenzgraph_repo)
+        if KOMPETENZGRAPH_YAML_AVAILABLE
+        else None
     )
     clear_selected_lesson = ClearSelectedLessonUseCase(
         plan_repo=plan_repo,
@@ -550,6 +578,9 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         load_last_ub_insights_usecase=load_last_ub_insights_usecase,
         archive_past_lesson_files_usecase=archive_past_lesson_files_usecase,
         archive_former_courses_usecase=archive_former_courses_usecase,
+        load_kompetenz_graph_usecase=load_kompetenz_graph_usecase,
+        rebuild_kompetenz_graph_usecase=rebuild_kompetenz_graph_usecase,
+        load_kompetenz_graph_body_usecase=load_kompetenz_graph_body_usecase,
         app_info=APP_INFO,
         shell_config=AppShellConfig(
             title=APP_INFO.window_title,

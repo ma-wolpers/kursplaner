@@ -8,6 +8,70 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Repository, Cache, Usecases (Meilenstein 2 von 5)
+
+**Mini-ADR umgesetzt**: `PyYAML==6.0.3` neu in `requirements.txt` (Kommentar-Stil wie
+`reportlab`), ausschließlich importiert in `infrastructure/repositories/kompetenzgraph_repository.py`
+(siehe `docs/ARCHITEKTUR_KERN.md` §29). `KOMPETENZGRAPH_YAML_AVAILABLE`-Flag exakt nach
+dem `REPORTLAB_AVAILABLE`-Muster (try/except `ImportError` beim Modulimport) --
+`wiring.py` verdrahtet die drei neuen Usecases nur, wenn PyYAML verfügbar ist, sonst
+bleiben sie `None` und das Popup-Menü wird deaktiviert statt beim Öffnen abzustürzen.
+
+**Pfadauflösung dedupliziert statt neu gebaut**: `resolve_fachinhalte_root(unterricht_dir)`
+(neu in `core/config/path_store.py`) übernimmt die zuvor nur in
+`FileSystemSubjectSourceRepository._subject_roots()` vorhandene Fachinhalte-Hälfte
+(konfigurierter `FACHINHALTE_DIR_KEY`-Pfad, sonst Fallback-Suche unter dem
+Baukasten-Ordner nach `"34 fachinhalte"`/der historischen Falschschreibung
+`"34 fachenhalte"`) -- `_subject_roots()` delegiert jetzt dorthin, statt die Logik ein
+zweites Mal zu pflegen. `_find_named_child()` (die zugehörige Suchhilfe) wurde dafür
+ebenfalls nach `path_store.py` verschoben (vorher als `@staticmethod` in der
+Infrastructure-Klasse dupliziert). **Dabei einen latenten Bug gefunden und behoben**:
+ein leerer/nur-Leerzeichen-Rohwert für `FACHINHALTE_DIR_KEY`/`BAUKASTEN_DIR_KEY` wurde
+zuvor ungeprüft an `resolve_path_value("")` übergeben, was auf den Workspace-Wurzelordner
+auflöst (existiert zufällig und ist ein Verzeichnis) statt als "nicht konfiguriert" zu
+gelten -- `resolve_fachinhalte_root()` prüft jetzt vorab `.strip()` auf beide Rohwerte.
+
+**Repository** (`FileSystemKompetenzGraphRepository`, einziger Ort mit `import yaml`):
+scannt pro Fachordner flach (`iterdir()`, kein `rglob()`) nach Kompetenz-Dateien
+(Stem-Muster `^[A-Z]{2,3}-\d+$`, `.sync-conflict-*` ausgeschlossen) und Bereichs-Hubs
+(`Bereiche/`-Unterordner). `discover_structured_subjects()` erkennt ein Fach nur, wenn
+BEIDE Bedingungen erfüllt sind (mindestens eine passend benannte Datei UND ein
+`Bereiche/`-Unterordner) -- Plausibilitätsschranke gegen einen zufällig passend
+benannten Einzeltreffer in einem irrelevanten Ordner, ohne Manifest-/Registry-Architektur.
+Persistenter Cache (`config/kompetenzgraph_cache.json`, ausgelagert nach
+`kompetenzgraph_repository_cache.py`) mit `cache_version`-Feld (Formatwechsel ->
+voller Neuaufbau statt Fehlzustand) und Gültigkeit pro Datei über `mtime_ns` UND `size`
+gemeinsam. Cache speichert bei Kompetenz-Dateien nur Frontmatter + vorab abgeleiteten
+Titel (nie den vollständigen Body -- siehe Lazy Body unten); bei den ~11 kleinen
+Bereichs-Dateien pro Fach bleibt der volle Text im Cache (unkritische Größe). Eine
+einzelne nicht lesbare/inkonsistente Datei (`OSError`/`UnicodeDecodeError`/
+`yaml.YAMLError`, z. B. durch gleichzeitigen externen Schreibzugriff) erzeugt nur eine
+`KompetenzFileDiagnostic` statt eines Abbruchs und bekommt keinen Cache-Eintrag --
+automatischer Retry beim nächsten Laden, ohne Lock-/Two-Phase-Mechanismus.
+
+**Lazy Body**: `parse_kompetenz_node_from_raw()` (`core/domain/kompetenzgraph_mapping.py`)
+um `title_override: str | None = None` erweitert -- bei einem Cache-Treffer wird der
+bereits gecachte Titel direkt übergeben, statt den (nicht gecachten) Body erneut von der
+Platte zu lesen. `LoadKompetenzNodeBodyUseCase` liest den Body ausschließlich on-demand
+für den gerade in der GUI ausgewählten Knoten.
+
+**Usecases**: `LoadKompetenzGraphUseCase` (lädt + ruft danach immer
+`check_kompetenz_graph_for_cycles()` -- die automatische DAG-Prüfung nach jedem Laden),
+`RebuildKompetenzGraphUseCase` (invalidiert vollständig, delegiert dann an
+`LoadKompetenzGraphUseCase` statt die Lade-/Diagnose-Logik zu duplizieren),
+`LoadKompetenzNodeBodyUseCase`. `InvalidateRepositoryCachesUseCase` um den neuen
+Repository-Port ergänzt, damit die globale "Alle Caches invalidieren"-Aktion auch den
+Kompetenzgraph-Cache erfasst.
+
+**Tests**: 22 neue Tests (`test_kompetenzgraph_repository.py`,
+`test_kompetenzgraph_load_usecase.py`, `test_path_store_resolve_fachinhalte_root.py`),
+u. a. Cache-Hit ohne erneuten Dateizugriff (Assertion via monkeypatchtem
+`Path.read_text`), Cache-Miss bei geänderter Größe, `.sync-conflict-*` ignoriert,
+kaputtes/versions-inkompatibles Cache-JSON → voller Neuaufbau, künstlich nicht lesbare
+Datei → Diagnose statt Absturz + Retry beim nächsten Aufruf, Fach-Erkennung ignoriert
+Ordner ohne `Bereiche/`. `test_subject_source_repository.py` unverändert grün
+(Verhaltensgleichheits-Nachweis für den Path-Store-Refactor). 885/885 Tests grün.
+
 ### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Domain-Modell (Meilenstein 1 von 5)
 
 **Anlass**: Neues Popup zum Nachschlagen/Zitieren des im Vault unter `34 Fachinhalte\<Fach>\`

@@ -3,16 +3,22 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from kursplaner.core.ports.repositories import PlanRepository, SubjectSourceRepository
+from kursplaner.core.ports.repositories import KompetenzGraphRepository, PlanRepository, SubjectSourceRepository
 
 
 class InvalidateRepositoryCachesUseCase:
     """Invalidiert Repository-Caches explizit für gegebene Basisverzeichnisse."""
 
-    def __init__(self, plan_repo: PlanRepository, subject_source_repo: SubjectSourceRepository):
+    def __init__(
+        self,
+        plan_repo: PlanRepository,
+        subject_source_repo: SubjectSourceRepository,
+        kompetenzgraph_repo: KompetenzGraphRepository,
+    ):
         """Initialisiert Use Case mit den zu invalidierenden Repository-Ports."""
         self.plan_repo = plan_repo
         self.subject_source_repo = subject_source_repo
+        self.kompetenzgraph_repo = kompetenzgraph_repo
 
     @staticmethod
     def _resolve_base_dirs(base_dirs: Iterable[str | Path]) -> list[Path]:
@@ -34,8 +40,10 @@ class InvalidateRepositoryCachesUseCase:
         if not base_dirs:
             self.plan_repo.invalidate_cache()
             self.subject_source_repo.invalidate_cache()
+            self.kompetenzgraph_repo.invalidate_cache()
             return
 
         for resolved in self._resolve_base_dirs(base_dirs):
             self.plan_repo.invalidate_cache(resolved)
             self.subject_source_repo.invalidate_cache(unterricht_dir=resolved)
+            self.kompetenzgraph_repo.invalidate_cache(unterricht_dir=resolved)

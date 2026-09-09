@@ -119,6 +119,17 @@ def test_title_falls_back_to_node_id_when_nothing_else_available():
     assert node.title == "GF-49"
 
 
+def test_title_override_bypasses_body_derivation():
+    frontmatter = {"primarer_bereich": "[[I-Test]]", "kc_zuordnung": _VALID_KC_ZUORDNUNG, "status": "entwurf"}
+
+    node, issues = parse_kompetenz_node_from_raw(
+        frontmatter, "# Ignorierte Ueberschrift", node_id="GF-49", source=_source(), title_override="Gecachter Titel"
+    )
+
+    assert issues == ()
+    assert node.title == "Gecachter Titel"
+
+
 def test_empty_optional_lists_default_to_empty_tuples():
     frontmatter = {"primarer_bereich": "[[I-Test]]", "kc_zuordnung": _VALID_KC_ZUORDNUNG, "status": "entwurf"}
 

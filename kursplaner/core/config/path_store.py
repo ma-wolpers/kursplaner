@@ -241,6 +241,70 @@ def get_managed_paths(values: dict[str, str] | None = None) -> ManagedPaths:
     )
 
 
+def _find_named_child(parent: Path, keywords: tuple[str, ...]) -> Path | None:
+    """Findet ein Unterverzeichnis, dessen Name eines der Keywords enthält (case-/leerzeichen-insensitiv).
+
+    Zentrale Ablösung der zuvor identisch in
+    `FileSystemSubjectSourceRepository._find_named_child` (Infrastructure-Schicht)
+    implementierten Suchlogik -- lebt hier, da sie von mehr als einer
+    Repository-Klasse benötigt wird und `core/config` die gemeinsame, von
+    `infrastructure` abhängige Schicht darunter ist (nie umgekehrt).
+    """
+    if not parent.exists() or not parent.is_dir():
+        return None
+
+    normalized_keywords = [keyword.lower().replace(" ", "") for keyword in keywords]
+    for child in parent.iterdir():
+        if not child.is_dir():
+            continue
+        token = child.name.lower().replace(" ", "")
+        if any(keyword in token for keyword in normalized_keywords):
+            return child
+    return None
+
+
+def resolve_fachinhalte_root(unterricht_dir: Path) -> Path | None:
+    """Löst den offiziellen "Fachinhalte"-Wurzelordner auf (z. B. für den Kompetenzgraph).
+
+    Zentrale Ablösung der zuvor unabhängig in
+    `FileSystemSubjectSourceRepository._subject_roots()` implementierten
+    Fachinhalte-Hälfte dieser Logik -- der EINZIGE offizielle Weg, um an
+    den Wurzelordner "34 Fachinhalte" zu gelangen. Erst wird der explizit
+    konfigurierte `FACHINHALTE_DIR_KEY`-Pfad geprüft; existiert er nicht
+    (leer/ungültig), wird unterhalb des Baukasten-Ordners (ebenfalls
+    konfiguriert, mit Fallback auf `<unterricht_dir>/../30 Baukasten`)
+    nach einem Unterordner gesucht, dessen Name "34 fachinhalte" (oder die
+    im Vault vorkommende historische Falschschreibung "34 fachenhalte")
+    enthält.
+
+    Args:
+        unterricht_dir: Unterrichts-Basisverzeichnis, nur für den
+            Baukasten-Fallback relevant.
+
+    Ein leerer/nur-Leerzeichen-Rohwert für einen der beiden Settings-Keys
+    gilt explizit als "nicht konfiguriert" (nicht als impliziter
+    Arbeitsverzeichnis-Pfad) -- `resolve_path_value("")` würde sonst auf
+    den Workspace-Wurzelordner auflösen, der zufällig existiert und ein
+    Verzeichnis ist, und damit fälschlich als gültiger Treffer durchgehen.
+
+    Returns:
+        Der aufgelöste Fachinhalte-Wurzelordner, oder `None`, wenn weder
+        die Konfiguration noch die Fallback-Suche etwas Gültiges liefert.
+    """
+    values = load_path_values()
+    baukasten_raw = values.get(BAUKASTEN_DIR_KEY, "").strip()
+    baukasten_dir = resolve_path_value(baukasten_raw) if baukasten_raw else None
+    if baukasten_dir is None or not baukasten_dir.exists() or not baukasten_dir.is_dir():
+        baukasten_dir = unterricht_dir.parent / "30 Baukasten"
+
+    fachinhalte_raw = values.get(FACHINHALTE_DIR_KEY, "").strip()
+    if fachinhalte_raw:
+        fachinhalte_candidate = resolve_path_value(fachinhalte_raw)
+        if fachinhalte_candidate.exists() and fachinhalte_candidate.is_dir():
+            return fachinhalte_candidate
+    return _find_named_child(baukasten_dir, ("34 fachinhalte", "34 fachenhalte"))
+
+
 def _contains_markdown_files(path: Path) -> bool:
     try:
         next(path.rglob("*.md"))

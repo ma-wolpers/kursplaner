@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
@@ -9,6 +10,8 @@ from typing import Callable, Protocol
 from kursplaner.core.domain.achievement_requirements import DomainAchievementRequirements
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.file_relation_registry import FileRelationRegistrySnapshot
+from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFileDiagnostic
+from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzkatalog import Kompetenzkatalog, KompetenzkatalogManifestEntry
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 
@@ -537,6 +540,56 @@ class SubjectSourceRepository(Protocol):
             unterricht_dir: Optionales Unterrichts-Basisverzeichnis.
             subject_folder: Optionaler Fachordner für gezielte Invalidierung.
         """
+        ...
+
+
+class KompetenzGraphRepository(Protocol):
+    """Definiert den Vertrag für das Laden des fachübergreifenden Kompetenznetz-Graphen aus dem Vault.
+
+    Die konkrete Implementierung (Infrastructure-Schicht) ist der einzige
+    Ort im gesamten Projekt, der `PyYAML` importiert (siehe Mini-ADR
+    `docs/ARCHITEKTUR_KERN.md` §29). Der Snapshot ist von Natur aus
+    fachübergreifend -- `subject_folders` steuert nur, welche Fachordner
+    eingelesen werden, nicht wie viele Fächer ein Snapshot abbilden kann.
+    """
+
+    def discover_structured_subjects(self, unterricht_dir: Path) -> tuple[str, ...]:
+        """Ermittelt alle Fachordner unter "34 Fachinhalte", die dem Kompetenznetz-Schema folgen.
+
+        Datengetrieben (mindestens eine Kompetenz-Datei nach dem
+        `<Kürzel>-<Nummer>`-Muster plus ein `Bereiche/`-Unterordner) --
+        niemals auf ein bestimmtes Fach hartkodiert.
+        """
+        ...
+
+    def load_snapshot(
+        self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None
+    ) -> tuple[KompetenzGraphSnapshot, tuple[KompetenzFileDiagnostic, ...], tuple[str, ...]]:
+        """Lädt (mit Cache) den Kompetenznetz-Snapshot für die gegebenen Fächer.
+
+        Args:
+            unterricht_dir: Unterrichts-Basisverzeichnis (für die
+                Fachinhalte-Pfadauflösung).
+            subject_folders: Zu ladende Fachordner, oder `None` für alle
+                von `discover_structured_subjects()` gefundenen.
+
+        Returns:
+            `(snapshot, file_diagnostics, loaded_subjects)`.
+        """
+        ...
+
+    def rebuild_snapshot(
+        self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None
+    ) -> tuple[KompetenzGraphSnapshot, tuple[KompetenzFileDiagnostic, ...], tuple[str, ...]]:
+        """Wie `load_snapshot()`, erzwingt aber zuvor eine vollständige Cache-Invalidierung."""
+        ...
+
+    def read_body(self, source_path: Path) -> str:
+        """Liest den Markdown-Body EINER Kompetenz-Datei frisch von der Platte (lazy, nie gecacht)."""
+        ...
+
+    def invalidate_cache(self, unterricht_dir: Path | None = None, subject_folder: str | None = None) -> None:
+        """Invalidiert den persistenten Kompetenzgraph-Cache gezielt oder vollständig."""
         ...
 
 
