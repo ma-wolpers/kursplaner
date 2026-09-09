@@ -58,7 +58,7 @@ Keine direkte Fachlogik im Adapter, keine I/O-Logik im Domain-Layer.
   - Laden der letzten UB-Punkte für Dialoge.
 - In der UB-Achievements-Ansicht zeigen die Kacheln wieder den numerischen Fortschritt (`current/target`, z. B. `1/4`); nicht erfüllte Symbole sind dunkler dargestellt.
 
-## Geplant (Mathematik)
+## Geplant (Mathematik) — KC-Katalog für Einheiten-Erstellung
 
 ### Fachliche Erweiterung
 
@@ -87,6 +87,39 @@ Keine direkte Fachlogik im Adapter, keine I/O-Logik im Domain-Layer.
   - Kompetenzen
   - Stundenziel
 - Optional spaeter: fachspezifische Zusatzfelder (nur bei echtem Bedarf)
+
+## Geplant (Kompetenznetz-Graph-Popup)
+
+**Abgrenzung zum KC-Katalog (siehe oben):** komplett getrenntes Feature. Der KC-Katalog
+ist eine flache, JSON-basierte Textliste für die Kompetenzauswahl beim Erstellen einer
+Einheit (Informatik heute, Mathematik geplant). Das Kompetenznetz-Graph-Popup liest
+stattdessen das bereits im Vault existierende, verlinkte Markdown-Kompetenznetz unter
+`34 Fachinhalte\<Fach>\` (Ober-/Teilkompetenz- und Fort-/Voraussetzungs-Beziehungen als
+Obsidian-Wikilinks im YAML-Frontmatter) und stellt es zum Nachschlagen/Zitieren als
+interaktiven Graphen dar. Beide Systeme bleiben unabhängig, keine Vereinheitlichung.
+
+**Architektur ist bewusst fachoffen, nicht Mathematik-spezifisch**: Mathematik ist
+aktuell der einzige real vorhandene, nach diesem Schema strukturierte Datenbestand
+(~480 Dateien) — Repository/Domain/Filter/Layout enthalten aber an keiner Stelle
+Mathematik-spezifische Logik. Ein weiteres Fach wird automatisch erkannt, sobald sein
+Ordner dieselbe Struktur erfüllt (mindestens eine Kompetenz-Datei nach dem
+`<Kürzel>-<Nummer>`-Muster plus ein `Bereiche\`-Unterordner).
+
+**Umsetzungsstand** (Meilensteine gemäß Implementierungsplan
+`ich-m-chte-im-kursplaner-prancy-gray.md`):
+
+- ✅ Meilenstein 1 — Domain-Modell, PyYAML-freies Mapping, Validierung, DAG-Diagnose,
+  zentrale Sichtbarkeits-Pipeline (Filter → Matchingtiefe → Fokus). Siehe
+  DEVELOPMENT_LOG-Eintrag vom 2026-09-09. Reine Domain-Schicht, noch ohne
+  Dateisystem-Zugriff/GUI.
+- ⬜ Meilenstein 2 — Repository (PyYAML, einzige Importstelle), Port, app-lokaler Cache,
+  Usecases, Wiring.
+- ⬜ Meilenstein 3 — Popup-Grundgerüst, Sidebar mit Filtern, Detailbereich (noch ohne
+  Graph-Canvas).
+- ⬜ Meilenstein 4 — tkinter-Canvas-Renderer, Sugiyama-artiges Layout mit
+  Crossing-Minimierung, Zoom/Pan.
+- ⬜ Meilenstein 5 — Fokus-Modus, Pfeiltasten-Kegel-Navigation, Hover-Tooltip,
+  Recentering, Unresolved-Link-Darstellung.
 
 ## Geplant (Nachpflege bestehender Einheiten)
 

@@ -8,6 +8,85 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Domain-Modell (Meilenstein 1 von 5)
+
+**Anlass**: Neues Popup zum Nachschlagen/Zitieren des im Vault unter `34 Fachinhalte\<Fach>\`
+gepflegten, Wikilink-verlinkten Kompetenznetzes (Ober-/Teilkompetenz- und
+Fort-/Voraussetzungs-Beziehungen im YAML-Frontmatter). Komplett unabhängig von der
+bestehenden, flachen `Kompetenzkatalog`-JSON-Domäne (Informatik-Lektionsauswahl) --
+siehe Abgrenzung in `GEPLANTE_IMPLEMENTATIONEN_KURSPLANER.md`. Dieser Eintrag deckt
+ausschließlich die reine Domain-Schicht ab (kein Dateisystemzugriff, kein GUI) --
+Repository/PyYAML-Anbindung folgt in Meilenstein 2.
+
+**Neue Module** (`core/domain/kompetenzgraph_*.py`, Namenspräfix zur klaren Abgrenzung
+von `kompetenzkatalog.py`):
+
+- `kompetenzgraph_types.py`/`kompetenzgraph_node.py`: `SourceRef` (physische
+  Herkunft -- Pfad/mtime/size/Fach -- ausdrücklich KEIN Bestandteil der fachlichen
+  Identität einer Kompetenz, die bleibt die vault-weit eindeutige ID),
+  `KcZuordnungEintrag`, `EdgeKind` (`"hierarchy"`/`"prerequisite"`/`"classification"`),
+  `KompetenzNode`/`BereichNode`. `KompetenzNode` trägt bewusst keinen vollständigen
+  Markdown-Body (Lazy Body folgt in Meilenstein 2), nur eine eager abgeleitete `title`.
+- `kompetenzgraph_mapping.py` (+ `kompetenzgraph_kc_zuordnung_mapping.py`) /
+  `kompetenzgraph_bereich_mapping.py`: reine Mapping-Funktionen von bereits per PyYAML
+  geparstem Frontmatter + Body-Text auf die Domain-Objekte. Nutzen zwingend
+  `wiki_links.py::extract_wiki_link_target` für jede Wikilink-Auflösung. Mehrlagige,
+  pro Feld/Eintrag unterschiedliche Fehlerklassifizierung (hart: Knoten verwerfen, z. B.
+  fehlendes `primarer_bereich` oder kein gültiger `kc_zuordnung`-Eintrag nach
+  Bereinigung; weich: nur den betroffenen Teil verwerfen, z. B. ein ungültiger
+  `kc_zuordnung`-Eintrag oder ein nicht auflösbarer Wikilink in `oberkompetenzen`).
+- `kompetenzgraph_snapshot.py`/`kompetenzgraph_snapshot_builder.py`: `KompetenzGraphSnapshot`
+  als unveränderliches Read-Model (`types.MappingProxyType`, keine externe Mutation
+  möglich) -- fachübergreifend, kein `subject`-Feld auf Snapshot-Ebene (siehe
+  Modellentscheidung im Implementierungsplan: die Vault-Invariante "ID vault-weit
+  eindeutig" macht den Graphen strukturell zu einem einzigen, fachübergreifenden
+  ID-Raum). `build_kompetenz_graph_snapshot()` löst ID-Kollisionen über mehrere
+  Quelldateien/Fächer deterministisch auf (`DuplicateIdDiagnostic`) und erkennt
+  `UnresolvedLink`s (laut Schema kein Fehler, nur Diagnose) statt sie stillschweigend
+  zu ignorieren.
+- `kompetenzgraph_dag.py`: iterative DFS mit weiß/grau/schwarz-Färbung
+  (`find_back_edges`/`find_cycles`), getrennt für `oberkompetenzen`- und
+  `voraussetzungen`-Kanten. Reines Diagnoseinstrument -- ein Zyklus führt nie dazu,
+  dass der Snapshot unvollständig aufgebaut oder das Laden abgebrochen wird.
+- `kompetenzgraph_view_mode.py`: Ober-/Teilkompetenz- vs. Fort-/Voraussetzung-Ansicht
+  mit nicht-trivialer, gegenläufiger Richtungssemantik (`oberkompetenzen` zeigt nach
+  oben, `voraussetzungen` nach unten). Drei Closure-Varianten über eine gemeinsame
+  BFS-Maschine: `ancestor_closure`/`descendant_closure` (je nur eine Richtung, für den
+  Fokus-Modus -- verhindert "über Eck" zu Geschwistern zu gelangen) und
+  `bidirectional_closure` (beide Richtungen gemischt pro Schritt, für Kontext-Matching,
+  wo genau das gewollt ist).
+- `kompetenzgraph_focus.py`: Fokus-Sichtbarkeit = `ancestor_closure ∪ descendant_closure`
+  ab dem fokussierten Knoten.
+- `kompetenzgraph_context.py`: "Matchingtiefe" (0 = kein Kontext, Default -- bisherige
+  Filterintuition bleibt erhalten; n>0 = zusätzliche Graph-Nachbarn bis n Hops über
+  `bidirectional_closure`). Fachübergreifend by construction -- prüft beim Erreichen
+  eines Nachbarn keinerlei Filterkriterium, ein Nachbar aus einem anderen Fach wird
+  ganz normal Kontext, nie Primärtreffer.
+- `kompetenzgraph_filter.py`: `KompetenzGraphFilter` mit `subjects: frozenset[str] | None`
+  als echte, ODER-verknüpfte Mehrfachauswahl (nicht auf ein Fach reduziert). Explizite
+  Semantik für `kc_zuordnung`-bezogene Kriterien (Jahrgang/Schulform/Bundesland/
+  Niveau/Anforderung müssen gemeinsam auf demselben Zuordnungs-Eintrag erfüllt sein,
+  nicht über mehrere Einträge gemischt).
+- `kompetenzgraph_view.py`: `compute_kompetenz_graph_view()` als einziger Ort, an dem
+  Filter → Matchingtiefe (Primär-/Kontext-Trennung) → optionaler Fokus kombiniert
+  werden. Fokus kann die Filter nie umgehen -- er schränkt die bereits erlaubte Menge
+  nur per Schnittmenge ein, erweitert sie nie.
+- `kompetenzgraph_filter_options.py`: alle Filter-Auswahllisten dynamisch aus dem
+  Snapshot abgeleitet, nie aus der (nachweislich veralteten) Kürzel-Prosa in
+  `_Schema.md` und nie fachspezifisch hartkodiert.
+- `kompetenzgraph_arrow_navigation.py`: reine, tkinter-freie 60°-Kegel-Nächster-Nachbar-
+  Funktion für die spätere Pfeiltasten-Navigation (Winkelberechnung + deterministischer
+  Distanz/Winkel/ID-Tie-Break).
+
+**Tests**: 81 neue Tests über 12 `test_kompetenzgraph_*.py`-Dateien, u. a. Diamant-DAG-
+Fälle (Mehrfach-Eltern ≠ Zyklus), das Adversarial-Filterbeispiel (zwei
+`kc_zuordnung`-Einträge mit unterschiedlichem Bundesland/Jahrgang dürfen nicht
+kreuzweise kombiniert matchen), Fach-Mehrfachauswahl (ODER-verknüpft), fachübergreifende
+Kontext-Nachbarn, und ein zentraler Kombinationstest (`test_kompetenzgraph_view.py`),
+der explizit beweist, dass ein Fokus die Filter-/Matchingtiefe-Grenze nicht umgehen
+kann. Gemeinsame Fixture-Fabriken in `tests/kompetenzgraph_test_support.py` (kein
+`test_`-Präfix, wird von pytest nicht eingesammelt). 862/862 Tests grün.
+
 ### Added (2026-08-30) — Stufe-Spalte in der Kursübersicht
 
 `LessonOverviewItem` (`core/domain/models.py`) um `grade_level: int | None` erweitert, in `ListLessonsUseCase.execute()` aus `table.metadata.get("Stufe")` befuellt. Dafuer neue oeffentliche `parse_stufe()` in `yaml_registry.py` (volle 1-13-Bandbreite, anders als das UB-spezifische, auf 5-13 eingeschraenkte `parse_jahrgangsstufe`) -- `_is_valid_stufe()` (Schema-Validator) delegiert jetzt an dieselbe Funktion statt eine zweite, potenziell abweichende Pruefung zu pflegen. Der bereits bestehende Ad-hoc-Umgang mit `Stufe` in `action_controller.py` (`extend_plan_to_next_vacation`-Flow, `stufe_raw.isdigit()`/`int(stufe_raw)`) auf `parse_stufe()` umgestellt -- ein Mechanismus statt zweier.
