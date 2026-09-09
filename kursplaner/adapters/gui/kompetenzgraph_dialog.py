@@ -6,12 +6,18 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 from bw_gui.theming import theme_canvas
 
-from kursplaner.adapters.gui.kompetenzgraph_canvas_render import KompetenzGraphCanvasRenderer
+from kursplaner.adapters.gui.kompetenzgraph_canvas_arrow_nav import KompetenzGraphCanvasArrowNav
+from kursplaner.adapters.gui.kompetenzgraph_canvas_recenter import recenter_on_node
+from kursplaner.adapters.gui.kompetenzgraph_canvas_render import NODE_TAG_PREFIX, KompetenzGraphCanvasRenderer
+from kursplaner.adapters.gui.kompetenzgraph_canvas_selection import handle_double_click_or_enter
+from kursplaner.adapters.gui.kompetenzgraph_canvas_tooltip import KompetenzGraphCanvasTooltip
 from kursplaner.adapters.gui.kompetenzgraph_canvas_zoom_pan import KompetenzGraphCanvasZoomPan
 from kursplaner.adapters.gui.kompetenzgraph_detail_panel import KompetenzGraphDetailPanel
+from kursplaner.adapters.gui.kompetenzgraph_diagnostics_banner import KompetenzGraphDiagnosticsBanner
 from kursplaner.adapters.gui.kompetenzgraph_filter_panel import KompetenzGraphFilterPanel
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.core.domain.kompetenzgraph_arrow_navigation import find_nearest_node_in_direction
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_FORT_VORAUS, MODE_OBER_TEIL
@@ -62,20 +68,28 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._snapshot = load_result.snapshot
         self._compute_view_usecase = compute_view_usecase
         self._state = KompetenzGraphUiState(filter=initial_filter)
+        self._last_view = None
+        self._last_layout = None
 
-        self._build_ui(load_body_usecase)
+        self._build_ui(load_result, load_body_usecase)
         self.apply_theme()
         theme_canvas(self.canvas, theme_key)
         self.bind("<Control-Tab>", self._on_toggle_view_mode_shortcut)
         self._refresh()
+        self.canvas.focus_set()
 
     def _requires_close_confirmation(self) -> bool:
         """Reine Leseansicht ohne ungespeicherten Zustand -- schließt immer ohne Rückfrage."""
         return False
 
-    def _build_ui(self, load_body_usecase: LoadKompetenzNodeBodyUseCase | None) -> None:
+    def _build_ui(
+        self, load_result: KompetenzGraphLoadResult, load_body_usecase: LoadKompetenzNodeBodyUseCase | None
+    ) -> None:
         root = widgets.Frame(self.content, padding=8)
         root.pack(fill="both", expand=True)
+
+        self._diagnostics_banner = KompetenzGraphDiagnosticsBanner(root)
+        self._diagnostics_banner.update(load_result)
 
         paned = widgets.Panedwindow(root, orient="horizontal")
         paned.pack(fill="both", expand=True)
@@ -112,8 +126,17 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         canvas_container.rowconfigure(0, weight=1)
         canvas_container.columnconfigure(0, weight=1)
 
-        self._renderer = KompetenzGraphCanvasRenderer(self.canvas, on_node_click=self._on_node_selected)
+        self._tooltip = KompetenzGraphCanvasTooltip(self.canvas)
+        self._renderer = KompetenzGraphCanvasRenderer(
+            self.canvas,
+            on_node_click=self._on_node_selected,
+            on_node_double_click=self._on_node_double_clicked,
+            tooltip=self._tooltip,
+        )
         self._zoom_pan = KompetenzGraphCanvasZoomPan(self.canvas)
+        self._arrow_nav = KompetenzGraphCanvasArrowNav(self.canvas, on_direction=self._on_arrow_direction)
+        self.canvas.bind("<Return>", self._on_enter_key)
+        self.canvas.bind("<KP_Enter>", self._on_enter_key)
 
     def _build_view_mode_toggle(self, parent) -> None:
         segment_group = widgets.Frame(parent)
@@ -146,6 +169,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._state.view_mode = mode_key
         self._refresh_view_mode_buttons()
         self._refresh()
+        self.canvas.focus_set()
 
     def _on_filter_changed(self, new_filter: KompetenzGraphFilter) -> None:
         self._state.filter = new_filter
@@ -155,6 +179,49 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._state.selected_id = node_id
         self._detail_panel.render(self._snapshot.nodes.get(node_id))
         self._redraw_canvas()
+        self.canvas.focus_set()
+
+    def _on_node_double_clicked(self, node_id: str) -> None:
+        """Doppelklick auf einen Knoten: togglet den Fokus (siehe `kompetenzgraph_canvas_selection.py`)."""
+        handle_double_click_or_enter(self._state, node_id)
+        self._detail_panel.render(self._snapshot.nodes.get(self._state.selected_id))
+        self._redraw_canvas()
+        self.canvas.focus_set()
+
+    def _on_enter_key(self, _event) -> str:
+        """Enter auf der aktuellen Auswahl: togglet den Fokus, äquivalent zu einem Doppelklick darauf."""
+        handle_double_click_or_enter(self._state)
+        self._redraw_canvas()
+        return "break"
+
+    def _on_arrow_direction(self, direction: tuple[float, float]) -> None:
+        """Bewegt die Auswahl auf den nächstgelegenen sichtbaren Knoten im 60°-Kegel Richtung `direction`.
+
+        Nutzt die zuletzt berechnete Sichtbarkeits-/Layout-Momentaufnahme
+        (`self._last_view`/`self._last_layout`, siehe `_redraw_canvas()`)
+        -- Bereich-Hubs sind bewusst nie Kandidaten (nur echte Kompetenz-
+        Knoten). Zentriert die Ansicht nach jeder erfolgreichen
+        Verschiebung auf den neu ausgewählten Knoten (auch im Fokus-Modus).
+        """
+        if self._state.selected_id is None or self._last_layout is None or self._last_view is None:
+            return
+        current_position = self._last_layout.positions.get(self._state.selected_id)
+        if current_position is None:
+            return
+
+        candidates = {
+            node_id: (position.x, position.y)
+            for node_id, position in self._last_layout.positions.items()
+            if node_id != self._state.selected_id and node_id in self._last_view.visible.all_ids
+        }
+        nearest_id = find_nearest_node_in_direction((current_position.x, current_position.y), candidates, direction)
+        if nearest_id is None:
+            return
+
+        self._state.selected_id = nearest_id
+        self._detail_panel.render(self._snapshot.nodes.get(nearest_id))
+        self._redraw_canvas()
+        recenter_on_node(self.canvas, f"{NODE_TAG_PREFIX}{nearest_id}")
 
     def _refresh(self) -> None:
         """Berechnet die aktuelle Sichtbarkeits-Ansicht neu, wendet die Selektions-Gültigkeitsregel an
@@ -192,6 +259,8 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         layout = compute_layered_layout(
             self._snapshot, self._state.view_mode, view.visible.all_ids, view.visible_bereich_ids
         )
+        self._last_view = view
+        self._last_layout = layout
         self._renderer.render(
             self._snapshot,
             view,

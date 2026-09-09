@@ -121,8 +121,9 @@ Ordner dieselbe Struktur erfüllt (mindestens eine Kompetenz-Datei nach dem
 - ✅ Meilenstein 4 — tkinter-Canvas-Renderer, Sugiyama-artiges Layout mit
   Crossing-Minimierung, Zoom/Pan. Siehe DEVELOPMENT_LOG-Eintrag vom 2026-09-09.
   View-Mode-Umschaltung (Segmented-Control + Strg+Tab) bereits nutzbar.
-- ⬜ Meilenstein 5 — Fokus-Modus, Pfeiltasten-Kegel-Navigation, Hover-Tooltip,
-  Recentering, Unresolved-Link-Darstellung.
+- ✅ Meilenstein 5 — Fokus-Modus, Pfeiltasten-Kegel-Navigation, Hover-Tooltip,
+  Recentering, Unresolved-Link-Darstellung, Diagnosebanner. Siehe DEVELOPMENT_LOG-
+  Eintrag vom 2026-09-09. **Feature vollständig umgesetzt.**
 
 ## Geplant (Nachpflege bestehender Einheiten)
 

@@ -18,7 +18,9 @@ _NODE_HEIGHT = 46.0
 _BEREICH_WIDTH = 170.0
 _BEREICH_HEIGHT = 38.0
 _UNRESOLVED_MARKER_RADIUS = 10.0
-_NODE_TAG_PREFIX = "kompetenz_node_"
+NODE_TAG_PREFIX = "kompetenz_node_"
+"""Öffentlich, da `kompetenzgraph_canvas_recenter.py` denselben Tag braucht, um das
+aktuell ausgewählte Knoten-Item über `canvas.bbox(tag)` wiederzufinden."""
 _MAX_LABEL_CHARS = 30
 
 
@@ -39,7 +41,14 @@ class KompetenzGraphCanvasRenderer:
     automatisch konsistent bleiben.
     """
 
-    def __init__(self, canvas: ui.Canvas, *, on_node_click: Callable[[str], None]):
+    def __init__(
+        self,
+        canvas: ui.Canvas,
+        *,
+        on_node_click: Callable[[str], None],
+        on_node_double_click: Callable[[str], None] | None = None,
+        tooltip=None,
+    ):
         """Initialisiert den Renderer.
 
         Args:
@@ -47,9 +56,16 @@ class KompetenzGraphCanvasRenderer:
                 von `kompetenzgraph_canvas_zoom_pan.py`, nicht hier).
             on_node_click: Wird mit der Knoten-ID aufgerufen, sobald ein
                 Kompetenz- oder Bereichs-Knoten angeklickt wird.
+            on_node_double_click: Optional -- wird mit der Knoten-ID bei
+                einem Doppelklick aufgerufen (Fokus-Toggle, Meilenstein 5).
+            tooltip: Optionales `KompetenzGraphCanvasTooltip` -- wenn
+                gesetzt, wird für jeden gezeichneten Knoten ein
+                Hover-Binding registriert.
         """
         self.canvas = canvas
         self._on_node_click = on_node_click
+        self._on_node_double_click = on_node_double_click
+        self._tooltip = tooltip
 
     def render(
         self,
@@ -163,7 +179,7 @@ class KompetenzGraphCanvasRenderer:
         position = layout.positions[node_id]
         x0, y0 = position.x - _NODE_WIDTH / 2, position.y - _NODE_HEIGHT / 2
         x1, y1 = position.x + _NODE_WIDTH / 2, position.y + _NODE_HEIGHT / 2
-        tag = f"{_NODE_TAG_PREFIX}{node_id}"
+        tag = f"{NODE_TAG_PREFIX}{node_id}"
 
         fill_token = "accent_soft" if is_focused else ("bg_surface" if is_context else "bg_panel")
         rect_id = self.canvas.create_rectangle(x0, y0, x1, y1, tags=(tag,))
@@ -177,6 +193,10 @@ class KompetenzGraphCanvasRenderer:
         canvas_text_fill(self.canvas, text_id, token="fg_muted" if is_context else "fg_primary")
 
         self.canvas.tag_bind(tag, "<Button-1>", lambda _event, nid=node_id: self._on_node_click(nid))
+        if self._on_node_double_click is not None:
+            self.canvas.tag_bind(tag, "<Double-Button-1>", lambda _event, nid=node_id: self._on_node_double_click(nid))
+        if self._tooltip is not None:
+            self._tooltip.bind_node(tag, node.title)
 
     def _draw_bereich_node(
         self, snapshot: KompetenzGraphSnapshot, bereich_id: str, layout: KompetenzGraphLayout, *, is_selected: bool
@@ -187,7 +207,7 @@ class KompetenzGraphCanvasRenderer:
             return
         x0, y0 = position.x - _BEREICH_WIDTH / 2, position.y - _BEREICH_HEIGHT / 2
         x1, y1 = position.x + _BEREICH_WIDTH / 2, position.y + _BEREICH_HEIGHT / 2
-        tag = f"{_NODE_TAG_PREFIX}{bereich_id}"
+        tag = f"{NODE_TAG_PREFIX}{bereich_id}"
 
         rect_id = self.canvas.create_rectangle(x0, y0, x1, y1, tags=(tag,))
         canvas_fill(self.canvas, rect_id, token="secondary_soft")
@@ -200,6 +220,8 @@ class KompetenzGraphCanvasRenderer:
         canvas_text_fill(self.canvas, text_id, token="fg_primary")
 
         self.canvas.tag_bind(tag, "<Button-1>", lambda _event, bid=bereich_id: self._on_node_click(bid))
+        if self._tooltip is not None:
+            self._tooltip.bind_node(tag, f"{bereich.title} ({bereich.kuerzel})" if bereich.kuerzel else bereich.title)
 
     def _update_scrollregion(self, layout: KompetenzGraphLayout) -> None:
         all_positions = [*layout.positions.values(), *layout.unresolved_marker_positions.values()]

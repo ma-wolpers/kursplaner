@@ -8,6 +8,65 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Fokus, Pfeiltasten-Navigation, Hover, Diagnosen (Meilenstein 5 von 5 — Feature abgeschlossen)
+
+**Fokus-Modus** (`adapters/gui/kompetenzgraph_canvas_selection.py`, reine Zustands-
+übergangsfunktionen ohne Tk-Abhängigkeit, daher mit 6 dedizierten Tests): Doppelklick
+bzw. Enter auf der aktuellen Auswahl togglet `focus_id` exakt nach Spezifikation --
+einfacher Klick auf einen anderen Knoten ändert nur die Auswahl (Rahmen), der Fokus
+(Füllfarbe + eingeblendete Teilmenge) bleibt beim alten Knoten; erst ein erneuter
+Doppelklick/Enter auf den neuen Knoten macht ihn zum Fokus. Manuell mit einem
+Diamant-Fixture verifiziert: Fokus auf einen Knoten mit zwei Kindern zeigt nur dessen
+eigene Vorfahren/Nachfahren, nicht das andere ("über Eck" verbundene) Geschwister.
+
+**Pfeiltasten-Navigation** (`kompetenzgraph_canvas_arrow_nav.py`): kombiniert kurz
+gemeinsam gehaltene Pfeiltasten (150ms-Fenster) zu einem addierten Richtungsvektor
+(ermöglicht Diagonalen wie "obenrechts") und übergibt ihn an die bereits domain-seitig
+getestete, reine `find_nearest_node_in_direction()` (60°-Kegel + Distanz + Tie-Break).
+Kandidatenmenge ist immer die zuletzt gerenderte sichtbare Knotenmenge (nie
+Bereich-Hubs, nie Unresolved-Link-Platzhalter). Nach jeder erfolgreichen Verschiebung
+zentriert `kompetenzgraph_canvas_recenter.py::recenter_on_node()` die Ansicht auf den
+neu ausgewählten Knoten (auch im Fokus-Modus) -- nutzt bewusst die AKTUELLEN,
+zoom-transformierten Canvas-Koordinaten über `canvas.bbox()`, nicht die ursprünglichen
+Layout-Weltkoordinaten, da `canvas.scale()` Item-Positionen in-place verändert.
+
+**Hover-Tooltip** (`kompetenzgraph_canvas_tooltip.py`): zeigt bei Mouse-Over den
+vollständigen (nicht auf dem Knoten selbst gekürzten) Kompetenz-/Bereichstext als
+zusätzliche, obenliegende Canvas-Items -- kein `HoverTooltip`-Reuse, da Canvas-Items
+keine eigenständigen Widgets sind und ein separates `Toplevel` bei Zoom/Pan komplexere
+Koordinatenmathematik bräuchte.
+
+**Diagnosebanner** (`kompetenzgraph_diagnostics_banner.py`, `ui.Label` mit
+`theme_label_token(bg_token="warning_soft")`): fasst Zyklen-, Datei- und
+Duplicate-ID-Diagnosen zusammen. Rein informativ -- ein Zyklus bleibt ein
+Datenintegritätsproblem, aber der Graph wird davon unabhängig immer vollständig
+aufgebaut und bleibt vollständig interaktiv (siehe `kompetenzgraph_dag.py`).
+
+**Unresolved-Link-Platzhalter** (bereits in Meilenstein 4 positioniert, hier
+interaktions-seitig abgesichert): nicht klickbar (kein `tag_bind`), nicht Teil der
+Pfeiltasten-Kandidatenmenge, nicht Teil der Fokus-/Kontext-Berechnung (schon durch
+`ancestors_of`/`descendants_of` sichergestellt, die nie über nicht existierende
+Knoten navigieren) -- rein visueller Hinweis.
+
+**Renderer erweitert**: `KompetenzGraphCanvasRenderer` nimmt jetzt optional
+`on_node_double_click` und `tooltip` entgegen; `NODE_TAG_PREFIX` ist jetzt öffentlich
+(wird von `kompetenzgraph_canvas_recenter.py` zum Wiederfinden des Canvas-Items
+gebraucht).
+
+**Manuell verifiziert** (kein automatisierter GUI-Test für die Tk-Integration, Projekt-
+Usus): Fixture mit Diamant (Fokus-Test), unabhängigem 2-Knoten-Zyklus
+(Diagnosebanner-Test) und einem Unresolved-Link (Marker-Test) in echtem Tk-Root
+konstruiert. Geprüft: Banner erscheint bei vorhandenem Zyklus; Doppelklick fokussiert
+korrekt ohne das über Eck verbundene Geschwister einzublenden; zweiter Doppelklick und
+Enter heben den Fokus korrekt auf/wieder her; Pfeiltaste "runter" von der Wurzel eines
+Diamanten wählt korrekt eines der beiden Kinder aus.
+
+**Tests**: 6 neue Tests für die reinen Fokus-/Auswahl-Übergangsfunktionen
+(`test_kompetenzgraph_canvas_selection.py`). 908/908 Tests grün.
+
+**Damit ist das Kompetenznetz-Graph-Popup-Feature (alle 5 Meilensteine) abgeschlossen.**
+Siehe `docs/GEPLANTE_IMPLEMENTATIONEN_KURSPLANER.md` für den Gesamtüberblick.
+
 ### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Canvas-Graph-Renderer, Sugiyama-Layout (Meilenstein 4 von 5)
 
 **Layout-Pipeline** (`core/domain/kompetenzgraph_layout.py` + `kompetenzgraph_layout_crossing.py`,
