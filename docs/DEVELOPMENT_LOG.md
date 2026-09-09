@@ -8,6 +8,74 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Canvas-Graph-Renderer, Sugiyama-Layout (Meilenstein 4 von 5)
+
+**Layout-Pipeline** (`core/domain/kompetenzgraph_layout.py` + `kompetenzgraph_layout_crossing.py`,
+weiterhin Tk-/PyYAML-frei, pur testbar): (1) `find_back_edges()` (wiederverwendet aus
+`kompetenzgraph_dag.py`) neutralisiert Rückkanten NUR für die Tiefenberechnung; (2)
+Kahn-artige topologische Schichtzuordnung (`layer(node) = 1 + max(layer(eltern))`,
+iterativ, kein Rekursionslimit-Risiko); (3) initial deterministisch nach
+`(primarer_bereich_id, id)` sortiert; (4) Barycenter-Crossing-Minimierung
+(`minimize_crossings()`, abwechselnde Top-Down-/Bottom-Up-Sweeps, **Best-so-far**:
+jeder Sweep wird nur übernommen, wenn er die Kreuzungszahl verbessert, sonst sofortiger
+Abbruch -- das Ergebnis ist damit garantiert nie schlechter als die Eingangsreihenfolge);
+(5) Koordinatenzuweisung. Bereich-Hubs bekommen unabhängig davon immer eine feste eigene
+Zeile (`_BEREICH_ROW_Y`) -- eine reine Rendering-Entscheidung dieses Schritts, keine
+Graph-Invariante. Unresolved-Link-Ziele nehmen an 1-4 nicht teil, werden erst danach als
+versetzte Marker neben ihrem referenzierenden Knoten positioniert.
+
+**Kreuzungszählung in O(E log E) statt O(E²)**: `count_crossings()` nutzt den
+klassischen Bilayer-Cross-Counting-Algorithmus (Barth/Mutzel/Jünger) -- pro Knoten der
+unteren Schicht werden die Elternpositionen aufsteigend sortiert gesammelt (verhindert
+Scheinkreuzungen zwischen Kanten, die im selben Knoten zusammenlaufen), alle
+Teilsequenzen aneinandergehängt und die Inversionen der Gesamtsequenz per Merge-Sort
+gezählt. Zusammen mit dem bestehenden Performance-Budget
+(`MAX_NODES_FOR_CROSSING_MINIMIZATION = 2000`, oberhalb dessen die Crossing-Minimierung
+übersprungen wird) bleibt die Berechnung auch für deutlich größere, künftig
+fachübergreifende Vaults schnell und terminiert garantiert.
+
+**Bewusste Vereinfachung gegenüber "echtem" Sugiyama-Layout**: Kanten, die mehr als eine
+Schicht überspringen (Multi-Parent-DAGs mit unterschiedlich tiefen Elternpfaden), werden
+weiterhin vollständig gerendert, tragen aber nicht zur Crossing-Minimierung bei (kein
+Dummy-Knoten-Ketten-Mechanismus) -- angemessen für das Ziel "sichtbar gute,
+reproduzierbare Ergebnisse", nicht mathematisch perfektes Crossing-Minimum.
+
+**Canvas-Renderer** (`adapters/gui/kompetenzgraph_canvas_render.py`): volles Redraw pro
+Sichtbarkeits-/Ansichtswechsel. Klassifikationskanten (`primarer_bereich` durchgezogen,
+`prozessbereiche` gestrichelt) sind ansichtsunabhängig immer sichtbar; Hierarchie-/
+Voraussetzungskanten zeigen ausschließlich die des aktiven View-Mode. Primärtreffer vs.
+Kontextknoten sowie Auswahl/Fokus sind visuell unterschieden. Alle Farben ausschließlich
+über die geteilten Theme-Canvas-Helfer (`bw_gui.theming.canvas_fill`/
+`canvas_outline_color`/`canvas_text_fill`) -- kein hartkodierter Hex-Wert, Hell-/
+Dunkel-Theme bleiben automatisch konsistent.
+
+**Zoom/Pan** (`kompetenzgraph_canvas_zoom_pan.py`): Strg+/-/Strg+Mausrad zoomt
+inkrementell über `canvas.scale()` (kein Voll-Redraw pro Zoom-Schritt), Mausrad
+vertikal/Shift+Mausrad horizontal scrollt. Alle Bindings lokal auf den Popup-Canvas
+beschränkt.
+
+**View-Mode-Umschaltung**: Segmented-Control (`Segmented.TButton`/`SegmentedActive.TButton`
+-- dieselben, bereits von Kursplaner und Blattwerk gemeinsam genutzten `bw_gui`-Styles,
+keine neue Abhängigkeit) plus Tastenkürzel `Strg+Tab` (lokal auf das Popup beschränkt).
+Die transitionale Treeview-Liste aus Meilenstein 3 (`kompetenzgraph_node_list.py`) wurde
+vollständig durch den Canvas ersetzt und entfernt.
+
+**Manuell verifiziert** (kein automatisierter GUI-Test, Projekt-Usus): Popup mit
+synthetischem Snapshot (inkl. Mehrfach-Eltern, Prozessbereich, Unresolved Link) in
+echtem Tk-Root konstruiert, Canvas-Item-Anzahl nach Render geprüft, Knotenauswahl per
+Klick-Handler, View-Mode-Umschaltung (Toggle + Tastenkürzel), Zoom in/out, sowie
+Filterwechsel bis zur vollständigen Leerung der sichtbaren Menge samt korrekter
+Selektions-Invalidierung durchgespielt -- keine Exceptions, Canvas-Item-Zahl reagiert
+korrekt (22 → 0 bei einem nicht erfüllbaren Jahrgangsfilter).
+
+**Tests**: 14 neue Tests (`test_kompetenzgraph_layout.py`,
+`test_kompetenzgraph_layout_crossing.py`), u. a. Diamant-DAG-Schichttiefen, Determinismus
+bei wiederholtem Aufruf, zyklische Daten liefern ein vollständiges, terminierendes
+Layout, Bereich-Hubs immer in eigener Zeile, Unresolved-Link-Marker korrekt versetzt,
+ein bekanntes 2-Schichten-Kreuzungsbeispiel wird auf 0 Kreuzungen optimiert,
+`minimize_crossings()` liefert nachweislich nie eine schlechtere Kreuzungszahl als die
+Eingabe. 902/902 Tests grün.
+
 ### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Popup-Grundgerüst, Sidebar, Detailbereich (Meilenstein 3 von 5)
 
 **Neuer Menüpunkt „Kompetenznetz anzeigen…"** (Menü Ansicht, `UiIntent.SHOW_KOMPETENZGRAPH`,

@@ -118,8 +118,9 @@ Ordner dieselbe Struktur erfüllt (mindestens eine Kompetenz-Datei nach dem
   Graph-Canvas). Siehe DEVELOPMENT_LOG-Eintrag vom 2026-09-09. Menüpunkt „Kompetenznetz
   anzeigen…" (Strg+Shift+K) bereits nutzbar (Filter, Liste, Detail, Zitat-Kopieren);
   rechte Spalte zeigt bis Meilenstein 4 eine einfache Liste statt des Graphen.
-- ⬜ Meilenstein 4 — tkinter-Canvas-Renderer, Sugiyama-artiges Layout mit
-  Crossing-Minimierung, Zoom/Pan.
+- ✅ Meilenstein 4 — tkinter-Canvas-Renderer, Sugiyama-artiges Layout mit
+  Crossing-Minimierung, Zoom/Pan. Siehe DEVELOPMENT_LOG-Eintrag vom 2026-09-09.
+  View-Mode-Umschaltung (Segmented-Control + Strg+Tab) bereits nutzbar.
 - ⬜ Meilenstein 5 — Fokus-Modus, Pfeiltasten-Kegel-Navigation, Hover-Tooltip,
   Recentering, Unresolved-Link-Darstellung.
 
