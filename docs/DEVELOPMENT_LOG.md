@@ -8,6 +8,73 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-09) — Kompetenznetz-Graph-Popup: visuelles Redesign + Navigations-Entrucklung
+
+Nutzerfeedback zum bestehenden Popup: einheitlich graue eckige Rechtecke ohne
+Gruppierung, stur linksbündige horizontale Anordnung, spürbar ruckelige
+Klick-/Pfeiltasten-Navigation. Drei unabhängige Maßnahmen, ohne Eingriff in
+die bereits getestete Sichtbarkeits-Pipeline/DAG-Diagnose/Determinismus-Garantien:
+
+**Rendering** (`kompetenzgraph_canvas_shapes.py` neu, `kompetenzgraph_canvas_colors.py`
+neu): Knoten werden jetzt als abgerundete Rechtecke gezeichnet
+(`create_rounded_rectangle()`, Standard-Polygon+`smooth=True`-Technik, Radius
+intern auf max. halbe Kantenlänge begrenzt). Jeder Bereichs-Hub bekommt einen
+über die Popup-Sitzung stabilen Farbton (`assign_bereich_hues()`, deterministisch
+nach sortierter ID gleichmäßig über den Farbkreis verteilt, einmalig aus ALLEN
+Snapshot-Bereichen berechnet, nicht nur den sichtbaren -- verhindert
+Farbwechsel beim Filtern); zugehörige Kompetenz-Knoten tragen einen dünnen
+(1.5px) Rahmen in derselben Farbe (`node.primarer_bereich_id` als alleinige,
+dokumentierte Farbquelle), deutlich dünner als die unverändert bei 2.5px/Token
+`"accent"` bleibende Selektions-Markierung. Kontextknoten (Matchingtiefe)
+bekommen eine gedämpfte Farbvariante, damit die bestehende Fill-basierte
+Kontext-Kennzeichnung das dominante Signal bleibt. Alle neuen Farben laufen
+über die bereits vorhandenen `bw_gui.theming.canvas_domain_fill`/
+`canvas_domain_outline` -- kein hartkodierter Hex-Wert, Hell-/Dunkel-Theme
+bleibt automatisch konsistent.
+
+**Layout** (`kompetenzgraph_layout_forces.py` neu): die bisherige starre
+Slot-Index-Platzierung innerhalb einer Hierarchie-Schicht ist ersetzt durch
+eine kräfte-inspirierte Relaxation (`relax_horizontal_positions()`,
+abwechselnde Top-Down-/Bottom-Up-Sweeps, jeder Knoten wird Richtung
+Median-X seiner Eltern/Kinder in der Nachbarschicht gezogen, danach
+schichtinterne Mindestabstands-Auflösung). Bereichs-Hubs stehen jetzt über
+dem Schwerpunkt der sie tatsächlich klassifizierenden Kompetenzen
+(`compute_bereich_centroid_positions()`) statt alphabetisch nebeneinander.
+Y-Position (= Hierarchietiefe, "oben"/"unten") bleibt unverändert die
+fachliche Aussage der Ansicht. Harte Invariante (mit Test abgesichert): die
+bereits crossing-minimierte Schicht-Reihenfolge wird durch die Relaxation
+NIE verändert, nur die Abstände. Bewusst KEINE Anforderung an bitgenau
+reproduzierbare Koordinaten über verschiedene Layout-Läufe hinweg (Nutzer-
+Entscheidung nach Plan-Feedback) -- nur Stabilität *innerhalb* eines Laufs.
+
+**Navigation** (`kompetenzgraph_dialog.py`): Befund -- `_redraw_canvas()`
+berechnete bislang bei JEDER Interaktion (auch reinem Klick, jedem
+Pfeiltastendruck) die komplette Sichtbarkeits-Pipeline UND das volle
+Sugiyama-Layout inkl. Crossing-Minimierung neu, obwohl eine reine
+Selektionsänderung nachweislich weder die sichtbare Menge noch das Layout
+verändert -- das war die eigentliche Ursache der Ruckler, nicht das Zoomen.
+Aufgeteilt in `_recompute_and_redraw()` (Filter-/Ansichtswechsel,
+Fokus-Toggle) und die neue, deutlich günstigere `_reapply_selection()`
+(Klick, Pfeiltasten -- rendert mit zwischengespeicherter View/Layout-
+Momentaufnahme, ohne Neuberechnung). Regressionstest
+(`test_kompetenzgraph_dialog_navigation.py`) belegt technisch, dass Klick/
+Pfeiltasten die View-/Layout-Berechnung nicht erneut auslösen, während ein
+Filterwechsel sie weiterhin auslöst. Zusätzlich: Knoten-Beschriftungen
+blenden sich unterhalb einer Zoom-Schwelle (`kompetenzgraph_canvas_zoom_pan.py`,
+neue Konstante `_LABEL_HIDE_BELOW_SCALE`) automatisch aus (Titel bleibt über
+den bestehenden Hover-Tooltip abrufbar) -- ein einziger tag-basierter
+`itemconfigure`-Aufruf über das neue `LABEL_TAG`, nur bei tatsächlichem
+Schwellen-Übergang, nicht pro Zoom-Tick; `reapply_label_visibility()` stellt
+den Sichtbarkeitszustand nach jedem vollen Canvas-Redraw wieder her (neu
+erzeugte Items starten sonst wieder sichtbar).
+
+`kompetenzgraph_view_mode_toggle.py` neu ausgelagert (Segmented-Control-
+Aufbau) um `kompetenzgraph_dialog.py` innerhalb des 300-Zeilen-Budgets zu
+halten. Mit echtem Vault-Snapshot (996 Kompetenz-Knoten, 11 Bereichs-Hubs)
+end-zu-Ende gegen einen echten `tk.Canvas` gerendert (Vollansicht ~0.38s,
+gefilterte Alltagsansicht ~0.08s, kein Crash) -- kein Bestandteil der
+Testsuite, manuelle Verifikation.
+
 ### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Fokus, Pfeiltasten-Navigation, Hover, Diagnosen (Meilenstein 5 von 5 — Feature abgeschlossen)
 
 **Fokus-Modus** (`adapters/gui/kompetenzgraph_canvas_selection.py`, reine Zustands-

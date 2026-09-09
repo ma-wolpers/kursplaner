@@ -5,9 +5,15 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 
+from kursplaner.adapters.gui.kompetenzgraph_canvas_render import LABEL_TAG
+
 _ZOOM_STEP = 1.1
 _MIN_SCALE = 0.2
 _MAX_SCALE = 3.0
+_LABEL_HIDE_BELOW_SCALE = 0.6
+"""Unterhalb dieser Skalierung werden Knoten-Beschriftungen ausgeblendet (sie würden
+ohnehin unlesbar) -- der volle Titel bleibt über den Hover-Tooltip abrufbar. Bewusst
+eine leicht anpassbare Konstante statt eines fest verdrahteten Werts, siehe Modul-Docstring."""
 
 
 class KompetenzGraphCanvasZoomPan:
@@ -18,12 +24,20 @@ class KompetenzGraphCanvasZoomPan:
     `compute_layered_layout()`; Zoom ist ausschließlich eine
     Koordinatentransformation über `canvas.scale()`. Alle Bindings sind
     lokal auf den übergebenen Canvas beschränkt, nicht global.
+
+    Blendet zusätzlich Knoten-Beschriftungen aus, sobald die Skalierung
+    unter `_LABEL_HIDE_BELOW_SCALE` fällt (und wieder ein, sobald sie
+    diese Schwelle wieder übersteigt) -- ein einziger tag-basierter
+    `itemconfigure`-Aufruf über `kompetenzgraph_canvas_render.LABEL_TAG`,
+    ausgelöst nur bei tatsächlichem Schwellen-Übergang, nicht bei jedem
+    Zoom-Tick.
     """
 
     def __init__(self, canvas: ui.Canvas):
         """Bindet alle Zoom-/Scroll-Events an `canvas`."""
         self.canvas = canvas
         self._scale = 1.0
+        self._labels_hidden = False
         self._bind()
 
     def _bind(self) -> None:
@@ -72,3 +86,23 @@ class KompetenzGraphCanvasZoomPan:
         bbox = self.canvas.bbox("all")
         if bbox is not None:
             self.canvas.configure(scrollregion=bbox)
+        self._update_label_visibility()
+
+    def _update_label_visibility(self) -> None:
+        """Blendet Beschriftungen bei tatsächlichem Schwellen-Übergang aus/ein -- kein Aufruf im selben Zustand."""
+        should_hide = self._scale < _LABEL_HIDE_BELOW_SCALE
+        if should_hide == self._labels_hidden:
+            return
+        self._labels_hidden = should_hide
+        self.canvas.itemconfigure(LABEL_TAG, state="hidden" if should_hide else "normal")
+
+    def reapply_label_visibility(self) -> None:
+        """Wendet den aktuellen Label-Sichtbarkeitszustand erneut an.
+
+        Nötig nach jedem vollen Canvas-Redraw: `KompetenzGraphCanvasRenderer.render()`
+        löscht und erzeugt alle Canvas-Items neu (auch die Label-Textitems), die dabei
+        wieder im Default-Zustand `state="normal"` entstehen -- unabhängig von der
+        aktuellen Zoomstufe. `kompetenzgraph_dialog.py` ruft dies nach jedem
+        `render()`-Aufruf auf.
+        """
+        self.canvas.itemconfigure(LABEL_TAG, state="hidden" if self._labels_hidden else "normal")

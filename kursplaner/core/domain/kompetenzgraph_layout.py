@@ -8,6 +8,10 @@ from kursplaner.core.domain.kompetenzgraph_layout_crossing import (
     MAX_NODES_FOR_CROSSING_MINIMIZATION,
     minimize_crossings,
 )
+from kursplaner.core.domain.kompetenzgraph_layout_forces import (
+    compute_bereich_centroid_positions,
+    relax_horizontal_positions,
+)
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view_mode import ancestors_of
 
@@ -55,6 +59,29 @@ def _build_visible_parent_edges(
         node_id: tuple(parent for parent in ancestors_of(snapshot, mode_key, node_id) if parent in visible_node_ids)
         for node_id in visible_node_ids
     }
+
+
+def _build_bereich_classification_edges(
+    snapshot: KompetenzGraphSnapshot, visible_node_ids: frozenset[str], visible_bereich_ids: frozenset[str]
+) -> dict[str, tuple[str, ...]]:
+    """Baut das Klassifikations-Kantenbild (Bereich→klassifizierende Kompetenzen) für die Bereichs-Zentroid-Positionierung.
+
+    Berücksichtigt sowohl `primarer_bereich` als auch `prozessbereiche` --
+    ein Bereichs-Hub wird also von jeder sichtbaren Kompetenz "angezogen",
+    die ihn in einem der beiden Felder referenziert, nicht nur von seiner
+    kanonischen (`primarer_bereich`) Klassifikation.
+    """
+    members: dict[str, list[str]] = {bereich_id: [] for bereich_id in visible_bereich_ids}
+    for node_id in visible_node_ids:
+        node = snapshot.nodes.get(node_id)
+        if node is None:
+            continue
+        if node.primarer_bereich_id is not None and node.primarer_bereich_id in members:
+            members[node.primarer_bereich_id].append(node_id)
+        for prozessbereich_id in node.prozessbereich_ids:
+            if prozessbereich_id in members:
+                members[prozessbereich_id].append(node_id)
+    return {bereich_id: tuple(sorted(ids)) for bereich_id, ids in members.items()}
 
 
 def _assign_layers(
@@ -106,8 +133,16 @@ def compute_layered_layout(
     Schichtzuordnung, (3) deterministisch nach `(primarer_bereich_id, id)`
     initial sortieren, (4) Crossing-Minimierung (übersprungen oberhalb von
     `MAX_NODES_FOR_CROSSING_MINIMIZATION` -- Performance-Budget, keine
-    fachliche Grenze), (5) Koordinatenzuweisung. Bereich-Hubs bekommen
-    unabhängig davon immer eine feste eigene Zeile.
+    fachliche Grenze), (5) Koordinatenzuweisung: horizontale Position je
+    Schicht per Kräfte-Relaxation (`kompetenzgraph_layout_forces.py::
+    relax_horizontal_positions`, zieht Knoten Richtung ihrer verbundenen
+    Nachbarn statt starrer Slot-Indizes -- Schicht-Reihenfolge aus (4)
+    bleibt dabei unverändert), Bereich-Hubs bekommen eine feste eigene
+    Zeile, positioniert über dem Schwerpunkt der sie klassifizierenden
+    Kompetenzen (`compute_bereich_centroid_positions`) statt alphabetisch.
+    Bitgenaue Koordinaten-Reproduzierbarkeit über verschiedene Aufrufe
+    hinweg ist dabei kein Ziel -- nur innerhalb eines einzelnen Aufrufs
+    verhält sich die Positionierung nachvollziehbar deterministisch.
 
     Args:
         snapshot: Das vollständige Kompetenznetz-Snapshot.
@@ -138,19 +173,33 @@ def compute_layered_layout(
             sorted(node_ids, key=lambda nid: (snapshot.nodes[nid].primarer_bereich_id or "", nid))
         )
 
-    if len(visible_node_ids) <= MAX_NODES_FOR_CROSSING_MINIMIZATION:
+    within_performance_budget = len(visible_node_ids) <= MAX_NODES_FOR_CROSSING_MINIMIZATION
+    if within_performance_budget:
         # Crossing-Minimierung nutzt bewusst das VOLLE Kantenbild (inkl. der als
         # Rückkante klassifizierten Kanten) -- die Rückkanten-Klassifikation gilt
         # nur für die Tiefenberechnung, nicht für die Rendering-/Layout-Qualität.
         sorted_layers = minimize_crossings(sorted_layers, parent_edges)
 
+    # Kräfte-inspirierte horizontale Positionierung statt starrer Slot-Index-Platzierung
+    # (siehe kompetenzgraph_layout_forces.py) -- oberhalb des Performance-Budgets bleibt
+    # es bei den reinen Slot-Index-Startpositionen (iterations=0), dasselbe Budget wie
+    # für die Crossing-Minimierung.
+    x_by_node = relax_horizontal_positions(
+        sorted_layers, parent_edges, iterations=6 if within_performance_budget else 0, min_spacing=_NODE_SPACING
+    )
+
     positions: dict[str, GraphNodePosition] = {}
     for layer_index in sorted(sorted_layers):
-        for position_index, node_id in enumerate(sorted_layers[layer_index]):
-            positions[node_id] = GraphNodePosition(x=position_index * _NODE_SPACING, y=layer_index * _LAYER_SPACING)
+        for node_id in sorted_layers[layer_index]:
+            positions[node_id] = GraphNodePosition(x=x_by_node[node_id], y=layer_index * _LAYER_SPACING)
 
-    for position_index, bereich_id in enumerate(sorted(visible_bereich_ids)):
-        positions[bereich_id] = GraphNodePosition(x=position_index * _NODE_SPACING, y=_BEREICH_ROW_Y)
+    bereich_classification_edges = _build_bereich_classification_edges(snapshot, visible_node_ids, visible_bereich_ids)
+    node_x_by_id = {node_id: position.x for node_id, position in positions.items()}
+    bereich_x_by_id = compute_bereich_centroid_positions(
+        visible_bereich_ids, node_x_by_id, bereich_classification_edges, min_spacing=_NODE_SPACING
+    )
+    for bereich_id, x in bereich_x_by_id.items():
+        positions[bereich_id] = GraphNodePosition(x=x, y=_BEREICH_ROW_Y)
 
     unresolved_marker_positions: dict[UnresolvedLink, GraphNodePosition] = {}
     marker_index_by_source: dict[str, int] = {}

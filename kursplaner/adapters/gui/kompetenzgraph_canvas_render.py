@@ -1,13 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
-from bw_gui.theming import canvas_fill, canvas_outline_color, canvas_text_fill
+from bw_gui.theming import (
+    canvas_domain_fill,
+    canvas_domain_outline,
+    canvas_fill,
+    canvas_outline_color,
+    canvas_text_fill,
+)
 
+from kursplaner.adapters.gui.kompetenzgraph_canvas_colors import hue_to_color_pair
+from kursplaner.adapters.gui.kompetenzgraph_canvas_shapes import create_rounded_rectangle
 from kursplaner.core.domain.kompetenzgraph_layout import GraphNodePosition, KompetenzGraphLayout
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
@@ -17,11 +25,17 @@ _NODE_WIDTH = 150.0
 _NODE_HEIGHT = 46.0
 _BEREICH_WIDTH = 170.0
 _BEREICH_HEIGHT = 38.0
+_CORNER_RADIUS = 10.0
 _UNRESOLVED_MARKER_RADIUS = 10.0
 NODE_TAG_PREFIX = "kompetenz_node_"
 """Öffentlich, da `kompetenzgraph_canvas_recenter.py` denselben Tag braucht, um das
 aktuell ausgewählte Knoten-Item über `canvas.bbox(tag)` wiederzufinden."""
+LABEL_TAG = "kompetenz_label"
+"""Öffentlich, da `kompetenzgraph_canvas_zoom_pan.py` alle Label-Textitems über dieses
+gemeinsame Tag in einem einzigen `itemconfigure`-Aufruf aus-/einblendet."""
 _MAX_LABEL_CHARS = 30
+_DEFAULT_BEREICH_HUE = 0.0
+"""Fallback für den praktisch nie auftretenden Fall einer `bereich_hues`-Lücke -- verhindert einen KeyError."""
 
 
 def _truncate(text: str, max_chars: int) -> str:
@@ -31,14 +45,15 @@ def _truncate(text: str, max_chars: int) -> str:
 class KompetenzGraphCanvasRenderer:
     """Zeichnet Knoten und Kanten des Kompetenzgraphen auf einen tkinter-Canvas.
 
-    Volles Redraw bei jeder Sichtbarkeits-/Ansichtswechsel-Anfrage --
-    bei den durch Filter/Matchingtiefe/Fokus üblicherweise klein
-    gehaltenen sichtbaren Mengen ist das performant genug und deutlich
-    einfacher korrekt zu halten als inkrementelles Patchen. Alle Farben
-    kommen ausschließlich über die geteilten Theme-Canvas-Helfer
-    (`bw_gui.theming.canvas_fill`/`canvas_outline_color`/`canvas_text_fill`)
-    -- kein einziger hartkodierter Hex-Wert, damit Hell-/Dunkel-Theme
-    automatisch konsistent bleiben.
+    Volles Redraw bei jeder Sichtbarkeits-/Ansichtswechsel-Anfrage (siehe
+    `kompetenzgraph_dialog.py::_reapply_selection` für den bewusst NICHT
+    neu berechnenden Selektions-Redraw-Pfad). Alle Farben kommen
+    ausschließlich über geteilte Theme-Canvas-Helfer
+    (`bw_gui.theming.canvas_fill`/`canvas_outline_color`/`canvas_text_fill`
+    für Token-Farben, `canvas_domain_fill`/`canvas_domain_outline` für die
+    Bereichs-Hue-Farben aus `kompetenzgraph_canvas_colors.py`) -- kein
+    hartkodierter Hex-Wert. Knoten sind abgerundete Rechtecke
+    (`kompetenzgraph_canvas_shapes.py`).
     """
 
     def __init__(
@@ -76,8 +91,17 @@ class KompetenzGraphCanvasRenderer:
         mode_key: str,
         selected_id: str | None,
         focus_id: str | None,
+        bereich_hues: Mapping[str, float],
     ) -> None:
-        """Baut die komplette Canvas-Zeichnung für den aktuellen Zustand neu auf."""
+        """Baut die komplette Canvas-Zeichnung für den aktuellen Zustand neu auf.
+
+        Args:
+            bereich_hues: Über die Popup-Sitzung stabile Bereich→Farbton-
+                Zuordnung (`kompetenzgraph_canvas_colors.py::assign_bereich_hues`,
+                einmalig in `KompetenzGraphUiState.bereich_hues` gehalten) --
+                bestimmt Rahmenfarbe der Kompetenz-Knoten (Quelle: deren
+                `primarer_bereich_id`) und Füllung/Rahmen der Bereichs-Hubs.
+        """
         self.canvas.delete("all")
 
         self._draw_classification_edges(snapshot, view, layout)
@@ -85,13 +109,14 @@ class KompetenzGraphCanvasRenderer:
         self._draw_unresolved_markers(layout)
 
         for bereich_id in view.visible_bereich_ids:
-            self._draw_bereich_node(snapshot, bereich_id, layout, is_selected=bereich_id == selected_id)
+            self._draw_bereich_node(snapshot, bereich_id, layout, bereich_hues, is_selected=bereich_id == selected_id)
 
         for node_id in view.visible.all_ids:
             self._draw_competency_node(
                 snapshot,
                 node_id,
                 layout,
+                bereich_hues,
                 is_context=node_id in view.visible.context_ids,
                 is_selected=node_id == selected_id,
                 is_focused=node_id == focus_id,
@@ -170,6 +195,7 @@ class KompetenzGraphCanvasRenderer:
         snapshot: KompetenzGraphSnapshot,
         node_id: str,
         layout: KompetenzGraphLayout,
+        bereich_hues: Mapping[str, float],
         *,
         is_context: bool,
         is_selected: bool,
@@ -182,13 +208,34 @@ class KompetenzGraphCanvasRenderer:
         tag = f"{NODE_TAG_PREFIX}{node_id}"
 
         fill_token = "accent_soft" if is_focused else ("bg_surface" if is_context else "bg_panel")
-        rect_id = self.canvas.create_rectangle(x0, y0, x1, y1, tags=(tag,))
+        rect_id = create_rounded_rectangle(self.canvas, x0, y0, x1, y1, radius=_CORNER_RADIUS, tags=(tag,))
         canvas_fill(self.canvas, rect_id, token=fill_token)
-        canvas_outline_color(self.canvas, rect_id, token="accent" if is_selected else "border")
-        self.canvas.itemconfigure(rect_id, width=2.5 if is_selected else 1.0)
+        if is_selected:
+            canvas_outline_color(self.canvas, rect_id, token="accent")
+            self.canvas.itemconfigure(rect_id, width=2.5)
+        else:
+            # Dünner, bereichsfarbener Rahmen als Gruppierungshilfe (siehe
+            # `kompetenzgraph_canvas_colors.py`) -- bewusst dünner als die
+            # Selektions-Markierung, damit beide nie verwechselt werden.
+            # Kontextknoten bekommen die gedämpfte Variante, damit die
+            # bestehende Fill-basierte Kontext-Kennzeichnung das dominante
+            # Signal bleibt und die Bereichsfarbe sie nur ergänzt.
+            primarer_bereich_id = node.primarer_bereich_id
+            hue = (
+                bereich_hues.get(primarer_bereich_id, _DEFAULT_BEREICH_HUE)
+                if primarer_bereich_id is not None
+                else _DEFAULT_BEREICH_HUE
+            )
+            light_color, dark_color = hue_to_color_pair(hue, muted=is_context)
+            canvas_domain_outline(self.canvas, rect_id, light_color=light_color, dark_color=dark_color)
+            self.canvas.itemconfigure(rect_id, width=1.5)
 
         text_id = self.canvas.create_text(
-            position.x, position.y, text=_truncate(node.title, _MAX_LABEL_CHARS), width=_NODE_WIDTH - 10, tags=(tag,)
+            position.x,
+            position.y,
+            text=_truncate(node.title, _MAX_LABEL_CHARS),
+            width=_NODE_WIDTH - 10,
+            tags=(tag, LABEL_TAG),
         )
         canvas_text_fill(self.canvas, text_id, token="fg_muted" if is_context else "fg_primary")
 
@@ -199,7 +246,13 @@ class KompetenzGraphCanvasRenderer:
             self._tooltip.bind_node(tag, node.title)
 
     def _draw_bereich_node(
-        self, snapshot: KompetenzGraphSnapshot, bereich_id: str, layout: KompetenzGraphLayout, *, is_selected: bool
+        self,
+        snapshot: KompetenzGraphSnapshot,
+        bereich_id: str,
+        layout: KompetenzGraphLayout,
+        bereich_hues: Mapping[str, float],
+        *,
+        is_selected: bool,
     ) -> None:
         bereich = snapshot.bereiche.get(bereich_id)
         position = layout.positions.get(bereich_id)
@@ -208,18 +261,24 @@ class KompetenzGraphCanvasRenderer:
         x0, y0 = position.x - _BEREICH_WIDTH / 2, position.y - _BEREICH_HEIGHT / 2
         x1, y1 = position.x + _BEREICH_WIDTH / 2, position.y + _BEREICH_HEIGHT / 2
         tag = f"{NODE_TAG_PREFIX}{bereich_id}"
+        hue = bereich_hues.get(bereich_id, _DEFAULT_BEREICH_HUE)
 
-        rect_id = self.canvas.create_rectangle(x0, y0, x1, y1, tags=(tag,))
-        canvas_fill(self.canvas, rect_id, token="secondary_soft")
-        canvas_outline_color(self.canvas, rect_id, token="accent" if is_selected else "secondary")
-        self.canvas.itemconfigure(rect_id, width=2.5 if is_selected else 1.0)
+        rect_id = create_rounded_rectangle(self.canvas, x0, y0, x1, y1, radius=_CORNER_RADIUS, tags=(tag,))
+        soft_light, soft_dark = hue_to_color_pair(hue, muted=True)
+        canvas_domain_fill(self.canvas, rect_id, light_color=soft_light, dark_color=soft_dark)
+        if is_selected:
+            canvas_outline_color(self.canvas, rect_id, token="accent")
+        else:
+            vivid_light, vivid_dark = hue_to_color_pair(hue)
+            canvas_domain_outline(self.canvas, rect_id, light_color=vivid_light, dark_color=vivid_dark)
+        self.canvas.itemconfigure(rect_id, width=2.5 if is_selected else 1.5)
 
         text_id = self.canvas.create_text(
             position.x,
             position.y,
             text=_truncate(bereich.title, _MAX_LABEL_CHARS),
             width=_BEREICH_WIDTH - 10,
-            tags=(tag,),
+            tags=(tag, LABEL_TAG),
         )
         canvas_text_fill(self.canvas, text_id, token="fg_primary")
 
