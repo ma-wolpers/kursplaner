@@ -114,8 +114,10 @@ Ordner dieselbe Struktur erfüllt (mindestens eine Kompetenz-Datei nach dem
   Dateisystem-Zugriff/GUI.
 - ✅ Meilenstein 2 — Repository (PyYAML, einzige Importstelle), Port, app-lokaler Cache,
   Usecases, Wiring. Siehe DEVELOPMENT_LOG-Eintrag vom 2026-09-09. Noch kein Popup/GUI.
-- ⬜ Meilenstein 3 — Popup-Grundgerüst, Sidebar mit Filtern, Detailbereich (noch ohne
-  Graph-Canvas).
+- ✅ Meilenstein 3 — Popup-Grundgerüst, Sidebar mit Filtern, Detailbereich (noch ohne
+  Graph-Canvas). Siehe DEVELOPMENT_LOG-Eintrag vom 2026-09-09. Menüpunkt „Kompetenznetz
+  anzeigen…" (Strg+Shift+K) bereits nutzbar (Filter, Liste, Detail, Zitat-Kopieren);
+  rechte Spalte zeigt bis Meilenstein 4 eine einfache Liste statt des Graphen.
 - ⬜ Meilenstein 4 — tkinter-Canvas-Renderer, Sugiyama-artiges Layout mit
   Crossing-Minimierung, Zoom/Pan.
 - ⬜ Meilenstein 5 — Fokus-Modus, Pfeiltasten-Kegel-Navigation, Hover-Tooltip,

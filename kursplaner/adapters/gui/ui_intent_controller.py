@@ -261,6 +261,9 @@ class MainWindowUiIntentController:
         if intent == UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS:
             self.app.action_controller.open_column_visibility_settings()
             return None
+        if intent == UiIntent.SHOW_KOMPETENZGRAPH:
+            self.app.action_controller.show_kompetenzgraph()
+            return None
         if intent == UiIntent.OPEN_ROW_FILTER_SETTINGS:
             self.app.action_controller.open_row_filter_settings()
             return None

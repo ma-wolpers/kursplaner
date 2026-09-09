@@ -574,6 +574,12 @@ class ScreenBuilder:
                 label="Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
                 command=self._open_shortcut_runtime_debug_dialog,
             ),
+            SharedMenuItem(type="separator"),
+            SharedMenuItem(
+                type="command",
+                label="Kompetenznetz anzeigen… (Strg+Shift+K)",
+                command=lambda: self._emit_intent(UiIntent.SHOW_KOMPETENZGRAPH),
+            ),
         )
 
     def _ensure_tooltip_store(self):

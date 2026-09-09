@@ -8,6 +8,56 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Popup-Grundgerüst, Sidebar, Detailbereich (Meilenstein 3 von 5)
+
+**Neuer Menüpunkt „Kompetenznetz anzeigen…"** (Menü Ansicht, `UiIntent.SHOW_KOMPETENZGRAPH`,
+Shortcut Strg+Shift+K neu in `resources/shortcuts/shortcut_guide.json` +
+`docs/SHORTCUT_KONFLIKTMATRIX.md` -- K war bereits durch LZK belegt, Shift trennt
+beide). Wiring exakt nach bestehendem Muster: `screen_builder.py` (`_menu_items_view`)
+→ `ui_intent_controller.py` → `action_controller.py::show_kompetenzgraph()`.
+
+**`show_kompetenzgraph()`** löst `unterricht_dir` über `path_settings_usecase.resolve_unterricht_dir()`
+auf, lädt über `load_kompetenz_graph_usecase`, baut den initialen Filter über die neue
+`build_initial_kompetenz_graph_filter(course_metadata)` (`core/domain/kompetenzgraph_filter.py`
+-- `Kursfach`→`subjects`, `Stufe`→`jahrgang`, Bundesland/Schulform/Niveau bleiben "alle",
+keine neuen Kursfelder/Heuristiken) aus `self.app.current_table.metadata`, und öffnet das
+Popup nicht-modal (`policy_id="dialog.non_blocking"`, exakt wie das bereits vorhandene
+Shortcut-Runtime-Debug-Fenster) -- ein bereits offenes Popup wird nur in den Vordergrund
+geholt statt doppelt geöffnet. Zeigt einen Hinweis statt abzustürzen, wenn `PyYAML` fehlt
+oder keine strukturierten Kompetenzdaten gefunden wurden.
+
+**Neue GUI-Module** (`adapters/gui/kompetenzgraph_*.py`):
+- `kompetenzgraph_ui_state.py` -- veränderlicher Popup-Zustand (Filter/View-Mode/Auswahl/Fokus).
+- `kompetenzgraph_filter_panel.py` -- Fach als echte Mehrfachauswahl (Checkbutton-Liste,
+  Muster aus `column_visibility_dialog.py`), alle übrigen Filter als Single-Select-
+  Comboboxen, Matchingtiefe als Spinbox mit Hover-Tooltip. Optionslisten ausschließlich
+  aus `compute_filter_options(snapshot)` abgeleitet.
+- `kompetenzgraph_node_list.py` -- Treeview-Übergangsliste der sichtbaren Knoten
+  (Primär-/Kontext-Kennzeichnung in eigener Spalte), wird in Meilenstein 4 durch die
+  Canvas-Klickauswahl ersetzt.
+- `kompetenzgraph_detail_panel.py` -- alle Felder des gewählten Knotens; jedes
+  `kc_zuordnung`-Zitat ist klickbar und kopiert sich per `clipboard_clear()`/
+  `clipboard_append()` (Muster `ui_intent_controller.py:780-799`) in die Zwischenablage,
+  mit kurzem visuellem Feedback ("✓ In Zwischenablage kopiert"). Markdown-Body wird lazy
+  über `LoadKompetenzNodeBodyUseCase` nachgeladen, erst wenn ein Knoten hier angezeigt wird.
+- `kompetenzgraph_dialog.py` -- `KompetenzGraphDialog(ScrollablePopupWindow)`, nicht-modal
+  (kein `grab_set()`/`wait_window()`, `_requires_close_confirmation()` liefert `False` --
+  reine Leseansicht). Jede Filter-/Auswahländerung ruft ausschließlich den neuen
+  `ComputeKompetenzGraphViewUseCase` (`core/usecases/kompetenzgraph_view_usecase.py`, dünner
+  Wrapper um die reine Domain-Pipeline `compute_kompetenz_graph_view()`, analog
+  `RowDisplayModeUseCase` als Usecase ohne eigene Port-Abhängigkeit) auf und wendet danach
+  die Selektions-Gültigkeitsregel an (Auswahl/Fokus werden automatisch aufgehoben, sobald
+  der jeweilige Knoten aus der sichtbaren Menge fällt). Rechte Spalte zeigt vorerst die
+  Knotenliste statt des Graphen -- Platzhalter für Meilenstein 4.
+
+**Manuell verifiziert** (kein automatisierter GUI-Test, Projekt-Usus): Popup mit
+synthetischem Snapshot in echtem Tk-Root konstruiert (`KompetenzGraphDialog` direkt sowie
+die Einzelwidgets), Fach-Mehrfachauswahl, Matchingtiefe-Änderung und Knotenauswahl
+ausgelöst -- keine Exceptions, Sichtbarkeitsberechnung reagiert korrekt.
+
+**Tests**: 3 neue Tests für `build_initial_kompetenz_graph_filter()` in
+`test_kompetenzgraph_filter.py`. 888/888 Tests grün.
+
 ### Added (2026-09-09) — Kompetenznetz-Graph-Popup: Repository, Cache, Usecases (Meilenstein 2 von 5)
 
 **Mini-ADR umgesetzt**: `PyYAML==6.0.3` neu in `requirements.txt` (Kommentar-Stil wie

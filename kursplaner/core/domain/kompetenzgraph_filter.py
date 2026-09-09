@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from kursplaner.core.domain.kompetenzgraph_context import compute_context_node_ids
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_types import KcZuordnungEintrag
+from kursplaner.core.domain.yaml_registry import parse_stufe
 
 
 @dataclass(frozen=True)
@@ -169,3 +171,29 @@ def compute_visible_bereich_ids(snapshot: KompetenzGraphSnapshot, node_ids: froz
             referenced.add(node.primarer_bereich_id)
         referenced.update(node.prozessbereich_ids)
     return frozenset(bereich_id for bereich_id in referenced if bereich_id in snapshot.bereiche)
+
+
+def build_initial_kompetenz_graph_filter(course_metadata: Mapping[str, object]) -> KompetenzGraphFilter:
+    """Baut den initialen Filter aus dem Metadaten-Dict des aktuell geöffneten Kurses.
+
+    Belegt ausschließlich Felder, für die bereits ein echtes Kursfeld
+    existiert: `Kursfach` → `subjects` (Einzelmenge, im Popup frei
+    erweiterbar/änderbar), `Stufe` → `jahrgang`. Bundesland/Schulform/
+    Niveau bleiben unbelegt ("alle") -- dafür gibt es aktuell kein
+    Kursfeld, und es werden bewusst keine neuen Kursfelder nur für dieses
+    Popup eingeführt und keine Heuristiken (z. B. Dateinamens-Raten)
+    verwendet. Diese isolierte Funktion macht das Feature erweiterbar,
+    falls der Kurskontext künftig um Bundesland/Schulform/Niveau ergänzt
+    wird, ohne den Rest des Kompetenzgraph-Features umzubauen.
+
+    Args:
+        course_metadata: `PlanTableData.metadata`-artiges Dict des aktuell
+            geöffneten Kurses (z. B. `self.app.current_table.metadata`).
+
+    Returns:
+        Ein `KompetenzGraphFilter` mit `kontexttiefe=0` (Default).
+    """
+    kursfach = str(course_metadata.get("Kursfach", "") or "").strip()
+    subjects = frozenset({kursfach}) if kursfach else None
+    jahrgang = parse_stufe(course_metadata.get("Stufe", ""))
+    return KompetenzGraphFilter(subjects=subjects, jahrgang=jahrgang)

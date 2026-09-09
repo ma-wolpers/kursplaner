@@ -117,3 +117,12 @@ SCHOOL_WIDE_CANCELLATION_HELP: dict[str, str] = {
     ),
     "diagnostics": "Abweichungen zwischen gespeicherten Einträgen und dem tatsächlichen Kursplan-Zustand (rein informativ).",
 }
+
+KOMPETENZGRAPH_HELP: dict[str, str] = {
+    "subjects": "Fach-Mehrfachauswahl: mehrere angehakte Fächer werden ODER-verknüpft angezeigt.",
+    "kontexttiefe": (
+        "Matchingtiefe: 0 zeigt nur echte Filtertreffer. Ab 1 werden zusätzlich Graph-Nachbarn "
+        "bis zur gewählten Anzahl Schritte eingeblendet (gedimmt dargestellt) -- auch aus anderen Fächern."
+    ),
+    "kc_verweis": "Klick kopiert das wörtliche Kerncurriculum-Zitat in die Zwischenablage (z. B. für das Stundenziel).",
+}

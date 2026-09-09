@@ -1,5 +1,6 @@
 from kursplaner.core.domain.kompetenzgraph_filter import (
     KompetenzGraphFilter,
+    build_initial_kompetenz_graph_filter,
     compute_visible_bereich_ids,
     compute_visible_node_ids,
     node_matches_filter,
@@ -88,3 +89,26 @@ def test_compute_visible_bereich_ids_excludes_unresolved_targets():
     snapshot = build_kompetenz_graph_snapshot([node], [])
 
     assert compute_visible_bereich_ids(snapshot, frozenset({"A"})) == frozenset()
+
+
+def test_build_initial_filter_uses_kursfach_and_stufe():
+    filter_ = build_initial_kompetenz_graph_filter({"Kursfach": "Mathematik", "Stufe": "8"})
+
+    assert filter_.subjects == frozenset({"Mathematik"})
+    assert filter_.jahrgang == 8
+    assert filter_.kontexttiefe == 0
+    assert filter_.bundesland is None
+    assert filter_.schulform is None
+    assert filter_.niveau is None
+
+
+def test_build_initial_filter_missing_kursfach_means_all_subjects():
+    filter_ = build_initial_kompetenz_graph_filter({"Stufe": "8"})
+
+    assert filter_.subjects is None
+
+
+def test_build_initial_filter_invalid_stufe_is_none():
+    filter_ = build_initial_kompetenz_graph_filter({"Kursfach": "Mathematik", "Stufe": "nicht-numerisch"})
+
+    assert filter_.jahrgang is None

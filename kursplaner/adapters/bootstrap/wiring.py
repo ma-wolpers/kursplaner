@@ -51,6 +51,7 @@ from kursplaner.core.usecases.invalidate_repository_caches_usecase import Invali
 from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
 from kursplaner.core.usecases.kompetenzgraph_load_usecase import LoadKompetenzGraphUseCase
 from kursplaner.core.usecases.kompetenzgraph_rebuild_usecase import RebuildKompetenzGraphUseCase
+from kursplaner.core.usecases.kompetenzgraph_view_usecase import ComputeKompetenzGraphViewUseCase
 from kursplaner.core.usecases.lesson_commands_usecase import LessonCommandsUseCase
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
@@ -231,6 +232,10 @@ class GuiDependencies:
     """`None`, wenn `PyYAML` fehlt (siehe `KOMPETENZGRAPH_YAML_AVAILABLE`) -- das
     Kompetenzgraph-Popup ist dann in der GUI deaktiviert statt beim Öffnen
     abzustürzen (Mini-ADR `docs/ARCHITEKTUR_KERN.md` §29)."""
+    compute_kompetenz_graph_view_usecase: ComputeKompetenzGraphViewUseCase
+    """Immer verfügbar (keine I/O, kein PyYAML) -- rein rechnerische
+    Sichtbarkeits-Pipeline (Filter/Matchingtiefe/Fokus), von der GUI bei
+    jeder Interaktion innerhalb eines bereits geöffneten Popups genutzt."""
     app_info: AppInfo
     shell_config: AppShellConfig
 
@@ -342,6 +347,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         if KOMPETENZGRAPH_YAML_AVAILABLE
         else None
     )
+    compute_kompetenz_graph_view_usecase = ComputeKompetenzGraphViewUseCase()
     clear_selected_lesson = ClearSelectedLessonUseCase(
         plan_repo=plan_repo,
         plan_commands=plan_commands,
@@ -581,6 +587,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         load_kompetenz_graph_usecase=load_kompetenz_graph_usecase,
         rebuild_kompetenz_graph_usecase=rebuild_kompetenz_graph_usecase,
         load_kompetenz_graph_body_usecase=load_kompetenz_graph_body_usecase,
+        compute_kompetenz_graph_view_usecase=compute_kompetenz_graph_view_usecase,
         app_info=APP_INFO,
         shell_config=AppShellConfig(
             title=APP_INFO.window_title,

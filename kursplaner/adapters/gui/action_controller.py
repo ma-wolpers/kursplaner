@@ -26,6 +26,7 @@ from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simp
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.kompetenzgraph_dialog import ask_kompetenz_graph
 from kursplaner.adapters.gui.new_course_window import NewCourseWindow
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
@@ -47,6 +48,7 @@ from kursplaner.core.config.path_store import (
     infer_workspace_root_from_path,
     resolve_path_value,
 )
+from kursplaner.core.domain.kompetenzgraph_filter import build_initial_kompetenz_graph_filter
 from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
 from kursplaner.core.domain.models import StartRequest, StartResult
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
@@ -201,6 +203,60 @@ class MainWindowActionController:
         if settings is None:
             return
         self.app._set_column_visibility_settings(settings)
+
+    def show_kompetenzgraph(self) -> None:
+        """Öffnet das nicht-modale Kompetennetz-Popup, oder aktiviert ein bereits offenes.
+
+        Baut den initialen Filter aus dem aktuell geöffneten Kurs ab
+        (`Kursfach`/`Stufe`, siehe `build_initial_kompetenz_graph_filter`)
+        und lädt den Kompetenzgraphen über den zentralen Load-Usecase.
+        Zeigt einen Hinweis statt abzustürzen, wenn `PyYAML` fehlt
+        (`KOMPETENZGRAPH_YAML_AVAILABLE`, siehe Mini-ADR
+        `docs/ARCHITEKTUR_KERN.md` §29) oder keine strukturierten
+        Kompetenzdaten gefunden wurden.
+        """
+        existing = getattr(self.app, "kompetenzgraph_dialog", None)
+        if existing is not None and int(existing.winfo_exists()):
+            existing.deiconify()
+            existing.lift()
+            existing.focus_force()
+            return
+
+        load_usecase = self.app.gui_dependencies.load_kompetenz_graph_usecase
+        if load_usecase is None:
+            messagebox.showinfo(
+                "Kompetenznetz nicht verfügbar",
+                "Für das Kompetenznetz-Popup wird die Bibliothek 'PyYAML' benötigt, "
+                "die in dieser Umgebung nicht installiert ist.",
+                parent=self.app,
+            )
+            return
+
+        unterricht_dir = self.app.path_settings_usecase.resolve_unterricht_dir(self.app.path_values)
+        load_result = load_usecase.execute(unterricht_dir)
+
+        if not load_result.snapshot.nodes:
+            messagebox.showinfo(
+                "Kompetenznetz nicht verfügbar",
+                "Es wurden keine strukturierten Kompetenzdaten gefunden "
+                "(erwartet unter '34 Fachinhalte' im Baukasten-Ordner).",
+                parent=self.app,
+            )
+            return
+
+        course_metadata = self.app.current_table.metadata if self.app.current_table is not None else {}
+        initial_filter = build_initial_kompetenz_graph_filter(course_metadata)
+
+        dialog = ask_kompetenz_graph(
+            self.app,
+            load_result=load_result,
+            initial_filter=initial_filter,
+            compute_view_usecase=self.app.gui_dependencies.compute_kompetenz_graph_view_usecase,
+            load_body_usecase=self.app.gui_dependencies.load_kompetenz_graph_body_usecase,
+            theme_key=self.app.theme_var.get(),
+        )
+        self.app.kompetenzgraph_dialog = dialog
+        self.app.screen_builder._track_popup_window(dialog, policy_id="dialog.non_blocking")
 
     def open_row_filter_settings(self) -> None:
         """Öffnet den Dialog zum Ein-/Ausblenden von Zeilenfeldern."""

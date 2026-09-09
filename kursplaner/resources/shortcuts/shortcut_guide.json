@@ -225,5 +225,13 @@
     "intent": "detail.toggle_sequence_fields_visible",
     "mnemonic": "S = Sequenz",
     "didactic_hint": "Shift hebt den Sequenz-Toggle von anderen Kürzeln ab und bleibt kollisionsfrei."
+  },
+  {
+    "key_sequence": "<Control-Shift-K>",
+    "display_shortcut": "Strg+Shift+K",
+    "action_label": "Kompetenznetz anzeigen",
+    "intent": "detail.show_kompetenzgraph",
+    "mnemonic": "K = Kompetenznetz",
+    "didactic_hint": "Shift trennt das Kompetenznetz von der bereits belegten LZK-Markierung (Strg+K)."
   }
 ]

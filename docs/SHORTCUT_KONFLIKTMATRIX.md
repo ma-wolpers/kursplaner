@@ -29,6 +29,7 @@ Quelle der aktuellen Belegung:
 | Spalte links/rechts | Strg+Links/Rechts | Pfeil = Richtung | Bewegungsrichtung ist direkt codiert. | Wortweise Navigation | mittel | ok, aber lernrelevant |
 | UB-Übersicht | Strg+Shift+U | U = Unterrichtsbesuch | Shift trennt Uebersicht von Markieren. | selten standardisiert | niedrig | gut |
 | Shortcut-Übersicht | Strg+H | H = Hilfe | H liefert schnellen Zugang zur Lernhilfe selbst. | Verlauf/Replace je nach App | mittel | gut merkbar |
+| Kompetenznetz anzeigen | Strg+Shift+K | K = Kompetenznetz | Shift trennt es von der bereits belegten LZK-Markierung (Strg+K). | selten standardisiert | niedrig | gut |
 
 ## Kurzfazit
 
