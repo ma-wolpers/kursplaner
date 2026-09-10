@@ -21,8 +21,8 @@ from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapsho
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
 
-_NODE_WIDTH = 150.0
-_NODE_HEIGHT = 46.0
+_NODE_WIDTH = 92.0
+_NODE_HEIGHT = 88.0  # nahezu quadratisch statt lang-rechteckig (früher 150x46)
 _BEREICH_WIDTH = 170.0
 _BEREICH_HEIGHT = 38.0
 _CORNER_RADIUS = 10.0
@@ -33,7 +33,9 @@ aktuell ausgewählte Knoten-Item über `canvas.bbox(tag)` wiederzufinden."""
 LABEL_TAG = "kompetenz_label"
 """Öffentlich, da `kompetenzgraph_canvas_zoom_pan.py` alle Label-Textitems über dieses
 gemeinsame Tag in einem einzigen `itemconfigure`-Aufruf aus-/einblendet."""
-_MAX_LABEL_CHARS = 30
+_MAX_COMPETENCY_LABEL_CHARS = 22
+"""Kürzer als früher (30 bei breiterer 150px-Box) -- passend zur schmaleren Knotenform."""
+_MAX_BEREICH_LABEL_CHARS = 30
 _DEFAULT_BEREICH_HUE = 0.0
 """Fallback für den praktisch nie auftretenden Fall einer `bereich_hues`-Lücke -- verhindert einen KeyError."""
 
@@ -46,14 +48,13 @@ class KompetenzGraphCanvasRenderer:
     """Zeichnet Knoten und Kanten des Kompetenzgraphen auf einen tkinter-Canvas.
 
     Volles Redraw bei jeder Sichtbarkeits-/Ansichtswechsel-Anfrage (siehe
-    `kompetenzgraph_dialog.py::_reapply_selection` für den bewusst NICHT
-    neu berechnenden Selektions-Redraw-Pfad). Alle Farben kommen
-    ausschließlich über geteilte Theme-Canvas-Helfer
-    (`bw_gui.theming.canvas_fill`/`canvas_outline_color`/`canvas_text_fill`
-    für Token-Farben, `canvas_domain_fill`/`canvas_domain_outline` für die
-    Bereichs-Hue-Farben aus `kompetenzgraph_canvas_colors.py`) -- kein
-    hartkodierter Hex-Wert. Knoten sind abgerundete Rechtecke
-    (`kompetenzgraph_canvas_shapes.py`).
+    `kompetenzgraph_dialog.py::_reapply_selection` für den NICHT neu
+    berechnenden Selektions-Redraw-Pfad). Farben kommen ausschließlich über
+    geteilte Theme-Canvas-Helfer (`canvas_fill`/`canvas_outline_color`/
+    `canvas_text_fill` für Token-Farben, `canvas_domain_fill`/
+    `canvas_domain_outline` für Bereichs-Hue-Farben aus
+    `kompetenzgraph_canvas_colors.py`) -- kein hartkodierter Hex-Wert.
+    Knoten sind abgerundete Rechtecke (`kompetenzgraph_canvas_shapes.py`).
     """
 
     def __init__(
@@ -233,7 +234,7 @@ class KompetenzGraphCanvasRenderer:
         text_id = self.canvas.create_text(
             position.x,
             position.y,
-            text=_truncate(node.title, _MAX_LABEL_CHARS),
+            text=_truncate(node.title, _MAX_COMPETENCY_LABEL_CHARS),
             width=_NODE_WIDTH - 10,
             tags=(tag, LABEL_TAG),
         )
@@ -276,7 +277,7 @@ class KompetenzGraphCanvasRenderer:
         text_id = self.canvas.create_text(
             position.x,
             position.y,
-            text=_truncate(bereich.title, _MAX_LABEL_CHARS),
+            text=_truncate(bereich.title, _MAX_BEREICH_LABEL_CHARS),
             width=_BEREICH_WIDTH - 10,
             tags=(tag, LABEL_TAG),
         )

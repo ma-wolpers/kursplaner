@@ -8,6 +8,43 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-10) — Kompetenznetz-Graph-Layout: Kräfte-Relaxation ignorierte nicht-benachbarte Eltern/Kinder
+
+Nutzerfeedback: eine Kompetenz mit zwei Oberkompetenzen landete unter der linkesten davon,
+statt (wie bei echtem Kräftegleichgewicht) mittig zwischen beiden -- kein
+Determinismus-Problem, sondern ein echter Logikfehler. Ursache:
+`relax_horizontal_positions()` zog Knoten pro Sweep nur Richtung der Nachbarn in EINER fest
+adressierten, unmittelbar benachbarten Schicht (Top-Down: Schicht i-1, Bottom-Up: Schicht
+i+1) -- ein Muster 1:1 aus `kompetenzgraph_layout_crossing.py::_reorder_by_barycenter`
+übernommen, das dort für die paarweise definierte Crossing-Zählung korrekt ist. Beim
+longest-path-Layering (`layer(kind) = 1 + max(layer(eltern))`) landen zwei direkte Eltern
+eines Knotens aber regelmäßig in UNTERSCHIEDLICHEN Schichten (der Elternteil mit der
+tieferen Kette bestimmt die Kind-Schicht, ein anderer Elternteil kann beliebig viele
+Schichten höher liegen) -- ein solcher "Schicht-überspringender" Elternteil wurde von der
+Relaxation komplett ignoriert. Fix: `_pull_toward_neighbor_median()` befragt jetzt pro
+Sweep das laufend aktualisierte GLOBALE Positions-Dict statt einer schichtbeschränkten
+Teilmenge, Eltern/Kinder zählen unabhängig von ihrer Schicht-Distanz (Gauss-Seidel-Stil,
+Schichten werden pro Sweep in topologischer Reihenfolge durchlaufen). Neuer
+Regressionstest reproduziert den gemeldeten Fall exakt (Kind mit Eltern in Schicht 0 und
+Schicht 2, `iterations=1` macht das Ergebnis von Hand nachrechenbar).
+
+### Added (2026-09-10) — Kompetenznetz-Graph: vertikaler Spielraum + quadratischere Knoten
+
+Zusätzliche Rückmeldung zum Redesign: die horizontale Dimension wirkte trotz Kräfte-Layout
+noch zu sehr wie "eine eeeewig lange Reihe". Zwei ergänzende, rein kosmetische Maßnahmen
+(Konstanten-Tuning, kein Architektureingriff): (1) Kompetenz-Knoten bekommen einen kleinen,
+deterministischen Y-Versatz innerhalb ihrer Hierarchie-Schicht (`_VERTICAL_JITTER_PATTERN`,
+zyklisch `-20/0/+20` nach Position in der Schicht) -- `_LAYER_SPACING` wurde dafür von 150 auf
+180 erhöht, damit die "höher/niedriger"-Aussage schichtweise garantiert eindeutig bleibt (mit
+Test abgesichert: selbst maximaler Versatz auf beiden Seiten einer Schichtgrenze kann sie nie
+überschreiten). Bereichs-Hub-Zeile bleibt bewusst ohne Versatz (klare "Kopfzeile"). (2)
+Kompetenz-Knoten sind jetzt nahezu quadratisch (92×88 statt 150×46), `_NODE_SPACING`
+proportional von 170 auf 110 reduziert -- weniger horizontaler Platzbedarf pro Knoten,
+zusätzlich zum Kräfte-Fix. Kürzere sichtbare Beschriftung (`_MAX_COMPETENCY_LABEL_CHARS`
+22 statt 30) wird über den bestehenden Hover-Tooltip kompensiert; Bereichs-Hubs bleiben
+bewusst breiter/flacher (170×38), um als Landmarke von den jetzt quadratischen
+Kompetenz-Chips unterscheidbar zu bleiben.
+
 ### Added (2026-09-09) — Kompetenznetz-Graph-Popup: visuelles Redesign + Navigations-Entrucklung
 
 Nutzerfeedback zum bestehenden Popup: einheitlich graue eckige Rechtecke ohne

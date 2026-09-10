@@ -1,7 +1,14 @@
+from kursplaner.core.domain import kompetenzgraph_layout
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
 from tests.kompetenzgraph_test_support import make_bereich, make_node
+
+_MAX_VERTICAL_JITTER = 20.0
+"""Muss zum betragsmäßig größten Wert in `kompetenzgraph_layout.py::_VERTICAL_JITTER_PATTERN`
+passen -- hier bewusst dupliziert statt importiert, damit ein Test fehlschlägt, falls die
+Implementierung den Versatz je vergrößert, ohne dass die Schichtgrenzen-Sicherheitsmarge
+(Tests unten) explizit gegengeprüft wird."""
 
 
 def _diamond_snapshot():
@@ -13,15 +20,40 @@ def _diamond_snapshot():
 
 
 def test_diamond_dag_gets_correct_layer_depths():
+    """Y bleibt strikt die Hierarchieschicht -- ein kleiner kosmetischer Y-Versatz innerhalb
+    einer Schicht (siehe `_VERTICAL_JITTER_PATTERN`) ist erlaubt, daher keine exakten
+    Absolutwerte, sondern nur die relative Schicht-Reihenfolge wird geprüft."""
     snapshot = _diamond_snapshot()
     visible = frozenset({"ROOT", "A", "B", "LEAF"})
 
     layout = compute_layered_layout(snapshot, MODE_OBER_TEIL, visible, frozenset())
 
-    assert layout.positions["ROOT"].y == 0.0
-    assert layout.positions["A"].y == layout.positions["B"].y
-    assert layout.positions["A"].y > layout.positions["ROOT"].y
-    assert layout.positions["LEAF"].y > layout.positions["A"].y
+    assert layout.positions["A"].y > layout.positions["ROOT"].y + _MAX_VERTICAL_JITTER
+    assert layout.positions["LEAF"].y > layout.positions["A"].y + _MAX_VERTICAL_JITTER
+
+
+def test_vertical_jitter_pattern_never_crosses_a_layer_boundary():
+    """Harte Invariante, algebraisch geprüft: selbst der betragsmäßig größte Y-Versatz auf BEIDEN
+    Seiten einer Schichtgrenze darf `_LAYER_SPACING` nicht aufzehren -- sonst könnte ein Knoten
+    aus Schicht N tiefer erscheinen als einer aus Schicht N+1 ("höher/niedriger" würde mehrdeutig)."""
+    max_jitter = max(abs(value) for value in kompetenzgraph_layout._VERTICAL_JITTER_PATTERN)
+
+    assert kompetenzgraph_layout._LAYER_SPACING - 2 * max_jitter > 0
+
+
+def test_diamond_layer_gap_leaves_a_visible_safety_margin_with_real_jitter():
+    """Ergänzender End-zu-Ende-Check mit echten Knoten (mehrere pro Schicht, damit der Versatz
+    tatsächlich zyklisch angewendet wird): die Schichten bleiben klar getrennt."""
+    root = make_node("ROOT")
+    children = [make_node(f"CHILD-{i}", oberkompetenzen_ids=("ROOT",)) for i in range(5)]
+    snapshot = build_kompetenz_graph_snapshot([root, *children], [])
+    visible = frozenset({"ROOT", *(c.id for c in children)})
+
+    layout = compute_layered_layout(snapshot, MODE_OBER_TEIL, visible, frozenset())
+
+    root_y = layout.positions["ROOT"].y
+    min_child_y = min(layout.positions[c.id].y for c in children)
+    assert min_child_y > root_y
 
 
 def test_layout_is_deterministic_across_repeated_calls():

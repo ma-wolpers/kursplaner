@@ -25,6 +25,31 @@ def test_relax_never_reorders_within_layer_even_under_conflicting_pull():
     assert ordered_by_x == ("X", "Y", "Z")
 
 
+def test_relax_pulls_toward_all_parents_even_across_skipped_layers():
+    """Regressionstest für den gemeldeten Bug: ein Kind mit zwei Eltern in NICHT benachbarten
+    Schichten (0 und 2, Kind in Schicht 3 -- Schicht 1 bleibt absichtlich leer, wie es beim
+    longest-path-Layering vorkommt, wenn ein anderer Elternpfad tiefer ist) muss zwischen BEIDEN
+    landen, nicht nur unter dem in der unmittelbar benachbarten Schicht liegenden Elternteil.
+
+    Mit `iterations=1` läuft nur genau ein Top-Down-Sweep, das Ergebnis ist damit von Hand
+    nachrechenbar: Eltern-Positionen bleiben in diesem einen Sweep unverändert (keine eigenen
+    Eltern), nur das Kind bewegt sich. Mit der alten, auf die unmittelbar benachbarte Schicht
+    beschränkten Implementierung wäre `FAR_PARENT_SIBLING` (Schicht 0, nicht benachbart zu
+    Schicht 3) ignoriert worden und `CHILD` wäre exakt bei `NEAR_PARENT`s x=0.0 gelandet, statt
+    beim tatsächlichen Median aus beiden Eltern.
+    """
+    sorted_layers = {
+        0: ("FAR_PARENT", "FAR_PARENT_SIBLING"),  # Slot-Index-Startpositionen: 0.0, 100.0
+        2: ("NEAR_PARENT", "NEAR_PARENT_SIBLING"),  # Slot-Index-Startpositionen: 0.0, 100.0
+        3: ("CHILD",),
+    }
+    edges = {"CHILD": ("FAR_PARENT_SIBLING", "NEAR_PARENT")}  # x=100.0 bzw. x=0.0
+
+    positions = relax_horizontal_positions(sorted_layers, edges, iterations=1, min_spacing=100.0)
+
+    assert positions["CHILD"] == 50.0
+
+
 def test_relax_respects_minimum_spacing_when_siblings_share_one_parent():
     sorted_layers = {0: ("PARENT1", "PARENT2"), 1: ("CHILD1", "CHILD2", "CHILD3")}
     edges = {"CHILD1": ("PARENT1",), "CHILD2": ("PARENT1",), "CHILD3": ("PARENT1",)}

@@ -24,23 +24,30 @@ def _mean(values: list[float]) -> float:
 
 def _pull_toward_neighbor_median(
     node_ids: tuple[str, ...],
-    neighbor_position: Mapping[str, float],
+    positions: Mapping[str, float],
     neighbor_map: Mapping[str, tuple[str, ...]],
-    fallback_position: Mapping[str, float],
 ) -> dict[str, float]:
-    """Berechnet je Knoten die Ziel-X-Position als Median seiner Nachbarn in EINER Nachbarschicht.
+    """Berechnet je Knoten die Ziel-X-Position als Median ALLER seiner tatsächlichen Nachbarn (`neighbor_map`).
 
-    Ein Knoten ohne Verbindung zur betrachteten Nachbarschicht behält seine
-    bisherige Position (`fallback_position`) statt an eine willkürliche
-    Stelle zu springen -- analog zum Barycenter-Fallback in
-    `kompetenzgraph_layout_crossing.py::_reorder_by_barycenter`.
+    Bewusst NICHT auf eine bestimmte Nachbarschicht beschränkt: Beim
+    longest-path-Layering (`layer(kind) = 1 + max(layer(eltern))`) landen
+    zwei direkte Eltern eines Knotens regelmäßig in UNTERSCHIEDLICHEN
+    Schichten (der Elternteil mit der tieferen Kette bestimmt die Schicht
+    des Kindes, ein anderer Elternteil kann beliebig viele Schichten
+    höher liegen). Eine schichtweise Beschränkung (wie sie
+    `kompetenzgraph_layout_crossing.py::_reorder_by_barycenter` für die
+    Crossing-Zählung korrekt verwendet, da diese inhärent paarweise pro
+    Schichtgrenze definiert ist) würde solche "Schicht-überspringenden"
+    Eltern/Kinder komplett ignorieren und Knoten fälschlich nur zum
+    nächstgelegenen statt zum tatsächlichen Kräftegleichgewicht ziehen.
+
+    Ein Knoten ohne jede Verbindung behält seine bisherige Position
+    (`positions[node_id]`) statt an eine willkürliche Stelle zu springen.
     """
     targets: dict[str, float] = {}
     for node_id in node_ids:
-        neighbor_positions = [
-            neighbor_position[neighbor] for neighbor in neighbor_map.get(node_id, ()) if neighbor in neighbor_position
-        ]
-        targets[node_id] = _median(neighbor_positions) if neighbor_positions else fallback_position[node_id]
+        neighbor_positions = [positions[neighbor] for neighbor in neighbor_map.get(node_id, ()) if neighbor in positions]
+        targets[node_id] = _median(neighbor_positions) if neighbor_positions else positions[node_id]
     return targets
 
 
@@ -76,10 +83,14 @@ def relax_horizontal_positions(
 
     Ersetzt die bisherige "Slot-Index × fester Abstand"-Platzierung durch
     eine kräfte-inspirierte Relaxation: abwechselnde Top-Down-/Bottom-Up-
-    Sweeps ziehen jeden Knoten Richtung Median-X seiner Eltern- bzw.
-    Kindknoten in der jeweils betrachteten Nachbarschicht (siehe
-    `_pull_toward_neighbor_median`), gefolgt von einer schichtinternen
-    Mindestabstands-Auflösung (`_resolve_min_spacing`).
+    Sweeps ziehen jeden Knoten Richtung Median-X ALLER seiner Eltern- bzw.
+    Kindknoten -- unabhängig davon, in welcher Schicht diese liegen (siehe
+    `_pull_toward_neighbor_median`-Docstring: ein Elternteil kann beim
+    longest-path-Layering beliebig viele Schichten über dem Kind liegen,
+    eine Beschränkung auf die unmittelbar benachbarte Schicht würde solche
+    Eltern/Kinder ignorieren und zu falschem Kräfteungleichgewicht führen),
+    gefolgt von einer schichtinternen Mindestabstands-Auflösung
+    (`_resolve_min_spacing`).
 
     **Harte Invariante:** Die in `sorted_layers` gegebene Reihenfolge pro
     Schicht (bereits crossing-minimiert) wird NIE verändert -- nur die
@@ -123,19 +134,18 @@ def relax_horizontal_positions(
 
     for sweep_index in range(iterations):
         if sweep_index % 2 == 0:
-            for i in range(1, len(layer_indices)):
-                upper_index, lower_index = layer_indices[i - 1], layer_indices[i]
-                upper_position = {node_id: positions[node_id] for node_id in sorted_layers[upper_index]}
-                targets = _pull_toward_neighbor_median(sorted_layers[lower_index], upper_position, edges, positions)
-                positions.update(_resolve_min_spacing(sorted_layers[lower_index], targets, min_spacing))
+            # Top-Down: Schichten aufsteigend, jeder Knoten wird Richtung des Medians ALLER
+            # seiner Eltern gezogen (gleich welcher Schicht) -- Eltern liegen beim
+            # longest-path-Layering immer in einer strikt kleineren Schicht und sind in
+            # diesem Sweep bereits aktualisiert (Gauss-Seidel-Stil).
+            for layer_index in layer_indices[1:]:
+                targets = _pull_toward_neighbor_median(sorted_layers[layer_index], positions, edges)
+                positions.update(_resolve_min_spacing(sorted_layers[layer_index], targets, min_spacing))
         else:
-            for i in range(len(layer_indices) - 2, -1, -1):
-                upper_index, lower_index = layer_indices[i], layer_indices[i + 1]
-                lower_position = {node_id: positions[node_id] for node_id in sorted_layers[lower_index]}
-                targets = _pull_toward_neighbor_median(
-                    sorted_layers[upper_index], lower_position, children_of_tuples, positions
-                )
-                positions.update(_resolve_min_spacing(sorted_layers[upper_index], targets, min_spacing))
+            # Bottom-Up: Schichten absteigend, Richtung Median ALLER Kinder.
+            for layer_index in reversed(layer_indices[:-1]):
+                targets = _pull_toward_neighbor_median(sorted_layers[layer_index], positions, children_of_tuples)
+                positions.update(_resolve_min_spacing(sorted_layers[layer_index], targets, min_spacing))
 
     return positions
 

@@ -15,11 +15,17 @@ from kursplaner.core.domain.kompetenzgraph_layout_forces import (
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view_mode import ancestors_of
 
-_LAYER_SPACING = 150.0
-_NODE_SPACING = 170.0
+_LAYER_SPACING = 180.0
+_NODE_SPACING = 110.0
 _BEREICH_ROW_Y = -220.0
 _UNRESOLVED_MARKER_OFFSET_X = 90.0
 _UNRESOLVED_MARKER_OFFSET_Y = 60.0
+_VERTICAL_JITTER_PATTERN: tuple[float, ...] = (-20.0, 0.0, 20.0)
+"""Kleiner, deterministischer Y-Versatz innerhalb einer Schicht (zyklisch nach Position in der
+bereits kräfte-relaxierten Reihenfolge zugewiesen) -- lockert die strenge "eine Reihe"-Optik auf,
+ohne die Schicht-Semantik (Y = Hierarchietiefe) zu verletzen: `_LAYER_SPACING` ist bewusst groß
+genug gewählt, dass selbst der maximale Versatz nie eine Schichtgrenze überschreitet (siehe
+`compute_layered_layout`-Docstring)."""
 
 
 @dataclass(frozen=True)
@@ -140,9 +146,15 @@ def compute_layered_layout(
     bleibt dabei unverändert), Bereich-Hubs bekommen eine feste eigene
     Zeile, positioniert über dem Schwerpunkt der sie klassifizierenden
     Kompetenzen (`compute_bereich_centroid_positions`) statt alphabetisch.
-    Bitgenaue Koordinaten-Reproduzierbarkeit über verschiedene Aufrufe
-    hinweg ist dabei kein Ziel -- nur innerhalb eines einzelnen Aufrufs
-    verhält sich die Positionierung nachvollziehbar deterministisch.
+    Zusätzlich bekommt jeder Kompetenz-Knoten (NICHT die Bereich-Hub-Zeile)
+    einen kleinen, zyklischen Y-Versatz (`_VERTICAL_JITTER_PATTERN`) nach
+    Position in der Schicht -- rein kosmetisch gegen die sonst sehr
+    "reihenartige" Optik, `_LAYER_SPACING` ist bewusst groß genug gewählt,
+    dass dabei nie eine Schichtgrenze überschritten wird (Knoten aus
+    Schicht N erscheinen nie tiefer als Knoten aus Schicht N+1). Bitgenaue
+    Koordinaten-Reproduzierbarkeit über verschiedene Aufrufe hinweg ist
+    dabei kein Ziel -- nur innerhalb eines einzelnen Aufrufs verhält sich
+    die Positionierung nachvollziehbar deterministisch.
 
     Args:
         snapshot: Das vollständige Kompetenznetz-Snapshot.
@@ -190,8 +202,9 @@ def compute_layered_layout(
 
     positions: dict[str, GraphNodePosition] = {}
     for layer_index in sorted(sorted_layers):
-        for node_id in sorted_layers[layer_index]:
-            positions[node_id] = GraphNodePosition(x=x_by_node[node_id], y=layer_index * _LAYER_SPACING)
+        for position_index, node_id in enumerate(sorted_layers[layer_index]):
+            jitter = _VERTICAL_JITTER_PATTERN[position_index % len(_VERTICAL_JITTER_PATTERN)]
+            positions[node_id] = GraphNodePosition(x=x_by_node[node_id], y=layer_index * _LAYER_SPACING + jitter)
 
     bereich_classification_edges = _build_bereich_classification_edges(snapshot, visible_node_ids, visible_bereich_ids)
     node_x_by_id = {node_id: position.x for node_id, position in positions.items()}
