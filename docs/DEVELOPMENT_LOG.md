@@ -8,6 +8,32 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-10) — Kompetenznetz-Graph-Popup: fehlendes Recenter nach Fokus-Toggle, verschachtelte Scrollbars
+
+Zwei weitere Usability-Probleme: (1) `Enter` (Fokus setzen/lösen) berechnet Sichtbarkeit +
+Layout komplett neu (`_recompute_and_redraw()`), der betroffene Knoten kann dabei an eine
+andere Position wandern -- die Ansicht scrollte bisher nicht mit (anders als bei
+Pfeiltasten-Navigation, wo `recenter_on_node()` bereits aufgerufen wurde). Fix: neuer
+`_recenter_on_selection()`-Helfer, jetzt auch nach `_on_enter_key()`/`_on_node_double_clicked()`
+aufgerufen. (2) Das Popup erbte von `ScrollablePopupWindow`, das den GESAMTEN Inhalt in einen
+eigenen Canvas+Scrollbar-Wrapper mit fensterweitem Mausrad-Handler packt -- konkurrierte mit
+dem ohnehin scrollbaren Graph-Canvas und der Sidebar-Dropdowns. Fix: `bw_gui.dialogs.
+ScrollablePopupWindow` (a:\Code\bw-gui, eigenes Repo, Pfad-Dependency) bekommt einen neuen
+Opt-out-Parameter `scrollable: bool = True` (Default unverändert für alle anderen Popups,
+u. a. Blattwerk); das Kompetenzgraph-Popup öffnet sich jetzt mit `scrollable=False` und die
+neue Sidebar-eigene `kompetenzgraph_sidebar_scroll.py::KompetenzGraphSidebarScroll` übernimmt
+das Scrollen ausschließlich für Filter-/Detailbereich (Mausrad-Bindung lokal, rekursiv auf alle
+Kind-Widgets -- ein Canvas empfängt sonst keine Mausrad-Events mehr, sobald seine Fläche
+komplett von Kind-Widgets bedeckt ist; `ui.Text`-Widgets bewusst ausgenommen, da sie bereits
+eigenes Scrollverhalten haben). `kompetenzgraph_canvas_area.py` (Graph-Canvas-Aufbau) neu
+ausgelagert, um `kompetenzgraph_dialog.py` innerhalb des 300-Zeilen-Budgets zu halten.
+
+### Added (2026-09-10) — Kompetenznetz-Graph: deutlich weiteres Rauszoomen möglich
+
+`_MIN_SCALE` in `kompetenzgraph_canvas_zoom_pan.py` von 0.2 auf 0.03 gesenkt -- bei mehreren
+hundert Knoten reichte die bisherige Untergrenze nicht aus, um den gesamten Graphen ins
+Sichtfeld zu bekommen.
+
 ### Fixed (2026-09-10) — Kompetenznetz-Graph-Layout: Kräfte-Relaxation ignorierte nicht-benachbarte Eltern/Kinder
 
 Nutzerfeedback: eine Kompetenz mit zwei Oberkompetenzen landete unter der linkesten davon,

@@ -62,7 +62,8 @@ def _build_dialog_stub() -> KompetenzGraphDialog:
     dialog._last_layout = layout
     dialog._renderer = _RecordingRenderer()
     dialog._zoom_pan = SimpleNamespace(reapply_label_visibility=lambda: None)
-    dialog._detail_panel = SimpleNamespace(render=lambda _node: None)
+    dialog._sidebar_scroll = SimpleNamespace(bind_mousewheel_to_content=lambda *_args, **_kwargs: None)
+    dialog._detail_panel = SimpleNamespace(render=lambda _node: None, frame=None)
     dialog.canvas = SimpleNamespace(focus_set=lambda: None)
     return dialog
 

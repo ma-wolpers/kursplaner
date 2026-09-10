@@ -22,13 +22,19 @@ class ScrollablePopupWindow(SharedScrollablePopupWindow):
         geometry: str,
         minsize: tuple[int, int],
         theme_key: str | None = None,
+        scrollable: bool = True,
     ):
+        """See `bw_gui.dialogs.ScrollablePopupWindow.__init__` for the `scrollable` semantics --
+        `False` is for popups that already manage their own internal scrolling (e.g. a canvas-based
+        graph plus a separately scrollable sidebar), where a second window-wide scroll layer would
+        only produce competing mousewheel captures."""
         super().__init__(
             master,
             title=title,
             geometry=geometry,
             minsize=minsize,
             theme_key=theme_key,
+            scrollable=scrollable,
             apply_window_theme=apply_window_theme,
             configure_ttk_theme=configure_ttk_theme,
             request_close_confirmation=self._confirm_close_if_needed,

@@ -8,7 +8,9 @@ from bw_gui.runtime import ui
 from kursplaner.adapters.gui.kompetenzgraph_canvas_render import LABEL_TAG
 
 _ZOOM_STEP = 1.1
-_MIN_SCALE = 0.2
+_MIN_SCALE = 0.03
+"""Deutlich unter dem ursprünglichen 0.2 -- bei mehreren hundert Knoten reichte 0.2 nicht aus,
+um den gesamten Graphen ins Sichtfeld zu bekommen."""
 _MAX_SCALE = 3.0
 _LABEL_HIDE_BELOW_SCALE = 0.6
 """Unterhalb dieser Skalierung werden Knoten-Beschriftungen ausgeblendet (sie würden
