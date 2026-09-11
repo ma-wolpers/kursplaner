@@ -4,11 +4,8 @@ from dataclasses import dataclass
 
 from kursplaner.core.domain.kompetenzgraph_dag import find_back_edges
 from kursplaner.core.domain.kompetenzgraph_diagnostics import UnresolvedLink
-from kursplaner.core.domain.kompetenzgraph_layout_crossing import (
-    MAX_NODES_FOR_CROSSING_MINIMIZATION,
-    minimize_crossings,
-)
 from kursplaner.core.domain.kompetenzgraph_layout_forces import (
+    MAX_NODES_FOR_RELAXATION,
     compute_bereich_centroid_positions,
     relax_horizontal_positions,
 )
@@ -48,9 +45,8 @@ class KompetenzGraphLayout:
             keine Graph-Invariante).
         unresolved_marker_positions: Positionen für Unresolved-Link-
             Platzhalter, versetzt neben dem jeweils referenzierenden
-            echten Knoten. Nehmen nie an Schichtzuordnung/Crossing-
-            Minimierung teil und beeinflussen nie die Positionen echter
-            Knoten.
+            echten Knoten. Nehmen nie an Schichtzuordnung/Kräfte-Relaxation
+            teil und beeinflussen nie die Positionen echter Knoten.
     """
 
     positions: dict[str, GraphNodePosition]
@@ -137,13 +133,19 @@ def compute_layered_layout(
     Pipeline: (1) Rückkanten nur für die Tiefenberechnung neutralisieren
     (`find_back_edges`, geteilt mit der Zyklen-Diagnose), (2) topologische
     Schichtzuordnung, (3) deterministisch nach `(primarer_bereich_id, id)`
-    initial sortieren, (4) Crossing-Minimierung (übersprungen oberhalb von
-    `MAX_NODES_FOR_CROSSING_MINIMIZATION` -- Performance-Budget, keine
-    fachliche Grenze), (5) Koordinatenzuweisung: horizontale Position je
-    Schicht per Kräfte-Relaxation (`kompetenzgraph_layout_forces.py::
-    relax_horizontal_positions`, zieht Knoten Richtung ihrer verbundenen
-    Nachbarn statt starrer Slot-Indizes -- Schicht-Reihenfolge aus (4)
-    bleibt dabei unverändert), Bereich-Hubs bekommen eine feste eigene
+    initial sortieren (dient nur als Sweep-0-Startpunkt für Schritt 4, keine
+    über den Lauf fixierte Vorgabe -- siehe unten), (4) Koordinatenzuweisung:
+    horizontale Position je Schicht per Kräfte-Relaxation
+    (`kompetenzgraph_layout_forces.py::relax_horizontal_positions`, zieht
+    Knoten Richtung des Medians ihrer verbundenen Nachbarn UND sortiert die
+    Schicht dabei nach diesem Ziel neu -- Reihenfolge ist bewusst KEIN
+    eigener Optimierungsgegenstand mehr, siehe die ausführliche Begründung
+    dort; **Kantenkreuzungen werden dadurch nicht mehr aktiv minimiert**,
+    ein bewusst in Kauf genommener, rein visueller Trade-off, die
+    tatsächliche Verbindung bleibt über Kante + sichtbaren Andockpunkt am
+    Knotenrand erkennbar), oberhalb von `MAX_NODES_FOR_RELAXATION`
+    (Performance-Budget, keine fachliche Grenze) bleibt es bei den reinen
+    Slot-Index-Startpositionen. Bereich-Hubs bekommen eine feste eigene
     Zeile, positioniert über dem Schwerpunkt der sie klassifizierenden
     Kompetenzen (`compute_bereich_centroid_positions`) statt alphabetisch.
     Zusätzlich bekommt jeder Kompetenz-Knoten (NICHT die Bereich-Hub-Zeile)
@@ -185,24 +187,21 @@ def compute_layered_layout(
             sorted(node_ids, key=lambda nid: (snapshot.nodes[nid].primarer_bereich_id or "", nid))
         )
 
-    within_performance_budget = len(visible_node_ids) <= MAX_NODES_FOR_CROSSING_MINIMIZATION
-    if within_performance_budget:
-        # Crossing-Minimierung nutzt bewusst das VOLLE Kantenbild (inkl. der als
-        # Rückkante klassifizierten Kanten) -- die Rückkanten-Klassifikation gilt
-        # nur für die Tiefenberechnung, nicht für die Rendering-/Layout-Qualität.
-        sorted_layers = minimize_crossings(sorted_layers, parent_edges)
-
-    # Kräfte-inspirierte horizontale Positionierung statt starrer Slot-Index-Platzierung
-    # (siehe kompetenzgraph_layout_forces.py) -- oberhalb des Performance-Budgets bleibt
-    # es bei den reinen Slot-Index-Startpositionen (iterations=0), dasselbe Budget wie
-    # für die Crossing-Minimierung.
+    within_performance_budget = len(visible_node_ids) <= MAX_NODES_FOR_RELAXATION
+    # `sorted_layers` dient `relax_horizontal_positions()` nur als Sweep-0-Startpunkt -- die
+    # Reihenfolge ist danach kein eigener Optimierungsgegenstand mehr, sie folgt den Kräften
+    # (siehe dortige Begründung). Oberhalb des Performance-Budgets bleibt es bei den reinen
+    # Slot-Index-Startpositionen (iterations=0).
     x_by_node = relax_horizontal_positions(
         sorted_layers, parent_edges, iterations=6 if within_performance_budget else 0, min_spacing=_NODE_SPACING
     )
 
     positions: dict[str, GraphNodePosition] = {}
-    for layer_index in sorted(sorted_layers):
-        for position_index, node_id in enumerate(sorted_layers[layer_index]):
+    for layer_index, node_ids in layers.items():
+        # Für den Y-Versatz (rein kosmetisch) nach der TATSÄCHLICHEN finalen X-Position
+        # sortieren, nicht nach der längst überholten Sweep-0-Startreihenfolge.
+        final_order = sorted(node_ids, key=lambda nid: (x_by_node[nid], nid))
+        for position_index, node_id in enumerate(final_order):
             jitter = _VERTICAL_JITTER_PATTERN[position_index % len(_VERTICAL_JITTER_PATTERN)]
             positions[node_id] = GraphNodePosition(x=x_by_node[node_id], y=layer_index * _LAYER_SPACING + jitter)
 

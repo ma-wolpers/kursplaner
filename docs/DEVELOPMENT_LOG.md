@@ -8,6 +8,53 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-11) — Kompetenznetz-Graph-Layout: Kräfte-Positionierung ohne Crossing-Fixierung
+
+Rückmeldung: eine Kompetenz erschien "ganz allein weit links" im Graphen. Diagnose gegen den
+echten Vault-Snapshot (1055 Knoten) zeigte die eigentliche Ursache: zwischen zwei benachbarten
+Knoten derselben Schicht klaffte eine Lücke von 109.780px bei einem `_NODE_SPACING` von 110.
+Zwei erste Lösungsansätze (Obergrenze für Abstände; isotonische Regression bei weiterhin
+FIXIERTER crossing-minimierter Reihenfolge) wurden zu Recht als Symptombehandlung zurückgewiesen.
+
+**Tatsächliche Ursache**: die Schicht-Reihenfolge wurde von der Crossing-Minimierung (einem
+fachfremden Ziel: wenige Kantenkreuzungen) vorgegeben und über den gesamten Relaxations-Lauf
+fixiert -- stand darin ein Knoten mit einem legitim weit entfernten Ziel vor einem unabhängigen
+Knoten mit kleinem Ziel, wurde Letzterer stur auf "Vorgänger + Mindestabstand" gezwungen,
+unabhängig von der Diskrepanz. **Fix**: die Kopplung ist vollständig aufgelöst.
+`relax_horizontal_positions()` (`kompetenzgraph_layout_forces.py`) sortiert eine Schicht jetzt
+in JEDEM Sweep neu nach ihrem gerade berechneten Kräfte-Ziel, bevor der Mindestabstand angewendet
+wird -- die crossing-minimierte Eingabe dient nur noch als Sweep-0-Startpunkt. Bewusster,
+dokumentierter Trade-off: Kantenkreuzungen werden dadurch nicht mehr aktiv minimiert (rein
+visuelles Artefakt, keine Korrektheitsbedingung mehr) -- die tatsächliche Verbindung bleibt über
+Kante + sichtbaren Andockpunkt erkennbar (siehe unten). `kompetenzgraph_layout_crossing.py` und
+sein Test-Modul wurden vollständig entfernt (kein anderer Aufrufer vorhanden), das
+Performance-Budget wanderte als `MAX_NODES_FOR_RELAXATION` in `kompetenzgraph_layout_forces.py`.
+
+**Zweiter, während der erweiterten Testmatrix gefundener Fehler**: die zunächst als "einfacher,
+ausreichender Sweep" dokumentierte Mindestabstandsauflösung erwies sich im
+Iterations-Stabilitätstest (`test_more_iterations_stabilize_instead_of_drifting_further`) als
+NICHT konvergent -- zwei Elternteile, die denselben Kindknoten anziehen, drifteten über
+wiederholte Sweeps unbegrenzt auseinander (Ursache: der Sweep behandelt Gleichstände einseitig,
+der erste Knoten behält sein Ziel exakt, jeder Folgeknoten wird stur weitergeschoben, was den
+Schwerpunkt bei jeder Rückkopplungs-Runde weiterverschiebt). Behoben durch eine transformierte
+**isotonische Regression** (Pool-Adjacent-Violators-Algorithmus): `y_i = ziel_i - i *
+min_spacing` macht Mindestabstand äquivalent zu Monotonie, PAVA liefert dazu die im
+Least-Squares-Sinn nächstgelegene nicht-fallende Folge -- Konfliktgruppen bekommen den
+MITTELWERT ihrer Ziele statt einer einseitigen Verschiebung, wodurch sich Rückkopplungen stabil
+einpendeln. Reales Ergebnis: maximale Schicht-Lücke im echten Vault sank von 109.780px auf
+~21.000px (nachweislich legitime Trennung zweier unabhängiger Fachbereiche, nicht mehr
+künstliches Drag eines unbeteiligten Knotens), mittlere Lücke liegt bei ~207-506px (nahe am
+`min_spacing`).
+
+**Zusätzlich**: sichtbare Andockpunkte an Kanten (`kompetenzgraph_canvas_edges.py`, neu
+ausgelagert aus `kompetenzgraph_canvas_render.py` -- 300-Zeilen-Budget). Da Kanten jetzt Schichten
+überspringen dürfen und Kreuzungen nicht mehr minimiert werden, konnte bisher unklar sein, ob
+eine Linie an einem Knoten tatsächlich andockt oder nur optisch dahinter verläuft. Neue
+Geometriefunktion `ray_rectangle_intersection()` (`kompetenzgraph_canvas_shapes.py`) berechnet
+den tatsächlichen Schnittpunkt einer Kante mit dem Rechteckrand (statt des unsichtbaren
+Mittelpunkts); ein kleiner gefüllter Punkt in Kantenfarbe markiert dort jeden echten
+Kanten-Endpunkt (nicht bei Unresolved-Link-Markern, die bereits eindeutig sind).
+
 ### Fixed (2026-09-10) — Kompetenznetz-Graph-Popup: fehlendes Recenter nach Fokus-Toggle, verschachtelte Scrollbars
 
 Zwei weitere Usability-Probleme: (1) `Enter` (Fokus setzen/lösen) berechnet Sichtbarkeit +

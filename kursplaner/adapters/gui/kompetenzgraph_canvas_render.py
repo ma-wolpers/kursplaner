@@ -15,18 +15,19 @@ from bw_gui.theming import (
 )
 
 from kursplaner.adapters.gui.kompetenzgraph_canvas_colors import hue_to_color_pair
+from kursplaner.adapters.gui.kompetenzgraph_canvas_edges import KompetenzGraphEdgeRenderer
 from kursplaner.adapters.gui.kompetenzgraph_canvas_shapes import create_rounded_rectangle
-from kursplaner.core.domain.kompetenzgraph_layout import GraphNodePosition, KompetenzGraphLayout
+from kursplaner.core.domain.kompetenzgraph_layout import KompetenzGraphLayout
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
-from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
 
 _NODE_WIDTH = 92.0
 _NODE_HEIGHT = 88.0  # nahezu quadratisch statt lang-rechteckig (früher 150x46)
 _BEREICH_WIDTH = 170.0
 _BEREICH_HEIGHT = 38.0
 _CORNER_RADIUS = 10.0
-_UNRESOLVED_MARKER_RADIUS = 10.0
+_COMPETENCY_HALF_EXTENT = (_NODE_WIDTH / 2.0, _NODE_HEIGHT / 2.0)
+_BEREICH_HALF_EXTENT = (_BEREICH_WIDTH / 2.0, _BEREICH_HEIGHT / 2.0)
 NODE_TAG_PREFIX = "kompetenz_node_"
 """Öffentlich, da `kompetenzgraph_canvas_recenter.py` denselben Tag braucht, um das
 aktuell ausgewählte Knoten-Item über `canvas.bbox(tag)` wiederzufinden."""
@@ -82,6 +83,9 @@ class KompetenzGraphCanvasRenderer:
         self._on_node_click = on_node_click
         self._on_node_double_click = on_node_double_click
         self._tooltip = tooltip
+        self._edges = KompetenzGraphEdgeRenderer(
+            canvas, competency_half_extent=_COMPETENCY_HALF_EXTENT, bereich_half_extent=_BEREICH_HALF_EXTENT
+        )
 
     def render(
         self,
@@ -105,9 +109,9 @@ class KompetenzGraphCanvasRenderer:
         """
         self.canvas.delete("all")
 
-        self._draw_classification_edges(snapshot, view, layout)
-        self._draw_hierarchy_edges(snapshot, view, layout, mode_key)
-        self._draw_unresolved_markers(layout)
+        self._edges.draw_classification_edges(snapshot, view, layout)
+        self._edges.draw_hierarchy_edges(snapshot, view, layout, mode_key)
+        self._edges.draw_unresolved_markers(layout)
 
         for bereich_id in view.visible_bereich_ids:
             self._draw_bereich_node(snapshot, bereich_id, layout, bereich_hues, is_selected=bereich_id == selected_id)
@@ -124,72 +128,6 @@ class KompetenzGraphCanvasRenderer:
             )
 
         self._update_scrollregion(layout)
-
-    def _draw_edge(self, start: GraphNodePosition, end: GraphNodePosition, *, dash, token: str) -> None:
-        # Kanten werden vor allen Knoten gezeichnet (siehe Aufrufreihenfolge in render()),
-        # liegen also durch die natuerliche Canvas-Stapelreihenfolge bereits hinter ihnen.
-        item_id = self.canvas.create_line(start.x, start.y, end.x, end.y, dash=dash, width=1.4)
-        canvas_fill(self.canvas, item_id, token=token)
-
-    def _draw_classification_edges(
-        self, snapshot: KompetenzGraphSnapshot, view: KompetenzGraphView, layout: KompetenzGraphLayout
-    ) -> None:
-        """`primarer_bereich` (durchgezogen) und `prozessbereiche` (gestrichelt) -- ansichtsunabhängig, immer sichtbar."""
-        for node_id in view.visible.all_ids:
-            node = snapshot.nodes.get(node_id)
-            start = layout.positions.get(node_id)
-            if node is None or start is None:
-                continue
-            if node.primarer_bereich_id is not None and node.primarer_bereich_id in view.visible_bereich_ids:
-                end = layout.positions.get(node.primarer_bereich_id)
-                if end is not None:
-                    self._draw_edge(start, end, dash=None, token="secondary")
-            for prozessbereich_id in node.prozessbereich_ids:
-                if prozessbereich_id in view.visible_bereich_ids:
-                    end = layout.positions.get(prozessbereich_id)
-                    if end is not None:
-                        self._draw_edge(start, end, dash=(2, 3), token="secondary_soft")
-
-    def _draw_hierarchy_edges(
-        self, snapshot: KompetenzGraphSnapshot, view: KompetenzGraphView, layout: KompetenzGraphLayout, mode_key: str
-    ) -> None:
-        """Nur die Kanten des AKTIVEN View-Modes (`oberkompetenzen` oder `voraussetzungen`)."""
-        for node_id in view.visible.all_ids:
-            node = snapshot.nodes.get(node_id)
-            start = layout.positions.get(node_id)
-            if node is None or start is None:
-                continue
-            forward_ids = node.oberkompetenzen_ids if mode_key == MODE_OBER_TEIL else node.voraussetzungen_ids
-            for target_id in forward_ids:
-                if target_id not in view.visible.all_ids:
-                    continue
-                end = layout.positions.get(target_id)
-                if end is not None:
-                    self._draw_edge(start, end, dash=None, token="border")
-
-    def _draw_unresolved_markers(self, layout: KompetenzGraphLayout) -> None:
-        """Gestrichelte Kante + gedimmter Marker für Wikilinks ohne existierendes Ziel.
-
-        Rein visueller Hinweis -- die Marker sind bewusst nicht klickbar/
-        fokussierbar (siehe Meilenstein 5 für die Interaktions-Invarianten).
-        """
-        for link, marker_position in layout.unresolved_marker_positions.items():
-            source_position = layout.positions.get(link.source_id)
-            if source_position is not None:
-                self._draw_edge(source_position, marker_position, dash=(1, 3), token="fg_muted")
-            oval_id = self.canvas.create_oval(
-                marker_position.x - _UNRESOLVED_MARKER_RADIUS,
-                marker_position.y - _UNRESOLVED_MARKER_RADIUS,
-                marker_position.x + _UNRESOLVED_MARKER_RADIUS,
-                marker_position.y + _UNRESOLVED_MARKER_RADIUS,
-                dash=(2, 2),
-            )
-            canvas_fill(self.canvas, oval_id, token="bg_surface")
-            canvas_outline_color(self.canvas, oval_id, token="danger")
-            text_id = self.canvas.create_text(
-                marker_position.x, marker_position.y + _UNRESOLVED_MARKER_RADIUS + 8, text=f"? {link.target_id}"
-            )
-            canvas_text_fill(self.canvas, text_id, token="fg_muted")
 
     def _draw_competency_node(
         self,
