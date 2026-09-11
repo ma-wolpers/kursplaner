@@ -10,11 +10,15 @@ from kursplaner.adapters.gui.kompetenzgraph_canvas_shapes import ray_rectangle_i
 from kursplaner.core.domain.kompetenzgraph_layout import GraphNodePosition, KompetenzGraphLayout
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
-from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
+from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN, MODE_OBER_TEIL
 
 _UNRESOLVED_MARKER_RADIUS = 10.0
 _EDGE_ANCHOR_RADIUS = 3.0
 """Radius des kleinen, gefüllten Andockpunkts am Rechteckrand -- siehe `_draw_connecting_edge()`."""
+_ABHAENGIGKEITEN_VORAUSSETZUNG_DASH = (4, 2)
+"""Eigenes, deutlich gestricheltes Muster für Voraussetzungs-Kanten in `MODE_ABHAENGIGKEITEN`
+-- unterscheidbar vom Klassifikations-Dash (`(2, 3)`), damit "gestrichelt = Voraussetzung" in
+dieser Ansicht nicht mit "gestrichelt = Prozessbereich" verwechselt wird."""
 
 
 class KompetenzGraphEdgeRenderer:
@@ -72,26 +76,53 @@ class KompetenzGraphEdgeRenderer:
     def draw_hierarchy_edges(
         self, snapshot: KompetenzGraphSnapshot, view: KompetenzGraphView, layout: KompetenzGraphLayout, mode_key: str
     ) -> None:
-        """Nur die Kanten des AKTIVEN View-Modes (`oberkompetenzen` oder `voraussetzungen`)."""
+        """Zeichnet die Hierarchie-Kanten des AKTIVEN View-Modes.
+
+        `MODE_OBER_TEIL`/`MODE_FORT_VORAUS`: eine einzige, durchgezogene
+        Kantenart (`oberkompetenzen` bzw. `voraussetzungen`, wie
+        gespeichert). `MODE_ABHAENGIGKEITEN`: BEIDE Kantentypen gemeinsam,
+        mit unterschiedlicher Strichart -- Teilkompetenz (durchgezogen,
+        `teilkompetenzen_by_id`, d. h. `oberkompetenzen` UMGEDREHT
+        gezeichnet: Eltern→Kind statt wie gespeichert Kind→Eltern, damit
+        der Pfeil konsistent "X braucht Y" bedeutet) und Voraussetzung
+        (gestrichelt, `voraussetzungen_ids` -- bereits in der richtigen
+        Richtung gespeichert, keine Umkehrung nötig). Reine
+        Rendering-Entscheidung; die zugrunde liegende fachliche Kante
+        bleibt in beiden Fällen unverändert `hierarchy` bzw. `prerequisite`
+        (siehe `kompetenzgraph_view_mode.py::MODE_ABHAENGIGKEITEN`).
+        """
         for node_id in view.visible.all_ids:
             node = snapshot.nodes.get(node_id)
             start = layout.positions.get(node_id)
             if node is None or start is None:
                 continue
+            if mode_key == MODE_ABHAENGIGKEITEN:
+                for target_id in snapshot.teilkompetenzen_by_id.get(node_id, ()):
+                    self._draw_hierarchy_edge_if_visible(view, layout, start, target_id, dash=None)
+                for target_id in node.voraussetzungen_ids:
+                    self._draw_hierarchy_edge_if_visible(
+                        view, layout, start, target_id, dash=_ABHAENGIGKEITEN_VORAUSSETZUNG_DASH
+                    )
+                continue
             forward_ids = node.oberkompetenzen_ids if mode_key == MODE_OBER_TEIL else node.voraussetzungen_ids
             for target_id in forward_ids:
-                if target_id not in view.visible.all_ids:
-                    continue
-                end = layout.positions.get(target_id)
-                if end is not None:
-                    self._draw_connecting_edge(
-                        start,
-                        end,
-                        dash=None,
-                        token="border",
-                        start_half_extent=self._competency_half_extent,
-                        end_half_extent=self._competency_half_extent,
-                    )
+                self._draw_hierarchy_edge_if_visible(view, layout, start, target_id, dash=None)
+
+    def _draw_hierarchy_edge_if_visible(
+        self, view: KompetenzGraphView, layout: KompetenzGraphLayout, start: GraphNodePosition, target_id: str, *, dash
+    ) -> None:
+        if target_id not in view.visible.all_ids:
+            return
+        end = layout.positions.get(target_id)
+        if end is not None:
+            self._draw_connecting_edge(
+                start,
+                end,
+                dash=dash,
+                token="border",
+                start_half_extent=self._competency_half_extent,
+                end_half_extent=self._competency_half_extent,
+            )
 
     def draw_unresolved_markers(self, layout: KompetenzGraphLayout) -> None:
         """Gestrichelte Kante + gedimmter Marker für Wikilinks ohne existierendes Ziel.

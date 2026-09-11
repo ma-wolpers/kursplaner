@@ -6,11 +6,17 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import widgets
 from bw_gui.theming import theme_canvas
 
+from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
 from kursplaner.adapters.gui.kompetenzgraph_canvas_area import KompetenzGraphCanvasArea
 from kursplaner.adapters.gui.kompetenzgraph_canvas_colors import assign_bereich_hues
-from kursplaner.adapters.gui.kompetenzgraph_canvas_recenter import recenter_on_node
-from kursplaner.adapters.gui.kompetenzgraph_canvas_render import NODE_TAG_PREFIX
-from kursplaner.adapters.gui.kompetenzgraph_canvas_selection import handle_double_click_or_enter
+from kursplaner.adapters.gui.kompetenzgraph_canvas_recenter import (
+    recenter_on_selection,
+    recenter_on_selection_if_offscreen,
+)
+from kursplaner.adapters.gui.kompetenzgraph_canvas_selection import (
+    handle_double_click_or_enter,
+    select_nearest_in_direction,
+)
 from kursplaner.adapters.gui.kompetenzgraph_detail_panel import KompetenzGraphDetailPanel
 from kursplaner.adapters.gui.kompetenzgraph_diagnostics_banner import KompetenzGraphDiagnosticsBanner
 from kursplaner.adapters.gui.kompetenzgraph_filter_panel import KompetenzGraphFilterPanel
@@ -18,9 +24,10 @@ from kursplaner.adapters.gui.kompetenzgraph_sidebar_scroll import KompetenzGraph
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
 from kursplaner.adapters.gui.kompetenzgraph_view_mode_toggle import KompetenzGraphViewModeToggle
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
-from kursplaner.core.domain.kompetenzgraph_arrow_navigation import find_nearest_node_in_direction
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
+from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
+from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN
 from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
 from kursplaner.core.usecases.kompetenzgraph_load_usecase import KompetenzGraphLoadResult
 from kursplaner.core.usecases.kompetenzgraph_view_usecase import ComputeKompetenzGraphViewUseCase
@@ -116,7 +123,10 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         toolbar = widgets.Frame(right)
         toolbar.pack(fill="x", pady=(0, 6))
         self._view_mode_toggle = KompetenzGraphViewModeToggle(
-            toolbar, initial_mode=self._state.view_mode, on_mode_selected=self._on_view_mode_selected
+            toolbar,
+            initial_mode=self._state.view_mode,
+            on_mode_selected=self._on_view_mode_selected,
+            mode_help_text={MODE_ABHAENGIGKEITEN: KOMPETENZGRAPH_HELP["abhaengigkeiten_ansicht"]},
         )
 
         canvas_area = KompetenzGraphCanvasArea(
@@ -131,7 +141,8 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._zoom_pan = canvas_area.zoom_pan
 
     def _on_toggle_view_mode_shortcut(self, _event) -> str:
-        self._on_view_mode_selected(self._view_mode_toggle.other_mode())
+        """Strg+Tab: zyklisch zur nächsten Ansicht (`next_mode()`, mit Wraparound über alle `VIEW_MODES`)."""
+        self._on_view_mode_selected(self._view_mode_toggle.next_mode())
         return "break"
 
     def _on_view_mode_selected(self, mode_key: str) -> None:
@@ -162,12 +173,17 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._reapply_selection()
         self.canvas.focus_set()
 
+    def _selected_node(self) -> KompetenzNode | None:
+        """Liefert den aktuell ausgewählten `KompetenzNode` (`None` ohne Auswahl) -- bündelt den
+        `str | None`-Guard vor `MappingProxyType.get()`, statt ihn an mehreren Aufrufstellen zu wiederholen."""
+        return self._snapshot.nodes.get(self._state.selected_id) if self._state.selected_id is not None else None
+
     def _on_node_double_clicked(self, node_id: str) -> None:
         """Doppelklick: togglet den Fokus (siehe `kompetenzgraph_canvas_selection.py`) -- kann die sichtbare Menge ändern."""
         handle_double_click_or_enter(self._state, node_id)
-        self._render_detail_panel(self._snapshot.nodes.get(self._state.selected_id))
+        self._render_detail_panel(self._selected_node())
         self._recompute_and_redraw()
-        self._recenter_on_selection()
+        recenter_on_selection(self.canvas, self._state.selected_id)
         self.canvas.focus_set()
 
     def _on_enter_key(self, _event) -> str:
@@ -175,41 +191,21 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         (das Layout wird beim Fokus-Toggle neu berechnet, der Knoten kann woanders landen)."""
         handle_double_click_or_enter(self._state)
         self._recompute_and_redraw()
-        self._recenter_on_selection()
+        recenter_on_selection(self.canvas, self._state.selected_id)
         return "break"
 
-    def _recenter_on_selection(self) -> None:
-        """Zentriert die Ansicht auf `self._state.selected_id`, sofern gesetzt."""
-        if self._state.selected_id is not None:
-            recenter_on_node(self.canvas, f"{NODE_TAG_PREFIX}{self._state.selected_id}")
-
     def _on_arrow_direction(self, direction: tuple[float, float]) -> None:
-        """Bewegt die Auswahl auf den nächstgelegenen sichtbaren Knoten im 60°-Kegel Richtung `direction`.
+        """Pfeiltaste: bewegt die Auswahl mittels `select_nearest_in_direction()`, zentriert bei Erfolg.
 
-        Kandidaten kommen aus der zwischengespeicherten Momentaufnahme
-        (`self._last_layout`/`self._last_view`) -- Bereich-Hubs sind nie
-        Kandidaten. Ändert nur die Selektion, daher `_reapply_selection()`
-        statt Neuberechnung; zentriert die Ansicht auf den neuen Knoten.
+        Ändert nur die Selektion, daher `_reapply_selection()` statt Neuberechnung.
         """
-        if self._state.selected_id is None or self._last_layout is None or self._last_view is None:
+        if self._last_layout is None or self._last_view is None:
             return
-        current_position = self._last_layout.positions.get(self._state.selected_id)
-        if current_position is None:
+        if not select_nearest_in_direction(self._state, self._last_layout, self._last_view, direction):
             return
-
-        candidates = {
-            node_id: (position.x, position.y)
-            for node_id, position in self._last_layout.positions.items()
-            if node_id != self._state.selected_id and node_id in self._last_view.visible.all_ids
-        }
-        nearest_id = find_nearest_node_in_direction((current_position.x, current_position.y), candidates, direction)
-        if nearest_id is None:
-            return
-
-        self._state.selected_id = nearest_id
-        self._render_detail_panel(self._snapshot.nodes.get(nearest_id))
+        self._render_detail_panel(self._selected_node())
         self._reapply_selection()
-        self._recenter_on_selection()
+        recenter_on_selection(self.canvas, self._state.selected_id)
 
     def _refresh(self) -> None:
         """Berechnet die Sichtbarkeits-Ansicht neu und synchronisiert Canvas + Detailbereich.
@@ -223,8 +219,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             self._state.focus_id = None
 
         self._recompute_and_redraw()
-        selected_node = self._snapshot.nodes.get(self._state.selected_id) if self._state.selected_id else None
-        self._render_detail_panel(selected_node)
+        self._render_detail_panel(self._selected_node())
 
     def _current_view(self):
         return self._compute_view_usecase.execute(
@@ -245,6 +240,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._last_view = view
         self._last_layout = layout
         self._render_canvas(view, layout)
+        recenter_on_selection_if_offscreen(self.canvas, self._state.selected_id)
 
     def _reapply_selection(self) -> None:
         """Zeichnet mit der zwischengespeicherten Momentaufnahme neu, OHNE Sichtbarkeit/Layout neu zu berechnen.
@@ -269,6 +265,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             focus_id=self._state.focus_id,
             bereich_hues=self._state.bereich_hues,
         )
+        self._zoom_pan.reapply_zoom()
         self._zoom_pan.reapply_label_visibility()
 
 

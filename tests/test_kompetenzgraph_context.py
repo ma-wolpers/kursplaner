@@ -1,6 +1,6 @@
 from kursplaner.core.domain.kompetenzgraph_context import compute_context_node_ids
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
-from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_FORT_VORAUS, MODE_OBER_TEIL
+from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN, MODE_FORT_VORAUS, MODE_OBER_TEIL
 from tests.kompetenzgraph_test_support import make_bereich, make_node
 
 
@@ -107,3 +107,16 @@ def test_context_follows_active_view_mode():
 
     assert ober_teil_context == frozenset({"P-1"})
     assert fort_voraus_context == frozenset({"V-1"})
+
+
+def test_context_in_abhaengigkeiten_mode_mixes_both_edge_kinds_within_one_hop():
+    """P-1 ist Oberkompetenz von K-1, V-1 ist Voraussetzung von K-1 -- beide muessen bei
+    Kontexttiefe 1 in MODE_ABHAENGIGKEITEN gemeinsam erscheinen (kein separater Pfad je Kantentyp)."""
+    parent = make_node("P-1")
+    voraussetzung = make_node("V-1")
+    child = make_node("K-1", oberkompetenzen_ids=("P-1",), voraussetzungen_ids=("V-1",))
+    snapshot = build_kompetenz_graph_snapshot([parent, voraussetzung, child], [])
+
+    context = compute_context_node_ids(snapshot, MODE_ABHAENGIGKEITEN, frozenset({"K-1"}), depth=1)
+
+    assert context == frozenset({"P-1", "V-1"})

@@ -8,6 +8,67 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-11) — Kompetenznetz-Graph: dritte Ansicht „Kompetenz-Abhängigkeiten", Zoom-Fix, sanftes Recenter
+
+**Neue Ansicht `MODE_ABHAENGIGKEITEN`** (`kompetenzgraph_view_mode.py`): zeigt Teilkompetenz- UND
+Voraussetzungs-Kanten GEMEINSAM, weil beide dieselbe Frage beantworten ("was braucht diese
+Kompetenz?"), aber semantisch unterschiedlich bleiben (Teilkompetenz = analytischer Bestandteil,
+oft kein sauberes Vorher/Nachher; Voraussetzung = extern mitgebrachtes, zeitlich vorgelagertes
+Werkzeug). `ancestors_of`/`descendants_of` bekommen einen dritten Zweig:
+`ancestors_of(N, ABHAENGIGKEITEN) = N.oberkompetenzen_ids ∪ weiterfuehrung_by_id[N]`,
+`descendants_of(N, ABHAENGIGKEITEN) = teilkompetenzen_by_id[N] ∪ N.voraussetzungen_ids` -- eine
+REIN VISUELLE Abhängigkeits-Projektion für Layout/Fokus/Kontext, keine neue fachliche Kante (die
+Rohdaten `oberkompetenzen_ids`/`voraussetzungen_ids` bleiben unverändert die einzige Quelle).
+`_closure()`/`ancestor_closure()`/`descendant_closure()`/`bidirectional_closure()` und
+`compute_layered_layout()` bleiben dabei vollständig unverändert generisch -- keine separate
+Traversierungslogik für den neuen Modus nötig. `kompetenzgraph_canvas_edges.py::
+draw_hierarchy_edges()` rendert Teilkompetenz-Kanten durchgezogen (`teilkompetenzen_by_id`, d. h.
+`oberkompetenzen` beim Zeichnen UMGEDREHT: Eltern→Kind statt wie gespeichert Kind→Eltern) und
+Voraussetzungs-Kanten gestrichelt (eigenes Dash-Muster `(4, 2)`, unterscheidbar vom
+Klassifikations-Dash `(2, 3)`), damit im UI alle Pfeile konsistent "X braucht Y" bedeuten.
+
+**Gemischte Zyklen** (z. B. A ist Teilkompetenz von B UND B ist Voraussetzung von A -- nur durch
+Mischen beider Kantentypen zyklisch, keiner für sich) werden von den bestehenden getrennten
+Zyklen-Diagnosen (`kompetenzgraph_dag.py`, je eine für `hierarchy`/`prerequisite`) NICHT erkannt --
+bleibt bewusst unverändert so (eine dritte, kombinierte Diagnose wäre eine separate, hier nicht
+umgesetzte Erweiterung). Für Render-Stabilität unkritisch: `find_back_edges()` neutralisiert jeden
+verbleibenden Zyklus generisch für die Schichtberechnung, Terminierung ist durch die
+Visited-Set-Konstruktion von `_closure()` strukturell garantiert -- durch einen Regressionstest mit
+künstlichem Mischzyklus abgesichert (`test_abhaengigkeiten_mode_mixed_cycle_terminates_in_
+closure_and_layout`, `tests/test_kompetenzgraph_view_mode.py`).
+
+**Zoom-Level übersteht jetzt ein volles Redraw**: `KompetenzGraphCanvasZoomPan._scale` wurde bei
+jedem Ansichts-/Filterwechsel (volles `canvas.delete("all")` + Neuzeichnen bei rohen 1:1-Koordinaten
+in `KompetenzGraphCanvasRenderer.render()`) NIE zurückgesetzt, aber die Darstellung ging optisch auf
+1:1 zurück -- man musste "von vorne" zoomen, kam wegen des stehengebliebenen `_scale` aber nicht
+weiter heraus als vorher (`_scale` stand bereits nahe `_MIN_SCALE`). Fix: neue Methode
+`reapply_zoom()` wendet die gehaltene `_scale` nach jedem Redraw erneut per `canvas.scale(...)` an
+(Anchor: Viewport-Mitte) und aktualisiert die Scrollregion -- exakt dasselbe Muster wie das bereits
+bestehende `reapply_label_visibility()`. `_scale` bleibt dabei die alleinige, nie künstlich
+zurückgesetzte Zustandsquelle.
+
+**Sanftes Recenter nach passivem Rebuild**: bisher wurde nach jedem Filter-/Ansichts-/
+Matchingtiefe-Wechsel unbedingt auf die Auswahl zentriert. Jetzt bleibt die Ansicht stehen, solange
+die ausgewählte Kompetenz im Sichtfeld bleibt -- nur wenn sie dadurch tatsächlich außerhalb des
+sichtbaren Ausschnitts geraten würde, wird automatisch recenter. Neue Geometriefunktion
+`is_node_fully_visible()` (`kompetenzgraph_canvas_recenter.py`) vergleicht `canvas.bbox(node_tag)`
+mit dem über `canvas.canvasx()`/`canvas.canvasy()` ermittelten tatsächlich sichtbaren Ausschnitt
+(bewusst NICHT die `scrollregion`, die `recenter_on_node()` nutzt). Aktive Navigation
+(Pfeiltasten, Fokus-Toggle) bleibt unverändert bedingungslos zentrierend
+(`recenter_on_selection()`); passiver Rebuild nutzt stattdessen zentral
+`recenter_on_selection_if_offscreen()`, aufgerufen aus `_recompute_and_redraw()`.
+
+**Refactoring für das 300-Zeilen-Budget**: `_recenter_on_selection`/`_recenter_if_offscreen`
+wurden aus `kompetenzgraph_dialog.py` in zwei neue freie Funktionen in
+`kompetenzgraph_canvas_recenter.py` verschoben (`recenter_on_selection`/
+`recenter_on_selection_if_offscreen`, nehmen `canvas`/`selected_id` statt `self`); die
+Pfeiltasten-Zielsuche aus `_on_arrow_direction()` wurde als reine, canvas-freie Funktion
+`select_nearest_in_direction()` nach `kompetenzgraph_canvas_selection.py` ausgelagert (unabhängig
+vom Dialog testbar). `KompetenzGraphViewModeToggle._VIEW_MODE_LABELS` bekam einen dritten Eintrag,
+`other_mode()` (binär) wurde zu `next_mode()` (zyklisch mit Wraparound); neuer optionaler
+`mode_help_text`-Parameter bindet `HoverTooltip` auf Buttons mit Eintrag in
+`help_catalog.py::KOMPETENZGRAPH_HELP` (aktuell nur für "Abhängigkeiten" befüllt).
+
 ### Fixed (2026-09-11) — Kompetenznetz-Graph-Layout: Kräfte-Positionierung ohne Crossing-Fixierung
 
 Rückmeldung: eine Kompetenz erschien "ganz allein weit links" im Graphen. Diagnose gegen den

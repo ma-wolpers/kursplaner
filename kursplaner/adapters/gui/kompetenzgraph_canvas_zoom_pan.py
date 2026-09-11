@@ -98,6 +98,27 @@ class KompetenzGraphCanvasZoomPan:
         self._labels_hidden = should_hide
         self.canvas.itemconfigure(LABEL_TAG, state="hidden" if should_hide else "normal")
 
+    def reapply_zoom(self) -> None:
+        """Wendet die aktuell gehaltene Zoomstufe erneut auf frisch (1:1) gezeichnete Canvas-Items an.
+
+        Nötig nach jedem vollen Canvas-Redraw: `KompetenzGraphCanvasRenderer.render()` löscht und
+        erzeugt alle Items an ihren rohen, unskalierten Layout-Koordinaten neu -- `self._scale`
+        bleibt dabei unverändert bestehen (wird NIE künstlich zurückgesetzt), würde aber ohne
+        diesen Aufruf von der tatsächlichen Darstellung abweichen: der Zoom ginge optisch
+        verloren, UND ein anschließender Versuch, weiter herauszuzoomen, würde fälschlich
+        abgelehnt, weil `_scale` bereits am Minimum stand, obwohl der Canvas gerade wieder bei 1:1
+        gezeichnet wurde. Anchor ist die Viewport-Mitte, wie bei `_zoom_in`/`_zoom_out` -- eine
+        anschließende Recenter-Aktion (`kompetenzgraph_dialog.py`) korrigiert die Scroll-Position
+        danach ohnehin auf den ausgewählten Knoten, unabhängig von diesem Anchor.
+        """
+        if self._scale == 1.0:
+            return
+        anchor = self._viewport_center()
+        self.canvas.scale("all", anchor[0], anchor[1], self._scale, self._scale)
+        bbox = self.canvas.bbox("all")
+        if bbox is not None:
+            self.canvas.configure(scrollregion=bbox)
+
     def reapply_label_visibility(self) -> None:
         """Wendet den aktuellen Label-Sichtbarkeitszustand erneut an.
 

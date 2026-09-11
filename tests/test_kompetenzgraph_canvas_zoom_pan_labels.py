@@ -81,3 +81,56 @@ def test_reapply_label_visibility_is_noop_when_labels_were_never_hidden(tk_root)
     zoom_pan.reapply_label_visibility()
 
     assert canvas.itemcget(label_item, "state") == "normal"
+
+
+def test_reapply_zoom_restores_visual_scale_after_simulated_redraw(tk_root):
+    """Kernregression für den Zoom-Reset-Bug: `_scale` überlebt ein volles Redraw (`canvas.delete("all")`
+    + Neuerzeugung bei rohen 1:1-Koordinaten), UND `reapply_zoom()` bringt die Darstellung wieder
+    auf die gehaltene Skalierung -- ohne das bleibt der Zoom nur optisch verloren, während `_scale`
+    unverändert (fälschlich) am Limit steht."""
+    canvas = tk.Canvas(tk_root)
+    zoom_pan = KompetenzGraphCanvasZoomPan(canvas)
+    canvas.create_rectangle(0, 0, 100, 100, tags=("node",))
+    zoom_pan._zoom_in()
+    zoom_pan._zoom_in()
+    scale_before_redraw = zoom_pan._scale
+
+    # Simuliert einen vollen Canvas-Redraw: Items werden an rohen (unskalierten) Koordinaten neu erzeugt.
+    canvas.delete("all")
+    canvas.create_rectangle(0, 0, 100, 100, tags=("node",))
+    raw_bbox = canvas.bbox("node")
+
+    zoom_pan.reapply_zoom()
+
+    assert zoom_pan._scale == scale_before_redraw  # _scale bleibt unverändert, wird nie zurückgesetzt
+    scaled_bbox = canvas.bbox("node")
+    assert scaled_bbox != raw_bbox  # die Darstellung wurde tatsächlich wieder skaliert
+
+
+def test_reapply_zoom_is_noop_at_default_scale(tk_root):
+    canvas = tk.Canvas(tk_root)
+    zoom_pan = KompetenzGraphCanvasZoomPan(canvas)
+    canvas.create_rectangle(0, 0, 100, 100, tags=("node",))
+    bbox_before = canvas.bbox("node")
+
+    zoom_pan.reapply_zoom()
+
+    assert canvas.bbox("node") == bbox_before
+
+
+def test_reapply_zoom_does_not_block_further_zoom_out_after_redraw(tk_root):
+    """Regressionstest für das ursprüngliche Symptom: nach mehrfachem Rauszoomen, simuliertem
+    Redraw und `reapply_zoom()` muss weiteres Rauszoomen weiterhin möglich sein -- `_scale` darf
+    nicht durch das Redraw fälschlich am Minimum hängen bleiben."""
+    canvas = tk.Canvas(tk_root)
+    zoom_pan = KompetenzGraphCanvasZoomPan(canvas)
+    canvas.create_rectangle(0, 0, 100, 100, tags=("node",))
+    zoom_pan._zoom_out()
+    scale_after_first_zoom_out = zoom_pan._scale
+
+    canvas.delete("all")
+    canvas.create_rectangle(0, 0, 100, 100, tags=("node",))
+    zoom_pan.reapply_zoom()
+
+    zoom_pan._zoom_out()
+    assert zoom_pan._scale < scale_after_first_zoom_out

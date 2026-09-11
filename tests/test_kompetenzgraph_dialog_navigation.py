@@ -61,7 +61,7 @@ def _build_dialog_stub() -> KompetenzGraphDialog:
     dialog._last_view = view
     dialog._last_layout = layout
     dialog._renderer = _RecordingRenderer()
-    dialog._zoom_pan = SimpleNamespace(reapply_label_visibility=lambda: None)
+    dialog._zoom_pan = SimpleNamespace(reapply_label_visibility=lambda: None, reapply_zoom=lambda: None)
     dialog._sidebar_scroll = SimpleNamespace(bind_mousewheel_to_content=lambda *_args, **_kwargs: None)
     dialog._detail_panel = SimpleNamespace(render=lambda _node: None, frame=None)
     dialog.canvas = SimpleNamespace(focus_set=lambda: None)
@@ -95,7 +95,7 @@ def test_click_selection_does_not_recompute_view_or_layout(monkeypatch):
 def test_arrow_navigation_does_not_recompute_view_or_layout(monkeypatch):
     dialog = _build_dialog_stub()
     layout_call_count = _patch_layout_call_counter(monkeypatch)
-    monkeypatch.setattr(dialog_module, "recenter_on_node", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(dialog_module, "recenter_on_selection", lambda *_args, **_kwargs: None)
 
     dialog._on_arrow_direction((1.0, 0.0))  # Richtung Osten -- Knoten "B" liegt bei x=200, y=0
 
@@ -112,6 +112,7 @@ def test_filter_change_does_recompute_view_and_layout(monkeypatch):
     daher vorhersehbar mehrfach auf -- Anzahl ist hier nicht der Testgegenstand)."""
     dialog = _build_dialog_stub()
     layout_call_count = _patch_layout_call_counter(monkeypatch)
+    monkeypatch.setattr(dialog_module, "recenter_on_selection_if_offscreen", lambda *_args, **_kwargs: None)
 
     dialog._on_filter_changed(KompetenzGraphFilter(jahrgang=8))
 

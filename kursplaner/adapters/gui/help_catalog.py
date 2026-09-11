@@ -125,4 +125,9 @@ KOMPETENZGRAPH_HELP: dict[str, str] = {
         "bis zur gewählten Anzahl Schritte eingeblendet (gedimmt dargestellt) -- auch aus anderen Fächern."
     ),
     "kc_verweis": "Klick kopiert das wörtliche Kerncurriculum-Zitat in die Zwischenablage (z. B. für das Stundenziel).",
+    "abhaengigkeiten_ansicht": (
+        "Durchgezogene Kanten zeigen Teilkompetenzen (fachliche Bestandteile), gestrichelte Kanten "
+        "zeigen echte Voraussetzungen (vorausgesetztes Wissen/Können) -- beide beantworten "
+        "'was braucht diese Kompetenz', sind aber nicht dasselbe."
+    ),
 }

@@ -13,7 +13,21 @@ MODE_FORT_VORAUS = "fort_voraus"
 die abgeleitete Rückkante `weiterfuehrung` nach oben/fortgeschrittener -- GENAU UMGEKEHRTE
 Vorwärts-/Rückwärts-Zuordnung gegenüber `MODE_OBER_TEIL`, siehe `ancestors_of()`/`descendants_of()`."""
 
-VIEW_MODES: tuple[str, ...] = (MODE_OBER_TEIL, MODE_FORT_VORAUS)
+MODE_ABHAENGIGKEITEN = "abhaengigkeiten"
+"""Ansicht Kompetenz-Abhängigkeiten: zeigt Teilkompetenz- UND Voraussetzungs-Kanten GEMEINSAM,
+weil beide dieselbe Frage beantworten ("was braucht diese Kompetenz?"), aber semantisch
+unterschiedlich bleiben (Teilkompetenz = analytischer Bestandteil, oft kein sauberes
+Vorher/Nachher; Voraussetzung = extern mitgebrachtes, zeitlich vorgelagertes Werkzeug) -- welcher
+der beiden Kantentypen eine konkrete Kante war, entscheidet ausschließlich das Rendering
+(`kompetenzgraph_canvas_edges.py`, Strichart), NICHT diese Funktion hier: `ancestors_of()`/
+`descendants_of()` liefern für diesen Modus eine rein VISUELLE Abhängigkeits-Projektion für
+Layout/Fokus/Kontext, sie verschmelzen die beiden Relationen nicht zu einer neuen fachlichen
+Kante. "N braucht Z" ⇒ Z steht unter N (Z ist hier Nachfahre); für Teilkompetenz ist "was N
+braucht" `teilkompetenzen_by_id[N]` (die abgeleitete Rückkante zu `oberkompetenzen` -- die
+geforderte Umkehrung, da `oberkompetenzen` auf dem TEIL gespeichert ist und zum GANZEN zeigt),
+für Voraussetzung bereits `N.voraussetzungen_ids` direkt (keine Umkehrung nötig)."""
+
+VIEW_MODES: tuple[str, ...] = (MODE_OBER_TEIL, MODE_FORT_VORAUS, MODE_ABHAENGIGKEITEN)
 
 
 def _require_valid_mode(mode_key: str) -> None:
@@ -28,22 +42,27 @@ def ancestors_of(snapshot: KompetenzGraphSnapshot, mode_key: str, node_id: str) 
     `MODE_OBER_TEIL` die allgemeineren Oberkompetenzen (`oberkompetenzen`,
     gespeicherte Vorwärtskante), in `MODE_FORT_VORAUS` die fortgeschritteneren
     Weiterführungen (`weiterfuehrung`, abgeleitete Rückkante zu
-    `voraussetzungen`) -- **niemals** `"classification"`-Kanten
-    (`primarer_bereich`/`prozessbereiche`), unabhängig vom Modus. Diese
-    Funktion ist die einzige Stelle, an der diese Richtungssemantik
-    entschieden wird -- Fokus-, Kontext-, Layout- und Pfeiltasten-Code
-    rufen ausschließlich sie (bzw. `descendants_of()`) auf, statt die
-    Feldwahl selbst zu treffen.
+    `voraussetzungen`), in `MODE_ABHAENGIGKEITEN` die Vereinigung beider
+    ("was braucht MICH" über beide Kantentypen -- reine Layout-Projektion,
+    siehe Modul-Docstring von `MODE_ABHAENGIGKEITEN`) -- **niemals**
+    `"classification"`-Kanten (`primarer_bereich`/`prozessbereiche`),
+    unabhängig vom Modus. Diese Funktion ist die einzige Stelle, an der
+    diese Richtungssemantik entschieden wird -- Fokus-, Kontext-, Layout-
+    und Pfeiltasten-Code rufen ausschließlich sie (bzw. `descendants_of()`)
+    auf, statt die Feldwahl selbst zu treffen.
 
     Returns:
         Leeres Tupel, wenn `node_id` nicht im Snapshot existiert (z. B.
         ein Unresolved-Link-Ziel) -- kein Fehler.
     """
     _require_valid_mode(mode_key)
+    node = snapshot.nodes.get(node_id)
     if mode_key == MODE_OBER_TEIL:
-        node = snapshot.nodes.get(node_id)
         return node.oberkompetenzen_ids if node is not None else ()
-    return snapshot.weiterfuehrung_by_id.get(node_id, ())
+    if mode_key == MODE_FORT_VORAUS:
+        return snapshot.weiterfuehrung_by_id.get(node_id, ())
+    oberkompetenzen_ids = node.oberkompetenzen_ids if node is not None else ()
+    return oberkompetenzen_ids + snapshot.weiterfuehrung_by_id.get(node_id, ())
 
 
 def descendants_of(snapshot: KompetenzGraphSnapshot, mode_key: str, node_id: str) -> tuple[str, ...]:
@@ -52,14 +71,18 @@ def descendants_of(snapshot: KompetenzGraphSnapshot, mode_key: str, node_id: str
     Spiegelbildlich zu `ancestors_of()`: in `MODE_OBER_TEIL` die
     atomareren Teilkompetenzen (`teilkompetenzen`, abgeleitete Rückkante
     zu `oberkompetenzen`), in `MODE_FORT_VORAUS` die niedrigschwelligeren
-    Voraussetzungen (`voraussetzungen`, gespeicherte Vorwärtskante).
-    Niemals `"classification"`-Kanten.
+    Voraussetzungen (`voraussetzungen`, gespeicherte Vorwärtskante), in
+    `MODE_ABHAENGIGKEITEN` die Vereinigung beider ("was BRAUCHT dieser
+    Knoten" über beide Kantentypen). Niemals `"classification"`-Kanten.
     """
     _require_valid_mode(mode_key)
+    node = snapshot.nodes.get(node_id)
     if mode_key == MODE_OBER_TEIL:
         return snapshot.teilkompetenzen_by_id.get(node_id, ())
-    node = snapshot.nodes.get(node_id)
-    return node.voraussetzungen_ids if node is not None else ()
+    if mode_key == MODE_FORT_VORAUS:
+        return node.voraussetzungen_ids if node is not None else ()
+    voraussetzungen_ids = node.voraussetzungen_ids if node is not None else ()
+    return snapshot.teilkompetenzen_by_id.get(node_id, ()) + voraussetzungen_ids
 
 
 def _closure(
@@ -145,7 +168,7 @@ def bidirectional_closure(
 
     Args:
         snapshot: Das vollständige Kompetenznetz-Snapshot.
-        mode_key: `MODE_OBER_TEIL` oder `MODE_FORT_VORAUS`.
+        mode_key: einer der `VIEW_MODES`.
         seed_ids: Startknoten der BFS.
         max_depth: Maximale Anzahl an Hops von der Startmenge aus, oder
             `None` für unbeschränkte Tiefe (volle transitive Hülle).

@@ -1,7 +1,7 @@
 from kursplaner.core.domain import kompetenzgraph_layout
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
-from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
+from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN, MODE_OBER_TEIL
 from tests.kompetenzgraph_test_support import make_bereich, make_node
 
 _MAX_VERTICAL_JITTER = 20.0
@@ -107,3 +107,19 @@ def test_invisible_nodes_are_not_included_in_positions():
     layout = compute_layered_layout(snapshot, MODE_OBER_TEIL, frozenset({"ROOT", "A"}), frozenset())
 
     assert set(layout.positions.keys()) == {"ROOT", "A"}
+
+
+def test_abhaengigkeiten_mode_layers_mixed_edge_types_consistently():
+    """P-1 -> K-1 (Teilkompetenz, ueber umgedrehte oberkompetenzen) und K-1 -> V-1 (Voraussetzung)
+    sind zwei verschiedene Kantentypen entlang EINES Pfades -- beide muessen in MODE_ABHAENGIGKEITEN
+    zur selben, konsistent aufsteigenden Schichttiefe fuehren (P-1 ueber K-1 ueber V-1)."""
+    parent = make_node("P-1")
+    child = make_node("K-1", oberkompetenzen_ids=("P-1",), voraussetzungen_ids=("V-1",))
+    voraussetzung = make_node("V-1")
+    snapshot = build_kompetenz_graph_snapshot([parent, child, voraussetzung], [])
+    visible = frozenset({"P-1", "K-1", "V-1"})
+
+    layout = compute_layered_layout(snapshot, MODE_ABHAENGIGKEITEN, visible, frozenset())
+
+    assert layout.positions["K-1"].y > layout.positions["P-1"].y + _MAX_VERTICAL_JITTER
+    assert layout.positions["V-1"].y > layout.positions["K-1"].y + _MAX_VERTICAL_JITTER
