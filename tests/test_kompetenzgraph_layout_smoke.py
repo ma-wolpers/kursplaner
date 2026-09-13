@@ -27,61 +27,18 @@ from kursplaner.adapters.gui.kompetenzgraph_canvas_render import (
 )
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphVisibleSet
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
-from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
-from tests.kompetenzgraph_test_support import make_bereich, make_node
+from tests.kompetenzgraph_test_support import make_synthetic_informatik_like_snapshot
 
-_TOTAL_NODES = 144
-_NUM_LAYERS = 6
-_NODES_PER_LAYER = _TOTAL_NODES // _NUM_LAYERS
-_NUM_BEREICHE = 9
 _MAX_VERTICAL_JITTER = 20.0
-
-
-def _build_synthetic_informatik_like_snapshot():
-    """Baut eine synthetische Struktur, die die echten Informatik-Vault-Kennzahlen nachbildet:
-    144 Knoten / 9 Bereiche / 6 Schichten / ~67% der Knoten mit mehreren Prozessbereichen (real:
-    96 von 144 = 67%) -- deterministisch generiert, keine Abhängigkeit von echten Dateien."""
-    bereich_ids = [f"BEREICH-{i}" for i in range(_NUM_BEREICHE)]
-    bereiche = [make_bereich(bereich_id) for bereich_id in bereich_ids]
-
-    nodes = []
-    previous_layer_ids: list[str] = []
-    node_index = 0
-    for _layer in range(_NUM_LAYERS):
-        current_layer_ids: list[str] = []
-        for _position in range(_NODES_PER_LAYER):
-            node_id = f"NODE-{node_index}"
-            primarer_bereich_id = bereich_ids[node_index % _NUM_BEREICHE]
-            oberkompetenzen_ids: tuple[str, ...] = ()
-            if previous_layer_ids:
-                parent_id = previous_layer_ids[node_index % len(previous_layer_ids)]
-                oberkompetenzen_ids = (parent_id,)
-            prozessbereich_ids: tuple[str, ...] = ()
-            if node_index % 3 != 0:  # ~2/3 der Knoten bekommen mehrere Prozessbereiche
-                other_bereiche = [bid for bid in bereich_ids if bid != primarer_bereich_id]
-                prozessbereich_ids = tuple(other_bereiche[:2])
-            nodes.append(
-                make_node(
-                    node_id,
-                    primarer_bereich_id=primarer_bereich_id,
-                    oberkompetenzen_ids=oberkompetenzen_ids,
-                    prozessbereich_ids=prozessbereich_ids,
-                )
-            )
-            current_layer_ids.append(node_id)
-            node_index += 1
-        previous_layer_ids = current_layer_ids
-
-    return build_kompetenz_graph_snapshot(nodes, bereiche)
 
 
 def test_large_synthetic_graph_produces_valid_non_overlapping_layout(tk_root):
     """Integrations-/Smoke-Test: prüft NUR das Zusammenspiel auf realistischer Skala, nicht
     einzelne Eigenschaften isoliert (die sind bereits durch die feingranularen Tests in
     `test_kompetenzgraph_layout.py`/`test_kompetenzgraph_canvas_edges.py` abgedeckt)."""
-    snapshot = _build_synthetic_informatik_like_snapshot()
+    snapshot = make_synthetic_informatik_like_snapshot()
     visible_node_ids = frozenset(snapshot.nodes.keys())
     visible_bereich_ids = frozenset(snapshot.bereiche.keys())
 

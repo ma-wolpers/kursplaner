@@ -1,7 +1,12 @@
+import itertools
+
+from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_layout_forces import (
     compute_bereich_centroid_positions,
     relax_horizontal_positions,
 )
+from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
+from tests.kompetenzgraph_test_support import make_synthetic_informatik_like_snapshot
 
 # --- `_pull_toward_neighbor_median()` -- Testmatrix (bisher ungeprüft als "korrekt" angenommen) ---
 
@@ -235,3 +240,160 @@ def test_bereich_centroid_respects_minimum_spacing():
     )
 
     assert abs(positions["I-Eins"] - positions["I-Zwei"]) >= 170.0
+
+
+# --- Primärbereich-Kohäsion (`bereich_of_node`-Parameter von `relax_horizontal_positions()`) ---
+#
+# Verankert Filter-Waisen (Knoten, die durch eine Filteransicht ihre echten Hierarchie-Nachbarn
+# verlieren und sonst an ihrer arbiträren Slot-Index-Position einfrieren würden) an einem aus den
+# ANDEREN sichtbaren Mitgliedern desselben `primarer_bereich_id` geschätzten, EINMALIG vor der
+# Sweep-Schleife fixierten Anker. Siehe die Konstanten-Docstrings in `kompetenzgraph_layout_forces.py`
+# für die vollständige Herleitung inklusive des verworfenen, nachweislich instabilen
+# live-peer-Mittelwert-Entwurfs (Übergangsmatrix-Eigenwert exakt 1.0 -> unbegrenzter Drift).
+
+
+def test_node_without_primarer_bereich_id_is_bit_identical_to_no_cohesion_at_all():
+    """Ein Knoten, der in `bereich_of_node` gar nicht vorkommt (kein `primarer_bereich_id`), darf
+    durch die bloße Anwesenheit des Parameters für ANDERE Knoten nicht mitbeeinflusst werden."""
+    sorted_layers = {0: ("PARENT",) + tuple(f"F-{i}" for i in range(5)), 1: ("NOBEREICH", "OTHER")}
+    edges = {"NOBEREICH": ("PARENT",)}
+    bereich_of_node = {"OTHER": "X"}  # NOBEREICH bewusst nicht in der Map
+
+    with_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    without_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0)
+
+    assert with_dict["NOBEREICH"] == without_dict["NOBEREICH"]
+
+
+def test_sole_visible_bereich_member_falls_back_cleanly_to_pure_hierarchy_target():
+    """Regressionstest für den im Zuge dieser Änderung selbst gefundenen Bug: ein Knoten OHNE
+    jeden sichtbaren Peer seines Bereichs darf NICHT zu seiner eigenen (Selbst-)Position gezogen
+    werden -- `_estimate_bereich_anchor_positions()` schließt den Knoten selbst aus und liefert für
+    einen alleinigen Bereichsträger deshalb GAR KEINEN Anker, nicht etwa `0.15`/`0.8` Richtung sich
+    selbst. Der Knoten muss exakt auf seinem reinen Hierarchie-Ziel landen, obwohl er sowohl einen
+    `primarer_bereich_id` als auch einen sichtbaren Hierarchie-Nachbarn hat."""
+    sorted_layers = {0: ("FAR_PARENT",) + tuple(f"F-{i}" for i in range(20)), 1: ("SOLO",)}
+    edges = {"SOLO": ("FAR_PARENT",)}
+    bereich_of_node = {"SOLO": "Z"}  # einziger Träger von "Z" im gesamten Aufruf
+
+    with_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    without_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0)
+
+    assert with_dict["SOLO"] == without_dict["SOLO"]
+
+
+def test_filtering_a_bereich_group_down_to_one_visible_member_falls_back_to_hierarchy_target():
+    """Der Fall, der den ursprünglichen Clutter-Bug ausgelöst hat: im Vollgraphen hat ein Knoten
+    mehrere sichtbare Peers desselben Bereichs, eine Filteransicht reduziert die sichtbare Menge
+    aber auf genau diesen einen Knoten. `bereich_of_node` wird pro `compute_layered_layout()`-Aufruf
+    frisch aus der AKTUELL sichtbaren Menge gebaut (siehe `kompetenzgraph_layout.py`) -- der hier
+    übergebene Dict enthält deshalb, wie in der gefilterten Ansicht, nur noch diesen einen Knoten
+    für Bereich "X". Kein Anker verfügbar (peer_count < 2) -> reines Hierarchie-Ziel, kein Einfrieren
+    an einer arbiträren Position mehr."""
+    sorted_layers = {0: ("PARENT",) + tuple(f"F-{i}" for i in range(5)), 1: ("LONE_SURVIVOR",)}
+    edges = {"LONE_SURVIVOR": ("PARENT",)}
+    bereich_of_node = {"LONE_SURVIVOR": "X"}  # die früheren Peers sind schlicht nicht mehr in der Map
+
+    with_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    without_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0)
+
+    assert with_dict["LONE_SURVIVOR"] == without_dict["LONE_SURVIVOR"]
+
+
+def test_bereich_group_members_end_up_measurably_closer_together():
+    """Drei sichtbare Knoten desselben Bereichs, ohne jede Hierarchiekante untereinander, mit weit
+    auseinanderliegenden Elternteilen (drei unabhängige, weit gestreute Ein-Kind-Elternteile) --
+    die Kohäsion zieht sie näher zueinander als ohne sie. Geprüft wird die Streuung (max-min der
+    X-Werte), nicht ein exakter Zahlenwert, da die Zielverschiebung durch das Zusammenspiel von
+    Anker-Blend UND `_resolve_min_spacing()`-Pooling entsteht."""
+    layer0 = ("P1",) + tuple(f"F1-{i}" for i in range(9)) + ("P2",) + tuple(f"F2-{i}" for i in range(9)) + ("P3",)
+    sorted_layers = {0: layer0, 1: ("N1", "N2", "N3")}
+    edges = {"N1": ("P1",), "N2": ("P2",), "N3": ("P3",)}
+    bereich_of_node = {"N1": "X", "N2": "X", "N3": "X"}
+
+    without = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0)
+    with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node)
+
+    spread_without = without["N3"] - without["N1"]
+    spread_with = with_cohesion["N3"] - with_cohesion["N1"]
+    assert spread_with < spread_without
+
+
+def test_hierarchy_connected_group_member_moves_far_less_than_a_hierarchy_free_one():
+    """Herzstück der Gewichtswahl: `has_hierarchy_neighbor` entscheidet ALLEIN (nicht die
+    Gruppengröße) zwischen dem schwachen Gewicht (`_WEAK_BEREICH_COHESION_WEIGHT = 0.15`, schützt
+    ein echtes Hierarchie-Ziel) und dem starken (`_STRONG_BEREICH_COHESION_WEIGHT = 0.8`, ein
+    Knoten ohne jeden sichtbaren Hierarchie-Nachbarn hat kein schützenswertes Signal). MAIN hat
+    einen echten Elternknoten, FARPEER keinen -- beide teilen denselben Bereich und damit denselben
+    Anker (die jeweils andere Startposition). Ein einziger Top-Down-Sweep (`iterations=1`) hält die
+    Elternposition unverändert (keine Rückkopplung über einen Bottom-Up-Sweep), sodass die
+    Verschiebung ausschließlich der Gewichtsunterschied erklärt. Zwischen MAIN und FARPEER liegen
+    20 unbeteiligte Füllknoten, damit der Anker-Abstand (1050px) groß gegenüber `min_spacing` (50px)
+    bleibt und `_resolve_min_spacing()`-Pooling die beiden Ziele nicht künstlich zusammenzieht."""
+    layer1 = ("MAIN",) + tuple(f"FILL-{i}" for i in range(20)) + ("FARPEER",)
+    sorted_layers = {0: ("STRONGPARENT",), 1: layer1}
+    edges = {"MAIN": ("STRONGPARENT",)}  # FARPEER hat keinen sichtbaren Hierarchie-Nachbarn
+    bereich_of_node = {"MAIN": "X", "FARPEER": "X"}
+
+    with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=1, min_spacing=50.0, bereich_of_node=bereich_of_node)
+    without = relax_horizontal_positions(sorted_layers, edges, iterations=1, min_spacing=50.0)
+
+    anchor_distance = without["FARPEER"] - without["MAIN"]  # 1050.0 -- der volle Anker-Abstand
+    main_shift_fraction = abs(with_cohesion["MAIN"] - without["MAIN"]) / anchor_distance
+    farpeer_shift_fraction = abs(with_cohesion["FARPEER"] - without["FARPEER"]) / anchor_distance
+
+    # Erwartung grob entlang der Gewichte (0.15 bzw. 0.8), mit Toleranz fürs PAVA-Pooling.
+    assert main_shift_fraction < 0.2
+    assert farpeer_shift_fraction > 0.6
+    assert farpeer_shift_fraction > main_shift_fraction * 3  # klar unterscheidbar, nicht nur leicht
+
+
+def test_more_iterations_of_bereich_cohesion_stabilize_instead_of_drifting_further():
+    """Konvergenznachweis für die Kohäsionskraft selbst -- analog zu
+    `test_more_iterations_stabilize_instead_of_drifting_further`, aber mit `bereich_of_node`
+    aktiviert. Dies ist der direkte Regressionstest gegen die während der Entwicklung gefundene,
+    ECHTE Instabilität eines früheren (live-peer-Mittelwert-)Entwurfs: mit dem fixen Anker ist die
+    Blend-Rekursion `x_{t+1} = a·x_t + c` mit konstantem `c` und `|a| < 1`, also nachweislich
+    konvergent -- 6 und 40 Sweeps müssen exakt dasselbe Ergebnis liefern, nicht nur ein ähnliches."""
+    sorted_layers = {0: ("P1", "P2", "P3", "P4", "P5", "P6"), 1: ("N1", "N2", "N3", "N4", "N5", "N6")}
+    edges = {f"N{i}": (f"P{i}",) for i in range(1, 7)}
+    bereich_of_node = {f"N{i}": "X" for i in range(1, 7)}  # alle sechs im selben Bereich
+
+    positions_six = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    positions_forty = relax_horizontal_positions(sorted_layers, edges, iterations=40, min_spacing=100.0, bereich_of_node=bereich_of_node)
+
+    assert positions_six == positions_forty
+
+
+def test_filtering_out_a_layer_clusters_orphaned_bereich_members_more_tightly_than_across_bereiche():
+    """Integrationstest auf realistischer Skala (144 Knoten / 9 Bereiche / 6 Schichten, dieselbe
+    Fixture wie der Gesamt-Pipeline-Smoke-Test), über die volle `compute_layered_layout()`-Pipeline
+    -- nicht nur `relax_horizontal_positions()` isoliert. Eine ganze mittlere Schicht wird aus der
+    sichtbaren Menge entfernt (genau der ursprünglich gemeldete Fall: ein Filter lässt Kinder ohne
+    ihre echten Eltern zurück). Direkte Prüfung des eigentlichen Nutzerwunsches: Knoten desselben
+    `primarer_bereich_id` liegen im Schnitt klar enger beieinander als Knoten verschiedener
+    Bereiche -- statt einer bloßen "sieht weniger verstreut aus"-Behauptung."""
+    snapshot = make_synthetic_informatik_like_snapshot()
+    removed_layer_node_ids = {f"NODE-{i}" for i in range(48, 72)}  # dritte von sechs Schichten
+    visible_node_ids = frozenset(snapshot.nodes.keys() - removed_layer_node_ids)
+    visible_bereich_ids = frozenset(snapshot.bereiche.keys())
+
+    layout = compute_layered_layout(snapshot, MODE_OBER_TEIL, visible_node_ids, visible_bereich_ids)
+
+    x_by_bereich: dict[str, list[float]] = {}
+    for node_id in visible_node_ids:
+        bereich_id = snapshot.nodes[node_id].primarer_bereich_id
+        x_by_bereich.setdefault(bereich_id, []).append(layout.positions[node_id].x)
+
+    intra_bereich_distances = [
+        abs(a - b) for xs in x_by_bereich.values() if len(xs) >= 2 for a, b in itertools.combinations(xs, 2)
+    ]
+    inter_bereich_distances = [
+        abs(a - b)
+        for (_id1, xs1), (_id2, xs2) in itertools.combinations(x_by_bereich.items(), 2)
+        for a, b in itertools.product(xs1[:5], xs2[:5])  # Stichprobe -- Paarzahl sonst quadratisch groß
+    ]
+
+    assert sum(intra_bereich_distances) / len(intra_bereich_distances) < sum(inter_bereich_distances) / len(
+        inter_bereich_distances
+    )

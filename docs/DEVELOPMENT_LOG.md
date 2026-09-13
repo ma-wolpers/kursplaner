@@ -8,6 +8,70 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-13) — Primärbereich-Kohäsion: Filter-Waisen frieren nicht mehr an arbiträrer Position ein
+
+Ausdrücklicher Nutzerwunsch nach dem Overlap-/Clutter-Fix (Eintrag weiter unten): *"Ich wünsche
+mir, dass sich in dem Kompetenznetz alles entsprechend der wirkenden Kräfte verschiebt, wenn sich
+die angewendeten Filter ändern. Jede Filteransicht sollte kräftemäßig komplett austariert sein."*
+
+**Root Cause**: `_pull_toward_neighbor_median()` (`kompetenzgraph_layout_forces.py`) lässt einen
+Knoten ohne jeden sichtbaren Hierarchie-Nachbarn exakt an seiner arbiträren Slot-Index-
+Startposition einfrieren. `_build_visible_parent_edges()` (`kompetenzgraph_layout.py`) filtert
+Elternkanten strikt auf die sichtbare Menge -- fällt der echte Elternteil oder alle Kinder eines
+Knotens durch einen Filter heraus, wird er zu einem Grad-0-Knoten in der Hierarchie, obwohl er im
+Vollgraphen echte Struktur hat. `draw_classification_edges()` zeichnet die
+`primarer_bereich`-Kante trotzdem immer -- das erzeugte den ursprünglich gemeldeten Effekt (viele
+Linien laufen sternförmig von verstreuten Knoten auf einen einzigen Bereich-Hub zu).
+
+**Erster Entwurf (verworfen, ECHT instabil)**: ein Blend Richtung des live pro Sweep neu
+berechneten Mittelwerts der beweglichen Bereichs-Peers. Beim Durchrechnen konkreter Szenarien
+(mehrere Peers desselben Bereichs, von denen mindestens einer zusätzlich eine externe
+Hierarchie-Verbindung hat) zeigte sich eine Übergangsmatrix mit Eigenwert exakt `1.0` --
+kein Konvergenzpunkt, sondern unbegrenzter linearer Drift. Mechanismus: sobald zwei
+Gruppenmitglieder-Ziele näher zusammenlanden als `min_spacing`, erzwingt
+`_resolve_min_spacing()`s PAVA-Pooling eine asymmetrische Auflösung ("wer landet links/rechts"),
+die über den gemeinsamen externen Hierarchie-Nachbarn in den nächsten Sweep zurückgekoppelt wird
+und sich unbegrenzt aufschaukelt -- verifiziert über 200+ Sweeps (konstanter Drift pro Zyklus,
+z. B. -325/Zyklus) bei jeder getesteten `min_spacing`-Skala (1000 bis 0.1) und unabhängig von der
+Gruppengröße (2 wie 6 Mitglieder). Per kontrollierten, unbeteiligten Füllknoten bestätigt: kein
+harmloses Mitverschieben des gesamten Graphen, sondern eine echte, unbegrenzt wachsende
+Differenz zum Rest des Graphen (Lücke zu einem unbeteiligten Füllknoten: 232→297→525→1175→3450
+über wachsende Sweep-Zahl).
+
+**Erwogene Alternative (verworfen)**: eine globale "Gravitation" jedes Knotens Richtung seiner
+EIGENEN Startposition eliminiert das Eigenwert-1-Problem mathematisch nachweisbar (verifiziert:
+konvergiert zu einer stabilen, begrenzten Lücke statt unbegrenzt zu driften). Verworfen, weil sie
+innerhalb des festen Sweep-Budgets (`_DEFAULT_ITERATIONS = 6`) nur bei einem Gewicht (~0.3) stark
+genug konvergiert, das gleichzeitig JEDE legitime Hierarchie-/Bereichs-Neupositionierung im
+GESAMTEN Graphen spürbar abbremst -- eine globale Steuer auf jede Knotenbewegung, um ein lokal
+begrenztes Problem zu beheben.
+
+**Finaler Entwurf**: jeder Knoten mit `primarer_bereich_id` bekommt einen pro Knoten, EINMALIG vor
+der Sweep-Schleife berechneten "Bereichs-Anker" (Mittelwert der Start-Positionen ALLER ANDEREN
+sichtbaren Knoten desselben Bereichs, selbst-exkludiert, `_estimate_bereich_anchor_positions()`),
+geblendet in das Hierarchie-Ziel jedes Sweeps mit einem Gewicht, das ALLEIN davon abhängt, ob der
+Knoten einen sichtbaren Hierarchie-Nachbarn hat (`_WEAK_BEREICH_COHESION_WEIGHT = 0.15` falls ja,
+`_STRONG_BEREICH_COHESION_WEIGHT = 0.8` falls nein) -- der Anker selbst wird während der
+Relaxation NIE aktualisiert. Mit einem FIXEN Anker wird die Rekursion zu einer reinen affinen
+Form `x_{t+1} = a·x_t + c` mit `|a| < 1` (da `w < 1`), nachweislich konvergent zu `x* = c/(1-a)` --
+kein Eigenwert-1-Term möglich, da die Bereichs-Seite der Gleichung nie von einer sich noch
+entwickelnden Position abhängt. Hat ein Knoten als einziger sichtbarer Träger seines
+`primarer_bereich_id` keinen Anker verfügbar (kein anderes sichtbares Mitglied), fällt er exakt
+auf sein reines Hierarchie-Ziel zurück -- kein Selbst-Anker-Bug (während der Entwicklung selbst
+gefunden und in `test_sole_visible_bereich_member_falls_back_cleanly_to_pure_hierarchy_target`
+festgeschrieben). `prozessbereiche` fließen nirgends in diese Kraft ein, nur `primarer_bereich_id`.
+
+`bereich_of_node` wird in `compute_layered_layout()` pro Aufruf frisch aus der AKTUELL sichtbaren
+Knotenmenge gebaut -- ein Knoten, der durch einen Filter zum alleinigen sichtbaren Träger seines
+Bereichs wird, verliert damit automatisch seinen Anker und fällt sauber auf sein Hierarchie-Ziel
+zurück, ohne dass Filter-/Dialog-Code angefasst werden musste.
+
+Vollständige Testabdeckung in `tests/test_kompetenzgraph_layout_forces.py`: Gewichtswahl nach
+Hierarchie-Nachbarschaft, Selbst-Anker-Fallback, Filter-Waisen-Fallback,
+`primarer_bereich_id is None`-Unberührtheit, Konvergenznachweis (6 vs. 40 Sweeps identisch), und
+ein Integrationstest auf der 144-Knoten-Fixture (eine ganze Schicht gefiltert, gleicher
+Bereich-Knoten liegen danach messbar enger beieinander als Knoten verschiedener Bereiche).
+
 ### Fixed (2026-09-13) — Repository-Protocol-Drift: vier von mypy gefundene Bugs behoben, systemischer Schutz ergänzt
 
 Ein routinemäßiger `mypy kursplaner`-Lauf zeigte 28 Fehler; vier davon wurden root-gecausalt und

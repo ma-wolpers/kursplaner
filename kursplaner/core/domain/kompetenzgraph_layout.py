@@ -155,7 +155,12 @@ def compute_layered_layout(
     tatsächliche Verbindung bleibt über Kante + sichtbaren Andockpunkt am
     Knotenrand erkennbar), oberhalb von `MAX_NODES_FOR_RELAXATION`
     (Performance-Budget, keine fachliche Grenze) bleibt es bei den reinen
-    Slot-Index-Startpositionen. Bereich-Hubs bekommen eine feste eigene
+    Slot-Index-Startpositionen. Zusätzlich fließt eine Primärbereich-Kohäsion in dieselbe
+    Relaxation ein (`bereich_of_node`, ausschließlich `primarer_bereich_id`): verankert Knoten
+    ohne jeden sichtbaren Hierarchie-Nachbarn (typisch nach einem Filter, der ihren echten
+    Elternteil oder alle Kinder entfernt hat) an ihrem Bereich statt sie arbiträr einzufrieren --
+    siehe `kompetenzgraph_layout_forces.py::_apply_bereich_cohesion()` für die vollständige
+    Bereichsgruppe/Bereichswaise-Fallunterscheidung. Bereich-Hubs bekommen eine feste eigene
     Zeile, positioniert über dem Schwerpunkt der sie klassifizierenden
     Kompetenzen (`compute_bereich_centroid_positions`) statt alphabetisch.
     Zusätzlich bekommt jeder Kompetenz-Knoten (NICHT die Bereich-Hub-Zeile)
@@ -198,12 +203,26 @@ def compute_layered_layout(
         )
 
     within_performance_budget = len(visible_node_ids) <= MAX_NODES_FOR_RELAXATION
+    # `bereich_of_node` treibt die Primärbereich-Kohäsion in `relax_horizontal_positions()` --
+    # ausschließlich `primarer_bereich_id`, niemals `prozessbereiche` (siehe dortige Docstrings
+    # für die vollständige Bereichsgruppe/Bereichswaise-Fallunterscheidung). Verankert Knoten, die
+    # durch einen Filter zu Hierarchie-Waisen wurden, an ihrem Bereich statt sie an ihrer
+    # arbiträren Slot-Index-Startposition einfrieren zu lassen.
+    bereich_of_node = {
+        node_id: snapshot.nodes[node_id].primarer_bereich_id
+        for node_id in visible_node_ids
+        if snapshot.nodes[node_id].primarer_bereich_id is not None
+    }
     # `sorted_layers` dient `relax_horizontal_positions()` nur als Sweep-0-Startpunkt -- die
     # Reihenfolge ist danach kein eigener Optimierungsgegenstand mehr, sie folgt den Kräften
     # (siehe dortige Begründung). Oberhalb des Performance-Budgets bleibt es bei den reinen
     # Slot-Index-Startpositionen (iterations=0).
     x_by_node = relax_horizontal_positions(
-        sorted_layers, parent_edges, iterations=6 if within_performance_budget else 0, min_spacing=_NODE_SPACING
+        sorted_layers,
+        parent_edges,
+        iterations=6 if within_performance_budget else 0,
+        min_spacing=_NODE_SPACING,
+        bereich_of_node=bereich_of_node,
     )
 
     positions: dict[str, GraphNodePosition] = {}

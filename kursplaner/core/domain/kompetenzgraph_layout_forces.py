@@ -14,6 +14,61 @@ bei den reinen Slot-Index-Startpositionen. In der Praxis unkritisch, da Filter/F
 die sichtbare Menge im Normalfall klein halten; verhindert aber, dass ein sehr großes, künftig
 fachübergreifendes Vault die Relaxation unbegrenzt verlängert."""
 
+_WEAK_BEREICH_COHESION_WEIGHT = 0.15
+"""Blend-Gewicht Richtung Bereichs-Anker (siehe `_apply_bereich_cohesion()`) für einen Knoten MIT
+mindestens einem sichtbaren Hierarchie-Nachbarn (Elternteil oder Kind) in der aktuellen Ansicht.
+
+Bewusst klein: ein solcher Knoten hat ein echtes, fachlich bedeutsames Hierarchie-Ziel, das die
+Bereichs-Kraft nicht dominieren darf."""
+
+_STRONG_BEREICH_COHESION_WEIGHT = 0.8
+"""Blend-Gewicht Richtung Bereichs-Anker für einen Knoten OHNE jeden sichtbaren Hierarchie-Nachbarn
+-- unabhängig davon, ob sein Bereich viele oder nur einen weiteren sichtbaren Peer hat (beides
+läuft über denselben, einmalig fixierten Anker, siehe `_estimate_bereich_anchor_positions()`).
+Bewusst an der Hierarchie-Nachbarschaft festgemacht, nicht an der Gruppengröße: ein gut
+bevölkerter Bereich hätte bei einer größenabhängigen Gewichtung für jedes Mitglied denselben
+(zwangsläufig schwachen) Wert -- ein reiner Filter-Waise ohne jedes Hierarchie-Signal braucht aber
+denselben starken Zug wie jeder andere Knoten ohne Hierarchie-Signal, unabhängig von der Größe
+seines Bereichs. Es gibt hier nichts fachlich Schützenswertes, das ein schwaches Gewicht
+rechtfertigen würde.
+
+**Wichtige Architektur-Entscheidung (Konvergenz-bedingt):** Das Bereichs-Ziel ist für JEDEN Knoten
+ein EINMALIG vor der Sweep-Schleife aus den Start-Positionen berechneter, danach FIXER Wert -- nie
+ein live pro Sweep neu berechneter Mittelwert bewegter Peers. Ein früherer Entwurf blendete
+stattdessen Richtung eines live aktualisierten Gruppen-Mittelwerts (Peer zieht zu seinen ebenfalls
+sich bewegenden anderen Peers). Das erwies sich beim Durchrechnen konkreter Szenarien als ECHT
+INSTABIL, sobald ein Gruppenmitglied ZUGLEICH einen Hierarchie-Nachbarn außerhalb der Gruppe hatte
+-- unabhängig von der Gruppengröße (auch mit 5 echten Peers reproduziert, nicht nur im
+degenerierten 1-Peer-Fall): die Kopplung aus (a) Hierarchie-Pull zwischen diesem Mitglied und
+seinem externen Nachbarn und (b) Bereichs-Pull zwischen den Gruppenmitgliedern erzeugte eine
+Übergangsmatrix mit Eigenwert exakt `1.0` -- keine Konvergenz, sondern unbegrenzter linearer Drift
+der GESAMTEN Gruppe plus des externen Nachbarn relativ zum Rest des Graphen (verifiziert über 200+
+Sweeps, kein Abklingen; ein unbeteiligter Kontrollknoten in derselben Schicht blieb exakt an seiner
+Startposition stehen, während sich der Abstand zu ihm unbegrenzt vergrößerte). Ursache im Detail:
+sobald die live-blendeten Ziele zweier Gruppenmitglieder näher beieinander liegen als
+`min_spacing`, muss `_resolve_min_spacing()` sie künstlich auseinanderziehen; die dabei
+entstehende systematische Verschiebung (wer landet "links", wer "rechts") speist sich über den
+externen Hierarchie-Nachbarn in die NÄCHSTE Sweep-Berechnung zurück und akkumuliert sich Sweep für
+Sweep, statt sich auszugleichen -- dieselbe Fehlerklasse wie die beiden bereits dokumentierten
+historischen Konvergenzfehler dieses Moduls (siehe DEVELOPMENT_LOG.md, 2026-09-11).
+
+Erwogene Alternative, verworfen: eine schwache "Gravitation" jedes Knotens Richtung seiner EIGENEN
+Startposition (statt Richtung anderer Knoten) würde das Eigenwert-1-Problem ebenfalls beheben
+(empirisch verifiziert: konvergiert zu einem stabilen, endlichen Abstand statt unbegrenzt zu
+driften). Verworfen, weil sie innerhalb des bestehenden Sweep-Budgets (`_DEFAULT_ITERATIONS = 6`)
+nur bei einem Gewicht stark genug konvergiert, das gleichzeitig JEDE legitime Hierarchie-/
+Bereichs-Neupositionierung im GESAMTEN Graphen spürbar abbremst -- ein globaler Tarif auf jede
+Bewegung, um ein lokal begrenztes Problem zu lösen. Der fixe Anker erreicht dieselbe Stabilität
+gezielt nur dort, wo sie gebraucht wird, und konvergiert dabei schon fast vollständig innerhalb
+der bestehenden 6 Sweeps (keine Sweep-Budget-Erhöhung, kein zusätzlicher globaler Mechanismus
+nötig).
+
+Mit einem FIXEN Anker (Konstante, hängt nie von sich änderenden Positionen ab) verschwindet das
+Rückkopplungsrisiko strukturell: die Kopplung Hierarchie-Nachbar<->Knoten<->Bereichs-Anker wird zu
+einer reinen AFFINEN Rekursion mit konstantem Störterm (`x_{t+1} = a*x_t + c`, `|a|<1`), die
+nachweislich zu einem stabilen Fixpunkt konvergiert (`x* = c/(1-a)`), unabhängig davon, was sonst
+noch mit dem Anker-Wert verbunden ist -- er ändert sich während der gesamten Relaxation nie."""
+
 
 def _median(values: list[float]) -> float:
     """Median einer nichtleeren Werteliste -- robuster gegen Ausreißer als der Mittelwert."""
@@ -53,6 +108,82 @@ def _pull_toward_neighbor_median(
         neighbor_positions = [positions[neighbor] for neighbor in neighbor_map.get(node_id, ()) if neighbor in positions]
         targets[node_id] = _median(neighbor_positions) if neighbor_positions else positions[node_id]
     return targets
+
+
+def _estimate_bereich_anchor_positions(
+    bereich_of_node: Mapping[str, str], initial_positions: Mapping[str, float]
+) -> dict[str, float]:
+    """Fixes Anker-Ziel PRO KNOTEN (nicht pro Bereich), EINMALIG aus den Start-Positionen berechnet
+    -- ausschließlich aus `primarer_bereich_id`-Mitgliedern, unter Ausschluss des Knotens selbst
+    (Mittelwert der ANDEREN sichtbaren Mitglieder desselben Bereichs). NICHT der offizielle,
+    angezeigte Bereichs-Hub (das ist `compute_bereich_centroid_positions()`, läuft NACH der
+    Relaxation, berücksichtigt primär+prozess für einen unabhängigen Zweck: die
+    Hub-Zeilen-Positionierung). Dient als Ziel für JEDEN Knoten mit `primarer_bereich_id` während
+    der Relaxation, siehe `_apply_bereich_cohesion()`.
+
+    Ein Knoten, der die EINZIGE jemals sichtbare Kompetenz seines Bereichs ist, bekommt bewusst
+    KEINEN Eintrag -- es gibt niemanden außer ihm selbst, zu dem er gezogen werden könnte.
+    `_apply_bereich_cohesion()` fällt für ihn auf das reine Hierarchie-Ziel zurück. OHNE diesen
+    Selbst-Ausschluss würde ein Knoten mit hohem Gewicht zu SEINER EIGENEN arbiträren
+    Slot-Index-Startposition zurückgezogen -- exakt das Problem, das diese Kraft eigentlich
+    beheben soll.
+
+    Bewusst EINMALIG statt pro Sweep neu berechnet: ein sich mitbewegender, live aus den aktuellen
+    Positionen abgeleiteter Anker (Peer zieht zu seinen ebenfalls sich bewegenden anderen Peers)
+    erwies sich beim Durchrechnen konkreter Szenarien als instabil -- siehe
+    `_STRONG_BEREICH_COHESION_WEIGHT`-Docstring für die vollständige Herleitung des dabei
+    gefundenen, unbegrenzten Drifts und warum ein FIXER Anker ihn strukturell ausschließt.
+    """
+    sums: dict[str, list[float]] = {}
+    for node_id, bereich_id in bereich_of_node.items():
+        sums.setdefault(bereich_id, []).append(initial_positions[node_id])
+    bereich_sum_count = {bereich_id: (sum(values), len(values)) for bereich_id, values in sums.items()}
+
+    anchor_by_node: dict[str, float] = {}
+    for node_id, bereich_id in bereich_of_node.items():
+        total, count = bereich_sum_count[bereich_id]
+        if count >= 2:
+            anchor_by_node[node_id] = (total - initial_positions[node_id]) / (count - 1)
+    return anchor_by_node
+
+
+def _apply_bereich_cohesion(
+    node_ids: tuple[str, ...],
+    hierarchy_targets: Mapping[str, float],
+    bereich_of_node: Mapping[str, str],
+    bereich_anchor_positions: Mapping[str, float],
+    has_hierarchy_neighbor: Mapping[str, bool],
+) -> dict[str, float]:
+    """Blendet die bereits berechneten Hierarchie-Ziele mit einem FIXEN Primärbereich-Anker.
+
+    Zwei UNABHÄNGIGE Entscheidungen (siehe auch Modul-Docstring der beiden Gewichts-Konstanten):
+
+    1. **Gibt es ein Bereichs-Ziel?** Ja, falls der Knoten `primarer_bereich_id` hat UND
+       `_estimate_bereich_anchor_positions()` für ihn einen Anker berechnen konnte (mindestens
+       ein weiterer sichtbarer Knoten desselben Bereichs existiert). Sonst: KEIN Bereichs-Ziel,
+       reines Hierarchie-Ziel unverändert.
+    2. **Wie stark?** (nur relevant, wenn 1. zutrifft)
+       - Hat der Knoten mindestens einen sichtbaren Hierarchie-Nachbarn: `_WEAK_BEREICH_COHESION_
+         WEIGHT` -- ein echtes Hierarchie-Ziel wird nur sanft ergänzt, nicht verdrängt.
+       - Kein Hierarchie-Nachbar: `_STRONG_BEREICH_COHESION_WEIGHT` -- es gibt kein fachliches
+         Signal, das geschützt werden müsste.
+
+    `prozessbereiche` fließen in KEINEN Teil dieser Funktion ein -- `bereich_of_node` enthält
+    ausschließlich `primarer_bereich_id`-Zuordnungen (siehe Aufrufstelle in
+    `kompetenzgraph_layout.py`).
+    """
+    blended: dict[str, float] = {}
+    for node_id in node_ids:
+        hierarchy_target = hierarchy_targets[node_id]
+        if bereich_of_node.get(node_id) is None or node_id not in bereich_anchor_positions:
+            blended[node_id] = hierarchy_target
+            continue
+        weight = (
+            _WEAK_BEREICH_COHESION_WEIGHT if has_hierarchy_neighbor.get(node_id, False) else _STRONG_BEREICH_COHESION_WEIGHT
+        )
+        anchor = bereich_anchor_positions[node_id]
+        blended[node_id] = (1 - weight) * hierarchy_target + weight * anchor
+    return blended
 
 
 def _resolve_min_spacing(node_ids: tuple[str, ...], target_x: Mapping[str, float], min_spacing: float) -> dict[str, float]:
@@ -124,6 +255,7 @@ def relax_horizontal_positions(
     *,
     iterations: int = _DEFAULT_ITERATIONS,
     min_spacing: float = 170.0,
+    bereich_of_node: Mapping[str, str] | None = None,
 ) -> dict[str, float]:
     """Positioniert Knoten nahe am Median ihrer verbundenen Nachbarn -- Reihenfolge folgt den Kräften.
 
@@ -159,6 +291,17 @@ def relax_horizontal_positions(
     gilt nur innerhalb eines einzelnen Aufrufs (reine Funktion, keine
     verdeckte Zufälligkeit oder externer Zustand).
 
+    **Primärbereich-Kohäsion (optional, `bereich_of_node`):** löst das "Filterwaisen"-Problem --
+    ein Knoten ohne jeden sichtbaren Hierarchie-Nachbarn (z. B. weil ein Filter seinen echten
+    Elternteil oder alle Kinder entfernt hat) wird von `_pull_toward_neighbor_median()` sonst an
+    seiner arbiträren Slot-Index-Startposition eingefroren, obwohl sein `primarer_bereich_id` eine
+    fachlich sinnvolle Verankerung nahelegt. Ist `bereich_of_node` gesetzt, wird das je Sweep
+    berechnete Hierarchie-Ziel zusätzlich mit einem FIXEN, einmalig aus den Start-Positionen
+    berechneten Primärbereich-Anker geblendet -- siehe `_apply_bereich_cohesion()` für die
+    vollständige Fallunterscheidung und `_STRONG_BEREICH_COHESION_WEIGHT` für die Begründung,
+    warum der Anker fix statt live neu berechnet ist. Default `None` → bit-identisches Verhalten
+    zu vorher für jeden bestehenden Aufrufer.
+
     Args:
         sorted_layers: Schicht-Index → Start-Reihenfolge dieser Schicht
             (dient nur als Sweep-0-Basis, keine über den Lauf fixierte Vorgabe).
@@ -170,6 +313,8 @@ def relax_horizontal_positions(
             Slot-Index-Startpositionen ohne Relaxation.
         min_spacing: Mindestabstand zwischen zwei benachbarten Knoten
             derselben Schicht.
+        bereich_of_node: Optionale Knoten-ID → `primarer_bereich_id`-Zuordnung (NIEMALS
+            `prozessbereiche`) für die Primärbereich-Kohäsion. `None` deaktiviert sie vollständig.
 
     Returns:
         Knoten-ID → berechnete X-Position (nur Hierarchie-Schichten, keine
@@ -192,6 +337,18 @@ def relax_horizontal_positions(
             children_of.setdefault(parent, []).append(node_id)
     children_of_tuples = {parent: tuple(children) for parent, children in children_of.items()}
 
+    bereich_anchor_positions: dict[str, float] = {}
+    has_hierarchy_neighbor: dict[str, bool] = {}
+    if bereich_of_node is not None:
+        # Beide EINMALIG vor der Sweep-Schleife berechnet, danach FIX -- weder der Anker noch die
+        # Hierarchie-Nachbarschaft eines Knotens ändern sich innerhalb eines Aufrufs (Sichtbarkeit
+        # und Start-Positionen stehen fest; siehe `_estimate_bereich_anchor_positions()`-Docstring
+        # dafür, warum ein LIVE pro Sweep neu berechneter Anker instabil wäre).
+        bereich_anchor_positions = _estimate_bereich_anchor_positions(bereich_of_node, positions)
+        has_hierarchy_neighbor = {
+            node_id: bool(edges.get(node_id)) or bool(children_of_tuples.get(node_id)) for node_id in positions
+        }
+
     for sweep_index in range(iterations):
         if sweep_index % 2 == 0:
             # Top-Down: Schichten aufsteigend, jeder Knoten wird Richtung des Medians ALLER
@@ -200,6 +357,10 @@ def relax_horizontal_positions(
             # diesem Sweep bereits aktualisiert (Gauss-Seidel-Stil).
             for layer_index in layer_indices[1:]:
                 targets = _pull_toward_neighbor_median(current_order[layer_index], positions, edges)
+                if bereich_of_node is not None:
+                    targets = _apply_bereich_cohesion(
+                        current_order[layer_index], targets, bereich_of_node, bereich_anchor_positions, has_hierarchy_neighbor
+                    )
                 new_order = tuple(sorted(current_order[layer_index], key=lambda nid: (targets[nid], nid)))
                 current_order[layer_index] = new_order
                 positions.update(_resolve_min_spacing(new_order, targets, min_spacing))
@@ -207,6 +368,10 @@ def relax_horizontal_positions(
             # Bottom-Up: Schichten absteigend, Richtung Median ALLER Kinder.
             for layer_index in reversed(layer_indices[:-1]):
                 targets = _pull_toward_neighbor_median(current_order[layer_index], positions, children_of_tuples)
+                if bereich_of_node is not None:
+                    targets = _apply_bereich_cohesion(
+                        current_order[layer_index], targets, bereich_of_node, bereich_anchor_positions, has_hierarchy_neighbor
+                    )
                 new_order = tuple(sorted(current_order[layer_index], key=lambda nid: (targets[nid], nid)))
                 current_order[layer_index] = new_order
                 positions.update(_resolve_min_spacing(new_order, targets, min_spacing))
