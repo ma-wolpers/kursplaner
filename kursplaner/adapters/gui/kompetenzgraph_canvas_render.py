@@ -109,7 +109,7 @@ class KompetenzGraphCanvasRenderer:
         """
         self.canvas.delete("all")
 
-        self._edges.draw_classification_edges(snapshot, view, layout)
+        self._edges.draw_classification_edges(snapshot, view, layout, selected_id=selected_id)
         self._edges.draw_hierarchy_edges(snapshot, view, layout, mode_key)
         self._edges.draw_unresolved_markers(layout)
 

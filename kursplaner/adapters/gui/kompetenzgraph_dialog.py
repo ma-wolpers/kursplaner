@@ -20,11 +20,8 @@ from kursplaner.adapters.gui.kompetenzgraph_canvas_selection import (
     handle_double_click_or_enter,
     select_nearest_in_direction,
 )
-from kursplaner.adapters.gui.kompetenzgraph_detail_panel import KompetenzGraphDetailPanel
 from kursplaner.adapters.gui.kompetenzgraph_diagnostics_banner import KompetenzGraphDiagnosticsBanner
-from kursplaner.adapters.gui.kompetenzgraph_filter_panel import KompetenzGraphFilterPanel
-from kursplaner.adapters.gui.kompetenzgraph_sidebar_scroll import KompetenzGraphSidebarScroll
-from kursplaner.adapters.gui.kompetenzgraph_text_search_panel import KompetenzGraphTextSearchPanel
+from kursplaner.adapters.gui.kompetenzgraph_sidebar_tabs import KompetenzGraphSidebarTabs
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
 from kursplaner.adapters.gui.kompetenzgraph_view_mode_toggle import KompetenzGraphViewModeToggle
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
@@ -111,27 +108,15 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         paned = widgets.Panedwindow(root, orient="horizontal")
         paned.pack(fill="both", expand=True)
 
-        self._sidebar_scroll = KompetenzGraphSidebarScroll(paned)
-        paned.add(self._sidebar_scroll.outer, weight=0)
-        sidebar = self._sidebar_scroll.inner
-
-        self._filter_panel = KompetenzGraphFilterPanel(
-            sidebar, snapshot=self._snapshot, initial_filter=self._state.filter, on_change=self._on_filter_changed
+        self._sidebar_tabs = KompetenzGraphSidebarTabs(
+            paned,
+            snapshot=self._snapshot,
+            initial_filter=self._state.filter,
+            on_filter_changed=self._on_filter_changed,
+            on_text_search_triggered=self._on_text_search_triggered,
+            load_body_usecase=load_body_usecase,
         )
-        self._filter_panel.frame.pack(fill="x")
-
-        widgets.Separator(sidebar, orient="horizontal").pack(fill="x", pady=8)
-
-        self._text_search_panel = KompetenzGraphTextSearchPanel(
-            sidebar, initial_filter=self._state.filter, on_search=self._on_text_search_triggered
-        )
-        self._text_search_panel.frame.pack(fill="x")
-
-        widgets.Separator(sidebar, orient="horizontal").pack(fill="x", pady=8)
-
-        self._detail_panel = KompetenzGraphDetailPanel(sidebar, load_body_usecase=load_body_usecase)
-        self._detail_panel.frame.pack(fill="x")
-        self._sidebar_scroll.bind_mousewheel_to_content()
+        paned.add(self._sidebar_tabs.notebook, weight=0)
 
         right = widgets.Frame(paned)
         paned.add(right, weight=1)
@@ -225,13 +210,9 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._refresh()
 
     def _render_detail_panel(self, node) -> None:
-        """Rendert den Detailbereich und bindet Sidebar-Mausrad-Weiterleitung auf die neu erzeugten Widgets.
-
-        Der Detailbereich wird bei jeder Selektionsänderung komplett neu gebaut -- die neuen
-        Widgets brauchen daher jedes Mal frische Bindungen, gezielt nur für `self._detail_panel.frame`
-        (siehe `KompetenzGraphSidebarScroll.bind_mousewheel_to_content()`-Docstring)."""
-        self._detail_panel.render(node)
-        self._sidebar_scroll.bind_mousewheel_to_content(self._detail_panel.frame)
+        """Delegiert an `KompetenzGraphSidebarTabs.render_detail_panel()` -- aktualisiert nur den
+        Inhalt, wechselt bewusst NICHT den aktiven Sidebar-Tab (siehe dortiger Docstring)."""
+        self._sidebar_tabs.render_detail_panel(node)
 
     def _on_node_selected(self, node_id: str) -> None:
         """Einfacher Klick: ändert nur die Selektion, niemals die sichtbare Menge -- siehe `_reapply_selection()`."""

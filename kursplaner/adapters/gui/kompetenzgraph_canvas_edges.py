@@ -41,9 +41,31 @@ class KompetenzGraphEdgeRenderer:
         self._bereich_half_extent = bereich_half_extent
 
     def draw_classification_edges(
-        self, snapshot: KompetenzGraphSnapshot, view: KompetenzGraphView, layout: KompetenzGraphLayout
+        self,
+        snapshot: KompetenzGraphSnapshot,
+        view: KompetenzGraphView,
+        layout: KompetenzGraphLayout,
+        *,
+        selected_id: str | None,
     ) -> None:
-        """`primarer_bereich` (durchgezogen) und `prozessbereiche` (gestrichelt) -- ansichtsunabhängig, immer sichtbar."""
+        """`primarer_bereich` (durchgezogen) ist immer sichtbar. `prozessbereich`-Kanten
+        (gestrichelt, schwächer als Primärbereich-Kanten) erscheinen NUR bei expliziter Auswahl:
+        ist `selected_id` ein sichtbarer Bereich-Hub, zeigt sich JEDES seiner Prozessbereich-
+        Mitglieder; ist stattdessen ein Kompetenz-Knoten selektiert, zeigt sich NUR dessen eigene
+        Prozessbereich-Zugehörigkeit; ohne Auswahl erscheint keine. Grund: im echten
+        Informatik-Datensatz dominierten diese Kanten unconditional gezeichnet die Kantenzahl (447
+        von 591), obwohl Prozessbereiche über Detail-Panel und Filter bereits einsehbar/filterbar
+        sind (`kompetenzgraph_detail_panel.py`, `kompetenzgraph_filter_panel.py`) --
+        Default-Decluttering bei erhaltener gezielter Exploration. `selected_id` bekommt dabei
+        keine neue Bedeutung: nur der bereits vorhandene Auswahlwert wird gegen `snapshot.nodes`/
+        `view.visible_bereich_ids` geprüft, keine neue Zustandsquelle.
+
+        WICHTIG: `compute_bereich_centroid_positions()`/`_build_bereich_classification_edges()`
+        (`kompetenzgraph_layout.py`/`kompetenzgraph_layout_forces.py`) bleiben davon komplett
+        unberührt -- Hub-POSITIONIERUNG berücksichtigt weiterhin die volle wahre Mitgliedschaft
+        (primär+prozess), unabhängig davon, was hier gezeichnet wird. Sichtbarkeit einer Kante und
+        Layoutkraft sind zwei getrennte Entscheidungen mit unterschiedlicher Datenbasis.
+        """
         for node_id in view.visible.all_ids:
             node = snapshot.nodes.get(node_id)
             start = layout.positions.get(node_id)
@@ -60,18 +82,36 @@ class KompetenzGraphEdgeRenderer:
                         start_half_extent=self._competency_half_extent,
                         end_half_extent=self._bereich_half_extent,
                     )
-            for prozessbereich_id in node.prozessbereich_ids:
-                if prozessbereich_id in view.visible_bereich_ids:
-                    end = layout.positions.get(prozessbereich_id)
-                    if end is not None:
-                        self._draw_connecting_edge(
-                            start,
-                            end,
-                            dash=(2, 3),
-                            token="secondary_soft",
-                            start_half_extent=self._competency_half_extent,
-                            end_half_extent=self._bereich_half_extent,
-                        )
+
+        # Sichtbare Prozessbereich-Beziehungen für die aktuelle Auswahl EINMAL als Menge
+        # bestimmen, dann einmal zeichnen -- verhindert Doppel-Zeichnung strukturell, statt sich
+        # auf die Exklusivität der beiden Fallunterscheidungen (Bereich- vs. Knoten-Selektion) zu
+        # verlassen.
+        prozessbereich_pairs: set[tuple[str, str]] = set()
+        if selected_id is not None:
+            selected_node = snapshot.nodes.get(selected_id)
+            if selected_node is not None:
+                for prozessbereich_id in selected_node.prozessbereich_ids:
+                    if prozessbereich_id in view.visible_bereich_ids:
+                        prozessbereich_pairs.add((selected_id, prozessbereich_id))
+            if selected_id in view.visible_bereich_ids:
+                for node_id in view.visible.all_ids:
+                    node = snapshot.nodes.get(node_id)
+                    if node is not None and selected_id in node.prozessbereich_ids:
+                        prozessbereich_pairs.add((node_id, selected_id))
+
+        for node_id, prozessbereich_id in prozessbereich_pairs:
+            start = layout.positions.get(node_id)
+            end = layout.positions.get(prozessbereich_id)
+            if start is not None and end is not None:
+                self._draw_connecting_edge(
+                    start,
+                    end,
+                    dash=(2, 3),
+                    token="secondary_soft",
+                    start_half_extent=self._competency_half_extent,
+                    end_half_extent=self._bereich_half_extent,
+                )
 
     def draw_hierarchy_edges(
         self, snapshot: KompetenzGraphSnapshot, view: KompetenzGraphView, layout: KompetenzGraphLayout, mode_key: str

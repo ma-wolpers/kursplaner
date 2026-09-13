@@ -8,6 +8,58 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-13) — Kompetenznetz-Graph: Bereich-Hub-Overlap, Prozessbereich-Kanten-Clutter, Sidebar-Tabs
+
+Nutzer-Feedback anhand eines Screenshots (Fach Informatik): Bereich-Hub-Boxen überlappten
+sichtbar, und der Graph wirkte insgesamt als Gewirr. Empirisch gegen die echten
+Informatik-Vault-Daten verifiziert (144 Kompetenz-Knoten, 9 Bereich-Hubs):
+
+**Bereich-Hub-Overlap**: `compute_layered_layout()` (`kompetenzgraph_layout.py`) übergab an
+`compute_bereich_centroid_positions(...)` denselben `_NODE_SPACING` (110px, für die 92px breiten
+Kompetenz-Boxen bemessen) wie für die tatsächlich 170px breiten Bereich-Hub-Boxen -- real
+überlappten 5 von 8 benachbarten Hub-Paaren. Fix: neue, eigene Konstante `_BEREICH_SPACING =
+190.0`. Da `core/domain` `_BEREICH_WIDTH` aus `adapters/gui` nicht importieren darf
+(Hexagonal-Architektur), erzwingt ein bewusster Cross-Layer-Contract-Test
+(`test_bereich_spacing_constant_stays_wider_than_render_width`) die Übereinstimmung statt eines
+bloßen Kommentars.
+
+**Prozessbereich-Kanten dominierten die Kantenzahl**: `draw_classification_edges()`
+(`kompetenzgraph_canvas_edges.py`) zeichnete ansichtsunabhängig IMMER eine Kante von jedem Knoten
+zu jedem seiner `prozessbereich_ids`-Hubs -- real 447 von 591 Klassifikationskanten (96 von 144
+Knoten haben mehr als einen Prozessbereich), gegenüber nur 152 echten Hierarchiekanten. Fix:
+Prozessbereich-Kanten erscheinen jetzt nur noch bei expliziter Auswahl -- ist ein Bereich-Hub
+selektiert, zeigen sich alle seine Mitglieder; ist ein Kompetenz-Knoten selektiert, zeigt sich nur
+dessen eigene Zugehörigkeit (Bereich-Hubs waren bereits über denselben `selected_id`-Mechanismus
+klickbar, keine neue Interaktion nötig). `compute_bereich_centroid_positions()`/
+`_build_bereich_classification_edges()` bleiben unverändert -- Hub-Positionierung berücksichtigt
+weiterhin die volle Mitgliedschaft, unabhängig davon, was gezeichnet wird. Regressionstest
+`test_prozessbereich_ids_never_influence_competency_positions` beweist die Trennung von
+Layoutkraft und Rendering explizit. Ein Primärbereich-Clustering in der Kräfte-Relaxation (gegen
+das verbleibende "Durchmischen" unabhängiger Bereiche) ist als Konzept durchdacht, aber bewusst
+NICHT umgesetzt -- höheres Risiko (dieselbe Relaxation hatte bereits zwei subtile
+Konvergenzfehler, siehe Eintrag vom 2026-09-11), separat zu genehmigen nach Begutachtung dieses
+Fixes.
+
+**Sidebar-Tabs**: neues Modul `kompetenzgraph_sidebar_tabs.py::KompetenzGraphSidebarTabs`
+(Vorbild: `kompetenzgraph_canvas_area.py`) ersetzt den einen gemeinsamen
+`KompetenzGraphSidebarScroll`-Container durch ein `widgets.Notebook` mit zwei Tabs ("Filter":
+Filter- + Textsuche-Panel; "Details": Detail-Panel), je mit eigener
+`KompetenzGraphSidebarScroll`-Instanz -- kein Scrollen mehr durch alle drei Panels für den
+Detailbereich. Tab-Wechsel ist bewusst ausschließlich klickgesteuert: kein
+`notebook.enable_traversal()` (würde Strg+Tab beanspruchen, das bereits dialogweit für den
+View-Mode-Wechsel gebunden ist) und keine zusätzliche Pfeiltasten-Bindung (kollidiert sonst
+potenziell mit der Knoten-Navigation auf dem Graph-Canvas). Eine Knoten-Selektion wechselt
+niemals automatisch den aktiven Tab -- `render_detail_panel()` aktualisiert nur den Inhalt.
+
+**Beim Testschreiben gefunden, nicht Teil dieses Fixes**: `KompetenzGraphSidebarScroll.
+bind_mousewheel_to_content(root=...)` bindet bei jedem Aufruf erneut auch auf das `root`-Widget
+selbst (`add="+"`), nicht nur auf dessen jeweils neu erzeugte Kind-Widgets -- da
+`detail_panel.frame` nie zerstört/neu erzeugt wird (nur sein innerer `_content_frame` pro
+Selektion), häuft sich mit jeder Selektion eine weitere Mausrad-Bindung an. Bestand bereits vor
+diesem Fix identisch in der alten `kompetenzgraph_dialog.py::_render_detail_panel()`. Als
+`xfail`-Test dokumentiert (`test_render_detail_panel_does_not_accumulate_mousewheel_bindings`,
+`tests/test_kompetenzgraph_sidebar_tabs.py`), Fix folgt als eigener, separater Schritt.
+
 ### Added (2026-09-13) — Kursplanerweite Konsolidierung der Markdown-Struktur-Interpretation
 
 **Ausgangslage**: Bei der Kompetenznetz-Textsuche wurde behauptet, `kompetenzgraph_mapping.py`

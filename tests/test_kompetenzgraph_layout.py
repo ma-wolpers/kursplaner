@@ -1,5 +1,5 @@
 from kursplaner.core.domain import kompetenzgraph_layout
-from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
+from kursplaner.core.domain.kompetenzgraph_layout import _BEREICH_SPACING, compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN, MODE_OBER_TEIL
 from tests.kompetenzgraph_test_support import make_bereich, make_node
@@ -107,6 +107,76 @@ def test_invisible_nodes_are_not_included_in_positions():
     layout = compute_layered_layout(snapshot, MODE_OBER_TEIL, frozenset({"ROOT", "A"}), frozenset())
 
     assert set(layout.positions.keys()) == {"ROOT", "A"}
+
+
+def test_bereich_spacing_constant_stays_wider_than_render_width():
+    """Bewusster Cross-Layer-Contract-Test: vergleicht absichtlich eine Domain-Konstante
+    (`_BEREICH_SPACING`) mit einer GUI-Rendering-Konstante (`_BEREICH_WIDTH`) -- ein punktuell
+    akzeptierter Layer-Übergriff nur im Test, KEIN Vorbild für Produktionscode (`kompetenzgraph_
+    layout.py` importiert weiterhin nichts aus `adapters/gui`). Dokumentiert eine reale,
+    unvermeidliche geometrische Vertragsbeziehung: der Domain-Layoutalgorithmus darf keine
+    Bereich-Hub-Abstände erzeugen, die kleiner sind als die tatsächlich gerenderte Hub-Breite plus
+    sichtbarer Mindestabstand. Ändert sich künftig eine der beiden Konstanten unabhängig von der
+    anderen, schlägt dieser Test fehl, statt dass das Overlap-Problem unbemerkt wiederkehrt."""
+    from kursplaner.adapters.gui.kompetenzgraph_canvas_render import _BEREICH_WIDTH
+
+    assert _BEREICH_SPACING >= _BEREICH_WIDTH + 10.0
+
+
+def test_bereich_hub_bounding_boxes_never_overlap():
+    """Regressionstest für den realen Informatik-Bug: zwei Bereiche, deren klassifizierende
+    Kompetenzen absichtlich nah beieinanderliegende X-Positionen haben, dürfen sich nicht näher
+    kommen, als ihre tatsächliche Render-Breite erlaubt. Prüft die eigentliche
+    Bounding-Box-Beziehung (alle Hubs teilen dieselbe feste Zeile `_BEREICH_ROW_Y`), nicht nur eine
+    nackte Distanzzahl."""
+    from kursplaner.adapters.gui.kompetenzgraph_canvas_render import _BEREICH_WIDTH
+
+    bereich_a = make_bereich("I-A")
+    bereich_b = make_bereich("I-B")
+    nodes = [
+        make_node("A1", primarer_bereich_id="I-A"),
+        make_node("A2", primarer_bereich_id="I-A"),
+        make_node("B1", primarer_bereich_id="I-B"),
+        make_node("B2", primarer_bereich_id="I-B"),
+    ]
+    snapshot = build_kompetenz_graph_snapshot(nodes, [bereich_a, bereich_b])
+    visible = frozenset(n.id for n in nodes)
+
+    layout = compute_layered_layout(snapshot, MODE_OBER_TEIL, visible, frozenset({"I-A", "I-B"}))
+
+    boxes = {
+        bid: (layout.positions[bid].x - _BEREICH_WIDTH / 2, layout.positions[bid].x + _BEREICH_WIDTH / 2)
+        for bid in ("I-A", "I-B")
+    }
+    left_id, right_id = sorted(boxes, key=lambda bid: boxes[bid][0])
+    assert boxes[left_id][1] <= boxes[right_id][0]
+
+
+def test_prozessbereich_ids_never_influence_competency_positions():
+    """Härtester Beweis der Trennung von Layoutkraft und Klassifikations-Rendering: zwei
+    ansonsten identische Snapshots, die sich NUR in `prozessbereich_ids` eines Knotens
+    unterscheiden (gleiche Hierarchie, gleiche `primarer_bereich_id`), müssen nach
+    `compute_layered_layout()` exakt identische Kompetenz-Positionen liefern -- Prozessbereiche
+    dürfen nachweislich in keinem Kraft-/Positionierungsschritt für Kompetenz-Knoten ankommen
+    (Hub-Zentroide dürfen sich unterscheiden, das ist ausdrücklich weiterhin ihr Zweck)."""
+    bereich_primary = make_bereich("I-Primary")
+    bereich_prozess = make_bereich("P-Prozess", kind="prozessbereich")
+
+    without_prozess = make_node("A", primarer_bereich_id="I-Primary")
+    with_prozess = make_node("A", primarer_bereich_id="I-Primary", prozessbereich_ids=("P-Prozess",))
+
+    snapshot_without = build_kompetenz_graph_snapshot([without_prozess], [bereich_primary, bereich_prozess])
+    snapshot_with = build_kompetenz_graph_snapshot([with_prozess], [bereich_primary, bereich_prozess])
+
+    layout_without = compute_layered_layout(
+        snapshot_without, MODE_OBER_TEIL, frozenset({"A"}), frozenset({"I-Primary"})
+    )
+    layout_with = compute_layered_layout(
+        snapshot_with, MODE_OBER_TEIL, frozenset({"A"}), frozenset({"I-Primary"})
+    )
+
+    assert layout_without.positions["A"] == layout_with.positions["A"]
+    assert layout_without.positions["I-Primary"] == layout_with.positions["I-Primary"]
 
 
 def test_abhaengigkeiten_mode_layers_mixed_edge_types_consistently():

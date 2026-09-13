@@ -14,6 +14,16 @@ from kursplaner.core.domain.kompetenzgraph_view_mode import ancestors_of
 
 _LAYER_SPACING = 180.0
 _NODE_SPACING = 110.0
+_BEREICH_SPACING = 190.0
+"""Mindestabstand zwischen Bereich-Hub-Mittelpunkten: 170.0 (muss mit
+`kompetenzgraph_canvas_render.py::_BEREICH_WIDTH` übereinstimmen) + 20.0 sichtbarer Zwischenraum.
+Eigene Konstante statt Wiederverwendung von `_NODE_SPACING` (110.0, für die schmaleren
+92px-Kompetenz-Boxen bemessen) -- deren Wiederverwendung erzeugte real 5 von 8 überlappenden
+Hub-Paaren im Informatik-Vault (Bereich-Hubs sind mit 170px deutlich breiter als Kompetenz-Knoten).
+Diese Datei (core/domain) darf `_BEREICH_WIDTH` nicht importieren (Hexagonal-Architektur: Domain
+importiert nicht aus adapters/gui) -- die Übereinstimmung wird stattdessen durch einen bewussten
+Cross-Layer-Contract-Test erzwungen, siehe
+`test_bereich_spacing_constant_stays_wider_than_render_width` in test_kompetenzgraph_layout.py."""
 _BEREICH_ROW_Y = -220.0
 _UNRESOLVED_MARKER_OFFSET_X = 90.0
 _UNRESOLVED_MARKER_OFFSET_Y = 60.0
@@ -208,7 +218,7 @@ def compute_layered_layout(
     bereich_classification_edges = _build_bereich_classification_edges(snapshot, visible_node_ids, visible_bereich_ids)
     node_x_by_id = {node_id: position.x for node_id, position in positions.items()}
     bereich_x_by_id = compute_bereich_centroid_positions(
-        visible_bereich_ids, node_x_by_id, bereich_classification_edges, min_spacing=_NODE_SPACING
+        visible_bereich_ids, node_x_by_id, bereich_classification_edges, min_spacing=_BEREICH_SPACING
     )
     for bereich_id, x in bereich_x_by_id.items():
         positions[bereich_id] = GraphNodePosition(x=x, y=_BEREICH_ROW_Y)
