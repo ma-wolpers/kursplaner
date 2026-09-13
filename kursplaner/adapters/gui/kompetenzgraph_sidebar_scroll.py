@@ -31,6 +31,7 @@ class KompetenzGraphSidebarScroll:
         """Baut den Scroll-Wrapper auf. `self.outer` gehört in den Elterncontainer (z. B. ein
         `Panedwindow`), `self.inner` ist der Frame, in den die eigentlichen Sidebar-Inhalte gebaut werden."""
         self.outer = widgets.Frame(parent)
+        self._bound_widget_paths: set[str] = set()
 
         self._canvas = ui.Canvas(self.outer, highlightthickness=0)
         scrollbar = widgets.Scrollbar(self.outer, orient="vertical", command=self._canvas.yview)
@@ -46,7 +47,8 @@ class KompetenzGraphSidebarScroll:
         self._canvas.bind("<MouseWheel>", self._on_mousewheel)
 
     def bind_mousewheel_to_content(self, root=None) -> None:
-        """Bindet den Mausrad-Handler zusätzlich auf JEDES Kind-Widget unter `root` (Default: `self.inner`).
+        """Bindet den Mausrad-Handler zusätzlich auf jedes noch nicht gebundene Kind-Widget unter
+        `root` (Default: `self.inner`).
 
         Nötig, weil ein Canvas keine Mausrad-Events mehr empfängt, sobald seine Fläche
         komplett von Kind-Widgets bedeckt ist -- Tk liefert das Event an das konkrete
@@ -54,17 +56,23 @@ class KompetenzGraphSidebarScroll:
         `grid_renderer.py`s `widget.bind("<MouseWheel>", self.app._on_grid_mousewheel)`
         pro Zelle).
 
-        Der `root`-Parameter ist wichtig, um Mehrfach-Bindungen zu vermeiden: die
-        Filter-Sidebar wird nur EINMAL gebaut (Aufruf ohne `root` direkt nach dem
-        initialen Aufbau reicht), der Detailbereich wird dagegen bei JEDER
-        Selektionsänderung komplett neu gebaut (`KompetenzGraphDetailPanel.render()`
-        zerstört/erzeugt seinen Inhalt neu) -- dort MUSS bei jedem Re-Render erneut
-        gebunden werden (siehe `kompetenzgraph_dialog.py::_render_detail_panel()`),
-        aber bewusst nur mit `root=self._detail_panel.frame` beschränkt: ein Aufruf
-        ohne `root` würde bei jedem Re-Render zusätzlich auch die längst gebundenen,
-        unveränderten Filter-Widgets erneut binden (`add="+"` häuft dieselbe Funktion
-        dann mehrfach an -- ein einzelner Mausrad-Tick würde nach N Re-Renders um das
-        N-fache scrollen).
+        Jedes Widget wird dabei höchstens EINMAL über die Lebensdauer dieser Instanz gebunden
+        (`_bound_widget_paths`, verfolgt über den stabilen Tk-Widget-Pfad `str(widget)`) --
+        wiederholte Aufrufe mit demselben `root` sind daher gefahrlos ein No-Op für bereits
+        gebundene Widgets. Das behebt einen früheren Bug: der Detailbereich wird bei jeder
+        Selektionsänderung komplett neu gebaut (`KompetenzGraphDetailPanel.render()` zerstört/
+        erzeugt nur seinen INNEREN Inhalt neu, das äußere `detail_panel.frame` bleibt bestehen),
+        weshalb hier bei jedem Re-Render erneut gebunden werden muss (siehe
+        `kompetenzgraph_sidebar_tabs.py::render_detail_panel()`) -- ohne dieses Tracking hätte ein
+        `root=detail_panel.frame`-Aufruf `add="+"` bei JEDEM Re-Render zusätzlich auf das
+        gleichbleibende `frame`-Widget SELBST erneut gebunden (nur seine neu erzeugten Kind-Widgets
+        sind tatsächlich frisch), sodass ein einzelner Mausrad-Tick nach N Selektionen um das
+        N-fache gescrollt hätte. Neu erzeugte Kind-Widgets unter einem bereits bekannten `root`
+        werden dagegen korrekt frisch gebunden, da ihr Pfad noch nicht in `_bound_widget_paths`
+        steht. Bewusst kein Aufräumen beim Zerstören eines Widgets (`str`-Einträge bleiben auch
+        nach `destroy()` im Set) -- der Speicherzuwachs ist über eine realistische Popup-Sitzung
+        (wenige tausend Selektionen) vernachlässigbar, ein `<Destroy>`-Handler zur Bereinigung wäre
+        hier unnötiger Mehraufwand.
 
         `ui.Text`-Widgets werden bewusst ausgenommen: sie haben bereits ein eigenes
         Standard-Mausrad-Scrollverhalten (der Body-Vorschau-Text im Detailbereich hat
@@ -75,8 +83,10 @@ class KompetenzGraphSidebarScroll:
         self._bind_recursively(root if root is not None else self.inner)
 
     def _bind_recursively(self, widget) -> None:
-        if not isinstance(widget, ui.Text):
+        widget_path = str(widget)
+        if widget_path not in self._bound_widget_paths and not isinstance(widget, ui.Text):
             widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+            self._bound_widget_paths.add(widget_path)
         for child in widget.winfo_children():
             self._bind_recursively(child)
 

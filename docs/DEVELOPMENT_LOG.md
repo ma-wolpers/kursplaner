@@ -51,14 +51,34 @@ View-Mode-Wechsel gebunden ist) und keine zusätzliche Pfeiltasten-Bindung (koll
 potenziell mit der Knoten-Navigation auf dem Graph-Canvas). Eine Knoten-Selektion wechselt
 niemals automatisch den aktiven Tab -- `render_detail_panel()` aktualisiert nur den Inhalt.
 
-**Beim Testschreiben gefunden, nicht Teil dieses Fixes**: `KompetenzGraphSidebarScroll.
-bind_mousewheel_to_content(root=...)` bindet bei jedem Aufruf erneut auch auf das `root`-Widget
-selbst (`add="+"`), nicht nur auf dessen jeweils neu erzeugte Kind-Widgets -- da
-`detail_panel.frame` nie zerstört/neu erzeugt wird (nur sein innerer `_content_frame` pro
-Selektion), häuft sich mit jeder Selektion eine weitere Mausrad-Bindung an. Bestand bereits vor
-diesem Fix identisch in der alten `kompetenzgraph_dialog.py::_render_detail_panel()`. Als
-`xfail`-Test dokumentiert (`test_render_detail_panel_does_not_accumulate_mousewheel_bindings`,
-`tests/test_kompetenzgraph_sidebar_tabs.py`), Fix folgt als eigener, separater Schritt.
+### Fixed (2026-09-13) — Mausrad-Bindung häufte sich bei jeder Kompetenz-Selektion an
+
+Beim Schreiben der Sidebar-Tabs-Tests (vorheriger Eintrag) gefunden, unabhängig vom Tab-Feature:
+`KompetenzGraphSidebarScroll.bind_mousewheel_to_content(root=...)` band bei jedem Aufruf über
+`_bind_recursively()` erneut auch auf das übergebene `root`-Widget SELBST (`add="+"`), nicht nur
+auf dessen jeweils neu erzeugte Kind-Widgets. Da `detail_panel.frame` nie zerstört/neu erzeugt
+wird (nur sein innerer `_content_frame` pro Selektion), häufte sich mit jeder Kompetenz-Selektion
+eine weitere Mausrad-Bindung auf `frame` selbst an -- ein einzelner Mausrad-Tick hätte nach N
+Selektionen um das N-fache gescrollt. Bestand bereits identisch in der alten
+`kompetenzgraph_dialog.py::_render_detail_panel()`, also unabhängig vom Tab-Feature.
+
+**Architektonische Ursache**: die Funktion ging implizit davon aus, dass der komplette per `root`
+übergebene Teilbaum bei jedem Aufruf frisch ist -- zutreffend für ihren ersten Anwendungsfall
+(Filter-Sidebar, nur einmal aufgerufen), aber falsch für den zweiten (Detailbereich, wiederholt
+aufgerufen mit einem teils stabilen, teils frischen `root`). Der bisherige Docstring-Hinweis
+("`root` sorgfältig eingrenzen") schützte nur benachbarte, unveränderte Teilbäume vor erneuter
+Bindung, nicht das übergebene `root`-Widget selbst.
+
+**Fix**: `bind_mousewheel_to_content()`/`_bind_recursively()` verfolgen jetzt gebundene Widgets
+über ein `_bound_widget_paths`-Set (Schlüssel: der stabile Tk-Widget-Pfad `str(widget)`) und
+binden jedes Widget höchstens einmal über die Lebensdauer der `KompetenzGraphSidebarScroll`-
+Instanz -- Aufrufer müssen nicht mehr zwischen "stabilem" und "frischem" Teilbaum unterscheiden,
+wiederholte Aufrufe mit demselben `root` sind jetzt gefahrlos. Bewusst kein Aufräumen beim
+Zerstören eines Widgets (Speicherzuwachs durch verwaiste `str`-Einträge über eine realistische
+Popup-Sitzung vernachlässigbar). Neue Tests in `tests/test_kompetenzgraph_sidebar_scroll.py`
+reproduzieren exakt das frühere Bug-Szenario (persistentes Root-Widget mit wechselndem Inhalt);
+der zuvor als `xfail` dokumentierte End-zu-Ende-Test in `test_kompetenzgraph_sidebar_tabs.py`
+läuft jetzt regulär grün.
 
 ### Added (2026-09-13) — Kursplanerweite Konsolidierung der Markdown-Struktur-Interpretation
 

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import pytest
-
 from kursplaner.adapters.gui.kompetenzgraph_sidebar_tabs import KompetenzGraphSidebarTabs
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
@@ -60,21 +58,15 @@ def test_render_detail_panel_does_not_change_active_tab_when_details_active(tk_r
     assert sidebar_tabs.notebook.select() == str(sidebar_tabs._detail_scroll.outer)
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Bekannter, VOR diesem Tab-Feature bereits bestehender Bug in "
-        "kompetenzgraph_sidebar_scroll.py::_bind_recursively(): sie bindet bei jedem Aufruf "
-        "erneut auch auf das übergebene `root`-Widget selbst (add='+'), nicht nur auf dessen "
-        "jeweils neu erzeugte Kind-Widgets. `detail_panel.frame` wird aber nie zerstört/neu "
-        "erzeugt (nur sein innerer _content_frame pro Selektion) -- jede Selektion häuft daher "
-        "eine weitere Bindung auf `frame` selbst an. Absichtlich als xfail dokumentiert statt "
-        "stillschweigend entfernt: wird in einem eigenen, unmittelbar folgenden Fix behoben."
-    ),
-    strict=True,
-)
 def test_render_detail_panel_does_not_accumulate_mousewheel_bindings(tk_root):
-    """Analog zur bestehenden Absicherung in `kompetenzgraph_dialog.py` -- mehrfaches `render()`
-    darf die Mausrad-Bindung nicht kumulativ anhäufen (kein N-facher Scroll-Sprung)."""
+    """Regressionstest für einen Bug, der bereits VOR diesem Tab-Feature in
+    `kompetenzgraph_sidebar_scroll.py::_bind_recursively()` bestand (identischer Aufruf stand schon
+    in der alten `kompetenzgraph_dialog.py::_render_detail_panel()`): jeder Aufruf band erneut auch
+    auf das übergebene, persistente `root`-Widget selbst (`add='+'`), nicht nur auf dessen jeweils
+    neu erzeugte Kind-Widgets -- `detail_panel.frame` wird nie zerstört/neu erzeugt (nur sein
+    innerer `_content_frame` pro Selektion), jede Selektion häufte daher eine weitere Bindung auf
+    `frame` selbst an (ein Mausrad-Tick scrollte nach N Selektionen um das N-fache). Behoben durch
+    ein Pfad-basiertes `_bound_widget_paths`-Tracking, das jedes Widget höchstens einmal bindet."""
     sidebar_tabs = _build_tabs(tk_root)
 
     sidebar_tabs.render_detail_panel(None)
