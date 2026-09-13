@@ -35,8 +35,8 @@ def _build_vault(tmp_path, *, subjects=("Mathematik",)):
         bereiche_dir = subject_dir / "Bereiche"
         bereiche_dir.mkdir(parents=True)
         (bereiche_dir / "I-Test.md").write_text(_BEREICH_TEXT, encoding="utf-8")
-        (subject_dir / "AB-1.md").write_text(_node_text(), encoding="utf-8")
-        (subject_dir / "AB-2.md").write_text(_node_text(jahrgang=11), encoding="utf-8")
+        (subject_dir / "Mat-AB-1.md").write_text(_node_text(), encoding="utf-8")
+        (subject_dir / "Mat-AB-2.md").write_text(_node_text(jahrgang=11), encoding="utf-8")
     return fachinhalte_root
 
 
@@ -60,9 +60,9 @@ def test_load_snapshot_reads_nodes_and_bereiche(tmp_path, monkeypatch):
 
     assert loaded_subjects == ("Mathematik",)
     assert diagnostics == ()
-    assert set(snapshot.nodes.keys()) == {"AB-1", "AB-2"}
+    assert set(snapshot.nodes.keys()) == {"Mat-AB-1", "Mat-AB-2"}
     assert set(snapshot.bereiche.keys()) == {"I-Test"}
-    assert snapshot.nodes["AB-1"].title == "Titel der Kompetenz"
+    assert snapshot.nodes["Mat-AB-1"].title == "Titel der Kompetenz"
 
 
 def test_missing_fachinhalte_root_returns_empty_snapshot(tmp_path, monkeypatch):
@@ -77,13 +77,13 @@ def test_missing_fachinhalte_root_returns_empty_snapshot(tmp_path, monkeypatch):
 
 def test_sync_conflict_files_are_ignored(tmp_path, monkeypatch):
     fachinhalte_root = _build_vault(tmp_path)
-    conflict_path = fachinhalte_root / "Mathematik" / "AB-1.sync-conflict-20260101-120000.md"
+    conflict_path = fachinhalte_root / "Mathematik" / "Mat-AB-1.sync-conflict-20260101-120000.md"
     conflict_path.write_text(_node_text(), encoding="utf-8")
     repo = _repo_with_fachinhalte_root(monkeypatch, fachinhalte_root)
 
     snapshot, _diagnostics, _loaded_subjects = repo.load_snapshot(tmp_path / "Unterricht")
 
-    assert set(snapshot.nodes.keys()) == {"AB-1", "AB-2"}
+    assert set(snapshot.nodes.keys()) == {"Mat-AB-1", "Mat-AB-2"}
 
 
 def test_cache_hit_on_unchanged_file_skips_reading_file_content(tmp_path, monkeypatch):
@@ -93,10 +93,10 @@ def test_cache_hit_on_unchanged_file_skips_reading_file_content(tmp_path, monkey
     unterricht_dir = tmp_path / "Unterricht"
 
     first_snapshot, first_diagnostics, _loaded_subjects = repo.load_snapshot(unterricht_dir)
-    assert "AB-1" in first_snapshot.nodes
+    assert "Mat-AB-1" in first_snapshot.nodes
     assert first_diagnostics == ()
 
-    node_path = fachinhalte_root / "Mathematik" / "AB-1.md"
+    node_path = fachinhalte_root / "Mathematik" / "Mat-AB-1.md"
     original_read_text = module.Path.read_text
 
     def _raise_if_target_read_again(self, *args, **kwargs):
@@ -109,7 +109,7 @@ def test_cache_hit_on_unchanged_file_skips_reading_file_content(tmp_path, monkey
     second_snapshot, second_diagnostics, _loaded_subjects = repo.load_snapshot(unterricht_dir)
 
     assert second_diagnostics == ()
-    assert second_snapshot.nodes["AB-1"].title == "Titel der Kompetenz"
+    assert second_snapshot.nodes["Mat-AB-1"].title == "Titel der Kompetenz"
 
 
 def test_cache_miss_when_file_content_and_size_change(tmp_path, monkeypatch):
@@ -118,18 +118,18 @@ def test_cache_miss_when_file_content_and_size_change(tmp_path, monkeypatch):
     unterricht_dir = tmp_path / "Unterricht"
     repo.load_snapshot(unterricht_dir)
 
-    node_path = fachinhalte_root / "Mathematik" / "AB-1.md"
+    node_path = fachinhalte_root / "Mathematik" / "Mat-AB-1.md"
     node_path.write_text(_node_text(titel="Neuer Titel Nach Aenderung"), encoding="utf-8")
 
     snapshot, diagnostics, _loaded_subjects = repo.load_snapshot(unterricht_dir)
 
     assert diagnostics == ()
-    assert snapshot.nodes["AB-1"].title == "Neuer Titel Nach Aenderung"
+    assert snapshot.nodes["Mat-AB-1"].title == "Neuer Titel Nach Aenderung"
 
 
 def test_unreadable_file_yields_diagnostic_without_crashing(tmp_path, monkeypatch):
     fachinhalte_root = _build_vault(tmp_path)
-    node_path = fachinhalte_root / "Mathematik" / "AB-1.md"
+    node_path = fachinhalte_root / "Mathematik" / "Mat-AB-1.md"
     repo = _repo_with_fachinhalte_root(monkeypatch, fachinhalte_root)
 
     original_read_text = module.Path.read_text
@@ -143,13 +143,13 @@ def test_unreadable_file_yields_diagnostic_without_crashing(tmp_path, monkeypatc
 
     snapshot, diagnostics, _loaded_subjects = repo.load_snapshot(tmp_path / "Unterricht")
 
-    assert "AB-1" not in snapshot.nodes
-    assert any(diag.node_id == "AB-1" for diag in diagnostics)
+    assert "Mat-AB-1" not in snapshot.nodes
+    assert any(diag.node_id == "Mat-AB-1" for diag in diagnostics)
 
     monkeypatch.setattr(module.Path, "read_text", original_read_text)
     snapshot_retry, diagnostics_retry, _loaded_subjects = repo.load_snapshot(tmp_path / "Unterricht")
 
-    assert "AB-1" in snapshot_retry.nodes
+    assert "Mat-AB-1" in snapshot_retry.nodes
     assert diagnostics_retry == ()
 
 
@@ -164,7 +164,7 @@ def test_corrupted_cache_file_triggers_full_rebuild_instead_of_crash(tmp_path, m
     snapshot, diagnostics, _loaded_subjects = repo.load_snapshot(tmp_path / "Unterricht")
 
     assert diagnostics == ()
-    assert set(snapshot.nodes.keys()) == {"AB-1", "AB-2"}
+    assert set(snapshot.nodes.keys()) == {"Mat-AB-1", "Mat-AB-2"}
 
 
 def test_cache_version_mismatch_triggers_full_rebuild(tmp_path, monkeypatch):
@@ -178,7 +178,7 @@ def test_cache_version_mismatch_triggers_full_rebuild(tmp_path, monkeypatch):
     snapshot, diagnostics, _loaded_subjects = repo.load_snapshot(tmp_path / "Unterricht")
 
     assert diagnostics == ()
-    assert set(snapshot.nodes.keys()) == {"AB-1", "AB-2"}
+    assert set(snapshot.nodes.keys()) == {"Mat-AB-1", "Mat-AB-2"}
 
 
 def test_discover_structured_subjects_finds_valid_subject_and_ignores_fake_one(tmp_path, monkeypatch):
@@ -187,7 +187,7 @@ def test_discover_structured_subjects_finds_valid_subject_and_ignores_fake_one(t
     # darf NICHT als strukturiertes Fach erkannt werden (Plausibilitaetsschranke).
     fake_subject_dir = fachinhalte_root / "Zufallsordner"
     fake_subject_dir.mkdir()
-    (fake_subject_dir / "AB-1.md").write_text(_node_text(), encoding="utf-8")
+    (fake_subject_dir / "Mat-AB-1.md").write_text(_node_text(), encoding="utf-8")
 
     repo = _repo_with_fachinhalte_root(monkeypatch, fachinhalte_root)
 
@@ -217,13 +217,13 @@ def test_rebuild_snapshot_invalidates_before_loading(tmp_path, monkeypatch):
 
     assert loaded_subjects == ("Mathematik",)
     assert diagnostics == ()
-    assert set(snapshot.nodes.keys()) == {"AB-1", "AB-2"}
+    assert set(snapshot.nodes.keys()) == {"Mat-AB-1", "Mat-AB-2"}
 
 
 def test_read_body_returns_body_after_frontmatter(tmp_path, monkeypatch):
     fachinhalte_root = _build_vault(tmp_path)
     repo = _repo_with_fachinhalte_root(monkeypatch, fachinhalte_root)
-    node_path = fachinhalte_root / "Mathematik" / "AB-1.md"
+    node_path = fachinhalte_root / "Mathematik" / "Mat-AB-1.md"
 
     body = repo.read_body(node_path)
 

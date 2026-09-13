@@ -103,7 +103,7 @@ aktuell der einzige real vorhandene, nach diesem Schema strukturierte Datenbesta
 (~480 Dateien) — Repository/Domain/Filter/Layout enthalten aber an keiner Stelle
 Mathematik-spezifische Logik. Ein weiteres Fach wird automatisch erkannt, sobald sein
 Ordner dieselbe Struktur erfüllt (mindestens eine Kompetenz-Datei nach dem
-`<Kürzel>-<Nummer>`-Muster plus ein `Bereiche\`-Unterordner).
+`<Fach-Präfix>-<Kürzel>-<Nummer>`-Muster plus ein `Bereiche\`-Unterordner).
 
 **Umsetzungsstand** (Meilensteine gemäß Implementierungsplan
 `ich-m-chte-im-kursplaner-prancy-gray.md`):

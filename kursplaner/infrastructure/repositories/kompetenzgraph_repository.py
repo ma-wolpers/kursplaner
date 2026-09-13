@@ -31,7 +31,12 @@ instanziiert werden. Die Verfuegbarkeitspruefung liegt bei der Composition
 Root (`wiring.py`), nicht hier -- exakt das bei `ExpectedHorizonPdfRenderer`/
 `REPORTLAB_AVAILABLE` etablierte Muster."""
 
-_NODE_ID_PATTERN = re.compile(r"^[A-Z]{2,3}-\d+$")
+_NODE_ID_PATTERN = re.compile(r"^[A-Z][a-zA-Z]{1,9}-[A-Z]{2,3}-\d+$")
+"""Muster `<Fach-Präfix>-<Bereichs-Kürzel>-<Zahl>`, z. B. `Mat-AZ-12`, `Inf-SM-3`
+(siehe `34 Fachinhalte/_Schema.md` §„ID-/Dateiname-Schema"). Vor Einführung
+des Fach-Präfix lautete das Muster `^[A-Z]{2,3}-\\d+$` (kein Präfix, kein
+zweiter Bindestrich) -- dieses ältere Muster existiert im Vault nicht mehr,
+seit alle Mathematik-Dateien umbenannt wurden."""
 _SYNC_CONFLICT_MARKER = ".sync-conflict-"
 _BEREICHE_SUBFOLDER_NAME = "Bereiche"
 
@@ -39,8 +44,8 @@ _BEREICHE_SUBFOLDER_NAME = "Bereiche"
 def _scan_node_files(subject_dir: Path) -> list[Path]:
     """Scannt Kompetenz-Dateien FLACH direkt in `subject_dir` (kein `rglob`, keine Unterordner).
 
-    Nur Dateien, deren Stem dem `<Kürzel>-<Nummer>`-Muster entspricht,
-    gelten als Kompetenz-Knoten -- `Bereiche/`, `Schulcurricula/`,
+    Nur Dateien, deren Stem dem `<Fach-Präfix>-<Kürzel>-<Nummer>`-Muster
+    entspricht, gelten als Kompetenz-Knoten -- `Bereiche/`, `Schulcurricula/`,
     `Unsortiert/`, `_Import-Scratch/`, `_Schema.md` etc. werden dadurch
     implizit nie betreten/gematcht. `.sync-conflict-*`-Duplikate eines
     externen Sync-Programms werden ausgeschlossen.
