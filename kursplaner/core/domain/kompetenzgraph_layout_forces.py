@@ -14,23 +14,28 @@ bei den reinen Slot-Index-Startpositionen. In der Praxis unkritisch, da Filter/F
 die sichtbare Menge im Normalfall klein halten; verhindert aber, dass ein sehr großes, künftig
 fachübergreifendes Vault die Relaxation unbegrenzt verlängert."""
 
-_WEAK_BEREICH_COHESION_WEIGHT = 0.15
-"""Blend-Gewicht Richtung Bereichs-Anker (siehe `_apply_bereich_cohesion()`) für einen Knoten MIT
-mindestens einem sichtbaren Hierarchie-Nachbarn (Elternteil oder Kind) in der aktuellen Ansicht.
+_BEREICH_COHESION_WEIGHT = 0.8
+"""Blend-Gewicht Richtung Bereichs-Anker (siehe `_apply_bereich_cohesion()`) für JEDEN Knoten mit
+verfügbarem Anker -- unabhängig davon, ob er einen sichtbaren Hierarchie-Nachbarn hat oder nicht.
 
-Bewusst klein: ein solcher Knoten hat ein echtes, fachlich bedeutsames Hierarchie-Ziel, das die
-Bereichs-Kraft nicht dominieren darf."""
+**Warum EIN Gewicht statt der früheren Zwei-Stufen-Fassung (0.15 mit Hierarchie-Nachbar / 0.8
+ohne):** Nutzer-Feedback NACH dem Filter-Waisen-Fix, am UNGEFILTERTEN Gesamtgraphen: Bereiche
+wirkten weiterhin "krass durchmischt". Root Cause: im ungefilterten Regelfall hat praktisch JEDER
+Knoten außer echten Wurzeln mindestens einen Elternteil oder ein Kind -- die schwache 0.15-Stufe
+griff damit faktisch für fast den gesamten Graphen, nicht nur für seltene Waisen, und verfehlte das
+eigentliche Ziel (sichtbares Bereichs-Clustering im Normalfall). Die ursprüngliche Sorge hinter der
+schwachen Stufe (ein gut vernetzter Knoten hat ein "echtes, fachlich bedeutsames Hierarchie-Ziel,
+das die Bereichs-Kraft nicht dominieren darf") bleibt zwar grundsätzlich richtig, wurde aber vom
+Nutzer nach Vorlage mehrerer Alternativen (schwaches Gewicht anheben / harte Block-Sortierung pro
+Schicht / feste Bereichs-Spalten über den ganzen Graphen) explizit zugunsten von sichtbarem
+Clustering aufgegeben -- Hierarchie bleibt weiterhin über Kanten, Andockpunkte und die
+Y-Achsen-Schichtung ablesbar, nur die exakte X-Position wird jetzt stärker vom Bereich als vom
+Hierarchie-Ziel dominiert.
 
-_STRONG_BEREICH_COHESION_WEIGHT = 0.8
-"""Blend-Gewicht Richtung Bereichs-Anker für einen Knoten OHNE jeden sichtbaren Hierarchie-Nachbarn
--- unabhängig davon, ob sein Bereich viele oder nur einen weiteren sichtbaren Peer hat (beides
-läuft über denselben, einmalig fixierten Anker, siehe `_estimate_bereich_anchor_positions()`).
-Bewusst an der Hierarchie-Nachbarschaft festgemacht, nicht an der Gruppengröße: ein gut
-bevölkerter Bereich hätte bei einer größenabhängigen Gewichtung für jedes Mitglied denselben
-(zwangsläufig schwachen) Wert -- ein reiner Filter-Waise ohne jedes Hierarchie-Signal braucht aber
-denselben starken Zug wie jeder andere Knoten ohne Hierarchie-Signal, unabhängig von der Größe
-seines Bereichs. Es gibt hier nichts fachlich Schützenswertes, das ein schwaches Gewicht
-rechtfertigen würde.
+Wert bewusst identisch mit dem früheren "starken" Gewicht übernommen -- bereits als unproblematisch
+erprobt (siehe Testsuite), keine neue Zahl ohne Herleitung. Bei weiterhin zu schwachem visuellem
+Clustering (z. B. am echten Vault) ist dies eine reine Zahlenanpassung (z. B. auf 0.85-0.9), kein
+erneuter Architektureingriff -- siehe Konvergenzbeweis unten, der für JEDEN Gewichtswert gilt.
 
 **Wichtige Architektur-Entscheidung (Konvergenz-bedingt):** Das Bereichs-Ziel ist für JEDEN Knoten
 ein EINMALIG vor der Sweep-Schleife aus den Start-Positionen berechneter, danach FIXER Wert -- nie
@@ -117,9 +122,12 @@ def _estimate_bereich_anchor_positions(
     -- ausschließlich aus `primarer_bereich_id`-Mitgliedern, unter Ausschluss des Knotens selbst
     (Mittelwert der ANDEREN sichtbaren Mitglieder desselben Bereichs). NICHT der offizielle,
     angezeigte Bereichs-Hub (das ist `compute_bereich_centroid_positions()`, läuft NACH der
-    Relaxation, berücksichtigt primär+prozess für einen unabhängigen Zweck: die
-    Hub-Zeilen-Positionierung). Dient als Ziel für JEDEN Knoten mit `primarer_bereich_id` während
-    der Relaxation, siehe `_apply_bereich_cohesion()`.
+    Relaxation, für einen unabhängigen Zweck: die Hub-Zeilen-Positionierung -- ebenfalls
+    ausschließlich aus `primarer_bereich_id`-Mitgliedern, NIE aus Sekundärbereich-Referenzen
+    (`prozessbereich_ids`), siehe `kompetenzgraph_layout.py::_build_bereich_classification_edges()`
+    für die vollständige Begründung inkl. der wichtigen Begriffsklärung Primär/Sekundär vs.
+    `BereichNode.kind`). Dient als Ziel für JEDEN Knoten mit `primarer_bereich_id` während der
+    Relaxation, siehe `_apply_bereich_cohesion()`.
 
     Ein Knoten, der die EINZIGE jemals sichtbare Kompetenz seines Bereichs ist, bekommt bewusst
     KEINEN Eintrag -- es gibt niemanden außer ihm selbst, zu dem er gezogen werden könnte.
@@ -131,7 +139,7 @@ def _estimate_bereich_anchor_positions(
     Bewusst EINMALIG statt pro Sweep neu berechnet: ein sich mitbewegender, live aus den aktuellen
     Positionen abgeleiteter Anker (Peer zieht zu seinen ebenfalls sich bewegenden anderen Peers)
     erwies sich beim Durchrechnen konkreter Szenarien als instabil -- siehe
-    `_STRONG_BEREICH_COHESION_WEIGHT`-Docstring für die vollständige Herleitung des dabei
+    `_BEREICH_COHESION_WEIGHT`-Docstring für die vollständige Herleitung des dabei
     gefundenen, unbegrenzten Drifts und warum ein FIXER Anker ihn strukturell ausschließt.
     """
     sums: dict[str, list[float]] = {}
@@ -152,21 +160,15 @@ def _apply_bereich_cohesion(
     hierarchy_targets: Mapping[str, float],
     bereich_of_node: Mapping[str, str],
     bereich_anchor_positions: Mapping[str, float],
-    has_hierarchy_neighbor: Mapping[str, bool],
 ) -> dict[str, float]:
     """Blendet die bereits berechneten Hierarchie-Ziele mit einem FIXEN Primärbereich-Anker.
 
-    Zwei UNABHÄNGIGE Entscheidungen (siehe auch Modul-Docstring der beiden Gewichts-Konstanten):
-
-    1. **Gibt es ein Bereichs-Ziel?** Ja, falls der Knoten `primarer_bereich_id` hat UND
-       `_estimate_bereich_anchor_positions()` für ihn einen Anker berechnen konnte (mindestens
-       ein weiterer sichtbarer Knoten desselben Bereichs existiert). Sonst: KEIN Bereichs-Ziel,
-       reines Hierarchie-Ziel unverändert.
-    2. **Wie stark?** (nur relevant, wenn 1. zutrifft)
-       - Hat der Knoten mindestens einen sichtbaren Hierarchie-Nachbarn: `_WEAK_BEREICH_COHESION_
-         WEIGHT` -- ein echtes Hierarchie-Ziel wird nur sanft ergänzt, nicht verdrängt.
-       - Kein Hierarchie-Nachbar: `_STRONG_BEREICH_COHESION_WEIGHT` -- es gibt kein fachliches
-         Signal, das geschützt werden müsste.
+    Gibt es ein Bereichs-Ziel? Ja, falls der Knoten `primarer_bereich_id` hat UND
+    `_estimate_bereich_anchor_positions()` für ihn einen Anker berechnen konnte (mindestens ein
+    weiterer sichtbarer Knoten desselben Bereichs existiert). Sonst: KEIN Bereichs-Ziel, reines
+    Hierarchie-Ziel unverändert. Existiert ein Anker, wird IMMER mit `_BEREICH_COHESION_WEIGHT`
+    geblendet -- unabhängig von Hierarchie-Nachbarschaft (siehe dortiger Docstring für die
+    Begründung, warum diese frühere Zwei-Stufen-Unterscheidung aufgegeben wurde).
 
     `prozessbereiche` fließen in KEINEN Teil dieser Funktion ein -- `bereich_of_node` enthält
     ausschließlich `primarer_bereich_id`-Zuordnungen (siehe Aufrufstelle in
@@ -178,11 +180,8 @@ def _apply_bereich_cohesion(
         if bereich_of_node.get(node_id) is None or node_id not in bereich_anchor_positions:
             blended[node_id] = hierarchy_target
             continue
-        weight = (
-            _WEAK_BEREICH_COHESION_WEIGHT if has_hierarchy_neighbor.get(node_id, False) else _STRONG_BEREICH_COHESION_WEIGHT
-        )
         anchor = bereich_anchor_positions[node_id]
-        blended[node_id] = (1 - weight) * hierarchy_target + weight * anchor
+        blended[node_id] = (1 - _BEREICH_COHESION_WEIGHT) * hierarchy_target + _BEREICH_COHESION_WEIGHT * anchor
     return blended
 
 
@@ -298,9 +297,10 @@ def relax_horizontal_positions(
     fachlich sinnvolle Verankerung nahelegt. Ist `bereich_of_node` gesetzt, wird das je Sweep
     berechnete Hierarchie-Ziel zusätzlich mit einem FIXEN, einmalig aus den Start-Positionen
     berechneten Primärbereich-Anker geblendet -- siehe `_apply_bereich_cohesion()` für die
-    vollständige Fallunterscheidung und `_STRONG_BEREICH_COHESION_WEIGHT` für die Begründung,
-    warum der Anker fix statt live neu berechnet ist. Default `None` → bit-identisches Verhalten
-    zu vorher für jeden bestehenden Aufrufer.
+    vollständige Fallunterscheidung und `_BEREICH_COHESION_WEIGHT` für die Begründung, warum der
+    Anker fix statt live neu berechnet ist UND warum dasselbe Gewicht für jeden Knoten mit Anker
+    gilt, unabhängig von Hierarchie-Nachbarschaft. Default `None` → bit-identisches Verhalten zu
+    vorher für jeden bestehenden Aufrufer.
 
     Args:
         sorted_layers: Schicht-Index → Start-Reihenfolge dieser Schicht
@@ -338,16 +338,12 @@ def relax_horizontal_positions(
     children_of_tuples = {parent: tuple(children) for parent, children in children_of.items()}
 
     bereich_anchor_positions: dict[str, float] = {}
-    has_hierarchy_neighbor: dict[str, bool] = {}
     if bereich_of_node is not None:
-        # Beide EINMALIG vor der Sweep-Schleife berechnet, danach FIX -- weder der Anker noch die
-        # Hierarchie-Nachbarschaft eines Knotens ändern sich innerhalb eines Aufrufs (Sichtbarkeit
-        # und Start-Positionen stehen fest; siehe `_estimate_bereich_anchor_positions()`-Docstring
-        # dafür, warum ein LIVE pro Sweep neu berechneter Anker instabil wäre).
+        # EINMALIG vor der Sweep-Schleife berechnet, danach FIX -- der Anker ändert sich innerhalb
+        # eines Aufrufs nie (Sichtbarkeit und Start-Positionen stehen fest; siehe
+        # `_estimate_bereich_anchor_positions()`-Docstring dafür, warum ein LIVE pro Sweep neu
+        # berechneter Anker instabil wäre).
         bereich_anchor_positions = _estimate_bereich_anchor_positions(bereich_of_node, positions)
-        has_hierarchy_neighbor = {
-            node_id: bool(edges.get(node_id)) or bool(children_of_tuples.get(node_id)) for node_id in positions
-        }
 
     for sweep_index in range(iterations):
         if sweep_index % 2 == 0:
@@ -359,7 +355,7 @@ def relax_horizontal_positions(
                 targets = _pull_toward_neighbor_median(current_order[layer_index], positions, edges)
                 if bereich_of_node is not None:
                     targets = _apply_bereich_cohesion(
-                        current_order[layer_index], targets, bereich_of_node, bereich_anchor_positions, has_hierarchy_neighbor
+                        current_order[layer_index], targets, bereich_of_node, bereich_anchor_positions
                     )
                 new_order = tuple(sorted(current_order[layer_index], key=lambda nid: (targets[nid], nid)))
                 current_order[layer_index] = new_order
@@ -370,7 +366,7 @@ def relax_horizontal_positions(
                 targets = _pull_toward_neighbor_median(current_order[layer_index], positions, children_of_tuples)
                 if bereich_of_node is not None:
                     targets = _apply_bereich_cohesion(
-                        current_order[layer_index], targets, bereich_of_node, bereich_anchor_positions, has_hierarchy_neighbor
+                        current_order[layer_index], targets, bereich_of_node, bereich_anchor_positions
                     )
                 new_order = tuple(sorted(current_order[layer_index], key=lambda nid: (targets[nid], nid)))
                 current_order[layer_index] = new_order

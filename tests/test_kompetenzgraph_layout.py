@@ -1,5 +1,9 @@
 from kursplaner.core.domain import kompetenzgraph_layout
-from kursplaner.core.domain.kompetenzgraph_layout import _BEREICH_SPACING, compute_layered_layout
+from kursplaner.core.domain.kompetenzgraph_layout import (
+    _BEREICH_SPACING,
+    _build_bereich_classification_edges,
+    compute_layered_layout,
+)
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN, MODE_OBER_TEIL
 from tests.kompetenzgraph_test_support import make_bereich, make_node
@@ -177,6 +181,34 @@ def test_prozessbereich_ids_never_influence_competency_positions():
 
     assert layout_without.positions["A"] == layout_with.positions["A"]
     assert layout_without.positions["I-Primary"] == layout_with.positions["I-Primary"]
+
+
+def test_bereich_classification_uses_primary_relationship_not_bereich_kind():
+    """Primär/Sekundär ist eine Eigenschaft der BEZIEHUNG (welches Feld eine Kompetenz nutzt), NICHT
+    eine Eigenschaft des Bereichs selbst (`BereichNode.kind`). Ein Bereich mit
+    `kind="prozessbereich"` kann durchaus jemandes `primarer_bereich_id` sein ("primärer
+    Prozessbereich") und muss dann ganz normal aus seinen Primärmitgliedern positioniert werden --
+    ein früherer (verworfener) Fix-Versuch unterschied fälschlich nach `kind` des Hubs statt nach
+    der tatsächlichen Beziehung. Ein Bereich, der NIE `primarer_bereich_id` ist (nur über
+    `prozessbereich_ids` referenziert, hier "PURE-SECONDARY"), bekommt bewusst KEIN Signal aus
+    dieser Sekundärbereich-Referenz -- explizite Nutzervorgabe, keine Lücke."""
+    primary_prozessbereich = make_bereich("PP", kind="prozessbereich")
+    inhaltsbereich = make_bereich("IB", kind="inhaltsbereich")
+    pure_secondary = make_bereich("PURE-SECONDARY", kind="prozessbereich")
+
+    node_a = make_node("A", primarer_bereich_id="PP")
+    node_b = make_node("B", primarer_bereich_id="IB", prozessbereich_ids=("PURE-SECONDARY",))
+    snapshot = build_kompetenz_graph_snapshot(
+        [node_a, node_b], [primary_prozessbereich, inhaltsbereich, pure_secondary]
+    )
+    visible = frozenset({"A", "B"})
+    visible_bereiche = frozenset({"PP", "IB", "PURE-SECONDARY"})
+
+    edges = _build_bereich_classification_edges(snapshot, visible, visible_bereiche)
+
+    assert edges["PP"] == ("A",)  # primärer Prozessbereich -- ganz normal aus seinem Primärmitglied
+    assert edges["IB"] == ("B",)
+    assert edges["PURE-SECONDARY"] == ()  # nie Primärbereich -- kein Ersatzsignal aus der Sekundärreferenz
 
 
 def test_abhaengigkeiten_mode_layers_mixed_edge_types_consistently():

@@ -78,10 +78,37 @@ def _build_bereich_classification_edges(
 ) -> dict[str, tuple[str, ...]]:
     """Baut das Klassifikations-Kantenbild (Bereich→klassifizierende Kompetenzen) für die Bereichs-Zentroid-Positionierung.
 
-    Berücksichtigt sowohl `primarer_bereich` als auch `prozessbereiche` --
-    ein Bereichs-Hub wird also von jeder sichtbaren Kompetenz "angezogen",
-    die ihn in einem der beiden Felder referenziert, nicht nur von seiner
-    kanonischen (`primarer_bereich`) Klassifikation.
+    **Begriffsklärung (wichtig, leicht zu verwechseln):** "Primär" vs. "Sekundär" ist eine
+    Eigenschaft der BEZIEHUNG zwischen einer Kompetenz und einem Bereich (welches Feld sie
+    referenziert: `primarer_bereich_id` vs. `prozessbereich_ids`) -- NICHT eine Eigenschaft des
+    Bereichs selbst. `BereichNode.kind` ("inhaltsbereich"/"prozessbereich") ist ein davon
+    UNABHÄNGIGES Attribut des Bereichs-Knotens; ein Bereich mit `kind="prozessbereich"` kann sehr
+    wohl der `primarer_bereich_id` einer Kompetenz sein ("primärer Prozessbereich") und muss dann
+    wie jeder andere Primärbereich positioniert werden.
+
+    Ein Bereich wird deshalb AUSSCHLIESSLICH aus den Kompetenzen positioniert, für die er der
+    PRIMÄRE Bereich ist (`primarer_bereich_id == dieser Bereich`) -- eine Sekundärbereich-Referenz
+    (`prozessbereich_ids` enthält diesen Bereich, ist aber NICHT `primarer_bereich_id` der
+    betreffenden Kompetenz) beeinflusst NIE irgendeine Positionierung, weder die
+    Primärbereich-Kohäsion der Kompetenz-Knoten (`kompetenzgraph_layout_forces.py`) noch die
+    Hub-Zentroide hier. Frühere Fassung mischte für JEDEN Hub beide Beziehungstypen (ein Hub wurde
+    von jeder Kompetenz "angezogen", die ihn in einem der beiden Felder referenziert) -- das zog
+    einen Hub real spürbar von seiner eigenen Primärgruppe weg, sobald viele fachfremde Kompetenzen
+    ihn nur sekundär mit-referenzierten (verifiziert am synthetischen 144-Knoten-Snapshot: ein Hub
+    mit 96 fremden Sekundärbereich-Referenzen landete bei x=1292 statt beim tatsächlichen
+    Schwerpunkt seiner 16 Primärmitglieder bei x=89.5) -- umso sichtbarer, seit die
+    Primärbereich-Kohäsion Kompetenz-Knoten deutlich stärker clustert
+    (`_BEREICH_COHESION_WEIGHT`).
+
+    Ein Bereich, der NIE `primarer_bereich_id` irgendeiner sichtbaren Kompetenz ist (nur über
+    Sekundärbereich-Referenzen erreichbar), bekommt bewusst KEIN Ersatzsignal aus seinen
+    Sekundärbereich-Mitgliedern -- er fällt auf den regulären Fallback in
+    `compute_bereich_centroid_positions()` zurück (x=0.0, "kein klassifizierender sichtbarer
+    Knoten"). Das ist explizite Nutzervorgabe: Sekundärbereich-Referenzen dürfen KEINE
+    Positionierung beeinflussen, auch nicht ersatzweise die eigene des betroffenen Hubs.
+    Sekundärbereich-Zugehörigkeit einer Kompetenz bleibt weiterhin über Detail-Panel, Filter UND
+    die auswahlgebundenen gestrichelten Kanten (`kompetenzgraph_canvas_edges.py`) einsehbar -- nur
+    die LAYOUTKRAFT ignoriert sie vollständig.
     """
     members: dict[str, list[str]] = {bereich_id: [] for bereich_id in visible_bereich_ids}
     for node_id in visible_node_ids:
@@ -90,9 +117,6 @@ def _build_bereich_classification_edges(
             continue
         if node.primarer_bereich_id is not None and node.primarer_bereich_id in members:
             members[node.primarer_bereich_id].append(node_id)
-        for prozessbereich_id in node.prozessbereich_ids:
-            if prozessbereich_id in members:
-                members[prozessbereich_id].append(node_id)
     return {bereich_id: tuple(sorted(ids)) for bereich_id, ids in members.items()}
 
 

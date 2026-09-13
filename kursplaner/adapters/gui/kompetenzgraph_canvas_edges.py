@@ -61,10 +61,14 @@ class KompetenzGraphEdgeRenderer:
         `view.visible_bereich_ids` geprüft, keine neue Zustandsquelle.
 
         WICHTIG: `compute_bereich_centroid_positions()`/`_build_bereich_classification_edges()`
-        (`kompetenzgraph_layout.py`/`kompetenzgraph_layout_forces.py`) bleiben davon komplett
-        unberührt -- Hub-POSITIONIERUNG berücksichtigt weiterhin die volle wahre Mitgliedschaft
-        (primär+prozess), unabhängig davon, was hier gezeichnet wird. Sichtbarkeit einer Kante und
-        Layoutkraft sind zwei getrennte Entscheidungen mit unterschiedlicher Datenbasis.
+        (`kompetenzgraph_layout.py`) bleiben davon komplett unberührt -- Sichtbarkeit einer Kante
+        und Layoutkraft sind zwei getrennte Entscheidungen mit unterschiedlicher Datenbasis. Jeder
+        Bereichs-Hub wird dort AUSSCHLIESSLICH aus den Kompetenzen positioniert, für die er der
+        PRIMÄRE Bereich ist -- eine Sekundärbereich-Referenz (`prozessbereich_ids` einer Kompetenz,
+        die ihn nicht als `primarer_bereich_id` trägt) beeinflusst KEINE Position, auch nicht die
+        eigene des betroffenen Hubs (siehe dortiger Docstring für die Begriffsklärung
+        Primär/Sekundär vs. `BereichNode.kind` -- ein Hub mit `kind="prozessbereich"` kann
+        durchaus jemandes Primärbereich sein und wird dann ganz normal positioniert).
         """
         for node_id in view.visible.all_ids:
             node = snapshot.nodes.get(node_id)

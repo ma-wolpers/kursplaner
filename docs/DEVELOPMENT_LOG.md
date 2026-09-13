@@ -8,6 +8,61 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-14) — Bereiche blieben auch ungefiltert durchmischt; Bereichs-Hubs standen nicht über ihren Knoten
+
+Zwei zusammenhängende Nachmeldungen zum vorherigen Primärbereich-Kohäsion-Fix (Eintrag direkt
+darunter), beide am ungefilterten Gesamtgraphen entdeckt:
+
+**1) Kohäsions-Gewicht griff im Regelfall kaum.** Der vorherige Fix unterschied zwei Gewichte:
+`0.15` für einen Knoten MIT sichtbarem Hierarchie-Nachbarn, `0.8` ohne. Im ungefilterten Graphen
+hat aber praktisch jeder Knoten außer echten Wurzeln einen Elternteil oder ein Kind -- die schwache
+Stufe griff damit für nahezu den gesamten Graphen, nicht nur für seltene Waisen, und verfehlte das
+eigentlich gewünschte Bereichs-Clustering im Normalfall. Nutzer-Feedback nach Vorlage von drei
+Optionen (Gewicht anheben / harte Block-Sortierung pro Schicht / feste Bereichs-Spalten über den
+ganzen Graphen): den bestehenden, bereits als stabil bewiesenen Fix-Anker-Mechanismus
+wiederverwenden, aber auf EIN einziges Gewicht vereinheitlichen (`_BEREICH_COHESION_WEIGHT = 0.8`,
+`kompetenzgraph_layout_forces.py`), unabhängig von Hierarchie-Nachbarschaft. Gefahrlos, weil die
+Konvergenzgarantie des fixen Ankers (`x_{t+1} = a·x_t + c`, `|a| = 1-w < 1`) für JEDEN Gewichtswert
+gilt -- die zuvor gefundene Instabilität entstand ausschließlich durch einen LIVE neu berechneten,
+nicht durch einen fixen Anker. `has_hierarchy_neighbor` als Parameter/Vorberechnung entfernt, da
+nirgends mehr gebraucht.
+
+**2) Bereichs-Hub-Zentroide wurden von Sekundärbereich-Referenzen weggezogen.** Nach dem ersten Fix
+fiel auf: Bereichs-Hubs standen sichtbar nicht über ihrer eigenen Knoten-Gruppe, sondern gebündelt
+in der Graphenmitte. Root Cause: `_build_bereich_classification_edges()`
+(`kompetenzgraph_layout.py`) positionierte JEDEN Hub aus dem Schwerpunkt aller Kompetenzen, die ihn
+über `primarer_bereich_id` ODER `prozessbereich_ids` referenzieren. Da ~67% der Kompetenzen
+zusätzlich mehrere `prozessbereich_ids` tragen, wurde ein Hub oft von zig fachfremden Kompetenzen
+mitgezogen, die ihn nur sekundär mit-referenzierten -- am synthetischen 144-Knoten-Snapshot landete
+ein Hub mit 96 fremden Sekundärbereich-Referenzen bei x=1292 statt beim tatsächlichen Schwerpunkt
+seiner 16 Primärmitglieder bei x=89.5. Bereits vorher vorhanden, aber kaum auffällig, solange die
+Primärbereich-Kohäsion selbst schwach war -- durch Fix 1) umso sichtbarer.
+
+**Begriffsklärung (per Nutzerkorrektur, wichtig, leicht zu verwechseln):** "Primär" vs. "Sekundär"
+ist eine Eigenschaft der BEZIEHUNG zwischen einer Kompetenz und einem Bereich (welches Feld
+referenziert: `primarer_bereich_id` vs. `prozessbereich_ids`) -- NICHT eine Eigenschaft des
+Bereichs selbst. `BereichNode.kind` ("inhaltsbereich"/"prozessbereich") ist ein davon UNABHÄNGIGES
+Attribut des Bereichs-Knotens; ein Bereich mit `kind="prozessbereich"` kann sehr wohl
+`primarer_bereich_id` einer Kompetenz sein ("primärer Prozessbereich") und muss dann wie jeder
+andere Primärbereich ganz normal positioniert werden. Ein erster Fix-Versuch unterschied
+fälschlich nach `kind` des HUBS statt nach der tatsächlichen Beziehung -- korrigiert.
+
+**Fix (explizite Nutzervorgabe: Sekundärbereich-Referenzen dürfen KEINE Positionierung
+beeinflussen)**: jeder Bereich wird jetzt AUSSCHLIESSLICH aus den Kompetenzen positioniert, für die
+er der PRIMÄRE Bereich ist -- unabhängig von seinem eigenen `kind`. Ein Bereich, der NIE
+`primarer_bereich_id` irgendeiner sichtbaren Kompetenz ist (nur über Sekundärbereich-Referenzen
+erreichbar), bekommt bewusst KEIN Ersatzsignal aus diesen Referenzen und fällt auf den regulären
+Fallback in `compute_bereich_centroid_positions()` zurück (x=0.0) -- explizit akzeptiert, keine
+Lücke. Sekundärbereich-Zugehörigkeit einer Kompetenz bleibt weiterhin über Detail-Panel, Filter und
+die auswahlgebundenen gestrichelten Kanten einsehbar -- nur die Layoutkraft ignoriert sie
+vollständig, für jeden Hub gleichermaßen.
+
+Tests in `tests/test_kompetenzgraph_layout_forces.py` an das vereinheitlichte Gewicht angepasst
+(Streuungs-Assertions verschärft statt nur "kleiner als vorher"; ein Test zeigt jetzt explizit,
+dass hierarchie-vernetzte und -freie Bereichsmitglieder vergleichbar stark gezogen werden; neuer
+Regressionstest für den ursprünglich gemeldeten Fall -- mehrere Bereichsmitglieder mit echten,
+weit auseinanderliegenden Hierarchie-Zielen, kein Filter -- clustern trotzdem deutlich).
+
 ### Fixed (2026-09-13) — Primärbereich-Kohäsion: Filter-Waisen frieren nicht mehr an arbiträrer Position ein
 
 Ausdrücklicher Nutzerwunsch nach dem Overlap-/Clutter-Fix (Eintrag weiter unten): *"Ich wünsche

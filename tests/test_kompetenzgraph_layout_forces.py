@@ -304,8 +304,9 @@ def test_bereich_group_members_end_up_measurably_closer_together():
     """Drei sichtbare Knoten desselben Bereichs, ohne jede Hierarchiekante untereinander, mit weit
     auseinanderliegenden Elternteilen (drei unabhängige, weit gestreute Ein-Kind-Elternteile) --
     die Kohäsion zieht sie näher zueinander als ohne sie. Geprüft wird die Streuung (max-min der
-    X-Werte), nicht ein exakter Zahlenwert, da die Zielverschiebung durch das Zusammenspiel von
-    Anker-Blend UND `_resolve_min_spacing()`-Pooling entsteht."""
+    X-Werte, nicht die gerichtete Differenz N3-N1 -- bei dem seit der Vereinheitlichung starken
+    Gewicht können sich N1/N3 in ihrer Reihenfolge um den gemeinsamen Anker herum vertauschen, eine
+    gerichtete Differenz würde dann fälschlich negativ)."""
     layer0 = ("P1",) + tuple(f"F1-{i}" for i in range(9)) + ("P2",) + tuple(f"F2-{i}" for i in range(9)) + ("P3",)
     sorted_layers = {0: layer0, 1: ("N1", "N2", "N3")}
     edges = {"N1": ("P1",), "N2": ("P2",), "N3": ("P3",)}
@@ -314,22 +315,22 @@ def test_bereich_group_members_end_up_measurably_closer_together():
     without = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0)
     with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node)
 
-    spread_without = without["N3"] - without["N1"]
-    spread_with = with_cohesion["N3"] - with_cohesion["N1"]
-    assert spread_with < spread_without
+    spread_without = max(without[n] for n in ("N1", "N2", "N3")) - min(without[n] for n in ("N1", "N2", "N3"))
+    spread_with = max(with_cohesion[n] for n in ("N1", "N2", "N3")) - min(with_cohesion[n] for n in ("N1", "N2", "N3"))
+    assert spread_with < spread_without * 0.5  # deutlich enger, nicht nur minimal
 
 
-def test_hierarchy_connected_group_member_moves_far_less_than_a_hierarchy_free_one():
-    """Herzstück der Gewichtswahl: `has_hierarchy_neighbor` entscheidet ALLEIN (nicht die
-    Gruppengröße) zwischen dem schwachen Gewicht (`_WEAK_BEREICH_COHESION_WEIGHT = 0.15`, schützt
-    ein echtes Hierarchie-Ziel) und dem starken (`_STRONG_BEREICH_COHESION_WEIGHT = 0.8`, ein
-    Knoten ohne jeden sichtbaren Hierarchie-Nachbarn hat kein schützenswertes Signal). MAIN hat
-    einen echten Elternknoten, FARPEER keinen -- beide teilen denselben Bereich und damit denselben
-    Anker (die jeweils andere Startposition). Ein einziger Top-Down-Sweep (`iterations=1`) hält die
-    Elternposition unverändert (keine Rückkopplung über einen Bottom-Up-Sweep), sodass die
-    Verschiebung ausschließlich der Gewichtsunterschied erklärt. Zwischen MAIN und FARPEER liegen
-    20 unbeteiligte Füllknoten, damit der Anker-Abstand (1050px) groß gegenüber `min_spacing` (50px)
-    bleibt und `_resolve_min_spacing()`-Pooling die beiden Ziele nicht künstlich zusammenzieht."""
+def test_hierarchy_connected_and_hierarchy_free_group_members_now_shift_comparably():
+    """Regressionstest gegen die frühere Zwei-Stufen-Gewichtung: seit der Vereinheitlichung auf
+    `_BEREICH_COHESION_WEIGHT` entscheidet Hierarchie-Nachbarschaft NICHT mehr über die Stärke des
+    Zugs Richtung Bereichs-Anker -- genau das war die Root Cause des gemeldeten Symptoms (im
+    ungefilterten Graphen hat fast jeder Knoten einen Hierarchie-Nachbarn, die frühere schwache
+    Stufe griff also praktisch überall). MAIN hat einen echten Elternknoten, FARPEER keinen --
+    beide teilen denselben Bereich und damit denselben Anker (die jeweils andere Startposition).
+    Ein einziger Top-Down-Sweep (`iterations=1`) hält die Elternposition unverändert, sodass die
+    Verschiebung ausschließlich den Gewichts-Effekt zeigt. 20 unbeteiligte Füllknoten zwischen MAIN
+    und FARPEER halten den Anker-Abstand (1050px) groß gegenüber `min_spacing` (50px), damit
+    `_resolve_min_spacing()`-Pooling die beiden Ziele nicht künstlich verzerrt."""
     layer1 = ("MAIN",) + tuple(f"FILL-{i}" for i in range(20)) + ("FARPEER",)
     sorted_layers = {0: ("STRONGPARENT",), 1: layer1}
     edges = {"MAIN": ("STRONGPARENT",)}  # FARPEER hat keinen sichtbaren Hierarchie-Nachbarn
@@ -342,10 +343,40 @@ def test_hierarchy_connected_group_member_moves_far_less_than_a_hierarchy_free_o
     main_shift_fraction = abs(with_cohesion["MAIN"] - without["MAIN"]) / anchor_distance
     farpeer_shift_fraction = abs(with_cohesion["FARPEER"] - without["FARPEER"]) / anchor_distance
 
-    # Erwartung grob entlang der Gewichte (0.15 bzw. 0.8), mit Toleranz fürs PAVA-Pooling.
-    assert main_shift_fraction < 0.2
+    # Beide klar Richtung Anker gezogen (nicht nur einer von beiden) UND ungefähr gleich stark --
+    # keine große Diskrepanz mehr zwischen "mit" und "ohne" Hierarchie-Nachbarn.
+    assert main_shift_fraction > 0.6
     assert farpeer_shift_fraction > 0.6
-    assert farpeer_shift_fraction > main_shift_fraction * 3  # klar unterscheidbar, nicht nur leicht
+    assert abs(main_shift_fraction - farpeer_shift_fraction) < 0.05
+
+
+def test_bereich_members_with_real_widely_separated_hierarchy_targets_still_cluster_strongly():
+    """Direkter Regressionstest gegen das tatsächlich gemeldete Symptom: im UNGEFILTERTEN Graphen
+    (keine Waisen, jeder Knoten hat einen echten, eigenen Elternknoten) sollen Mitglieder desselben
+    Bereichs trotzdem sichtbar näher zusammenrücken als ihre jeweiligen Hierarchie-Ziele allein
+    vorgeben würden -- das war mit der alten, an Hierarchie-Nachbarschaft gekoppelten Gewichtung
+    (0.15 für praktisch jeden Knoten mit Elternteil) nicht der Fall und exakt das vom Nutzer als
+    "immer noch krass durchmischt" gemeldete Verhalten. Vier Knoten desselben Bereichs, jeder mit
+    einem eigenen, weit separierten Elternteil (kein gemeinsamer Elternteil, keine Filter-Waisen)."""
+    layer0 = (
+        ("PA",)
+        + tuple(f"FA-{i}" for i in range(9))
+        + ("PB",)
+        + tuple(f"FB-{i}" for i in range(9))
+        + ("PC",)
+        + tuple(f"FC-{i}" for i in range(9))
+        + ("PD",)
+    )
+    sorted_layers = {0: layer0, 1: ("A", "B", "C", "D")}
+    edges = {"A": ("PA",), "B": ("PB",), "C": ("PC",), "D": ("PD",)}
+    bereich_of_node = {"A": "X", "B": "X", "C": "X", "D": "X"}
+
+    without_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0)
+    with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node)
+
+    hierarchy_spread = max(without_cohesion[n] for n in "ABCD") - min(without_cohesion[n] for n in "ABCD")
+    cohesion_spread = max(with_cohesion[n] for n in "ABCD") - min(with_cohesion[n] for n in "ABCD")
+    assert cohesion_spread < hierarchy_spread * 0.3
 
 
 def test_more_iterations_of_bereich_cohesion_stabilize_instead_of_drifting_further():
@@ -394,6 +425,6 @@ def test_filtering_out_a_layer_clusters_orphaned_bereich_members_more_tightly_th
         for a, b in itertools.product(xs1[:5], xs2[:5])  # Stichprobe -- Paarzahl sonst quadratisch groß
     ]
 
-    assert sum(intra_bereich_distances) / len(intra_bereich_distances) < sum(inter_bereich_distances) / len(
-        inter_bereich_distances
-    )
+    avg_intra = sum(intra_bereich_distances) / len(intra_bereich_distances)
+    avg_inter = sum(inter_bereich_distances) / len(inter_bereich_distances)
+    assert avg_intra < avg_inter * 0.5  # deutlich enger, nicht nur knapp kleiner
