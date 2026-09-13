@@ -75,7 +75,7 @@ class MainWindowEditorController:
 
         date_label = day.datum.strip()
         if field_key == "Stundenziel":
-            selection = ask_lesson_stundenziel_selection(
+            stundenziel_selection = ask_lesson_stundenziel_selection(
                 parent=self.app,
                 date_label=date_label,
                 stundenziel_options=stundenziel_options,
@@ -83,8 +83,12 @@ class MainWindowEditorController:
                 stundenziel_hint=kompetenzen_hint,
                 theme_key=self.app.theme_var.get(),
             )
+            self.app.grid_canvas.focus_set()
+            if stundenziel_selection is None:
+                return True
+            apply_field, apply_value = "Stundenziel", stundenziel_selection
         else:
-            selection = ask_lesson_kompetenzen_selection(
+            kompetenzen_selection = ask_lesson_kompetenzen_selection(
                 parent=self.app,
                 date_label=date_label,
                 kompetenzen_options=kompetenzen_options,
@@ -92,16 +96,13 @@ class MainWindowEditorController:
                 kompetenzen_hint=kompetenzen_hint,
                 theme_key=self.app.theme_var.get(),
             )
-        self.app.grid_canvas.focus_set()
-        if selection is None:
-            return True
+            self.app.grid_canvas.focus_set()
+            if kompetenzen_selection is None:
+                return True
+            apply_field, apply_value = "Kompetenzen", " | ".join(kompetenzen_selection.kompetenzen_refs)
 
         try:
-            if field_key == "Stundenziel":
-                self.apply_value("Stundenziel", day_index, selection)
-            else:
-                kompetenzen_value = " | ".join(selection.kompetenzen_refs)
-                self.apply_value("Kompetenzen", day_index, kompetenzen_value)
+            self.apply_value(apply_field, day_index, apply_value)
         except Exception as exc:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return True

@@ -362,6 +362,15 @@ class CommandRepository(Protocol):
         """
         ...
 
+    def write_file_content(self, path: Path, content: str | None) -> None:
+        """Schreibt oder löscht Dateiinhalt für Undo/Redo-Deltas.
+
+        Args:
+            path: Zielpfad der Datei.
+            content: Neuer Inhalt, oder ``None`` zum Löschen der Datei.
+        """
+        ...
+
 
 class AchievementRequirementsRepository(Protocol):
     """Definiert den Vertrag fuer JSON-basierte Achievement-Vorgaben je Fach."""
@@ -391,15 +400,6 @@ class KompetenzkatalogRepository(Protocol):
 
     def load_catalog_file(self, path: Path, profile_id: str) -> Kompetenzkatalog:
         """Laedt einen einzelnen Kompetenzkatalog fuer ein Profil aus einer JSON-Datei."""
-        ...
-
-    def write_file_content(self, path: Path, content: str | None) -> None:
-        """Schreibt oder löscht Dateiinhalt für Undo/Redo-Deltas.
-
-        Args:
-            path: Zielpfad der Datei.
-            content: Neuer Inhalt oder ``None`` zum Löschen.
-        """
         ...
 
 
@@ -539,6 +539,18 @@ class SubjectSourceRepository(Protocol):
         Args:
             unterricht_dir: Optionales Unterrichts-Basisverzeichnis.
             subject_folder: Optionaler Fachordner für gezielte Invalidierung.
+        """
+        ...
+
+    def rebuild_index(self, unterricht_dir: Path, subject_folder: str | None = None) -> int:
+        """Baut den Baukasten-Quellindex explizit neu auf (kontrollierter Vollscan).
+
+        Args:
+            unterricht_dir: Unterrichts-Basisverzeichnis.
+            subject_folder: Optionaler Fachordner für gezielten Rebuild.
+
+        Returns:
+            Anzahl neu geschriebener Manifest-Dateien.
         """
         ...
 

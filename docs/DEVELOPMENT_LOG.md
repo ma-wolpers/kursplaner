@@ -8,6 +8,48 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-13) — Repository-Protocol-Drift: vier von mypy gefundene Bugs behoben, systemischer Schutz ergänzt
+
+Ein routinemäßiger `mypy kursplaner`-Lauf zeigte 28 Fehler; vier davon wurden root-gecausalt und
+behoben (keiner war ein aktiver Laufzeit-Crash, alle tatsächlichen Aufrufstellen verifiziert):
+
+1. **`CommandRepository`-Protocol** deklarierte nur `read_file_content`, obwohl
+   `command_executor_usecase.py::apply_deltas()` bereits `write_file_content` aufruft und die
+   einzige Implementierung (`FileSystemCommandRepository`) diese Methode korrekt hat. Protocol
+   war schlicht unvollständig -- `write_file_content` ergänzt.
+2. **`SubjectSourceRepository`-Protocol** deklarierte `rebuild_index` gar nicht, obwohl
+   `RebuildSubjectSourceIndexUseCase` es aufruft und `FileSystemSubjectSourceRepository.
+   rebuild_index(unterricht_dir, subject_folder=None) -> int` existiert und korrekt verdrahtet
+   ist -- ergänzt (Vorsicht: es gibt in derselben Datei eine ANDERE, unabhängige Protocol-Klasse
+   mit einem gleichnamigen `rebuild_index(unterricht_dir) -> None` ohne `subject_folder`, nicht
+   verwechseln).
+3. **`KompetenzkatalogRepository`-Protocol** deklarierte umgekehrt `write_file_content`, obwohl
+   `FileSystemKompetenzkatalogRepository` diese Methode nie hatte UND der einzige Konsument
+   (`NewLessonFormUseCase`) sie nirgends aufruft (per Grep über den gesamten Aufrufbaum
+   verifiziert) -- toter, vermutlich kopierter Protokoll-Eintrag, ersatzlos entfernt.
+4. **`editor_controller.py::handle_editor_focus_in()`**: eine Variable `selection` wurde in zwei
+   sich gegenseitig ausschließenden Zweigen mit strukturell unterschiedlichen Typen belegt
+   (`str | None` vs. `LessonKompetenzenSelectionResult | None`) und im zweiten Zweig mit
+   `.kompetenzen_refs` verwendet. Funktional korrekt (die Zweige sind konsistent gepaart), aber
+   für mypy unverifizierbar und ohne Schutz gegen einen künftigen Refactor, der diese Kopplung
+   versehentlich bricht -- in zwei eigene, korrekt typisierte, je nur im eigenen Zweig verwendete
+   Variablen aufgeteilt (reiner Umbenennungs-Refactor, keine Verhaltensänderung).
+
+**Root Cause hinter den ersten drei Fällen**: Protocols in `core/ports/repositories.py` und ihre
+konkreten Implementierungen in `infrastructure/repositories/` werden manuell synchron gehalten,
+ohne automatisierte Prüfung -- mypy erkennt eine Lücke nur zufällig, an der jeweiligen
+Aufrufstelle, die tatsächlich durch den Protocol-Typ hindurch aufruft. Das ist strukturell,
+nicht drei unabhängige Tippfehler. **Systemischer Schutz**: neue Datei
+`kursplaner/infrastructure/repositories/_protocol_conformance.py` mit je einer nie aufgerufenen
+Funktion pro (Protocol, Implementierung)-Paar (`def _conforms_to_command_repository() ->
+CommandRepository: return FileSystemCommandRepository()` usw.) -- ein reiner Compile-Zeit-Guard,
+mypy prüft jede Datei im Paket unabhängig vom Import-Graphen. Bewusst in
+`infrastructure/repositories/` platziert, nicht in `core/ports/`: Hexagonal-Architektur erlaubt
+Infrastructure, von core/ports UND den eigenen konkreten Klassen abzuhängen, umgekehrt nicht.
+Bewusst auf die drei betroffenen Paare begrenzt, nicht auf alle 14 Protocol-Klassen in
+`repositories.py` ausgeweitet (separater, größerer Auditierungs-Schritt) -- Datei ist trivial
+erweiterbar.
+
 ### Fixed (2026-09-13) — Kompetenznetz-Graph: Bereich-Hub-Overlap, Prozessbereich-Kanten-Clutter, Sidebar-Tabs
 
 Nutzer-Feedback anhand eines Screenshots (Fach Informatik): Bereich-Hub-Boxen überlappten
