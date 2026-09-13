@@ -16,6 +16,7 @@ from kursplaner.core.config.path_store import (
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.markdown_sections import extract_bullet_items, extract_section
 from kursplaner.core.domain.plan_table import read_yaml_oberthema
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
@@ -246,6 +247,15 @@ class MainWindowLessonConversionController:
 
     @staticmethod
     def _extract_markdown_section_refs(lesson_path: pathlib.Path, heading: str) -> list[str]:
+        """Liest Wikilink-/Freitext-Bullets unter `## <heading>` aus einer Einheiten-Datei.
+
+        Nutzt `markdown_sections.py` fuer Ueberschriften-/Bullet-Erkennung (Ebene 2 exakt
+        gesucht und als Abschnittsende erkannt, case-insensitiv -- vereinheitlicht gegenueber
+        der vorherigen, unbeabsichtigt case-sensitiven Regex hier); die Wikilink-Alias-
+        Aufloesung (Alias bevorzugt, sonst das Linkziel selbst) bleibt lokale Logik, da sie
+        eine andere Frage beantwortet als `wiki_links.py::extract_wiki_link_target` (das
+        immer nur das Ziel liefert).
+        """
         if not (isinstance(lesson_path, pathlib.Path) and lesson_path.exists() and lesson_path.is_file()):
             return []
         try:
@@ -253,19 +263,12 @@ class MainWindowLessonConversionController:
         except OSError:
             return []
 
-        section_re = re.compile(
-            rf"(?ms)^##\s+{re.escape(heading)}\s*$\n(.*?)(?=^##\s+|\Z)",
-        )
-        match = section_re.search(raw_text)
-        if match is None:
+        section = extract_section(raw_text, heading, target_level=2, stop_at_level=2)
+        if section is None:
             return []
 
         refs: list[str] = []
-        for raw_line in match.group(1).splitlines():
-            stripped = raw_line.strip()
-            if not stripped.startswith("-"):
-                continue
-            item = stripped[1:].strip()
+        for item in extract_bullet_items(section):
             link_match = re.search(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", item)
             if link_match:
                 value = (link_match.group(2) or link_match.group(1) or "").strip()

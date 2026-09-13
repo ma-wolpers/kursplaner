@@ -5,22 +5,20 @@ import re
 from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFieldIssue
 from kursplaner.core.domain.kompetenzgraph_node import BereichNode
 from kursplaner.core.domain.kompetenzgraph_types import SourceRef
+from kursplaner.core.domain.markdown_sections import derive_first_heading_title
 
-_HEADING_RE = re.compile(r"^\s*#{1,6}\s*(.+?)\s*$")
 _KUERZEL_RE = re.compile(r"^\s*K[uü]rzel\s*:\s*`?([A-Za-z]{1,4})`?\s*$", re.IGNORECASE)
 
 
 def _derive_bereich_title(body_text: str, node_id: str) -> str:
     """Leitet den Anzeigetitel eines Bereichs-Hubs aus der ersten Überschriftzeile ab.
 
-    Fällt auf die ID selbst zurück, falls der Body (entgegen der
-    Konvention) keine Überschrift enthält.
+    Fällt auf die ID selbst zurück, falls der Body (entgegen der Konvention) keine
+    Überschrift enthält. Die Überschriften-Erkennung selbst kommt aus
+    `markdown_sections.py::derive_first_heading_title` -- der ID-Fallback bleibt
+    fachliche, Bereichs-spezifische Logik hier vor Ort.
     """
-    for line in body_text.splitlines():
-        match = _HEADING_RE.match(line)
-        if match and match.group(1).strip():
-            return match.group(1).strip()
-    return node_id
+    return derive_first_heading_title(body_text) or node_id
 
 
 def _derive_kuerzel(body_text: str) -> str | None:

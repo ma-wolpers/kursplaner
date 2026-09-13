@@ -11,13 +11,9 @@ from bw_gui.runtime import ui, widgets
 tk = ui
 ttk = widgets
 
-from bw_libs.ui_contract.hsm import (
-    ESCAPE_CLOSE_POPUP,
-    ESCAPE_EXIT_INLINE_EDITOR,
-    ESCAPE_POP_PARENT,
-    build_ui_hsm_contract,
-)
+from bw_libs.ui_contract.hsm import build_ui_hsm_contract
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
 
@@ -40,6 +36,7 @@ class MainWindowUiIntentController:
         """Speichert den App-Adapter als Delegationsziel für Intents."""
         self.app = app
         self._hsm_contract = build_ui_hsm_contract(intents=_known_ui_intents())
+        self._selection_layer_stack = SelectionLayerStack(self)
 
     def handle_intent(self, intent: str, **payload):
         """Orchestriert View-Intents zentral und delegiert an passende Controller."""
@@ -301,8 +298,12 @@ class MainWindowUiIntentController:
             return self.intent_clipboard_shortcut(payload.get("event"), operation="paste")
         if intent == UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET:
             return self.intent_select_unit_by_offset(self.app._to_int(payload.get("offset", -1), -1))
+        if intent == UiIntent.SHORTCUT_FIND_PREVIOUS:
+            return self._selection_layer_stack.on_find_previous()
         if intent == UiIntent.GLOBAL_CLICK_COMMIT_CELL:
             return self.intent_global_click_commit_cell(payload.get("event"))
+        if intent == UiIntent.SEARCH_OPEN:
+            return self.intent_search_open()
 
         return None
 
@@ -481,44 +482,20 @@ class MainWindowUiIntentController:
         selected = self.app.selection_controller.select_unit_at_offset_from_next(offset)
         return "break" if selected else None
 
-    def intent_escape(self):
-        has_popup = ScrollablePopupWindow.has_active_popup()
-        focused = self.app.focus_get()
-        detail_active = bool(getattr(self.app, "is_detail_view", False))
-        has_inline_editor = self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_EDIT or isinstance(focused, ui.Text)
-        has_parent_state = detail_active
-
-        action = self._hsm_contract.resolve_escape_action(
-            has_popup=has_popup,
-            has_inline_editor=has_inline_editor,
-            has_parent_state=has_parent_state,
-        )
-        if action == ESCAPE_CLOSE_POPUP and ScrollablePopupWindow.close_active_popup():
-            return "break"
-
-        if action != ESCAPE_EXIT_INLINE_EDITOR and action != ESCAPE_POP_PARENT:
+    def intent_search_open(self):
+        """Öffnet die Strg+F-Einheitensuche; nur innerhalb einer geöffneten Kurs-Detailansicht sinnvoll."""
+        if not bool(getattr(self.app, "is_detail_view", False)):
             return None
+        self.app.search_controller.open_search()
+        return "break"
 
-        if bool(getattr(self.app, "is_detail_view", False)):
-            level = self.app.ui_state.selection_level
-            if level == self.app.ui_state.SELECTION_LEVEL_EDIT or isinstance(focused, ui.Text):
-                self._leave_edit_mode_to_cell(set_grid_focus=True)
+    def intent_escape(self):
+        """Delegiert an `SelectionLayerStack.on_escape()` -- der Popup-Vorrang bleibt davor bestehen."""
+        if ScrollablePopupWindow.has_active_popup():
+            if ScrollablePopupWindow.close_active_popup():
                 return "break"
-            if level == self.app.ui_state.SELECTION_LEVEL_CELL:
-                self.app.selection_controller.clear_selected_cell()
-                self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
-                self.app.grid_canvas.focus_set()
-                return "break"
-            if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
-                self.app.overview_controller.close_detail_view()
-                return "break"
-        if isinstance(focused, ui.Text):
-            self.app.grid_canvas.focus_set()
-            return "break"
-        if bool(getattr(self.app, "is_detail_view", False)):
-            self.app.overview_controller.close_detail_view()
-            return "break"
-        return None
+            return None
+        return self._selection_layer_stack.on_escape()
 
     def intent_commit_edit(self):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -560,28 +537,8 @@ class MainWindowUiIntentController:
         return "break"
 
     def intent_grid_enter(self):
-        if not bool(getattr(self.app, "is_detail_view", False)):
-            return None
-        if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_EDIT:
-            return None
-        focused = self.app.focus_get()
-        if isinstance(focused, ui.Text):
-            return None
-
-        if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
-            selected_cell = self.app.ui_state.selected_cell
-            if selected_cell is None:
-                return None
-            widget = self.app.cell_widgets.get((selected_cell.field_key, selected_cell.day_index))
-            if widget is None:
-                return None
-            widget.focus_set()
-            widget.mark_set("insert", "end-1c")
-            widget.see("insert")
-            return "break"
-
-        moved = self.app.selection_controller.select_first_editable_in_selected_column()
-        return "break" if moved else None
+        """Delegiert an `SelectionLayerStack.on_enter()` -- einzige Stelle, die Enter-Verhalten entscheidet."""
+        return self._selection_layer_stack.on_enter()
 
     def intent_grid_cell_click(self, *, field_key: str, day_index: int):
         if not bool(getattr(self.app, "is_detail_view", False)):

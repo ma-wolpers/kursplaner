@@ -28,6 +28,10 @@ class KompetenzGraphUiState:
             `kompetenzgraph_canvas_colors.py::assign_bereich_hues`) --
             bleibt unverändert über Filter-/Ansichtswechsel hinweg, damit
             ein Bereich nie die Farbe wechselt.
+        text_search_matches: Von `compute_text_search_matches()` berechnete
+            Knoten-IDs der aktuellen Textsuche, nur bei Klick auf den
+            "Suchen"-Button neu berechnet (siehe `kompetenzgraph_dialog.py`);
+            `None` ohne aktive Textsuche.
     """
 
     filter: KompetenzGraphFilter
@@ -35,3 +39,4 @@ class KompetenzGraphUiState:
     selected_id: str | None = None
     focus_id: str | None = None
     bereich_hues: Mapping[str, float] = field(default_factory=dict)
+    text_search_matches: frozenset[str] | None = None

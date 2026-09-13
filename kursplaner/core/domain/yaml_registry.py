@@ -221,6 +221,26 @@ def parse_yaml_frontmatter(
     return data, text
 
 
+def _frontmatter_bounds(raw_text: str) -> tuple[int, int] | None:
+    """Liefert `(start, end)` der Grenzen des Frontmatter-Blocks in `raw_text`, oder `None`.
+
+    Einzige Stelle mit der eigentlichen Grenz-Arithmetik (öffnendes `---\\n` bei Index 0,
+    schließendes `\\n---` danach) -- `body_after_frontmatter()` und `frontmatter_text()` teilen
+    sich diese Funktion, damit die Boundary-Erkennung nur einmal existiert, auch wenn beide
+    Funktionen bei fehlendem/unterminiertem Frontmatter unterschiedlich reagieren (siehe dort).
+    Kein Validator, reine Positionsermittlung.
+
+    `start` ist die Position direkt nach dem öffnenden `---\\n` (Beginn des Frontmatter-Texts),
+    `end` die Position des öffnenden `\\n` vor dem schließenden `---`.
+    """
+    if not raw_text.startswith("---\n"):
+        return None
+    end = raw_text.find("\n---", 4)
+    if end == -1:
+        return None
+    return 4, end
+
+
 def body_after_frontmatter(raw_text: str) -> str:
     """Liefert den Markdown-Body nach dem YAML-Frontmatter (ohne `---`-Block).
 
@@ -233,7 +253,8 @@ def body_after_frontmatter(raw_text: str) -> str:
     frisch gelesenem Rohtext, ohne `parse_yaml_frontmatter`s bestehende
     Signatur/Vertrag zu verändern. Kein Validator: liefert bei fehlendem oder
     unterminiertem Frontmatter einfach den Text unverändert zurück, statt zu
-    werfen — Validierung ist Aufgabe von `parse_yaml_frontmatter`.
+    werfen — Validierung ist Aufgabe von `parse_yaml_frontmatter`. Siehe
+    `frontmatter_text()` für das Gegenstück mit abweichender Fehlersemantik.
 
     Args:
         raw_text: Vollständiger Dateiinhalt inkl. Frontmatter, oder Text ohne
@@ -247,12 +268,34 @@ def body_after_frontmatter(raw_text: str) -> str:
         body_after_frontmatter("---\\nStundenthema: X\\n---\\n\\nBody")
         # -> "Body"
     """
-    if not raw_text.startswith("---\n"):
+    bounds = _frontmatter_bounds(raw_text)
+    if bounds is None:
         return raw_text
-    end = raw_text.find("\n---", 4)
-    if end == -1:
-        return raw_text
+    _, end = bounds
     return raw_text[end + 4 :].lstrip("\n")
+
+
+def frontmatter_text(raw_text: str) -> str | None:
+    """Liefert den rohen YAML-Frontmatter-Text (zwischen den `---`-Marken, ohne die Marken
+    selbst), oder `None` bei fehlendem/unterminiertem Frontmatter.
+
+    Gegenstück zu `body_after_frontmatter()` (liefert die jeweils andere Hälfte) — bewusst
+    ANDERE Fehlersemantik: wo `body_after_frontmatter()` bei fehlendem/kaputtem Frontmatter
+    still den unveränderten Text zurückgibt, signalisiert `frontmatter_text()` das als harten
+    `None`-Fall, da Aufrufer wie `FileSystemKompetenzGraphRepository` das als eigenen
+    Diagnosefall behandeln müssen (siehe `kompetenzgraph_repository.py::_process_node_file`).
+    Beide Funktionen teilen sich `_frontmatter_bounds()` als einzige Grenzerkennung.
+
+    Example::
+
+        frontmatter_text("---\\nprimarer_bereich: x\\n---\\n\\nBody")
+        # -> "primarer_bereich: x"
+    """
+    bounds = _frontmatter_bounds(raw_text)
+    if bounds is None:
+        return None
+    start, end = bounds
+    return raw_text[start:end]
 
 
 def _yaml_scalar_line(key: str, value: object) -> str:

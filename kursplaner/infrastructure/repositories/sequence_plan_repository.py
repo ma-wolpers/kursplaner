@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
+from kursplaner.core.domain.markdown_sections import find_heading_line_index
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.sequence_planning import (
     SEQUENCE_YAML_COURSE_PLAN_KEY,
@@ -63,11 +64,14 @@ class FileSystemSequencePlanRepository:
 
     @staticmethod
     def _find_heading_line(lines: list[str], heading: str) -> int:
-        normalized = heading.strip().lower()
-        for index, line in enumerate(lines):
-            if line.strip().lower() == normalized:
-                return index
-        return -1
+        """Duenner Wrapper um `markdown_sections.py::find_heading_line_index()`.
+
+        `heading` traegt hier (Klassenkonstanten `_BRAINSTORMING_HEADING`/`_EXPORT_HEADING`)
+        weiterhin das `## `-Praefix eingebettet -- wird vor der Weitergabe entfernt, da
+        `find_heading_line_index()` die Ebene ueber `target_level` separat erwartet.
+        """
+        heading_text = heading.strip().lstrip("#").strip()
+        return find_heading_line_index(lines, heading_text, target_level=2)
 
     def resolve_sequence_path(self, *, table: PlanTableData, sequence_name: str) -> Path:
         """Resolve canonical sequence markdown path for one plan and sequence name."""

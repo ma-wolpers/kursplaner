@@ -24,6 +24,8 @@ from kursplaner.adapters.gui.overview_controller import MainWindowOverviewContro
 from kursplaner.adapters.gui.path_bootstrap import ensure_paths_interactive
 from kursplaner.adapters.gui.path_settings_controller import MainWindowPathSettingsController
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
+from kursplaner.adapters.gui.search_controller import MainWindowSearchController
+from kursplaner.adapters.gui.search_state import SearchOverlayState
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
 from kursplaner.adapters.gui.toolbar_icon_styler import ToolbarIconStyler
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
@@ -164,6 +166,7 @@ class KursplanerApp(BwBaseWindow):
         self.row_labels: dict[str, ui.Label] = {}
         self.corner_label: ui.Label | None = None
         self.ui_state = MainWindowUiState()
+        self.search_state = SearchOverlayState()
         self.selected_day_indices = set()
         self._is_rebuilding_grid = False
         self.is_detail_view = False
@@ -172,6 +175,7 @@ class KursplanerApp(BwBaseWindow):
 
         self.overview_controller = MainWindowOverviewController(self)
         self.selection_controller = MainWindowSelectionController(self)
+        self.search_controller = MainWindowSearchController(self)
         self.editor_controller = MainWindowEditorController(self)
         self.lesson_context_controller = MainWindowLessonContextController(self)
         self.path_settings_controller = MainWindowPathSettingsController(self)

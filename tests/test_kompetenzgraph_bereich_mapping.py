@@ -50,3 +50,15 @@ def test_title_falls_back_to_node_id_without_heading():
     node, _issues = parse_bereich_node_from_raw("Kürzel: `T`", node_id="I-Test", source=make_source_ref("I-Test"))
 
     assert node.title == "I-Test"
+
+
+def test_title_stays_the_first_heading_even_with_a_later_second_heading_migration_regression():
+    """Semantik-Regressionstest (Konsolidierung auf markdown_sections.py): eine spaetere
+    zweite Ueberschrift im Body darf nicht versehentlich zum Titel werden."""
+    body = "# Raum und Form (RF)\n\nKürzel: `RF`\n\n## Weiterfuehrende Hinweise\n\nText."
+
+    node, _issues = parse_bereich_node_from_raw(
+        body, node_id="I-Raum und Form", source=make_source_ref("I-Raum und Form")
+    )
+
+    assert node.title == "Raum und Form (RF)"

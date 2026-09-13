@@ -12,7 +12,7 @@ from kursplaner.core.domain.kompetenzgraph_node import BereichNode, KompetenzNod
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
 from kursplaner.core.domain.kompetenzgraph_types import SourceRef
-from kursplaner.core.domain.yaml_registry import body_after_frontmatter
+from kursplaner.core.domain.yaml_registry import body_after_frontmatter, frontmatter_text
 from kursplaner.infrastructure.repositories.kompetenzgraph_repository_cache import (
     CachedFileEntry,
     load_cache_from_disk,
@@ -67,22 +67,6 @@ def _scan_bereich_files(subject_dir: Path) -> list[Path]:
         for child in bereiche_dir.iterdir()
         if child.is_file() and child.suffix.lower() == ".md" and _SYNC_CONFLICT_MARKER not in child.name
     )
-
-
-def _extract_frontmatter_text(raw_text: str) -> str | None:
-    """Isoliert den rohen YAML-Text zwischen den beiden `---`-Marken (ohne die Marken selbst).
-
-    Nutzt dieselbe Grenzerkennung wie `yaml_registry.py::body_after_frontmatter`
-    (das stattdessen die andere Hälfte -- den Body -- liefert), da keine
-    bestehende Funktion den reinen Frontmatter-Textblock isoliert
-    zurückgibt. `None`, wenn kein gültiger Frontmatter-Block gefunden wird.
-    """
-    if not raw_text.startswith("---\n"):
-        return None
-    end = raw_text.find("\n---", 4)
-    if end == -1:
-        return None
-    return raw_text[4:end]
 
 
 def _unreadable_diagnostic(path: Path, node_id: str, error: Exception) -> KompetenzFileDiagnostic:
@@ -166,8 +150,8 @@ class FileSystemKompetenzGraphRepository:
             cache.pop(key, None)
             return None, _unreadable_diagnostic(path, node_id, error)
 
-        frontmatter_text = _extract_frontmatter_text(raw_text)
-        if frontmatter_text is None:
+        frontmatter_text_value = frontmatter_text(raw_text)
+        if frontmatter_text_value is None:
             cache.pop(key, None)
             return None, KompetenzFileDiagnostic(
                 path,
@@ -176,7 +160,7 @@ class FileSystemKompetenzGraphRepository:
             )
 
         try:
-            frontmatter_raw = yaml.safe_load(frontmatter_text)
+            frontmatter_raw = yaml.safe_load(frontmatter_text_value)
         except yaml.YAMLError as error:
             cache.pop(key, None)
             return None, KompetenzFileDiagnostic(

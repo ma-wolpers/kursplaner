@@ -10,7 +10,7 @@ from kursplaner.core.domain.course_rhythm import WeekdayRhythm, format_rhythm
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
-from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
+from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, body_after_frontmatter, parse_yaml_frontmatter
 from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     load_last_plan_table,
     save_plan_table,
@@ -261,13 +261,7 @@ class FileSystemPlanRepository:
     ) -> None:
         """Schreibt/ersetzt den YAML-Frontmatterblock für Plan-Metadaten."""
         text = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
-        body = text
-
-        if body.startswith("---\n"):
-            end = body.find("\n---", 4)
-            if end != -1:
-                body = body[end + 4 :]
-                body = body.lstrip("\n")
+        body = body_after_frontmatter(text)
 
         group_link = build_wiki_link(group_name)
         canonical_course_subject = normalize_course_subject(course_subject)

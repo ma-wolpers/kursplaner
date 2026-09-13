@@ -8,6 +8,192 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-13) — Kursplanerweite Konsolidierung der Markdown-Struktur-Interpretation
+
+**Ausgangslage**: Bei der Kompetenznetz-Textsuche wurde behauptet, `kompetenzgraph_mapping.py`
+sei "das einzige Markdown-interpretierende Modul" im Projekt -- falsch. Eine vollstaendige
+Untersuchung fand mindestens sieben unabhaengige Reimplementierungen derselben
+Grundoperationen: Frontmatter/Body-Trennung (`yaml_registry.py::body_after_frontmatter()`
+bereits korrekt zentralisiert, aber zwei neue Duplikate seither entstanden --
+`kompetenzgraph_repository.py::_extract_frontmatter_text()`, `plan_repository.py::
+write_plan_metadata()`) sowie Ueberschriften-Erkennung/benannte Abschnitts-Extraktion, nie
+zentralisiert, in fuenf Dialekten: `kompetenzgraph_mapping.py`, `kompetenzgraph_bereich_mapping.py`
+(byte-identische `_HEADING_RE`-Kopie), `ub_markdown_sections.py`, `lesson_conversion_controller.py::
+_extract_markdown_section_refs()`, `sequence_plan_repository.py::_find_heading_line()`. Keiner der
+bestehenden Tests verankerte die tatsaechliche Regex-/Scan-Implementierung, nur das abgeleitete
+Ergebnis -- die Konsolidierung konnte die Interna also frei aendern, solange die Ausgabe pro
+Aufrufer identisch blieb.
+
+**Kritischer Befund beim Design der gemeinsamen API**: die vier Nicht-Kompetenz-Dialekte suchen
+ihre Ziel-Ueberschrift auf einer FEST codierten Ebene (immer exakt `## ...`, bei UB-Reflexion
+exakt `# Reflexion`), waehrend der Kompetenz-Dialekt seine Ziel-Ueberschrift auf BELIEBIGER Ebene
+sucht. Eine einzige `extract_section(text, heading, stop_at_level)`-Funktion ohne getrennten
+Ziel-Ebene-Parameter haette fuer 4 von 5 Aufrufern still das Verhalten geaendert -- behoben durch
+einen zusaetzlichen, von `stop_at_level` unabhaengigen `target_level`-Parameter. Zweiter Befund:
+`lesson_conversion_controller.py`s Regex hatte kein `IGNORECASE` (unbeabsichtigt, da alle vier
+uebrigen Dialekte case-insensitiv vergleichen) -- Nachpruefung zeigte, dass `"Inhalte"`/
+`"Methodik"` im gesamten Repo ausschliesslich in dieser einen Gross-/Kleinschreibung vorkommen
+(Schreiber: `markdown_lists.py::render_markdown_bullet_section`), eine Vereinheitlichung auf
+case-insensitiv konnte daher keine echte Datei anders behandeln -- umgesetzt.
+
+**Neues Modul `core/domain/markdown_sections.py`** (analog `wiki_links.py`: klein, rein, I/O-frei):
+vier oeffentliche Funktionen -- `derive_first_heading_title()`, `extract_section()`,
+`find_heading_line_index()`, `extract_bullet_items()`. `_HEADING_RE` bleibt Implementierungsdetail
+(fuehrender Unterstrich, nicht exportiert); abgesichert durch
+`tests/test_markdown_consolidation_guardrails.py`, das kein anderes Modul eine eigene
+Heading-Regex definieren/importieren laesst. Kennt ausdruecklich nichts von Dateizugriff, YAML,
+Wiki-Link-Syntax, fachlichen Titel-Fallback-Ketten, UB-Reflexions-/Listen-Semantik oder
+Sequenzplan-Schreib-/Splice-Logik -- all das bleibt lokale, fachliche Logik bei den jeweiligen
+Aufrufern (Zustaendigkeiten bewusst nicht mitzentralisiert, nur die strukturelle Erkennung selbst).
+
+**Migration** (Verhalten fuer jede der fuenf Aufrufstellen unveraendert, durch
+Semantik-Regressionstests mit absichtlich verschachtelten Ueberschriften abgesichert):
+`kompetenzgraph_mapping.py::_derive_title()`/`split_kompetenz_body_sections()`,
+`kompetenzgraph_bereich_mapping.py::_derive_bereich_title()` (eigene `_HEADING_RE` entfaellt),
+`ub_markdown_sections.py::parse_list_section()`/`parse_reflection()`,
+`sequence_plan_repository.py::_find_heading_line()` (duenner Wrapper, Signatur/Callsites
+unveraendert), `lesson_conversion_controller.py::_extract_markdown_section_refs()` (Wikilink-
+Alias-Aufloesung bleibt lokal -- andere Frage als `wiki_links.py::extract_wiki_link_target`).
+
+**Frontmatter-Ebene**: `yaml_registry.py` bekam eine neue `frontmatter_text()`-Funktion
+(Gegenstueck zu `body_after_frontmatter()`, bewusst ANDERE Fehlersemantik -- `None` statt stillem
+Passthrough bei fehlendem/kaputtem Frontmatter, da `kompetenzgraph_repository.py` das als
+Diagnosefall behandelt); beide teilen sich intern `_frontmatter_bounds()` als einzige
+Grenzerkennung. `kompetenzgraph_repository.py::_extract_frontmatter_text()` entfaellt zugunsten
+eines Aufrufs von `frontmatter_text()`; `plan_repository.py::write_plan_metadata()`s stille
+Duplizierung der Grenzerkennung wurde durch einen Aufruf von `body_after_frontmatter()` ersetzt.
+
+**Bewusst nicht angefasst**: `plan_table_file_repository.py::set_lesson_markdown_sections()`
+haengt `## Inhalte`/`## Methodik` bei jedem Aufruf blind ans Bodyende an, ohne eine vorhandene
+gleichnamige Sektion zu ersetzen (wiederholtes Speichern kann Abschnitte duplizieren) -- ein
+Verhaltens-Bug, kein Interpretations-Duplikat, separate Entscheidung noetig. Die
+Wikilink-Alias-vs-Ziel-Semantik-Differenz bleibt ebenfalls bewusst getrennt.
+
+Neue Tests: `tests/test_markdown_sections.py` (generische Primitiven inkl. Verschachtelungsfaelle),
+`tests/test_ub_markdown_sections.py` (schloss eine bestehende Testluecke), `tests/
+test_lesson_conversion_controller_markdown_sections.py` (ebenfalls neue Testluecke geschlossen),
+`tests/test_markdown_consolidation_guardrails.py`, plus Frontmatter-Vertragstests in
+`tests/test_yaml_registry.py` und je ein Semantik-Regressionstest in den bestehenden Testdateien
+der fuenf migrierten Quellen.
+
+### Added (2026-09-13) — Strg+F-Einheitensuche: `SelectionLayerStack` als einzige Enter/Escape-Autorität
+
+**Ausgangslage**: Enter/Escape liefen bisher über mehrere verstreute Prüfungen --
+`ScrollablePopupWindow.has_active_popup()`-Kurzschluss ganz oben in `handle_intent()`, danach eine
+HSM-Prioritätsauflösung (`resolve_escape_action(has_popup, has_inline_editor, has_parent_state)`)
+in `intent_escape()`, plus je eine eigene if/elif-Kette in `intent_escape()`/`intent_grid_enter()`
+auf `ui_state.selection_level`. Funktional korrekt, aber genau die Art "wachsender
+Sonderfall-Haufen", die eine neue, fünfte Ebene (Strg+F-Suche) nur als weiteren Ad-hoc-Sonderfall
+hätte anhängen können -- explizit nicht gewünscht.
+
+**`SelectionLayerStack`** (neu: `adapters/gui/selection_layer_stack.py`) ist jetzt die einzige
+Stelle, die für alle fünf Ebenen (COURSE/COLUMN/CELL/EDIT/SEARCH) entscheidet, was Enter, Escape
+und Umschalt+Enter ("vorheriger Treffer") tun. Fünf dünne Layer-Adapter (`_CourseLayer` ...
+`_SearchLayer`) mit `on_enter()`/`on_escape()`/`on_find_previous()` delegieren ausschließlich an
+bereits bestehende, unveränderte Mutator-/Controller-Funktionen (`selection_controller.
+set_single_column_selection`, `overview_controller.close_detail_view`,
+`MainWindowUiIntentController._leave_edit_mode_to_cell`, ...) -- jede Methode ist eine wörtliche
+Verlagerung der vorherigen Logik, Zeile für Zeile abgeglichen, inklusive des Edge-Case-Fallbacks
+für einen inkonsistenten `is_detail_view=True`+`selection_level=COURSE`-Zustand (landet über
+`top()`s "otherwise"-Zweig korrekt bei `_ColumnLayer.on_escape()`, wie zuvor). `top()` liest
+weiterhin ausschließlich `ui_state.selection_level`/`is_detail_view` (unverändert die einzige
+Quelle für diese vier Basisebenen, auch von Maus-/Ziffern-Navigation aktualisiert) -- nur SEARCH
+ist ein echtes An/Aus (`search_state.is_active`), das in `top()` immer zuerst gewinnt. Bewusst
+KEIN echter Push/Pop-Stack für alle fünf Ebenen: das hätte jede bestehende Nicht-Enter/Escape-
+Selektionsänderung (Klick, Ziffernsprung) gezwungen, denselben Stack mitzupflegen -- eine deutlich
+größere, hier nicht gewollte Ausweitung.
+
+`MainWindowUiIntentController.intent_grid_enter()`/`intent_escape()` behalten Name/Signatur exakt
+bei (Testkompatibilität, u. a. `tests/test_selection_controller.py::
+test_intent_grid_enter_focuses_freshly_materialized_cell_after_navigation`), ihr Körper wird zur
+dünnen Weiterleitung an `self._selection_layer_stack`. Der Popup-Vorrang bleibt bewusst
+**außerhalb** der Stack, unverändert an Position/Semantik in `intent_escape()` -- geteilte,
+app-übergreifende Infrastruktur (`ScrollablePopupWindow`), keine der "fünf Auswahlebenen". Der
+`HsmContract` (`bw_libs/ui_contract/hsm.py`) wird nicht mehr für die Escape-Prioritätsauflösung
+gebraucht (nur noch `validate_intent()`) -- er bleibt bewusst unangetastet, da er unabhängig auch
+von Blattwerk/Kartograph/Korrektor/Namenfit mit jeweils eigener Semantik genutzt wird.
+
+Auch die Kursauswahl läuft jetzt durch dieselbe SSOT: die `lesson_tree`-Bindings `<Return>`/
+`<KP_Enter>` (`screen_builder.py`) rufen jetzt `_on_tree_enter()` (emittiert `GRID_ENTER`) statt
+direkt `COURSE_CONFIRM_SELECTION` -- `<Double-1>`/`<ButtonRelease-1>` bleiben unverändert auf
+`_on_tree_confirm_selection` (Maus-Trigger). `_CourseLayer.on_enter()` delegiert an das bereits
+bestehende `intent_course_confirm_selection(None)`.
+
+**Strg+F-Suche selbst**: `search_state.py` (`SearchOverlayState`), `search_controller.py`
+(`MainWindowSearchController.open_search/close_search/update_query/find_next/find_previous`,
+ruft für den Sprung ausschließlich das bestehende `set_single_column_selection(day_index,
+ensure_visible=True)` auf), `core/domain/day_column_search.py` (`day_column_matches_query`, prüft
+`inhalt`/`thema_ausfall`/`header_content()`/`oberthema()`, case-sensitiv, kein Substring-Fallback
+bei ungültigem Regex), `search_overlay_view.py` (schwebendes Suchfeld via `place()`, nutzt die
+neue `bw_gui.widgets.RegexEntryField`). **Wichtig**: die View selbst entscheidet NICHT, ob Enter
+vorwärts oder Umschalt+Enter rückwärts bedeutet -- ihre lokalen Bindings lösen ausschließlich
+`UiIntent.GRID_ENTER`/`UiIntent.SHORTCUT_FIND_PREVIOUS` (neu) über `app._handle_ui_intent(...)`
+aus; welche Aktion das tatsächlich auslöst, entscheidet einzig `SelectionLayerStack`. Abgesichert
+durch `tests/test_search_architecture_guardrails.py::
+test_search_overlay_view_has_no_direct_selection_mutator_calls` (Quelltext-Grep gegen
+`find_next(`/`find_previous(`/Selection-Mutatoren). `<Control-f>` (öffnet, nur `UI_MODE_PREVIEW`)
+und `<Shift-Return>` (vorheriger Treffer, `modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+allow_when_text_input=True`, analog `<Control-Return>`) sind neue Runtime-Shortcuts in
+`screen_builder.py`. Neue Tests: `tests/test_selection_layer_stack.py` (jede Ebene ×
+Enter/Escape/Umschalt+Enter, Popup-Vorrang, Rückfall auf die Basis-Hierarchie nach Suche-Schließen,
+Escape-Korrektheit unabhängig vom tatsächlichen Tk-Fokus), `tests/test_day_column_search.py`.
+
+### Added (2026-09-13) — Kompetenznetz: Regex-Textsuche (KC-Verweis/Kompetenzname/Beispiel/Rest), buttongesteuert
+
+Neues Suchfeld in der Kompetenznetz-Sidebar (`kompetenzgraph_text_search_panel.py`) mit vier
+Toggle-Boxen (KC-Verweis/Kompetenzname/Beispiel/Rest des Dokuments, alle standardmäßig aktiviert)
+und einem "Suchen"-Button. **Bewusste Entscheidung gegen Live-Suche**: die Auswertung passiert
+ausschließlich auf Klick des Buttons (bzw. Enter im Suchfeld), nie bei jedem Tastendruck und nie
+als Nebenwirkung eines anderen Filterwechsels (Jahrgang, Fach, ...) -- dadurch bleibt die
+bestehende "Lazy Body"-Entscheidung (`KompetenzNode` trägt bewusst keinen vollständigen Markdown-
+Body, `kompetenzgraph_repository_cache.py` cached ihn nie) vollständig unangetastet: Beispiel-/
+Rest-des-Dokuments-Treffer erfordern einen Body-Zugriff, der dadurch nur bei tatsächlichem
+Suchen-Klick passiert, beschränkt auf die bereits strukturell vorgefilterte Kandidatenmenge
+(`compute_visible_node_ids`), nie für den gesamten Snapshot.
+
+**Eine einzige Markdown-lesende Quelle**: `split_kompetenz_body_sections()` (neu in
+`core/domain/kompetenzgraph_mapping.py`, direkt neben `_derive_title()`/`_HEADING_RE`, dieselbe
+Konstante wiederverwendet statt einer zweiten Heading-Regex) zerlegt den rohen, unveränderten
+`body_after_frontmatter()`-Text in `BodySections(beispiel_text, rest_text)` -- Trennung an der
+ersten `## Beispiel`-Überschrift (case-insensitiv), alles andere wird `rest_text`. "Rest des
+Dokuments" bleibt dabei roher Markdown-Text, keine zweite/normalisierte Darstellung. Abgesichert
+durch `tests/test_search_architecture_guardrails.py::
+test_only_one_module_interprets_kompetenz_markdown_structure` (Quelltext-Grep: keine zweite
+"beispiel"-erkennende `re.compile(...)`-Konstruktion außerhalb dieses einen Moduls) und
+`test_kompetenz_text_search_index_uses_load_body_usecase_exclusively`.
+
+`KompetenzTextSearchIndex` (neu: `core/usecases/kompetenzgraph_text_search_usecase.py`) ist ein
+pro Dialog-Sitzung lebender, **mtime-basierter** Cache (`dict[Path, tuple[mtime_ns, BodySections]]`)
+über dem bestehenden `LoadKompetenzNodeBodyUseCase` -- ändert sich eine Datei zwischen zwei
+Suchen-Klicks, wird sie automatisch neu gelesen, unveränderte Dateien nie ein zweites Mal.
+`compute_text_search_matches()` prüft `kc_zuordnung[].kc_verweis`/`title` zuerst (reine In-Memory-
+Felder, kein I/O), liest `BodySections` nur, wenn Beispiel- oder Rest-Toggle aktiv UND die
+I/O-freien Felder nicht schon gematcht haben.
+
+**`compute_kompetenz_graph_view()`** (`core/domain/kompetenzgraph_view.py`) bleibt der einzige Ort,
+an dem Filter/Matchingtiefe/Fokus/Textsuche zu einer Ansicht kombiniert werden: ein neuer,
+keyword-only `text_search_matches: frozenset[str] | None`-Parameter (Default `None`, alle
+bestehenden Aufrufer unverändert lauffähig) schneidet `primary_ids`/`context_ids` -- exakt nach
+demselben, bereits bestehenden Muster wie die Fokus-Einschränkung -- NACH dem Fokus, sodass ein
+Textsuchtreffer außerhalb des Fokus-Abschlusses nicht nachträglich wieder sichtbar wird.
+`KompetenzGraphFilter` bekommt 5 neue Felder (`text_query`, `text_search_kc_verweis/_titel/
+_beispiel/_rest`); `node_matches_filter`/`compute_visible_node_ids`/`compute_visible_set` bleiben
+unverändert und ignorieren sie -- die reine, I/O-freie strukturelle Pipeline wird nicht angetastet.
+Ein ungültiges, nicht-leeres Regex lässt die sichtbare Menge in `kompetenzgraph_dialog.py::
+_on_text_search_triggered` unverändert (roter Rahmen im `RegexEntryField` zeigt den Fehler, kein
+stiller Substring-Fallback). Verdrahtungs-Detail: `_on_filter_changed()` übernimmt die
+Textsuchfelder jetzt explizit aus dem alten Filter (`dataclasses.replace`), da
+`KompetenzGraphFilterPanel.current_filter()` bei jeder eigenen Änderung einen komplett neuen
+`KompetenzGraphFilter` baut und sie sonst zurücksetzen würde.
+
+Neue geteilte bw-gui-Komponente `RegexEntryField` (`bw-gui/src/bw_gui/widgets/regex_entry_field.py`,
+plus Re-Export-Shim `kursplaner/adapters/gui/regex_entry_field.py`) -- kompiliert bei jedem
+Tastendruck case-sensitiv (`re.compile`, keine implizite `IGNORECASE`), roter Rahmen
+(`theme_widget_border(..., color_token="danger")`) bei ungültigem Muster, optionaler
+`on_change`-Callback für Verwender mit Live-Anzeige (z. B. die Strg+F-Trefferzahl); wird sowohl
+hier als auch von der Strg+F-Einheitensuche verwendet. Neue Tests:
+`tests/test_kompetenzgraph_body_sections.py`, `tests/test_kompetenzgraph_text_search_usecase.py`.
+
 ### Added (2026-09-11) — Kompetenznetz-Graph: dritte Ansicht „Kompetenz-Abhängigkeiten", Zoom-Fix, sanftes Recenter
 
 **Neue Ansicht `MODE_ABHAENGIGKEITEN`** (`kompetenzgraph_view_mode.py`): zeigt Teilkompetenz- UND
@@ -448,7 +634,7 @@ gelten -- `resolve_fachinhalte_root()` prüft jetzt vorab `.strip()` auf beide R
 
 **Repository** (`FileSystemKompetenzGraphRepository`, einziger Ort mit `import yaml`):
 scannt pro Fachordner flach (`iterdir()`, kein `rglob()`) nach Kompetenz-Dateien
-(Stem-Muster `^[A-Z]{2,3}-\d+$`, `.sync-conflict-*` ausgeschlossen) und Bereichs-Hubs
+(Stem-Muster `^[A-Z][a-zA-Z]{1,9}-[A-Z]{2,3}-\d+$`, z. B. `Mat-AZ-12`, `.sync-conflict-*` ausgeschlossen) und Bereichs-Hubs
 (`Bereiche/`-Unterordner). `discover_structured_subjects()` erkennt ein Fach nur, wenn
 BEIDE Bedingungen erfüllt sind (mindestens eine passend benannte Datei UND ein
 `Bereiche/`-Unterordner) -- Plausibilitätsschranke gegen einen zufällig passend

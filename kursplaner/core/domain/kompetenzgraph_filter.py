@@ -42,6 +42,16 @@ class KompetenzGraphFilter:
             n>0 blendet zusätzlich Kontextnachbarn bis n Hops entlang der
             aktiven View-Semantik ein (siehe `kompetenzgraph_context.py`),
             ohne dass diese zu Primärtreffern werden.
+        text_query: Roher, vom Aufrufer bereits als kompilierbar (oder leer)
+            garantierter Regex-Suchbegriff der Textsuche -- wird NICHT von
+            `node_matches_filter()` ausgewertet (siehe dort), sondern separat
+            über `kompetenzgraph_text_search_usecase.py::compute_text_search_matches`
+            und die Schnittmenge in `compute_kompetenz_graph_view()`
+            angewendet, ausschließlich auf Klick des "Suchen"-Buttons.
+        text_search_kc_verweis, text_search_titel, text_search_beispiel,
+            text_search_rest: Toggle-Boxen, welche Felder `text_query`
+            durchsucht (beliebige Kombination, ODER-verknüpft pro Knoten).
+            Alle vier sind standardmäßig aktiviert.
     """
 
     subjects: frozenset[str] | None = None
@@ -54,6 +64,11 @@ class KompetenzGraphFilter:
     inhaltsbereich_id: str | None = None
     prozessbereich_id: str | None = None
     kontexttiefe: int = 0
+    text_query: str = ""
+    text_search_kc_verweis: bool = True
+    text_search_titel: bool = True
+    text_search_beispiel: bool = True
+    text_search_rest: bool = True
 
 
 @dataclass(frozen=True)

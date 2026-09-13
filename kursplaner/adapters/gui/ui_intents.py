@@ -90,4 +90,8 @@ class UiIntent:
     SHORTCUT_COPY = "shortcut.copy"
     SHORTCUT_PASTE = "shortcut.paste"
     SHORTCUT_SELECT_UNIT_BY_OFFSET = "shortcut.select_unit_by_offset"
+    SHORTCUT_FIND_PREVIOUS = "shortcut.find_previous"
     GLOBAL_CLICK_COMMIT_CELL = "global.click_commit_cell"
+
+    # Search overlay intents
+    SEARCH_OPEN = "search.open"

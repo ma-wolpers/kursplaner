@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import dataclasses
+import re
+
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
@@ -21,15 +24,20 @@ from kursplaner.adapters.gui.kompetenzgraph_detail_panel import KompetenzGraphDe
 from kursplaner.adapters.gui.kompetenzgraph_diagnostics_banner import KompetenzGraphDiagnosticsBanner
 from kursplaner.adapters.gui.kompetenzgraph_filter_panel import KompetenzGraphFilterPanel
 from kursplaner.adapters.gui.kompetenzgraph_sidebar_scroll import KompetenzGraphSidebarScroll
+from kursplaner.adapters.gui.kompetenzgraph_text_search_panel import KompetenzGraphTextSearchPanel
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
 from kursplaner.adapters.gui.kompetenzgraph_view_mode_toggle import KompetenzGraphViewModeToggle
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
-from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
+from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter, compute_visible_node_ids
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_ABHAENGIGKEITEN
 from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
 from kursplaner.core.usecases.kompetenzgraph_load_usecase import KompetenzGraphLoadResult
+from kursplaner.core.usecases.kompetenzgraph_text_search_usecase import (
+    KompetenzTextSearchIndex,
+    compute_text_search_matches,
+)
 from kursplaner.core.usecases.kompetenzgraph_view_usecase import ComputeKompetenzGraphViewUseCase
 
 
@@ -76,6 +84,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._state = KompetenzGraphUiState(
             filter=initial_filter, bereich_hues=assign_bereich_hues(self._snapshot.bereiche.keys())
         )
+        self._text_search_index = KompetenzTextSearchIndex(load_body_usecase)
         self._last_view = None
         self._last_layout = None
 
@@ -110,6 +119,13 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             sidebar, snapshot=self._snapshot, initial_filter=self._state.filter, on_change=self._on_filter_changed
         )
         self._filter_panel.frame.pack(fill="x")
+
+        widgets.Separator(sidebar, orient="horizontal").pack(fill="x", pady=8)
+
+        self._text_search_panel = KompetenzGraphTextSearchPanel(
+            sidebar, initial_filter=self._state.filter, on_search=self._on_text_search_triggered
+        )
+        self._text_search_panel.frame.pack(fill="x")
 
         widgets.Separator(sidebar, orient="horizontal").pack(fill="x", pady=8)
 
@@ -153,8 +169,59 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._refresh()
         self.canvas.focus_set()
 
-    def _on_filter_changed(self, new_filter: KompetenzGraphFilter) -> None:
-        self._state.filter = new_filter
+    def _on_filter_changed(self, new_structural_filter: KompetenzGraphFilter) -> None:
+        """Übernimmt eine strukturelle Filteränderung, OHNE die Textsuchfelder zurückzusetzen.
+
+        `KompetenzGraphFilterPanel.current_filter()` baut bei jeder eigenen
+        Interaktion einen komplett neuen `KompetenzGraphFilter` aus seinen
+        eigenen Widgets zusammen -- ohne diesen Merge würden Jahrgangs-/
+        Fach-/etc.-Änderungen die zuletzt gesuchten Textfelder stillschweigend
+        auf die Default-Werte zurücksetzen.
+        """
+        self._state.filter = dataclasses.replace(
+            new_structural_filter,
+            text_query=self._state.filter.text_query,
+            text_search_kc_verweis=self._state.filter.text_search_kc_verweis,
+            text_search_titel=self._state.filter.text_search_titel,
+            text_search_beispiel=self._state.filter.text_search_beispiel,
+            text_search_rest=self._state.filter.text_search_rest,
+        )
+        self._refresh()
+
+    def _on_text_search_triggered(
+        self,
+        raw_text: str,
+        compiled_pattern: re.Pattern[str] | None,
+        text_search_kc_verweis: bool,
+        text_search_titel: bool,
+        text_search_beispiel: bool,
+        text_search_rest: bool,
+    ) -> None:
+        """Wertet die Textsuche aus -- ausschließlich auf Klick des "Suchen"-Buttons/Enter im Feld.
+
+        Ein ungültiges, nicht-leeres Regex lässt die sichtbare Menge exakt
+        wie vor dem Klick (der rote Rahmen im Suchfeld zeigt den Fehler
+        bereits an) -- kein stiller Fallback, keine Änderung.
+        """
+        if not raw_text:
+            self._state.text_search_matches = None
+            self._refresh()
+            return
+        if compiled_pattern is None:
+            return
+
+        candidate_ids = compute_visible_node_ids(self._snapshot, self._state.filter)
+        self._state.filter = dataclasses.replace(
+            self._state.filter,
+            text_query=raw_text,
+            text_search_kc_verweis=text_search_kc_verweis,
+            text_search_titel=text_search_titel,
+            text_search_beispiel=text_search_beispiel,
+            text_search_rest=text_search_rest,
+        )
+        self._state.text_search_matches = compute_text_search_matches(
+            self._snapshot, candidate_ids, self._state.filter, self._text_search_index
+        )
         self._refresh()
 
     def _render_detail_panel(self, node) -> None:
@@ -223,7 +290,11 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
 
     def _current_view(self):
         return self._compute_view_usecase.execute(
-            self._snapshot, self._state.filter, self._state.view_mode, self._state.focus_id
+            self._snapshot,
+            self._state.filter,
+            self._state.view_mode,
+            self._state.focus_id,
+            text_search_matches=self._state.text_search_matches,
         )
 
     def _recompute_and_redraw(self) -> None:

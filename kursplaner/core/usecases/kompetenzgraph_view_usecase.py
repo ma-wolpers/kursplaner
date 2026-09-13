@@ -23,6 +23,10 @@ class ComputeKompetenzGraphViewUseCase:
         filter: KompetenzGraphFilter,
         mode_key: str,
         focus_id: str | None,
+        *,
+        text_search_matches: frozenset[str] | None = None,
     ) -> KompetenzGraphView:
-        """Berechnet die aktuell sichtbare Ansicht für den gegebenen Filter-/Modus-/Fokus-Zustand."""
-        return compute_kompetenz_graph_view(snapshot, filter, mode_key, focus_id)
+        """Berechnet die aktuell sichtbare Ansicht für den gegebenen Filter-/Modus-/Fokus-/Textsuche-Zustand."""
+        return compute_kompetenz_graph_view(
+            snapshot, filter, mode_key, focus_id, text_search_matches=text_search_matches
+        )

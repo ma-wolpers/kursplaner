@@ -32,6 +32,8 @@ def compute_kompetenz_graph_view(
     filter: KompetenzGraphFilter,
     mode_key: str,
     focus_id: str | None,
+    *,
+    text_search_matches: frozenset[str] | None = None,
 ) -> KompetenzGraphView:
     """Einziger Ort, an dem Filter, Matchingtiefe und Fokus zu einer Ansicht kombiniert werden.
 
@@ -39,7 +41,8 @@ def compute_kompetenz_graph_view(
 
         Filter → primary_ids → (Matchingtiefe) → context_ids
                → allowed_ids = primary_ids ∪ context_ids
-               → (optionaler Fokus, NUR innerhalb allowed_ids) → finale visible_ids
+               → (optionaler Fokus, NUR innerhalb allowed_ids)
+               → (optionale Textsuche, NUR innerhalb des Fokus-Ergebnisses) → finale visible_ids
 
     Die GUI (Meilensteine 3-5) ruft AUSSCHLIESSLICH diese Funktion auf,
     statt Filter+Kontext+Fokus an mehreren Stellen selbst zusammenzubauen
@@ -66,6 +69,13 @@ def compute_kompetenz_graph_view(
         mode_key: Der aktuell aktive View-Mode.
         focus_id: Die ID des fokussierten Knotens, oder `None` ohne
             aktiven Fokus.
+        text_search_matches: Von `compute_text_search_matches()` berechnete
+            Knoten-IDs der aktuellen Textsuche (nur bei Klick auf "Suchen"
+            neu berechnet, siehe `kompetenzgraph_dialog.py`), oder `None`
+            ohne aktive Textsuche. Wirkt -- wie der Fokus -- ausschließlich
+            einschränkend (Schnittmenge), nie erweiternd, und NACH dem Fokus,
+            damit ein Textsuchtreffer außerhalb des Fokus-Abschlusses nicht
+            nachträglich wieder sichtbar wird.
 
     Returns:
         Die fertige, render-bereite `KompetenzGraphView`.
@@ -80,6 +90,12 @@ def compute_kompetenz_graph_view(
         )
     else:
         final_visible = allowed
+
+    if text_search_matches is not None:
+        final_visible = KompetenzGraphVisibleSet(
+            primary_ids=final_visible.primary_ids & text_search_matches,
+            context_ids=final_visible.context_ids & text_search_matches,
+        )
 
     visible_bereich_ids = compute_visible_bereich_ids(snapshot, final_visible.all_ids)
     return KompetenzGraphView(visible=final_visible, visible_bereich_ids=visible_bereich_ids)

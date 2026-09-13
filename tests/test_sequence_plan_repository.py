@@ -72,6 +72,30 @@ def test_sequence_document_brainstorming_and_table_update(tmp_path):
     assert "| 17-03-26 | Quadratische Funktionen |" in final_text
 
 
+def test_find_heading_line_targets_the_requested_heading_among_several_migration_regression():
+    """Semantik-Regressionstest (Konsolidierung auf markdown_sections.py): bei mehreren
+    ##-Ueberschriften wird gezielt die angefragte gefunden, nicht die erste beliebige."""
+    lines = ["# Titel", "", "## Brainstorming", "Ideen", "", "## Zwischenteil", "Text", "", "## Export", ""]
+
+    find = FileSystemSequencePlanRepository._find_heading_line
+    assert find(lines, FileSystemSequencePlanRepository._BRAINSTORMING_HEADING) == 2
+    assert find(lines, "## Zwischenteil") == 5
+    assert find(lines, FileSystemSequencePlanRepository._EXPORT_HEADING) == 8
+
+
+def test_read_brainstorming_stops_before_an_intervening_heading(tmp_path):
+    """Ein zusaetzlicher Zwischenabschnitt zwischen Brainstorming und Export darf nicht
+    versehentlich als Teil des Brainstormings gelesen werden."""
+    path = tmp_path / "sequenz.md"
+    path.write_text(
+        "---\nKursplan: x\n---\n\n# Titel\n\n## Brainstorming\n\nIdee A\n\n## Zwischenteil\n\nText\n\n## Export\n",
+        encoding="utf-8",
+    )
+    repo = FileSystemSequencePlanRepository()
+
+    assert repo.read_brainstorming(path) == "Idee A"
+
+
 def test_replace_trailing_table_skips_write_when_content_unchanged(tmp_path):
     """Regressionstest für den Perf-Fix (2026-08-29): `replace_trailing_table`
 

@@ -1,4 +1,9 @@
-from kursplaner.core.domain.yaml_registry import body_after_frontmatter, parse_stufe, render_yaml_frontmatter
+from kursplaner.core.domain.yaml_registry import (
+    body_after_frontmatter,
+    frontmatter_text,
+    parse_stufe,
+    render_yaml_frontmatter,
+)
 
 
 def test_body_after_frontmatter_strips_frontmatter_block():
@@ -23,6 +28,32 @@ def test_body_after_frontmatter_strips_multiple_leading_blank_lines():
     text = "---\nStundenthema: X\n---\n\n\n\nBody"
 
     assert body_after_frontmatter(text) == "Body"
+
+
+def test_frontmatter_text_returns_the_raw_yaml_block():
+    text = "---\nStundenthema: X\n---\n\nBody-Text\n"
+
+    assert frontmatter_text(text) == "Stundenthema: X"
+
+
+def test_frontmatter_text_returns_none_without_frontmatter():
+    assert frontmatter_text("# Kein Frontmatter\nBody") is None
+
+
+def test_frontmatter_text_returns_none_when_unterminated():
+    assert frontmatter_text("---\nStundenthema: X\nBody ohne schliessendes Frontmatter") is None
+
+
+def test_body_after_frontmatter_and_frontmatter_text_have_different_error_semantics():
+    """Vertrag explizit abgesichert: `body_after_frontmatter()` gibt bei fehlendem/kaputtem
+    Frontmatter still den unveraenderten Text zurueck (Passthrough), waehrend
+    `frontmatter_text()` denselben Fall als harten `None` signalisiert -- beide teilen sich
+    dieselbe Grenzerkennung (`_frontmatter_bounds()`), unterscheiden sich aber bewusst in der
+    Fehlerbehandlung."""
+    broken = "---\nStundenthema: X\nBody ohne schliessendes Frontmatter"
+
+    assert body_after_frontmatter(broken) == broken
+    assert frontmatter_text(broken) is None
 
 
 def test_render_yaml_frontmatter_renders_scalars_and_lists():

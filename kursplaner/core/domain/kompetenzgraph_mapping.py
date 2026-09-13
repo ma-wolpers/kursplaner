@@ -1,14 +1,72 @@
 from __future__ import annotations
 
-import re
+from dataclasses import dataclass
 
 from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFieldIssue
 from kursplaner.core.domain.kompetenzgraph_kc_zuordnung_mapping import parse_kc_zuordnung_list
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_types import STATUS_ENTWURF, STATUS_VALUES, SourceRef
+from kursplaner.core.domain.markdown_sections import derive_first_heading_title, extract_section, find_heading_line_index
 from kursplaner.core.domain.wiki_links import extract_wiki_link_target
 
-_HEADING_RE = re.compile(r"^\s*#{1,6}\s*(.+?)\s*$")
+
+@dataclass(frozen=True)
+class BodySections:
+    """Ergebnis der Zerlegung eines Kompetenz-Bodys für die Volltextsuche.
+
+    Ausschließlich von `split_kompetenz_body_sections()` erzeugt -- siehe
+    dort für die genaue Zerlegungsregel. Kein Bestandteil von `KompetenzNode`
+    (Lazy Body bleibt unangetastet, siehe dessen Docstring); wird nur bei
+    Bedarf über `KompetenzTextSearchIndex` (core/usecases) abgeleitet.
+
+    Attributes:
+        beispiel_text: Freitext unter der `## Beispiel`-Überschrift (bis zur
+            nächsten Überschrift/EOF), oder leerer String ohne eine solche
+            Überschrift.
+        rest_text: Aller übrige Body-Text nach der Titelzeile, der NICHT zu
+            `beispiel_text` gehört (Text vor einer etwaigen Beispiel-
+            Überschrift, plus alles danach, falls weitere Abschnitte folgen).
+    """
+
+    beispiel_text: str
+    rest_text: str
+
+
+def split_kompetenz_body_sections(body_text: str) -> BodySections:
+    """Zerlegt den rohen Markdown-Body in einen Beispiel- und einen Rest-Abschnitt.
+
+    Arbeitet auf demselben unveränderten, bereits von `body_after_frontmatter()`
+    gelieferten Rohtext wie `_derive_title()`. Nutzt ausschließlich die geteilten
+    Primitiven aus `core/domain/markdown_sections.py` -- der einzigen Stelle im
+    Projekt, die Markdown-Überschriften/-Abschnitte generisch erkennt. "Rest des
+    Dokuments" bleibt dabei roher Markdown-Text, keine gerenderte/entmarkerte
+    Darstellung.
+
+    Regel: die erste Zeile wird übersprungen, falls sie eine Überschrift ist
+    (Titelzeile). Danach wird die erste Überschrift beliebiger Ebene gesucht,
+    deren Text case-insensitiv exakt ``"Beispiel"`` ergibt; der Text bis zur
+    nächsten Überschrift beliebiger Ebene (oder EOF) wird `beispiel_text`.
+    Alles andere -- Text vor der Beispiel-Überschrift (ohne die übersprungene
+    Titelzeile) sowie alles nach dem Beispiel-Abschnitt -- wird zu `rest_text`
+    zusammengefügt. Fehlt eine Beispiel-Überschrift ganz, ist `beispiel_text`
+    leer und `rest_text` enthält den kompletten Text nach der Titelzeile.
+    """
+    lines = body_text.splitlines()
+    start = 1 if lines and derive_first_heading_title(lines[0]) else 0
+    remaining_lines = lines[start:]
+    remaining_text = "\n".join(remaining_lines)
+
+    beispiel_text = extract_section(remaining_text, "Beispiel", target_level=None, stop_at_level=None)
+    if beispiel_text is None:
+        return BodySections(beispiel_text="", rest_text=remaining_text.strip())
+
+    beispiel_heading_index = find_heading_line_index(remaining_lines, "Beispiel", target_level=None)
+    end_index = find_heading_line_index(remaining_lines, None, target_level=None, start=beispiel_heading_index + 1)
+    if end_index == -1:
+        end_index = len(remaining_lines)
+
+    rest_lines = remaining_lines[:beispiel_heading_index] + remaining_lines[end_index:]
+    return BodySections(beispiel_text=beispiel_text, rest_text="\n".join(rest_lines).strip())
 
 
 def _extract_single_wikilink(raw_value: object, field: str) -> tuple[str | None, KompetenzFieldIssue | None]:
@@ -79,15 +137,16 @@ def _derive_title(body_text: str, kc_verweise: tuple[str, ...], node_id: str) ->
     """Leitet den Anzeigetitel einer Kompetenz aus der ersten Überschriftzeile ihres Body ab.
 
     Fallback-Kette (mehrlagige Absicherung gegen unvollständige/untypische
-    Dateien): erste `#`-Überschriftzeile des Body → erstes nicht-leeres
-    `kc_verweis` aus `kc_zuordnung` → die ID selbst. So hat jeder Knoten
-    garantiert einen nicht-leeren Titel für Graph-Label/Liste/Tooltip,
+    Dateien): erste `#`-Überschriftzeile des Body (via `markdown_sections.py::
+    derive_first_heading_title`, rein strukturell) → erstes nicht-leeres
+    `kc_verweis` aus `kc_zuordnung` → die ID selbst. Die Fallback-Kette selbst
+    bleibt fachliche, Kompetenz-spezifische Logik hier vor Ort. So hat jeder
+    Knoten garantiert einen nicht-leeren Titel für Graph-Label/Liste/Tooltip,
     unabhängig davon, wie unvollständig die Quelldatei ist.
     """
-    for line in body_text.splitlines():
-        match = _HEADING_RE.match(line)
-        if match and match.group(1).strip():
-            return match.group(1).strip()
+    title = derive_first_heading_title(body_text)
+    if title:
+        return title
     for kc_verweis in kc_verweise:
         if kc_verweis.strip():
             return kc_verweis.strip()

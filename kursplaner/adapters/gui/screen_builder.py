@@ -26,6 +26,7 @@ from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.search_overlay_view import SearchOverlayView
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import (
     TOOLBAR_ACTIONS,
@@ -220,8 +221,8 @@ class ScreenBuilder:
         tree_scroll.pack(side="right", fill="y")
         self._add_help(self.app.lesson_tree, MAIN_WINDOW_HELP["lesson_tree"])
 
-        self.app.lesson_tree.bind("<Return>", self._on_tree_confirm_selection)
-        self.app.lesson_tree.bind("<KP_Enter>", self._on_tree_confirm_selection)
+        self.app.lesson_tree.bind("<Return>", self._on_tree_enter)
+        self.app.lesson_tree.bind("<KP_Enter>", self._on_tree_enter)
         self.app.lesson_tree.bind("<Double-1>", self._on_tree_confirm_selection)
         self.app.lesson_tree.bind("<ButtonRelease-1>", self._on_tree_confirm_selection)
         self.app.lesson_tree.bind("<Motion>", self._on_tree_hover_select)
@@ -327,6 +328,8 @@ class ScreenBuilder:
         self.app.grid_canvas.configure(yscrollcommand=y_scroll.set, xscrollcommand=self.app.viewport_sync_h.on_view_changed)
         y_scroll.grid(row=1, column=2, sticky="ns")
         self.app.x_scroll.grid(row=2, column=1, sticky="ew")
+
+        self.app.search_overlay_view = SearchOverlayView(self.app, editor_frame)
 
         editor_frame.rowconfigure(0, weight=0)
         editor_frame.rowconfigure(1, weight=1)
@@ -662,6 +665,8 @@ class ScreenBuilder:
         self._bind_runtime_shortcut("<BackSpace>", self._on_grid_delete, binding_id="grid.delete.backspace", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<Control-Return>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
         self._bind_runtime_shortcut("<Control-KP_Enter>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter-numpad", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Shift-Return>", self._on_find_previous, binding_id="search.find-previous", intent=UiIntent.SHORTCUT_FIND_PREVIOUS, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
+        self._bind_runtime_shortcut("<Control-f>", self._on_search_open, binding_id="search.open", intent=UiIntent.SEARCH_OPEN, modes=(UI_MODE_PREVIEW,))
         self._bind_runtime_shortcut("<Escape>", self._on_escape, binding_id="global.escape", intent=UiIntent.SHORTCUT_ESCAPE, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG), allow_when_text_input=True)
         self._bind_runtime_shortcut("<Button-1>", self._on_global_click_commit_cell, binding_id="global.click-commit", intent=UiIntent.GLOBAL_CLICK_COMMIT_CELL, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW), add="+")
         self._bind_runtime_shortcut(
@@ -1043,6 +1048,17 @@ class ScreenBuilder:
         """Meldet Kurslisten-Bestätigung als Intent an den Orchestrator."""
         return self._emit_intent(UiIntent.COURSE_CONFIRM_SELECTION, event=_event)
 
+    def _on_tree_enter(self, _event):
+        """Meldet Enter im Kursbaum als GRID_ENTER, damit Kursauswahl über dieselbe `SelectionLayerStack` läuft.
+
+        Ersetzt die frühere direkte `COURSE_CONFIRM_SELECTION`-Emission für
+        die Tastatur -- Maus-Trigger (`<Double-1>`/`<ButtonRelease-1>`)
+        bleiben unverändert auf `_on_tree_confirm_selection` gebunden.
+        """
+        if self._has_active_popup():
+            return "break"
+        return self._emit_intent(UiIntent.GRID_ENTER, event=_event)
+
     def _on_tree_hover_select(self, event):
         """Meldet Hover-Selektion der Kursliste als Intent an den Orchestrator."""
         return self._emit_intent(UiIntent.COURSE_HOVER_SELECT, event=event)
@@ -1147,6 +1163,18 @@ class ScreenBuilder:
         if selection_level == column_level:
             return self._emit_intent(UiIntent.SHORTCUT_COMMIT_COLUMN, event=_event)
         return self._emit_intent(UiIntent.SHORTCUT_COMMIT_EDIT, event=_event)
+
+    def _on_search_open(self, _event):
+        """Meldet Strg+F als Intent, um die Einheitensuche zu öffnen."""
+        if self._has_active_popup():
+            return "break"
+        return self._emit_intent(UiIntent.SEARCH_OPEN, event=_event)
+
+    def _on_find_previous(self, _event):
+        """Meldet Umschalt+Enter als Intent für den vorherigen Suchtreffer."""
+        if self._has_active_popup():
+            return "break"
+        return self._emit_intent(UiIntent.SHORTCUT_FIND_PREVIOUS, event=_event)
 
     def show_course_overview(self):
         """Zeigt nur die Kursübersicht und blendet die Detailansicht aus."""
