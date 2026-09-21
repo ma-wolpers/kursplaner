@@ -8,6 +8,21 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-09-21) — Kompetenznetz öffnet standardmäßig in "Fort-/Voraussetzung"
+
+Nutzerwunsch: Das Kompetenznetz-Popup soll direkt im Reiter "Voraussetzungen" starten. Der Reiter
+ist die Ansicht `MODE_FORT_VORAUS` ("Fort-/Voraussetzung", `kompetenzgraph_view_mode_toggle.py`) --
+keine `ttk.Notebook`-Reiter; die Sidebar-Reiter "Filter"/"Details" sind davon unabhängig und bleiben
+unverändert (Wechsel nur per Klick, siehe `kompetenzgraph_sidebar_tabs.py`).
+
+Der Default lebt ausschließlich im Dataclass-Feld `KompetenzGraphUiState.view_mode`
+(`kompetenzgraph_ui_state.py`, vorher `MODE_OBER_TEIL`). `kompetenzgraph_dialog.py` erzeugt den State
+ohne expliziten `view_mode` und reicht ihn als `initial_mode` an `KompetenzGraphViewModeToggle`
+durch -- dadurch keine zweite Stelle, die den Default kennt. Bewusst keine Persistenz in
+`ui_preferences_store.py` (der Nutzer wollte einen festen Default, keinen zuletzt-benutzt-Speicher).
+Neuer Test `tests/test_kompetenzgraph_ui_state.py` fixiert den Default; die bestehenden 223
+Kompetenzgraph-Tests laufen unverändert grün, keiner hing vom alten Default ab.
+
 ### Fixed (2026-09-14) — Bereiche blieben auch ungefiltert durchmischt; Bereichs-Hubs standen nicht über ihren Knoten
 
 Zwei zusammenhängende Nachmeldungen zum vorherigen Primärbereich-Kohäsion-Fix (Eintrag direkt

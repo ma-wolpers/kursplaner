@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
-from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_OBER_TEIL
+from kursplaner.core.domain.kompetenzgraph_view_mode import MODE_FORT_VORAUS
 
 
 @dataclass
@@ -18,7 +18,10 @@ class KompetenzGraphUiState:
 
     Attributes:
         filter: Aktueller Filterzustand (inkl. Matchingtiefe).
-        view_mode: `MODE_OBER_TEIL` oder `MODE_FORT_VORAUS`.
+        view_mode: `MODE_OBER_TEIL`, `MODE_FORT_VORAUS` oder
+            `MODE_ABHAENGIGKEITEN`. Standard beim Öffnen des Popups ist
+            `MODE_FORT_VORAUS` (Reiter "Fort-/Voraussetzung"); dieses Feld
+            ist die einzige Quelle dieses Defaults.
         selected_id: ID des per Rahmen markierten Knotens, oder `None`.
         focus_id: ID des fokussierten Knotens (Füllfarbe + eingeblendete
             Teilmenge), oder `None` ohne aktiven Fokus.
@@ -35,7 +38,7 @@ class KompetenzGraphUiState:
     """
 
     filter: KompetenzGraphFilter
-    view_mode: str = MODE_OBER_TEIL
+    view_mode: str = MODE_FORT_VORAUS
     selected_id: str | None = None
     focus_id: str | None = None
     bereich_hues: Mapping[str, float] = field(default_factory=dict)

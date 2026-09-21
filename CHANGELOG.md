@@ -45,6 +45,7 @@ The format is based on Keep a Changelog.
   - Tests: `tests/test_timetable_change_usecase.py` (15 Tests), `tests/test_apply_timetable_change_usecase.py` (7 Tests).
 
 ### Changed
+- **Kompetenznetz öffnet standardmäßig in der Ansicht „Fort-/Voraussetzung"**: Das Kompetenznetz-Popup startet jetzt direkt in der Ansicht „Fort-/Voraussetzung" statt in „Ober-/Teilkompetenzen". Die anderen Ansichten bleiben wie bisher per Schalter bzw. Strg+Tab erreichbar (`kompetenzgraph_ui_state.py`, `KompetenzGraphUiState.view_mode`).
 - **"Nächste Einheit" wird jetzt standardmäßig anhand der tatsächlichen Startzeit bestimmt**: Eine Einheit gilt als "nächste", solange ihre Startzeit (aus dem Wochenrhythmus) noch nicht erreicht ist — nicht mehr pauschal der ganze Tag. Gilt einheitlich für die Grid-Markierung/-Auswahl beim Öffnen, die Pfeiltasten-Navigation ohne Auswahl, die Kursübersicht-Fettung und die Spalte "Nächster UB". Wer stattdessen weiterhin einen einzelnen festen Cutoff-Zeitpunkt für alle Kurse möchte, kann das in den Einstellungen ("Nächste Einheit bestimmen anhand" → "Feste Uhrzeit", Standard 15:00) aktivieren.
   - Die "nächste Einheit" wird jetzt zusätzlich dauerhaft am Spaltenkopf markiert (dezente Hintergrundfarbe bzw. ein "▶"-Zeichen), unabhängig davon, welche Spalte gerade ausgewählt ist.
   - Neu: Zifferntasten `0`–`9` wählen im Spaltenauswahlmodus direkt relativ zur nächsten Einheit aus (`0` = diese, `1` = die danach folgende stattfindende Einheit, `2` = die übernächste, …).
