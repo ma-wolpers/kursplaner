@@ -1,6 +1,11 @@
 from datetime import date
 
-from kursplaner.core.domain.course_subject import normalize_course_subject, short_subject_for_course_subject
+from kursplaner.core.domain.course_subject import (
+    normalize_course_subject,
+    short_subject_for_course_subject,
+    subject_short_or_name,
+    subject_sort_key,
+)
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_KIND_FACH,
     UB_KIND_PAEDAGOGIK,
@@ -92,3 +97,21 @@ def test_parse_jahrgangsstufe_returns_none_for_missing_or_invalid():
     assert parse_jahrgangsstufe("keine Zahl") is None
     assert parse_jahrgangsstufe("4") is None
     assert parse_jahrgangsstufe("14") is None
+
+
+def test_subject_short_or_name_uses_official_short_and_never_raises():
+    assert subject_short_or_name("Mathematik") == "Mat"
+    assert subject_short_or_name("Informatik") == "Inf"
+    assert subject_short_or_name(" Darstellendes Spiel ") == "DS"
+    assert subject_short_or_name("Deutsch") == "Deutsch"
+    assert subject_short_or_name("") == ""
+
+
+def test_subject_sort_key_folds_case_and_umlauts():
+    assert sorted(["Physik", "Ökonomie", "deutsch", "Englisch"], key=subject_sort_key) == [
+        "deutsch",
+        "Englisch",
+        "Ökonomie",
+        "Physik",
+    ]
+    assert subject_sort_key("Größen") == "grossen"

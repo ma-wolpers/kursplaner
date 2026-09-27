@@ -65,6 +65,27 @@ class KompetenzNode:
     status: str
     title: str
 
+    @property
+    def referenced_bereich_ids(self) -> frozenset[str]:
+        """Alle Bereichs-IDs, die dieser Knoten referenziert -- primär UND sekundär.
+
+        Einzige Wahrheitsquelle für die Frage "gehört dieser Knoten zu Bereich X?"
+        (Bereichsfilter, sichtbare Bereichs-Hubs). Bewusst unabhängig vom
+        ID-Präfix (`I-`/`P-`): Ein Prozessbereich kann als `primarer_bereich`
+        eingetragen sein (z. B. `Mat-KO-*` → `P-Kommunizieren`), ein
+        Inhaltsbereich theoretisch auch unter `prozessbereiche` -- beides soll
+        von den Filtern gleichermaßen gefunden werden, statt je nach
+        Eintragungsort stillschweigend herauszufallen.
+
+        Returns:
+            `primarer_bereich_id` (falls gesetzt) vereinigt mit
+            `prozessbereich_ids`.
+        """
+        ids = set(self.prozessbereich_ids)
+        if self.primarer_bereich_id is not None:
+            ids.add(self.primarer_bereich_id)
+        return frozenset(ids)
+
 
 @dataclass(frozen=True)
 class BereichNode:

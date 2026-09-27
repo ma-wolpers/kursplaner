@@ -8,6 +8,28 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed/Changed (2026-09-27) — Kompetenznetz-Bereichsfilter: einheitliche Semantik, drift-robuste Auswahl
+
+Bug: `node_matches_filter()` prüfte beim Prozessbereich-Filter nur `prozessbereich_ids` (Sekundärbereiche).
+Mathe-Prozesskompetenzen (`Mat-KO-*`, `Mat-AR-*`, …) tragen ihren Prozessbereich aber als
+`primarer_bereich` -- sie fielen komplett heraus. Als Sekundärbereich kommt `P-Argumentieren` in den
+aktuellen Daten nur bei `Mat-RF-64` vor, `P-Kommunizieren` gar nicht (daher das Symptom).
+
+- **Eine Wahrheitsquelle:** Neue Property `KompetenzNode.referenced_bereich_ids` (primär ∪ sekundär).
+  Beide Bereichsfilter und `compute_visible_bereich_ids()` nutzen sie. Die Semantik ist bewusst
+  präfixunabhängig: Auch der Inhaltsbereich-Filter trifft jetzt Sekundärreferenzen (in den aktuellen
+  Daten ohne Auswirkung), damit ein Eintrag an der "falschen" Stelle nicht stillschweigend herausfällt.
+- **Filteroptionen als Value-Objects:** `KompetenzGraphFilterOptions.inhaltsbereiche/prozessbereiche`
+  sind jetzt `tuple[BereichFilterOption(id, subject, label)]` (vorher `*_ids: tuple[str]`). Die Domain
+  sortiert nach Fach → Titel → ID und baut das Label mit dem Fachkürzel.
+- **Auswahl per Index statt Label:** `kompetenzgraph_filter_panel.py` löst die Combobox-Auswahl über
+  `combo.current()` gegen eine index-gleiche ID-Liste auf. Das bisherige `label_to_id`-Dict hätte bei
+  doppelten Bereichstiteln (z. B. künftig „Argumentieren“ in Mathe und Deutsch) stillschweigend eine ID
+  überschrieben. Eine nicht mehr existierende Initial-ID fällt auf "(alle)" zurück.
+- **Fach-Helper in `course_subject.py`:** `subject_short_or_name()` (Kürzel aus `COURSE_SUBJECT_TO_SHORT`,
+  Fallback voller Name, wirft nie -- anders als `short_subject_for_course_subject()`) und
+  `subject_sort_key()` (casefold + Umlaut-Faltung). Auch `subjects` wird jetzt damit sortiert.
+
 ### Changed (2026-09-21) — Kompetenznetz öffnet standardmäßig in "Fort-/Voraussetzung"
 
 Nutzerwunsch: Das Kompetenznetz-Popup soll direkt im Reiter "Voraussetzungen" starten. Der Reiter

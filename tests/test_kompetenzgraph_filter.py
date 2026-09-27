@@ -50,6 +50,26 @@ def test_status_and_bereich_filters_are_node_level_not_per_entry():
     assert node_matches_filter(node, KompetenzGraphFilter(prozessbereich_id="P-Prozess")) is True
 
 
+def test_prozessbereich_filter_matches_primary_bereich():
+    """Regression: Mat-KO-* haben ihren Prozessbereich als primarer_bereich und keine Sekundärbereiche."""
+    node = make_node("Mat-KO-1", primarer_bereich_id="P-Kommunizieren", prozessbereich_ids=())
+
+    assert node_matches_filter(node, KompetenzGraphFilter(prozessbereich_id="P-Kommunizieren")) is True
+    assert node_matches_filter(node, KompetenzGraphFilter(prozessbereich_id="P-Argumentieren")) is False
+
+
+def test_inhaltsbereich_filter_also_matches_secondary_reference():
+    node = make_node("A", primarer_bereich_id="P-Modellieren", prozessbereich_ids=("I-Raum und Form",))
+
+    assert node_matches_filter(node, KompetenzGraphFilter(inhaltsbereich_id="I-Raum und Form")) is True
+
+
+def test_referenced_bereich_ids_unions_primary_and_secondary():
+    node = make_node("A", primarer_bereich_id="I-Test", prozessbereich_ids=("P-Eins", "P-Zwei"))
+
+    assert node.referenced_bereich_ids == frozenset({"I-Test", "P-Eins", "P-Zwei"})
+
+
 def test_subjects_none_or_empty_means_all_subjects():
     node = make_node("A", subject="Mathematik")
 

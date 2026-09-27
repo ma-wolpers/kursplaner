@@ -35,8 +35,11 @@ class KompetenzGraphFilter:
         status: Bezieht sich auf das Knoten-Ebene-Feld `status` (nicht pro
             `kc_zuordnung`-Eintrag), separat UND-verknüpft.
         inhaltsbereich_id, prozessbereich_id: Beziehen sich auf
-            `primarer_bereich_id`/`prozessbereich_ids` (Knoten-Ebene),
-            separat UND-verknüpft.
+            `KompetenzNode.referenced_bereich_ids` (Knoten-Ebene), d. h. ein
+            Knoten trifft, wenn er den Bereich als `primarer_bereich` ODER
+            unter `prozessbereiche` referenziert -- unabhängig davon, wo er
+            eingetragen ist (Mathe-Prozesskompetenzen wie `Mat-KO-*` haben
+            ihren Prozessbereich als Primärbereich). Separat UND-verknüpft.
         kontexttiefe: "Matchingtiefe" -- 0 (Default) zeigt ausschließlich
             Primärtreffer (bisherige Filterintuition bleibt erhalten);
             n>0 blendet zusätzlich Kontextnachbarn bis n Hops entlang der
@@ -128,9 +131,9 @@ def node_matches_filter(node: KompetenzNode, filter: KompetenzGraphFilter) -> bo
         return False
     if filter.status is not None and node.status != filter.status:
         return False
-    if filter.inhaltsbereich_id is not None and node.primarer_bereich_id != filter.inhaltsbereich_id:
+    if filter.inhaltsbereich_id is not None and filter.inhaltsbereich_id not in node.referenced_bereich_ids:
         return False
-    if filter.prozessbereich_id is not None and filter.prozessbereich_id not in node.prozessbereich_ids:
+    if filter.prozessbereich_id is not None and filter.prozessbereich_id not in node.referenced_bereich_ids:
         return False
 
     kc_zuordnung_criteria_set = any(
@@ -182,9 +185,7 @@ def compute_visible_bereich_ids(snapshot: KompetenzGraphSnapshot, node_ids: froz
         node = snapshot.nodes.get(node_id)
         if node is None:
             continue
-        if node.primarer_bereich_id is not None:
-            referenced.add(node.primarer_bereich_id)
-        referenced.update(node.prozessbereich_ids)
+        referenced.update(node.referenced_bereich_ids)
     return frozenset(bereich_id for bereich_id in referenced if bereich_id in snapshot.bereiche)
 
 

@@ -2,7 +2,31 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.course_subject import subject_short_or_name, subject_sort_key
+from kursplaner.core.domain.kompetenzgraph_node import BereichNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
+
+
+@dataclass(frozen=True)
+class BereichFilterOption:
+    """Ein auswählbarer Bereichs-Hub im Inhalts-/Prozessbereich-Filter.
+
+    Trennt bewusst Identität (`id`) von Darstellung (`label`): Die GUI
+    zeigt nur `label` an und löst die Auswahl über die Position in der
+    Optionsliste zurück auf `id` auf -- NIE über den Label-Text. Doppelte
+    oder nachträglich geänderte Bereichstitel (Daten-Drift in den
+    `Bereiche/*.md`-Dateien) können so keine falsche Filter-ID erzeugen.
+
+    Attributes:
+        id: Vault-weit eindeutige Bereichs-ID, z. B. ``"P-Kommunizieren"``.
+        subject: Fach-Herkunft des Bereichs (`BereichNode.source.subject`).
+        label: Anzeigetext mit Fachkürzel-Präfix, z. B.
+            ``"Mat · Kommunizieren (KO)"``.
+    """
+
+    id: str
+    subject: str
+    label: str
 
 
 @dataclass(frozen=True)
@@ -17,15 +41,18 @@ class KompetenzGraphFilterOptions:
 
     Attributes:
         subjects: Alle im Snapshot vorkommenden Fach-Herkünfte
-            (`KompetenzNode.source.subject`), z. B. `("Mathematik",)`.
+            (`KompetenzNode.source.subject`), alphabetisch (umlaut-robust,
+            siehe `subject_sort_key`), z. B. `("Informatik", "Mathematik")`.
         jahrgaenge: Alle vorkommenden `kc_zuordnung[].jahrgang`-Werte.
         schulformen: Alle vorkommenden `kc_zuordnung[].schulform`-Werte.
         bundeslaender: Alle vorkommenden `kc_zuordnung[].bundesland`-Werte.
         niveaus: Alle vorkommenden, nicht-leeren `kc_zuordnung[].niveau`-Werte.
         status_werte: Alle vorkommenden `KompetenzNode.status`-Werte.
         anforderungen: Alle vorkommenden `kc_zuordnung[].anforderung`-Werte.
-        inhaltsbereich_ids: IDs aller Bereichs-Hubs mit `kind="inhaltsbereich"`.
-        prozessbereich_ids: IDs aller Bereichs-Hubs mit `kind="prozessbereich"`.
+        inhaltsbereiche: Alle Bereichs-Hubs mit `kind="inhaltsbereich"`,
+            nach Fach gruppiert (siehe `_bereich_options`).
+        prozessbereiche: Alle Bereichs-Hubs mit `kind="prozessbereich"`,
+            nach Fach gruppiert.
     """
 
     subjects: tuple[str, ...]
@@ -35,8 +62,35 @@ class KompetenzGraphFilterOptions:
     niveaus: tuple[str, ...]
     status_werte: tuple[str, ...]
     anforderungen: tuple[str, ...]
-    inhaltsbereich_ids: tuple[str, ...]
-    prozessbereich_ids: tuple[str, ...]
+    inhaltsbereiche: tuple[BereichFilterOption, ...]
+    prozessbereiche: tuple[BereichFilterOption, ...]
+
+
+def _bereich_options(snapshot: KompetenzGraphSnapshot, kind: str) -> tuple[BereichFilterOption, ...]:
+    """Baut die sortierten Filteroptionen aller Bereichs-Hubs einer Art.
+
+    Sortierung: erst nach Fach (voller Fachname, umlaut-robust -- also
+    "Darstellendes Spiel" vor "Deutsch" vor "Englisch"), dann nach
+    Bereichstitel, zuletzt nach ID als eindeutigem Tie-Breaker, damit die
+    Reihenfolge auch bei gleichen Titeln deterministisch bleibt.
+
+    Args:
+        snapshot: Aktueller Kompetenznetz-Snapshot.
+        kind: ``"inhaltsbereich"`` oder ``"prozessbereich"``.
+
+    Returns:
+        Sortierte `BereichFilterOption`s.
+    """
+    bereiche: list[BereichNode] = [b for b in snapshot.bereiche.values() if b.kind == kind]
+    bereiche.sort(key=lambda b: (subject_sort_key(b.source.subject), subject_sort_key(b.title), b.id))
+    return tuple(
+        BereichFilterOption(
+            id=b.id,
+            subject=b.source.subject,
+            label=f"{subject_short_or_name(b.source.subject)} · {b.title}",
+        )
+        for b in bereiche
+    )
 
 
 def compute_filter_options(snapshot: KompetenzGraphSnapshot) -> KompetenzGraphFilterOptions:
@@ -63,17 +117,14 @@ def compute_filter_options(snapshot: KompetenzGraphSnapshot) -> KompetenzGraphFi
                 niveaus.add(entry.niveau)
             anforderungen.add(entry.anforderung)
 
-    inhaltsbereich_ids = {b.id for b in snapshot.bereiche.values() if b.kind == "inhaltsbereich"}
-    prozessbereich_ids = {b.id for b in snapshot.bereiche.values() if b.kind == "prozessbereich"}
-
     return KompetenzGraphFilterOptions(
-        subjects=tuple(sorted(subjects)),
+        subjects=tuple(sorted(subjects, key=lambda s: (subject_sort_key(s), s))),
         jahrgaenge=tuple(sorted(jahrgaenge)),
         schulformen=tuple(sorted(schulformen)),
         bundeslaender=tuple(sorted(bundeslaender)),
         niveaus=tuple(sorted(niveaus)),
         status_werte=tuple(sorted(status_werte)),
         anforderungen=tuple(sorted(anforderungen)),
-        inhaltsbereich_ids=tuple(sorted(inhaltsbereich_ids)),
-        prozessbereich_ids=tuple(sorted(prozessbereich_ids)),
+        inhaltsbereiche=_bereich_options(snapshot, "inhaltsbereich"),
+        prozessbereiche=_bereich_options(snapshot, "prozessbereich"),
     )

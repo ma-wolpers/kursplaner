@@ -10,7 +10,7 @@ from bw_gui.runtime import ui, widgets
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
-from kursplaner.core.domain.kompetenzgraph_filter_options import compute_filter_options
+from kursplaner.core.domain.kompetenzgraph_filter_options import BereichFilterOption, compute_filter_options
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 
 _ALLE = "(alle)"
@@ -52,15 +52,9 @@ class KompetenzGraphFilterPanel:
         self._on_change = on_change
         self._options = compute_filter_options(snapshot)
         self._subject_vars: dict[str, ui.BooleanVar] = {}
-        self._inhaltsbereich_label_to_id: dict[str, str] = {}
-        self._prozessbereich_label_to_id: dict[str, str] = {}
 
         self.frame = widgets.Frame(parent, padding=(10, 10))
         self._build(initial_filter)
-
-    def _bereich_title(self, bereich_id: str) -> str:
-        bereich = self._snapshot.bereiche.get(bereich_id)
-        return bereich.title if bereich is not None else bereich_id
 
     def _build(self, initial: KompetenzGraphFilter) -> None:
         widgets.Label(self.frame, text="Fach", font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -85,17 +79,11 @@ class KompetenzGraphFilterPanel:
         self._anforderung_var = self._build_combobox(
             "Anforderung", list(self._options.anforderungen), initial.anforderung
         )
-        self._inhaltsbereich_var = self._build_bereich_combobox(
-            "Inhaltsbereich",
-            self._options.inhaltsbereich_ids,
-            initial.inhaltsbereich_id,
-            self._inhaltsbereich_label_to_id,
+        self._inhaltsbereich_combo, self._inhaltsbereich_ids = self._build_bereich_combobox(
+            "Inhaltsbereich", self._options.inhaltsbereiche, initial.inhaltsbereich_id
         )
-        self._prozessbereich_var = self._build_bereich_combobox(
-            "Prozessbereich",
-            self._options.prozessbereich_ids,
-            initial.prozessbereich_id,
-            self._prozessbereich_label_to_id,
+        self._prozessbereich_combo, self._prozessbereich_ids = self._build_bereich_combobox(
+            "Prozessbereich", self._options.prozessbereiche, initial.prozessbereich_id
         )
 
         kontexttiefe_label = widgets.Label(self.frame, text="Matchingtiefe", font=("Segoe UI", 9, "bold"))
@@ -126,21 +114,40 @@ class KompetenzGraphFilterPanel:
         return var
 
     def _build_bereich_combobox(
-        self, label: str, bereich_ids: tuple[str, ...], initial_value: str | None, label_to_id: dict[str, str]
-    ) -> ui.StringVar:
-        display_values: list[str] = []
-        for bereich_id in bereich_ids:
-            title = self._bereich_title(bereich_id)
-            label_to_id[title] = bereich_id
-            display_values.append(title)
-        initial_title = next((title for title, bid in label_to_id.items() if bid == initial_value), _ALLE)
+        self, label: str, options: tuple[BereichFilterOption, ...], initial_value: str | None
+    ) -> tuple[widgets.Combobox, list[str | None]]:
+        """Baut eine Bereichs-Combobox, deren Auswahl über den Index (nicht den Anzeigetext) aufgelöst wird.
+
+        Die parallele ID-Liste ist index-gleich zu den Combobox-Werten
+        (Index 0 = "(alle)" → `None`). Dadurch bleibt die Zuordnung
+        Anzeige → Bereichs-ID auch dann korrekt, wenn zwei Bereiche denselben
+        Anzeigetext haben (Daten-Drift in den Bereichs-Dateien).
+
+        Args:
+            label: Überschrift über der Combobox.
+            options: Sortierte Filteroptionen aus `compute_filter_options()`.
+            initial_value: Vorauszuwählende Bereichs-ID. Existiert sie im
+                Snapshot nicht (mehr), wird "(alle)" gewählt.
+
+        Returns:
+            `(combobox, ids)` -- `ids[combobox.current()]` ist die gewählte
+            Bereichs-ID oder `None`.
+        """
+        ids: list[str | None] = [None, *(option.id for option in options)]
+        display_values = [_ALLE, *(option.label for option in options)]
 
         widgets.Label(self.frame, text=label).pack(anchor="w")
-        var = ui.StringVar(value=initial_title)
-        combo = widgets.Combobox(self.frame, textvariable=var, values=[_ALLE, *display_values], state="readonly")
+        combo = widgets.Combobox(self.frame, values=display_values, state="readonly")
+        combo.current(ids.index(initial_value) if initial_value in ids else 0)
         combo.pack(anchor="w", fill="x", pady=(0, 6))
         combo.bind("<<ComboboxSelected>>", lambda _event: self._emit_change())
-        return var
+        return combo, ids
+
+    @staticmethod
+    def _selected_bereich_id(combo: widgets.Combobox, ids: list[str | None]) -> str | None:
+        """Löst die aktuelle Combobox-Auswahl über ihren Index auf die Bereichs-ID auf (`None` = alle)."""
+        index = combo.current()
+        return ids[index] if 0 <= index < len(ids) else None
 
     def _emit_change(self) -> None:
         self._on_change(self.current_filter())
@@ -171,7 +178,7 @@ class KompetenzGraphFilterPanel:
             niveau=self._optional_str(self._niveau_var),
             status=self._optional_str(self._status_var),
             anforderung=self._optional_str(self._anforderung_var),
-            inhaltsbereich_id=self._inhaltsbereich_label_to_id.get(self._inhaltsbereich_var.get()),
-            prozessbereich_id=self._prozessbereich_label_to_id.get(self._prozessbereich_var.get()),
+            inhaltsbereich_id=self._selected_bereich_id(self._inhaltsbereich_combo, self._inhaltsbereich_ids),
+            prozessbereich_id=self._selected_bereich_id(self._prozessbereich_combo, self._prozessbereich_ids),
             kontexttiefe=max(_KONTEXTTIEFE_MIN, min(_KONTEXTTIEFE_MAX, int(self._kontexttiefe_var.get() or 0))),
         )
