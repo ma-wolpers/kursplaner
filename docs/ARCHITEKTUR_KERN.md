@@ -106,6 +106,7 @@ Verbindliche Shortcut-Regel für Toolbar-Buttons:
 Verbindliche Zentralisierungsregel fuer UI-Steuerung:
 
 - KeyBindings werden zentral in `bw_libs/ui_contract/keybinding.py` verwaltet.
+- Tk-Modifier-Semantik (`event.state`) wird nie app-lokal gedeutet, sondern ausschließlich über den bw-gui-Keybinding-Contract (`bw_gui.contracts.modifiers_from_event`; Windows: `0x0008` = NumLock, nicht Alt). Der AST-Guard `tests/test_no_raw_tk_state_bitmasks.py` erzwingt das.
 - Pop-up-Verhaltensgrundsaetze werden zentral in `bw_libs/ui_contract/popup.py` verwaltet.
 - HSM-Vertragslogik fuer Intent-Katalog, Escape-Prioritaet und Transition-Validierung liegt zentral in `bw_libs/ui_contract/hsm.py`.
 - Neue Shortcut-/Popup-Interaktionen werden zuerst dort registriert und danach in konkrete Views verdrahtet.

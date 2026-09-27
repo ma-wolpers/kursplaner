@@ -8,6 +8,15 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-09-27) — Modifier-Auswertung über den bw-gui-Keybinding-Contract
+
+- **Grid-Navigation:** `screen_builder.py::_on_grid_nav_up/_down` fragen Strg jetzt über `ScreenBuilder._control_or_unknown_modifiers` ab, also über `bw_gui.contracts.modifiers_from_event`. Ein unbekannter Zustand wird wie „Strg gehalten“ behandelt (fail-closed).
+- **Mausrad:** `grid_renderer.py::_on_grid_mousewheel` fragt Strg/Shift ebenfalls über den Contract ab. Ein unbekannter Zustand bedeutet normales Scrollen.
+- **Clipboard:** `ui_intent_controller.py::should_handle_global_clipboard_shortcut` wertete `state & 0x0008` als Alt. Unter Windows ist das das NumLock-Bit. Jetzt gilt `modifiers.alt`.
+  - **Toter Code (Review-Befund):** Die Methode und ihr Wrapper `main_window.py::_should_handle_global_clipboard_shortcut` werden nirgends aufgerufen. Der Fehler war deshalb nicht nutzer-sichtbar. Ob sie entfernt werden sollen, ist beim Nutzer angefragt.
+- **Guard:** `tests/test_no_raw_tk_state_bitmasks.py` nutzt den zentralen AST-Guard `bw_gui.testing.tk_state_guard`, der auch Zwischenvariablen wie `state = getattr(event, "state", 0)` erkennt.
+- **Tests:** `tests/test_grid_nav_modifiers.py` ist der Regressionstest. `tests/conftest.py` bindet `bw_gui.testing.background_windows` ein; damit geben Tk-Testfenster den OS-Fokus sofort zurück.
+
 ### Fixed/Changed (2026-09-27) — Kompetenznetz-Bereichsfilter: einheitliche Semantik, drift-robuste Auswahl
 
 Bug: `node_matches_filter()` prüfte beim Prozessbereich-Filter nur `prozessbereich_ids` (Sekundärbereiche).
