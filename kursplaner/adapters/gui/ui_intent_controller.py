@@ -6,6 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import UNKNOWN_MODIFIERS, modifiers_from_event
 
 # Backward-compatible module aliases for existing tests and call sites.
 tk = ui
@@ -903,8 +904,14 @@ class MainWindowUiIntentController:
         if operation not in {"cut", "copy", "paste"}:
             return False
 
-        if event is not None and (int(getattr(event, "state", 0)) & 0x0008):
-            return False
+        # Alt gehalten -> kein globales Clipboard-Kuerzel. Modifier-Semantik aus dem
+        # bw-gui-Contract: frueher galt state & 0x0008 als Alt, unter Windows ist das
+        # aber das NumLock-Bit (Strg+C/X/V griffen bei NumLock nicht). Unbekannter
+        # Zustand -> nicht behandeln (fail-closed).
+        if event is not None:
+            modifiers = modifiers_from_event(event)
+            if modifiers is UNKNOWN_MODIFIERS or modifiers.alt:
+                return False
 
         event_widget = self._resolve_event_widget(event)
         if self._is_editable_widget(event_widget):

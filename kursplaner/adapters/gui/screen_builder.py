@@ -4,6 +4,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import UNKNOWN_MODIFIERS, modifiers_from_event
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
 from bw_gui.theming import theme_canvas
 from bw_gui.menu import MenuItem as SharedMenuItem
@@ -1091,11 +1092,25 @@ class ScreenBuilder:
             return "break"
         return self._emit_intent(UiIntent.SHORTCUT_DETAIL_RIGHT_ALL, event=_event)
 
+    @staticmethod
+    def _control_or_unknown_modifiers(event) -> bool:
+        """True, wenn Strg gehalten wird oder der Modifierzustand unbekannt ist.
+
+        Modifier-Semantik aus dem bw-gui-Keybinding-Contract statt eigener
+        ``event.state``-Bitmasken. Unbekannter Zustand -> wie "Strg gehalten"
+        behandeln (fail-closed: Pfeiltaste nicht als Grid-Navigation verbrauchen).
+
+        Args:
+            event: Tk-Tastaturereignis (oder ``None``).
+        """
+        modifiers = modifiers_from_event(event)
+        return modifiers is UNKNOWN_MODIFIERS or modifiers.control
+
     def _on_grid_nav_up(self, _event):
         """Meldet Pfeil-hoch für Grid-Navigation im Zellauswahlmodus."""
         if self._has_active_popup():
             return "break"
-        if int(getattr(_event, "state", 0)) & 0x0004:
+        if self._control_or_unknown_modifiers(_event):
             return None
         return self._emit_intent(UiIntent.GRID_NAV_UP, event=_event)
 
@@ -1103,7 +1118,7 @@ class ScreenBuilder:
         """Meldet Pfeil-runter für Grid-Navigation im Zellauswahlmodus."""
         if self._has_active_popup():
             return "break"
-        if int(getattr(_event, "state", 0)) & 0x0004:
+        if self._control_or_unknown_modifiers(_event):
             return None
         return self._emit_intent(UiIntent.GRID_NAV_DOWN, event=_event)
 

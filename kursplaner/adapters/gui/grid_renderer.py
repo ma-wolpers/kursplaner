@@ -5,6 +5,7 @@ from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
+from bw_gui.contracts import NO_MODIFIERS, UNKNOWN_MODIFIERS, modifiers_from_event
 from datetime import datetime
 
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
@@ -1177,8 +1178,13 @@ class GridRenderer:
 
     def _on_grid_mousewheel(self, event):
         """Behandelt Scroll- und Zoom-Interaktion im Grid (Ctrl+Wheel = Spaltenbreite)."""
-        ctrl_pressed = bool(event.state & 0x0004)
-        shift_pressed = bool(event.state & 0x0001)
+        # Modifier-Semantik aus dem bw-gui-Contract (kein eigenes event.state-Bitraten).
+        # Unbekannter Zustand -> normales Scrollen (beim Mausrad der harmlose Fall).
+        modifiers = modifiers_from_event(event)
+        if modifiers is UNKNOWN_MODIFIERS:
+            modifiers = NO_MODIFIERS
+        ctrl_pressed = modifiers.control
+        shift_pressed = modifiers.shift
 
         if ctrl_pressed:
             step = 20 if event.delta > 0 else -20
