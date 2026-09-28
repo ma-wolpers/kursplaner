@@ -78,3 +78,59 @@ def test_cleanup_clears_missing_links_and_repairs_invalid_created_at(tmp_path):
     second = repo._lesson_by_path[lesson_existing].data
     assert second["Kompetenzhorizont"] == "[[KH-gueltig]]"
     assert datetime.fromisoformat(str(second["created_at"]))
+
+
+def _single_lzk_setup(tmp_path: Path, link: str, *, with_vault: bool = True):
+    vault = tmp_path / "Vault"
+    if with_vault:
+        (vault / ".obsidian").mkdir(parents=True)
+    course_dir = vault / "kurs"
+    einheiten_dir = course_dir / "Einheiten"
+    einheiten_dir.mkdir(parents=True)
+    lesson = (einheiten_dir / "lzk.md").resolve()
+    lesson.write_text("x", encoding="utf-8")
+    repo = _LessonRepoStub(
+        {
+            lesson: LessonYamlData(
+                lesson_path=lesson,
+                data={"Stundentyp": "LZK", "Kompetenzhorizont": link, "created_at": "2026-09-29T15:30:00"},
+            )
+        }
+    )
+    day = make_day_column(link=lesson, yaml={"Stundentyp": "LZK"})
+    return vault, course_dir, repo, lesson, day
+
+
+def test_cleanup_keeps_valid_link_to_other_vault_folder(tmp_path):
+    vault, course_dir, repo, lesson, day = _single_lzk_setup(tmp_path, "[[Archiv/KH neu]]")
+    (vault / "Archiv").mkdir()
+    (vault / "Archiv" / "KH neu.md").write_text("ok", encoding="utf-8")
+
+    result = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=repo).execute(
+        table=_table(course_dir / "kurs.md"), day_columns=[day]
+    )
+
+    assert result.cleared_links == 0
+    assert repo._lesson_by_path[lesson].data["Kompetenzhorizont"] == "[[Archiv/KH neu]]"
+
+
+def test_cleanup_clears_missing_link_to_other_vault_folder(tmp_path):
+    _vault, course_dir, repo, lesson, day = _single_lzk_setup(tmp_path, "[[Archiv/KH weg]]")
+
+    result = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=repo).execute(
+        table=_table(course_dir / "kurs.md"), day_columns=[day]
+    )
+
+    assert result.cleared_links == 1
+    assert repo._lesson_by_path[lesson].data["Kompetenzhorizont"] == ""
+
+
+def test_cleanup_keeps_path_link_when_vault_root_is_unknown(tmp_path):
+    _vault, course_dir, repo, lesson, day = _single_lzk_setup(tmp_path, "[[Archiv/KH]]", with_vault=False)
+
+    result = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=repo).execute(
+        table=_table(course_dir / "kurs.md"), day_columns=[day]
+    )
+
+    assert result.cleared_links == 0
+    assert repo._lesson_by_path[lesson].data["Kompetenzhorizont"] == "[[Archiv/KH]]"

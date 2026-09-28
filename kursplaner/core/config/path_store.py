@@ -112,6 +112,24 @@ def infer_workspace_root_from_path(path: Path) -> Path:
     return start
 
 
+def infer_obsidian_vault_root(path: Path) -> Path | None:
+    """Findet die Obsidian-Vault-Wurzel (Ordner mit ``.obsidian``) oberhalb eines Pfads.
+
+    Anders als `infer_workspace_root_from_path` (liefert den Ordner *über* dem
+    Vault) ist dies die Basis, relativ zu der Obsidian Pfad-Links wie
+    ``[[Ordner/Datei]]`` auflöst.
+
+    Returns:
+        Die Vault-Wurzel oder ``None``, wenn kein Vorfahre einen ``.obsidian``-Ordner hat.
+    """
+    resolved = path.expanduser().resolve()
+    start = resolved if resolved.is_dir() else resolved.parent
+    for candidate in (start, *start.parents):
+        if (candidate / ".obsidian").is_dir():
+            return candidate
+    return None
+
+
 def serialize_workspace_relative_path(path: Path) -> str:
     """Serialisiert Pfade konsistent relativ zum konfigurierten Workspace-Stamm."""
     return _to_workspace_relative(path.expanduser().resolve())

@@ -38,6 +38,7 @@ from kursplaner.core.usecases.convert_to_lzk_usecase import ConvertToLzkUseCase
 from kursplaner.core.usecases.create_plan_usecase import CreatePlanUseCase
 from kursplaner.core.usecases.daily_course_log_usecase import DailyCourseLogUseCase
 from kursplaner.core.usecases.daily_log_state_usecase import DailyLogStateUseCase
+from kursplaner.core.usecases.expected_horizon_topic_query_usecase import ExpectedHorizonTopicQueryUseCase
 from kursplaner.core.usecases.export_achievements_report_usecase import ExportAchievementsReportUseCase
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
@@ -218,6 +219,7 @@ class GuiDependencies:
     selben Zug und sind ohne `reportlab` nicht sinnvoll nutzbar."""
     cleanup_lzk_expected_horizon_links_usecase: CleanupLzkExpectedHorizonLinksUseCase
     migrate_oberthema_list_usecase: MigrateOberthemaListUseCase
+    expected_horizon_topic_query_usecase: ExpectedHorizonTopicQueryUseCase
     lesson_index_repo: LessonIndexRepository
     daily_course_log_usecase: DailyCourseLogUseCase
     daily_log_state_usecase: DailyLogStateUseCase
@@ -462,11 +464,13 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         renderer=ExpectedHorizonMarkdownRenderer(),
         existing_reader=expected_horizon_reader,
     )
+    expected_horizon_topic_query_usecase = ExpectedHorizonTopicQueryUseCase()
     export_lzk_expected_horizon_usecase = (
         ExportLzkExpectedHorizonUseCase(
             lesson_repo=lesson_repo,
             export_markdown_usecase=export_expected_horizon_markdown_usecase,
             export_pdf_usecase=export_expected_horizon_pdf_usecase,
+            topic_query=expected_horizon_topic_query_usecase,
         )
         if export_expected_horizon_pdf_usecase is not None
         else None
@@ -580,6 +584,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         export_achievements_report_pdf_usecase=export_achievements_report_pdf_usecase,
         cleanup_lzk_expected_horizon_links_usecase=cleanup_lzk_expected_horizon_links_usecase,
         migrate_oberthema_list_usecase=migrate_oberthema_list_usecase,
+        expected_horizon_topic_query_usecase=expected_horizon_topic_query_usecase,
         lesson_index_repo=lesson_index_repo,
         daily_course_log_usecase=daily_course_log_usecase,
         daily_log_state_usecase=daily_log_state_usecase,

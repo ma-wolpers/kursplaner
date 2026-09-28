@@ -4,12 +4,15 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, Sequence
 
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.expected_horizon import ExpectedHorizonLine, ExpectedHorizonSection, GoalKind
+from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
+from kursplaner.core.domain.expected_horizon_files import default_adhoc_horizon_filename
 from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon, reconcile
-from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.oberthema_values import normalize_oberthemen
+from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.expected_horizon import ExistingExpectedHorizonReaderPort
 
@@ -48,11 +51,12 @@ class ExpectedHorizonDocument:
 
 @dataclass(frozen=True)
 class ExportExpectedHorizonResult:
-    """Rückgabe des Use Cases mit Zielpfad, Titel und Anzahl exportierter Zeilen."""
+    """Rückgabe des Use Cases mit Zielpfad, Titel, Anzahl Zeilen und exportierten Themen."""
 
     output_path: Path
     title: str
     row_count: int
+    oberthemen: tuple[str, ...] = ()
 
 
 class ExpectedHorizonRendererPort(Protocol):
@@ -77,9 +81,8 @@ class ExpectedHorizonRendererPort(Protocol):
 
 
 class ExportExpectedHorizonUseCase:
-    """Exportiert die aktuelle Sequenz als Kompetenzhorizont (nur Unterrichtseinheiten)."""
+    """Exportiert den Kompetenzhorizont gewählter Oberthemen bis zum Stichtag (nur Unterrichtseinheiten)."""
 
-    _SELECTION_ALLOWED_TYPES = {"Unterricht", "LZK"}
     _EXPORT_ALLOWED_TYPES = {"Unterricht"}
     _COMPETENCY_PREFIX_RE = re.compile(r"^[A-Za-zÄÖÜäöü]{1,8}\s+\d+(?:\.\d+)*(?:\s*[-:–)]\s*|\s+)?")
 
@@ -171,57 +174,103 @@ class ExportExpectedHorizonUseCase:
         return [(f"... {text}" if text else "...", kind) for text, kind in goals]
 
     @classmethod
-    def _export_rows_for_oberthema(
+    def _lines_for_day(cls, day: DayColumn) -> list[ExpectedHorizonLine]:
+        """Zielzeilen einer Unterrichtsstunde (Datum nur in der ersten Zeile)."""
+        formatted_date = cls._format_day_date(day.datum)
+        return [
+            ExpectedHorizonLine(datum=formatted_date if index == 0 else "", ich_kann=goal, kind=kind)
+            for index, (goal, kind) in enumerate(cls._goals_for_day(day.yaml))
+        ]
+
+    @classmethod
+    def _admitted_units(cls, raw_day_columns: list[DayColumn], cutoff: HorizonCutoff) -> list[DayColumn]:
+        """Unterrichtsstunden, die der Stichtag zulässt (datumslose nie, ungültiges Oberthema nie)."""
+        return [
+            day
+            for day in raw_day_columns
+            if isinstance(day, DayColumn)
+            and day.stundentyp in cls._EXPORT_ALLOWED_TYPES
+            and cutoff.admits(parse_plan_row_date(day.datum))
+            and not day.oberthema_state().is_invalid
+        ]
+
+    @classmethod
+    def build_sections(
         cls,
         *,
-        day_columns: list[DayColumn],
-        target_oberthema: str,
-    ) -> list[ExpectedHorizonLine]:
-        rows: list[ExpectedHorizonLine] = []
-        for day in day_columns:
-            if day.stundentyp not in cls._EXPORT_ALLOWED_TYPES:
-                continue
+        raw_day_columns: list[DayColumn],
+        oberthemen: Sequence[str],
+        cutoff: HorizonCutoff,
+    ) -> tuple[ExpectedHorizonSection, ...]:
+        """Baut je gewähltem Oberthema eine Section mit den zugelassenen Stunden.
 
-            if day.oberthema() != target_oberthema:
-                continue
+        Die Auswahl wird duplikatfrei gemacht und **chronologisch nach erstem
+        Auftreten** im zugelassenen Zeitraum sortiert (Planreihenfolge =
+        chronologisch), unabhängig von der übergebenen Reihenfolge. Themen ohne
+        zugelassene Stunde entfallen.
 
-            formatted_date = cls._format_day_date(day.datum)
-            goals = cls._goals_for_day(day.yaml)
-            for index, (goal, kind) in enumerate(goals):
-                rows.append(
-                    ExpectedHorizonLine(
-                        datum=formatted_date if index == 0 else "",
-                        ich_kann=goal,
-                        kind=kind,
-                    )
-                )
+        Args:
+            raw_day_columns: Vollständige, unprojizierte Tagesliste.
+            oberthemen: Gewählte (entschlüsselte) Themen.
+            cutoff: Stichtag des KH.
+        """
+        wanted = set(normalize_oberthemen(oberthemen, ""))
+        lines_by_topic: dict[str, list[ExpectedHorizonLine]] = {}
+        for day in cls._admitted_units(raw_day_columns, cutoff):
+            for topic in day.oberthemen():
+                if topic in wanted:
+                    lines_by_topic.setdefault(topic, []).extend(cls._lines_for_day(day))
+        return tuple(ExpectedHorizonSection(topic, tuple(lines)) for topic, lines in lines_by_topic.items())
 
-        return rows
+    @staticmethod
+    def default_adhoc_output_path(
+        table: PlanTableData,
+        *,
+        topics: Sequence[str],
+        cutoff: HorizonCutoff,
+        now: datetime,
+        extension: str,
+    ) -> Path:
+        """Default-Zielpfad eines Ad-hoc-KH ("Exportieren als…") im Kursordner.
+
+        Nur ein Vorschlag für den Speichern-Dialog (siehe
+        `expected_horizon_files.default_adhoc_horizon_filename`).
+        """
+        name = default_adhoc_horizon_filename(topics, cutoff_date=cutoff.day, created_at=now, extension=extension)
+        return table.markdown_path.parent.resolve() / name
 
     def execute(
         self,
         *,
         table: PlanTableData,
-        day_columns: list[DayColumn],
-        selected_day_index: int,
+        raw_day_columns: list[DayColumn],
+        oberthemen: Sequence[str],
+        cutoff: HorizonCutoff,
         output_path: Path,
         export_date: date,
+        merge_source: Path | None = None,
     ) -> ExportExpectedHorizonResult:
-        if selected_day_index < 0 or selected_day_index >= len(day_columns):
-            raise RuntimeError("Es ist keine gültige Einheit ausgewählt.")
+        """Exportiert den Kompetenzhorizont der gewählten Oberthemen bis zum Stichtag.
 
-        selected_day = day_columns[selected_day_index]
-        selected_type = selected_day.stundentyp
-        if selected_type not in self._SELECTION_ALLOWED_TYPES:
-            raise RuntimeError("Der Export ist nur für Unterrichts- oder LZK-Einheiten verfügbar.")
+        Args:
+            table: Geladene Planungstabelle (Fach, Lerngruppe, Halbjahr).
+            raw_day_columns: Vollständige, unprojizierte Tagesliste — ausgeblendete
+                Spalten fehlen dadurch nicht im KH.
+            oberthemen: Gewählte Themen (werden bereinigt und chronologisch sortiert).
+            cutoff: Stichtag (`HorizonCutoff`).
+            output_path: Zielpfad.
+            export_date: Exportdatum.
+            merge_source: Bestehende KH-Datei, deren Bewertungen übernommen werden
+                (nur mit injiziertem Leser wirksam); ``None`` = kein Merge.
 
-        target_oberthema = selected_day.oberthema()
-        if not target_oberthema:
-            raise RuntimeError("Die ausgewählte Einheit hat kein Oberthema.")
-
-        rows = self._export_rows_for_oberthema(day_columns=day_columns, target_oberthema=target_oberthema)
-        if not rows:
-            raise RuntimeError("Keine Unterrichtseinheiten für das ausgewählte Oberthema gefunden.")
+        Raises:
+            RuntimeError: Bei leerer Auswahl oder wenn keine Stunden einfließen.
+        """
+        if not normalize_oberthemen(oberthemen, ""):
+            raise RuntimeError("Es ist kein Oberthema ausgewählt.")
+        sections = self.build_sections(raw_day_columns=raw_day_columns, oberthemen=oberthemen, cutoff=cutoff)
+        if not sections:
+            raise RuntimeError("Für die ausgewählten Oberthemen gibt es vor dem Stichtag keine Unterrichtsstunden.")
 
         term_token = self._extract_term_token(table)
         halfyear = term_token[-1]
@@ -229,18 +278,24 @@ class ExportExpectedHorizonUseCase:
 
         subject = str(table.metadata.get("Kursfach", "")).strip() or "Fach"
         group = strip_wiki_link(str(table.metadata.get("Lerngruppe", ""))).strip() or "Lerngruppe"
-        title = f"Kompetenzhorizont: {target_oberthema}"
+        topics = [section.oberthema for section in sections]
+        title = f"Kompetenzhorizont: {', '.join(topics)}"
         subtitle = f"{subject} {group} {schoolyear} Hj. {halfyear}"
 
         document = ExpectedHorizonDocument(
             title=title,
             subtitle=subtitle,
             export_date_text=export_date.strftime("%d.%m.%Y"),
-            sections=(ExpectedHorizonSection(target_oberthema, tuple(rows)),),
+            sections=sections,
         )
 
-        self._renderer.render(document, output_path, reconciled=self._reconcile(document, output_path))
-        return ExportExpectedHorizonResult(output_path=output_path, title=title, row_count=len(rows))
+        self._renderer.render(document, output_path, reconciled=self._reconcile(document, merge_source))
+        return ExportExpectedHorizonResult(
+            output_path=output_path,
+            title=title,
+            row_count=len(document.rows),
+            oberthemen=tuple(topics),
+        )
 
     def _reconcile(self, document: ExpectedHorizonDocument, merge_source: Path | None) -> ReconciledHorizon | None:
         """Gleicht das Dokument mit der Merge-Quelle ab (nur mit injiziertem Leser, sonst ``None``)."""

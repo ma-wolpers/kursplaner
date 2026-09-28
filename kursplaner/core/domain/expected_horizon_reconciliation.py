@@ -196,11 +196,11 @@ def reconcile(
     merged: list[tuple[str, ReconciledRow]] = []
     for old_index, old in enumerate(existing_rows):
         merged.extend(before_old.get(old_index, []))
-        entry = matched.get(old_index)
-        if entry is not None:
-            line = entry.line
+        match = matched.get(old_index)
+        if match is not None:
+            line = match.line
             merged.append(
-                (entry.topic, ReconciledRow(line.datum, line.ich_kann, line.kind, old.afb, old.aufg, old.pkte))
+                (match.topic, ReconciledRow(line.datum, line.ich_kann, line.kind, old.afb, old.aufg, old.pkte))
             )
         elif old.is_graded:
             removed = ReconciledRow(

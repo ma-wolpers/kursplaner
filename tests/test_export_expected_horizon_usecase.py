@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_expected_horizon_usecase import (
     ExpectedHorizonDocument,
@@ -102,8 +103,9 @@ def test_expected_horizon_exports_only_unterricht_and_flattens_goals(tmp_path):
 
     result = usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=1,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
         export_date=date(2026, 4, 1),
     )
@@ -146,8 +148,9 @@ def test_expected_horizon_appends_sonderziele_after_teilziele_with_sonderziel_ki
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
         export_date=date(2026, 4, 1),
     )
@@ -194,8 +197,9 @@ def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema(tmp_path)
 
     result = usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=1,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
         export_date=date(2026, 4, 1),
     )
@@ -204,7 +208,7 @@ def test_expected_horizon_matches_wiki_linked_and_plain_text_oberthema(tmp_path)
     assert result.title == "Kompetenzhorizont: Algorithmen"
 
 
-def test_expected_horizon_rejects_selection_without_oberthema(tmp_path):
+def test_expected_horizon_rejects_empty_topic_selection(tmp_path):
     renderer = _RendererSpy()
     usecase = ExportExpectedHorizonUseCase(renderer=renderer)
 
@@ -223,8 +227,9 @@ def test_expected_horizon_rejects_selection_without_oberthema(tmp_path):
     with pytest.raises(RuntimeError, match="kein Oberthema"):
         usecase.execute(
             table=_table(),
-            day_columns=day_columns,
-            selected_day_index=0,
+            raw_day_columns=day_columns,
+            oberthemen=[],
+            cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
             output_path=Path("A:/7thCloud/fail.pdf"),
             export_date=date(2026, 4, 1),
         )
@@ -248,8 +253,9 @@ def test_expected_horizon_filters_competency_prefixes_from_goals(tmp_path):
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
         export_date=date(2026, 4, 1),
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
 from kursplaner.infrastructure.export.expected_horizon_markdown_reader import ExpectedHorizonMarkdownReader
@@ -72,9 +73,11 @@ def test_expected_horizon_markdown_uses_swapped_headings_and_bold_main_goals(tmp
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output,
+        merge_source=output,
         export_date=date(2026, 4, 2),
     )
 
@@ -109,9 +112,11 @@ def test_expected_horizon_markdown_renders_sonderziele_in_italics(tmp_path: Path
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output,
+        merge_source=output,
         export_date=date(2026, 4, 2),
     )
 
@@ -156,9 +161,11 @@ def test_markdown_renderer_merges_existing_scores_and_marks_removed_rows(tmp_pat
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output_path,
+        merge_source=output_path,
         export_date=date(2026, 4, 2),
     )
 
@@ -202,18 +209,22 @@ def test_markdown_renderer_merge_is_idempotent_on_repeated_export(tmp_path: Path
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output_path,
+        merge_source=output_path,
         export_date=date(2026, 4, 2),
     )
     first = output_path.read_text(encoding="utf-8")
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output_path,
+        merge_source=output_path,
         export_date=date(2026, 4, 2),
     )
     second = output_path.read_text(encoding="utf-8")
@@ -266,9 +277,11 @@ def test_markdown_renderer_merges_colliding_goal_texts_by_date_and_goal_key(tmp_
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output_path,
+        merge_source=output_path,
         export_date=date(2026, 4, 2),
     )
 
@@ -330,9 +343,11 @@ def test_markdown_renderer_keeps_old_rows_order_and_inserts_new_rows_above_ancho
 
     usecase.execute(
         table=_table(),
-        day_columns=day_columns,
-        selected_day_index=0,
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
         output_path=output_path,
+        merge_source=output_path,
         export_date=date(2026, 4, 2),
     )
 

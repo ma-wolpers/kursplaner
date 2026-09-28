@@ -23,6 +23,7 @@ from bw_gui.theming import (
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
+from kursplaner.adapters.gui.expected_horizon_export_flow import ExpectedHorizonExportFlow
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
@@ -103,9 +104,15 @@ class MainWindowActionController:
         self._extend_plan_to_next_vacation_uc = deps.extend_plan_to_next_vacation_usecase
         self._export_topic_units_pdf_uc = deps.export_topic_units_pdf_usecase
         self._export_topic_units_markdown_uc = deps.export_topic_units_markdown_usecase
-        self._export_expected_horizon_pdf_uc = deps.export_expected_horizon_pdf_usecase
-        self._export_expected_horizon_markdown_uc = deps.export_expected_horizon_markdown_usecase
-        self._export_lzk_expected_horizon_uc = deps.export_lzk_expected_horizon_usecase
+        self._expected_horizon_flow = ExpectedHorizonExportFlow(
+            app,
+            lzk_usecase=deps.export_lzk_expected_horizon_usecase,
+            markdown_usecase=deps.export_expected_horizon_markdown_usecase,
+            pdf_usecase=deps.export_expected_horizon_pdf_usecase,
+            topic_query=deps.expected_horizon_topic_query_usecase,
+            run_tracked_write=self._run_tracked_write,
+            refresh_after_write=self._refresh_after_write,
+        )
         self._export_achievements_report_pdf_uc = deps.export_achievements_report_pdf_usecase
         self._mark_unit_as_ub_uc = deps.mark_unit_as_ub_usecase
         self._remove_unit_ub_link_uc = deps.remove_unit_ub_link_usecase
@@ -1431,11 +1438,11 @@ class MainWindowActionController:
         if selection is None:
             return
 
-        selected_index, row_index, _ = context
+        _selected_index, row_index, _ = context
         if selection.layout == "expected_horizon":
-            base_name = "Kompetenzhorizont"
-        else:
-            base_name = "Sequenzplan"
+            self._expected_horizon_flow.export_adhoc(anchor_row_index=row_index, output_format=selection.output_format)
+            return
+        base_name = "Sequenzplan"
 
         extension = ".pdf" if selection.output_format == "pdf" else ".md"
         filetype_label = "PDF" if selection.output_format == "pdf" else "Markdown"
@@ -1451,38 +1458,6 @@ class MainWindowActionController:
             return
 
         output_path = pathlib.Path(selected_file).expanduser().resolve()
-
-        if selection.layout == "expected_horizon":
-            export_uc = (
-                self._export_expected_horizon_pdf_uc
-                if selection.output_format == "pdf"
-                else self._export_expected_horizon_markdown_uc
-            )
-            if export_uc is None:
-                messagebox.showerror(
-                    "Exportieren als...",
-                    "PDF-Export benötigt das Paket 'reportlab', das in dieser Umgebung nicht installiert ist.",
-                    parent=self.app,
-                )
-                return
-            try:
-                result = export_uc.execute(
-                    table=self.app.current_table,
-                    day_columns=list(self.app.day_columns),
-                    selected_day_index=selected_index,
-                    output_path=output_path,
-                    export_date=date.today(),
-                )
-            except Exception as exc:
-                messagebox.showerror("Exportieren als...", str(exc), parent=self.app)
-                return
-            messagebox.showinfo(
-                "Exportieren als...",
-                f"{filetype_label} erfolgreich exportiert:\n{result.output_path}\n\n"
-                f"Einheiten: {result.row_count}\nTitel: {result.title}",
-                parent=self.app,
-            )
-            return
 
         export_uc = (
             self._export_topic_units_pdf_uc if selection.output_format == "pdf" else self._export_topic_units_markdown_uc
@@ -1526,57 +1501,12 @@ class MainWindowActionController:
             messagebox.showinfo("Exportieren als...", success_text, parent=self.app)
 
     def export_selected_lzk_expected_horizon_action(self):
-        """Exportiert den Kompetenzhorizont der ausgewählten LZK als Markdown und PDF."""
-        if self._export_lzk_expected_horizon_uc is None:
-            messagebox.showerror(
-                "LZK-Kompetenzhorizont",
-                "Dieser Export benötigt das Paket 'reportlab', das in dieser Umgebung nicht installiert ist.",
-                parent=self.app,
-            )
-            return
-
+        """Exportiert den Kompetenzhorizont der ausgewählten LZK (Themenauswahl, Speicherort, Markdown+PDF)."""
         context = self._single_selection_context()
         if context is None or self.app.current_table is None:
             return
-
-        selected_index, _row_index, _day = context
-        try:
-            targets = self._export_lzk_expected_horizon_uc.resolve_targets(
-                table=self.app.current_table,
-                day_columns=list(self.app.day_columns),
-                selected_day_index=selected_index,
-            )
-        except Exception as exc:
-            messagebox.showerror("LZK-Kompetenzhorizont", str(exc), parent=self.app)
-            return
-
-        try:
-            result = self._run_tracked_write(
-                label="LZK-Kompetenzhorizont exportieren",
-                action=lambda: self._export_lzk_expected_horizon_uc.execute(
-                    table=self.app.current_table,
-                    day_columns=list(self.app.day_columns),
-                    selected_day_index=selected_index,
-                    export_date=date.today(),
-                ),
-                # History capture is text-based; tracking binary PDFs would crash UTF-8 decoding.
-                extra_before=[targets.markdown_path],
-                extra_after=[targets.markdown_path],
-            )
-        except Exception as exc:
-            messagebox.showerror("LZK-Kompetenzhorizont", str(exc), parent=self.app)
-            return
-
-        self._refresh_after_write(selected_index=selected_index)
-        messagebox.showinfo(
-            "LZK-Kompetenzhorizont",
-            "Kompetenzhorizont erfolgreich aktualisiert:\n"
-            f"Markdown: {result.markdown_path}\n"
-            f"PDF: {result.pdf_path}\n\n"
-            f"Einheiten: {result.row_count}\n"
-            f"Titel: {result.title}",
-            parent=self.app,
-        )
+        selected_index, row_index, _day = context
+        self._expected_horizon_flow.export_lzk(anchor_row_index=row_index, selected_index=selected_index)
 
     def paste_copied_lesson(self):
         """Fügt die kopierte Stunde in die ausgewählte Spalte ein."""
