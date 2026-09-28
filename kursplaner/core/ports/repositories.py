@@ -266,11 +266,34 @@ class LessonRepository(Protocol):
         """
         ...
 
-    def save_lesson_yaml(self, lesson: LessonYamlData) -> None:
+    def load_raw_lesson_frontmatter(self, path: Path) -> dict[str, object]:
+        """Lädt das Frontmatter einer Stunden-Datei geparst, aber **nicht** kanonisiert.
+
+        `load_lesson_yaml` kanonisiert bereits beim Laden; Migration und
+        Schreib-Invariante brauchen dagegen den tatsächlichen Plattenwert
+        (z. B. einen Legacy-Skalar oder einen ungültigen `RawYamlBlock`).
+
+        Args:
+            path: Pfad der Stunden-Datei.
+
+        Returns:
+            Das rohe Key/Value-Dict des Frontmatters.
+        """
+        ...
+
+    def save_lesson_yaml(self, lesson: LessonYamlData, *, repair_oberthema: bool = False) -> None:
         """Speichert YAML-Daten einer Stunden-Datei.
+
+        Setzt die Schreib-Invariante für ``Oberthema`` durch (siehe
+        `oberthema_values.ensure_oberthema_write_allowed`): Ist der Wert auf der
+        Platte ungültig, darf ein normaler Schreibvorgang ihn nur unverändert
+        durchreichen; sonst wird `OberthemaRepairRequired` ausgelöst und die
+        Datei bleibt unverändert.
 
         Args:
             lesson: Zu persistierende Stunden-YAML-Daten.
+            repair_oberthema: ``True`` nur bei ausdrücklicher Korrektur des
+                Oberthemas (bewusstes Speichern der Oberthema-Zelle).
         """
         ...
 

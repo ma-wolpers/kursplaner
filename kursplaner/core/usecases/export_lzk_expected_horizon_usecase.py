@@ -6,6 +6,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, UnsupportedOberthemaValue, parse_oberthema_field
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
@@ -71,7 +72,11 @@ class ExportLzkExpectedHorizonUseCase:
 
     @staticmethod
     def _oberthema_from_lzk_yaml(yaml_data: dict[str, object]) -> str:
-        obert = str(yaml_data.get("Oberthema", "")).strip()
+        try:
+            entries = parse_oberthema_field(yaml_data.get(OBERTHEMA_KEY))
+        except UnsupportedOberthemaValue as exc:
+            raise RuntimeError("Das Oberthema der LZK hat ein ungültiges Format; bitte zuerst korrigieren.") from exc
+        obert = entries[0].strip() if entries else ""
         if not obert:
             raise RuntimeError("Die ausgewählte LZK hat kein Oberthema.")
         return obert

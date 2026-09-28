@@ -8,6 +8,26 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-09-29) — `Oberthema` als Liste, Schreib-Invariante für ungültige Werte (KH-Themenauswahl, Schritt 1)
+
+Grundlage für den Kompetenzhorizont mit Themenauswahl (Plan: LZK + Themenwahl = KH-Identität).
+
+- **Neues Domain-Modul `core/domain/oberthema_values.py`** mit getrennten Verantwortlichkeiten:
+  - `parse_oberthema_field`: nur Typprüfung; `None`/String (Legacy)/`list[str]` erlaubt, alles andere → `UnsupportedOberthemaValue`, nie umgedeutet.
+  - `normalize_oberthemen`: Invarianten auf Strings (entschlüsseln, Whitespace, keine Leer-/Doppeleinträge).
+  - `encode_oberthemen`: kanonische Schreibform `[[gruppe thema]]`.
+  - `read_oberthema_state` → `OberthemaState(topics, invalid_raw)`: hält „leer“ und „ungültig“ getrennt.
+  - `ensure_oberthema_write_allowed`: die Schreib-Invariante.
+  - `plan_table.read_yaml_oberthema` bleibt Legacy-Helfer (Haupt-Oberthema = erstes Element).
+- **Parser (`yaml_registry.py`)**: opt-in `YamlSchema.preserve_raw_block_keys` (nur `LESSON_SCHEMA` → `Oberthema`). Ein eingerückter Nicht-Listen-Block wird als `RawYamlBlock` erhalten und von `render_yaml_frontmatter` zeilengetreu zurückgeschrieben. Vorher ging er still als `[]` verloren. Andere Keys/Schemata unverändert.
+- **Kanonisierung (`lesson_yaml_policy.py`)**: `Oberthema` wird strukturell zur Liste (Defaults `[]`); ungültige Werte werden unverändert durchgereicht. Die Wiki-Link-Form setzen die Schreiber, die die Lerngruppe kennen.
+- **Schreibgrenze**: `LessonRepository.save_lesson_yaml(lesson, *, repair_oberthema=False)` prüft in `save_linked_lesson_yaml` gegen den Plattenwert. Neuer Port `load_raw_lesson_frontmatter` (geparst, nicht kanonisiert). Nur das bewusste Speichern der Oberthema-Zelle (`LessonEditUseCase.set_lesson_oberthemen`) und ein im „Einheit planen“-Dialog gesetztes Oberthema gelten als Korrektur.
+- **`DayColumn`**: `oberthema_state()`, `oberthemen()`, `oberthema_display()` (Grid: ` | `-verbunden bzw. Warnmarker). Beide Anzeigepfade (`lesson_context_controller`, `grid_cell_policy_usecase`) nutzen sie; das tote `_raw_group_name` entfällt.
+- **Themenfolgen (`topic_sequence_runs.py`)**: Eine LZK setzt die *laufende* Kette fort, wenn deren Thema unter ihren `oberthemen()` ist, sonst startet sie mit ihrem Haupt-Oberthema. Keine Einheit gehört zu mehreren Läufen.
+- **Sequenz-Sync**: `SyncTopicSequencePlansUseCase` pausiert (inkl. Bereinigung), solange eine Einheit ein ungültiges Oberthema hat (`rows_with_invalid_oberthema`).
+- **Plantabelle**: `sync_thema_ausfall_to_plan_row` nutzt das entschlüsselte Haupt-Oberthema (vorher `str(...)` des Rohwerts) und lässt die Zelle bei ungültigem Wert unverändert.
+- **Tests**: `test_oberthema_values.py`, `test_oberthema_write_invariant.py` (echtes Repository auf `tmp_path`), `test_day_column_oberthemen.py`, Mehrthemen-LZK-Fälle in `test_topic_sequence_runs.py`, Sync-Pause in `test_sync_topic_sequence_plans_usecase.py`, Parser-Fälle in `test_yaml_registry.py`. Fakes von `save_lesson_yaml` an die Port-Signatur angepasst.
+
 ### Changed (2026-09-27) — Modifier-Auswertung über den bw-gui-Keybinding-Contract
 
 - **Grid-Navigation:** `screen_builder.py::_on_grid_nav_up/_down` fragen Strg jetzt über `ScreenBuilder._control_or_unknown_modifiers` ab, also über `bw_gui.contracts.modifiers_from_event`. Ein unbekannter Zustand wird wie „Strg gehalten“ behandelt (fail-closed).

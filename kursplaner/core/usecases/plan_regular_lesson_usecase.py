@@ -198,6 +198,7 @@ class PlanRegularLessonUseCase:
         *,
         was_lzk: bool,
         content_before: str,
+        group_name: str = "",
     ) -> None:
         """Überträgt Themen- und Oberthema-Änderungen in die Stunden-YAML.
 
@@ -207,6 +208,7 @@ class PlanRegularLessonUseCase:
             oberthema_input: Optionales Oberthema aus der UI.
             was_lzk: Kennzeichnet eine vorherige LZK-Konvertierung.
             content_before: Vorheriger Tabelleninhalt für Fallback-Logik.
+            group_name: Lerngruppe des Kurses (kanonische Wiki-Link-Form des Oberthemas).
         """
         self.lesson_commands.update_regular_lesson_content(
             lesson_path,
@@ -214,6 +216,7 @@ class PlanRegularLessonUseCase:
             oberthema_input,
             was_lzk=was_lzk,
             content_before=content_before,
+            group_name=group_name,
         )
 
     def update_sections(self, lesson_path: Path, inhalte_refs: list[str], methodik_refs: list[str]) -> None:
@@ -275,15 +278,16 @@ class PlanRegularLessonUseCase:
                 proceed=False,
                 error_message="Speichern der Stunden-YAML wurde nicht bestätigt.",
             )
+        group_name = str(table.metadata.get("Lerngruppe", ""))
         self.update_regular_lesson(
             lesson_path=link,
             topic=topic,
             oberthema_input=oberthema_input,
             was_lzk=was_lzk,
             content_before=content_before,
+            group_name=group_name,
         )
         lesson_data = self.lesson_repo.load_lesson_yaml(link).data
-        group_name = str(table.metadata.get("Lerngruppe", ""))
         self.plan_repo.sync_thema_ausfall_to_plan_row(table, row_index, yaml_data=lesson_data, group_name=group_name)
 
         if kompetenzen_refs or stundenziel_input.strip():

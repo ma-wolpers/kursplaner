@@ -4,7 +4,6 @@ from pathlib import Path
 
 from kursplaner.core.domain.content_markers import normalize_marker_text
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.plan_table import read_yaml_oberthema
 
 
 class GridCellPolicyUseCase:
@@ -43,16 +42,10 @@ class GridCellPolicyUseCase:
 
         yaml_data = day.yaml
         if field_key == "Oberthema":
-            # Solange keine verlinkte Stunden-Datei existiert, hat `yaml` kein
-            # eigenes "Oberthema"-Feld; die Plantabelle (Thema/Ausfall-Spalte)
-            # kann das Oberthema aber schon vorab tragen (siehe
-            # `extract_plan_oberthema`/`build_day_columns`). Das YAML-Feld darf
-            # bewusst als Wiki-Link gespeichert sein; `read_yaml_oberthema`
-            # liefert dafür einheitlich den entschlüsselten Anzeigetext.
-            oberthema = read_yaml_oberthema(yaml_data, day.group_name)
-            if oberthema:
-                return oberthema
-            return day.plan_oberthema().strip()
+            # Anzeige inkl. Plantabellen-Fallback (Einheit noch ohne Datei),
+            # mehrerer LZK-Themen (`` | ``) und Warnmarker bei ungültigem
+            # Wert — zentral in `DayColumn.oberthema_display`.
+            return day.oberthema_display()
 
         if field_key in {
             "Stundenziel",

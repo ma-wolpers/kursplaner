@@ -40,7 +40,13 @@ from kursplaner.core.domain.content_markers import (
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, hours_for_date, start_time_for_date
 from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
-from kursplaner.core.domain.plan_table import extract_plan_oberthema, parse_plan_row_date, read_yaml_oberthema
+from kursplaner.core.domain.oberthema_values import (
+    OBERTHEMA_DISPLAY_SEPARATOR,
+    OBERTHEMA_INVALID_MARKER,
+    OberthemaState,
+    read_oberthema_state,
+)
+from kursplaner.core.domain.plan_table import extract_plan_oberthema, parse_plan_row_date
 
 
 @dataclass(frozen=True)
@@ -199,14 +205,54 @@ class DayColumn:
         """
         return extract_plan_oberthema(self.thema_ausfall, self.group_name)
 
-    def oberthema(self) -> str:
-        """Das fachlich anzuzeigende/vergleichbare Oberthema dieses Kurstags.
+    def oberthema_state(self) -> OberthemaState:
+        """Gelesener Zustand des YAML-Felds ``Oberthema`` (Themenliste + Fehlerzustand).
 
-        Bevorzugt das (ggf. als Wiki-Link gespeicherte, siehe
-        `plan_table.read_yaml_oberthema`) YAML-Feld der verlinkten Datei,
-        fällt sonst auf `plan_oberthema()` zurück.
+        Unterscheidet "kein Oberthema" von "ungültiger Wert" (siehe
+        `oberthema_values.read_oberthema_state`). Der Plantabellen-Fallback ist
+        hier bewusst nicht enthalten — dafür `oberthemen()`/`oberthema()`.
         """
-        return read_yaml_oberthema(self.yaml, self.group_name) or self.plan_oberthema()
+        return read_oberthema_state(self.yaml, self.group_name)
+
+    def oberthemen(self) -> tuple[str, ...]:
+        """Alle entschlüsselten Oberthemen dieses Kurstags (Haupt-Oberthema zuerst).
+
+        Nur LZKs tragen mehrere Themen. Ohne gültiges YAML-Oberthema fällt die
+        Methode auf `plan_oberthema()` zurück (ein Element oder leer); ein
+        ungültiger YAML-Wert liefert ``()`` — ob "leer" oder "ungültig", sagt
+        `oberthema_state()`.
+        """
+        state = self.oberthema_state()
+        if state.topics:
+            return state.topics
+        if state.is_invalid:
+            return ()
+        plan_topic = self.plan_oberthema()
+        return (plan_topic,) if plan_topic else ()
+
+    def oberthema_display(self) -> str:
+        """Anzeigetext der Oberthema-Zelle im Grid.
+
+        Mehrere Themen (nur LZK) werden mit `` | `` verbunden — dieselbe
+        Trennung, die der Listen-Parser beim Speichern versteht
+        (`SaveCellValueUseCase._parse_list_entries`). Ein ungültiger YAML-Wert
+        erscheint als `OBERTHEMA_INVALID_MARKER`, damit die Datei nicht wie
+        "ohne Oberthema" aussieht.
+        """
+        if self.oberthema_state().is_invalid:
+            return OBERTHEMA_INVALID_MARKER
+        return OBERTHEMA_DISPLAY_SEPARATOR.join(self.oberthemen())
+
+    def oberthema(self) -> str:
+        """Das *Haupt-Oberthema* dieses Kurstags (erstes Element von `oberthemen()`).
+
+        Einwertiger Zugriff für bestehende Lesepfade (Grid-Vergleich,
+        Themenfolgen, Exporte). Die YAML-Einträge dürfen als Wiki-Link
+        gespeichert sein und werden entschlüsselt; ohne gültiges YAML-Feld
+        greift `plan_oberthema()`.
+        """
+        topics = self.oberthemen()
+        return topics[0] if topics else ""
 
     def header_content(self) -> str:
         """Anzeigetext für die Spalten-Kopfzeile (bevorzugt `Stundenthema`, sonst Ausfallgrund/Marker)."""

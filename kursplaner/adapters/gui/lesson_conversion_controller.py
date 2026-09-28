@@ -295,9 +295,7 @@ class MainWindowLessonConversionController:
     def _unterricht_prefill_values(self, *, day: DayColumn, row_index: int) -> dict[str, object]:
         current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
         topic_initial = current_topic or "Unterrichtseinheit"
-        oberthema_initial = (
-            str(self.app._field_value(day, "Oberthema") or "").strip() or self.last_oberthema_before_row(row_index)
-        )
+        oberthema_initial = day.oberthema() or self.last_oberthema_before_row(row_index)
         stundenziel_initial = ""
         kompetenzen_initial: list[str] = []
         inhalte_initial: list[str] = []

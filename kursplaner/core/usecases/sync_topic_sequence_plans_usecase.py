@@ -105,8 +105,14 @@ class SyncTopicSequencePlansUseCase:
             Eine `TopicSequencePlanView` pro erkannter Sequenz (Läufe mit
             weniger als `MIN_SEQUENCE_MEMBER_COUNT` Mitgliedern werden nicht
             als eigenständige Sequenz behandelt und tauchen nicht in der
-            Rückgabe auf).
+            Rückgabe auf). Leer, wenn der Sync wegen ungültiger Oberthemen
+            übersprungen wurde (siehe `rows_with_invalid_oberthema`).
         """
+        if self.rows_with_invalid_oberthema(day_columns):
+            # Eine Einheit mit ungültigem Oberthema würde ihre Kette fälschlich
+            # abbrechen; Sync und Bereinigung (die Sequenzdateien löschen kann)
+            # laufen deshalb erst wieder, wenn die Datei korrigiert ist.
+            return []
         runs = compute_topic_sequence_runs(day_columns)
         views: list[TopicSequencePlanView] = []
         synced_oberthemen: set[str] = set()
@@ -147,6 +153,16 @@ class SyncTopicSequencePlansUseCase:
 
         self._prune_stale_sequence_documents(table=table, synced_oberthemen=synced_oberthemen)
         return views
+
+    @staticmethod
+    def rows_with_invalid_oberthema(day_columns: list[DayColumn]) -> tuple[int, ...]:
+        """Zeilenindizes aller Einheiten mit ungültigem (nicht unterstütztem) Oberthema.
+
+        Solange diese Liste nicht leer ist, überspringt `execute` den Sync.
+        """
+        return tuple(
+            day.row_index for day in day_columns if isinstance(day, DayColumn) and day.oberthema_state().is_invalid
+        )
 
     def _prune_stale_sequence_documents(self, *, table: PlanTableData, synced_oberthemen: set[str]) -> None:
         """Leert/löscht Sequenzdateien, deren Lauf gerade nicht mehr qualifiziert.

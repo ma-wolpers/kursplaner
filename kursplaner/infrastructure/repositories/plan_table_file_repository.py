@@ -17,6 +17,11 @@ from kursplaner.core.domain.lesson_yaml_policy import (
     infer_stundentyp,
 )
 from kursplaner.core.domain.markdown_lists import render_markdown_bullet_section
+from kursplaner.core.domain.oberthema_values import (
+    OBERTHEMA_KEY,
+    ensure_oberthema_write_allowed,
+    read_oberthema_state,
+)
 from kursplaner.core.domain.plan_table import (
     COLUMN_INHALT,
     COLUMN_THEMA_AUSFALL,
@@ -44,6 +49,7 @@ __all__ = [
     "save_plan_table",
     "load_linked_lesson_yaml",
     "save_linked_lesson_yaml",
+    "load_raw_linked_lesson_frontmatter",
     "create_linked_lesson_file",
     "sync_thema_ausfall_to_plan_row",
     "set_lesson_markdown_sections",
@@ -150,16 +156,38 @@ def load_linked_lesson_yaml(path: Path) -> LessonYamlData:
     return LessonYamlData(lesson_path=path, data=normalized)
 
 
-def save_linked_lesson_yaml(lesson: LessonYamlData):
+def load_raw_linked_lesson_frontmatter(path: Path) -> dict[str, object]:
+    """Liefert das geparste, aber nicht kanonisierte Frontmatter einer Stunden-Datei."""
+    data, _ = _parse_yaml_frontmatter(path)
+    return data
+
+
+def save_linked_lesson_yaml(lesson: LessonYamlData, *, repair_oberthema: bool = False):
+    """Schreibt das kanonisierte Frontmatter einer Stunden-Datei und erhält den Body.
+
+    Setzt vor dem Schreiben die Oberthema-Schreib-Invariante durch
+    (`ensure_oberthema_write_allowed`): ein ungültiger Plattenwert wird ohne
+    ``repair_oberthema=True`` nie überschrieben.
+
+    Raises:
+        OberthemaRepairRequired: Wenn ein ungültiges Oberthema still ersetzt würde.
+    """
     body = ""
+    on_disk_data: dict[str, object] = {}
     if lesson.lesson_path.exists():
         raw = lesson.lesson_path.read_text(encoding="utf-8")
         body = raw
-        parsed_raw = read_or_default(lambda: _parse_yaml_frontmatter(lesson.lesson_path)[1], default=None)
-        if parsed_raw is not None:
+        parsed = read_or_default(lambda: _parse_yaml_frontmatter(lesson.lesson_path), default=None)
+        if parsed is not None:
+            on_disk_data, parsed_raw = parsed
             body = body_after_frontmatter(parsed_raw)
 
     normalized = canonicalize_lesson_yaml(lesson.data, topic_hint=lesson.lesson_path.stem)
+    ensure_oberthema_write_allowed(
+        on_disk_data.get(OBERTHEMA_KEY),
+        normalized.get(OBERTHEMA_KEY),
+        repair=repair_oberthema,
+    )
     frontmatter = _render_yaml_frontmatter(normalized)
     atomic_write_text(lesson.lesson_path, frontmatter + body, encoding="utf-8")
 
@@ -271,10 +299,14 @@ def sync_thema_ausfall_to_plan_row(
         return
 
     stundentyp = str(yaml_data.get("Stundentyp", "Unterricht")).strip()
-    oberthema = str(yaml_data.get("Oberthema", "")).strip()
+    oberthema_state = read_oberthema_state(yaml_data, group_name)
+    oberthema = oberthema_state.primary
     group_plain = strip_wiki_link(str(group_name or "").strip())
 
     if stundentyp == "Ausfall":
+        return
+    if oberthema_state.is_invalid:
+        # Ungültiges Oberthema: Planzelle nicht still leeren (Schreib-Invariante).
         return
 
     if not oberthema:

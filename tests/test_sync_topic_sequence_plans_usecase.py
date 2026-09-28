@@ -196,3 +196,29 @@ def test_sync_ignores_sequence_documents_whose_run_still_qualifies(tmp_path):
     content = sequence_path.read_text(encoding="utf-8")
     assert "Caesar" in content
     assert "Vigenere" in content
+
+
+def test_sync_is_skipped_while_a_unit_has_invalid_oberthema(tmp_path):
+    """Eine ungültige Oberthema-Datei darf keine Kette abbrechen und so keine
+    Sequenzdatei verändern oder löschen: der Sync pausiert bis zur Korrektur."""
+    from kursplaner.core.domain.yaml_registry import RawYamlBlock
+
+    repo = FileSystemSequencePlanRepository()
+    usecase = _usecase(repo)
+    table = _table(tmp_path)
+    valid = [
+        _day(row_index=0, kind="Unterricht", obert="Lineare Funktionen"),
+        _day(row_index=1, kind="Unterricht", obert="Lineare Funktionen"),
+    ]
+    [view] = usecase.execute(table=table, day_columns=valid)
+    before = view.sequence_path.read_text(encoding="utf-8")
+
+    invalid = make_day_column(
+        row_index=1,
+        yaml={"Stundentyp": "Unterricht", "Oberthema": RawYamlBlock(("  foo: bar",))},
+    )
+    views = usecase.execute(table=table, day_columns=[valid[0], invalid])
+
+    assert views == []
+    assert usecase.rows_with_invalid_oberthema([valid[0], invalid]) == (1,)
+    assert view.sequence_path.read_text(encoding="utf-8") == before

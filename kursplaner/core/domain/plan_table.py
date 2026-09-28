@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
+from kursplaner.core.domain.oberthema_values import read_oberthema_state
 from kursplaner.core.domain.wiki_links import strip_group_prefixed_link
 
 COLUMN_DATUM = "Datum"
@@ -209,9 +210,15 @@ def extract_plan_oberthema(thema_ausfall: str, group_name: str) -> str:
 
 
 def read_yaml_oberthema(yaml_data: dict[str, object], group_name: str) -> str:
-    """Liest und entschlüsselt das Oberthema aus der YAML einer Stunden-Datei.
+    """Legacy-Helfer: liefert das entschlüsselte *Haupt-Oberthema* einer Stunden-Datei.
 
-    Das YAML-Feld ``Oberthema`` darf bewusst als Wiki-Link gespeichert sein
+    ``Oberthema`` ist kanonisch eine Liste (siehe
+    :mod:`kursplaner.core.domain.oberthema_values`); diese Funktion bleibt als
+    einwertiger Zugriff für bestehende Lesepfade und liefert das erste Element
+    von `read_oberthema_state`. Ein ungültiger Wert ergibt ``""`` — wer "leer"
+    und "ungültig" unterscheiden muss, nutzt `read_oberthema_state` direkt.
+
+    Die Einträge dürfen bewusst als Wiki-Link gespeichert sein
     (z. B. ``"[[11.1 EFl1 Potenzfunktionen]]"``), damit es in Obsidian
     verlinkt — die Speicherung bleibt davon unberührt. Für Anzeige/Vergleich
     (Grid, Themenfolgen-Erkennung, Exporte, Prefill) liefert diese Funktion
@@ -233,5 +240,4 @@ def read_yaml_oberthema(yaml_data: dict[str, object], group_name: str) -> str:
         read_yaml_oberthema({"Oberthema": "EFl1 Potenzfunktionen"}, "11.1")
         # -> "EFl1 Potenzfunktionen"
     """
-    raw = str(yaml_data.get("Oberthema", "")).strip()
-    return strip_group_prefixed_link(raw, group_name)
+    return read_oberthema_state(yaml_data, group_name).primary

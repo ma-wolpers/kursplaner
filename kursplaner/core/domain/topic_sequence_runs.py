@@ -107,7 +107,9 @@ def compute_topic_sequence_runs(raw_day_columns: list[DayColumn]) -> list[TopicS
 
     Iteriert einmal linear über `raw_day_columns` und verfolgt eine laufende Kette:
     Ausfall-Einheiten werden übersprungen (weder Fortsetzung noch Abbruch), Einheiten
-    mit demselben, nicht-leeren Oberthema wie die laufende Kette setzen diese fort,
+    mit demselben, nicht-leeren Oberthema wie die laufende Kette setzen diese fort
+    (bei einer Mehrthemen-LZK genügt es, dass das Thema der Kette unter ihren
+    `oberthemen()` ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema),
     alle anderen Fälle (kein Oberthema, anderer Stundentyp, anderes Oberthema, leere
     Tage) beenden die laufende Kette. Läufe der Länge 1 werden ebenfalls geliefert;
     die Entscheidung, ab welcher Länge ein Lauf fachlich als "Sequenz" gilt (z. B.
@@ -142,18 +144,23 @@ def compute_topic_sequence_runs(raw_day_columns: list[DayColumn]) -> list[TopicS
             current_oberthema, current_members = None, []
             continue
 
-        oberthema = row_oberthema(day)
-        if not oberthema:
+        oberthemen = day.oberthemen()
+        if not oberthemen:
             _flush()
             current_oberthema, current_members = None, []
             continue
 
-        if oberthema == current_oberthema:
+        # Nur eine LZK trägt mehrere Themen: Sie setzt die *laufende* Kette
+        # fort, wenn deren Thema unter ihren Themen ist, sonst startet sie eine
+        # neue Kette mit ihrem Haupt-Oberthema. Eine Einheit gehört so nie zu
+        # mehreren Läufen, und eine früher beendete Kette wird nicht wieder
+        # aufgegriffen.
+        if current_oberthema is not None and current_oberthema in oberthemen:
             current_members.append(day.row_index)
             continue
 
         _flush()
-        current_oberthema, current_members = oberthema, [day.row_index]
+        current_oberthema, current_members = oberthemen[0], [day.row_index]
 
     _flush()
     return runs

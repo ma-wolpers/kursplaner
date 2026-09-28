@@ -8,6 +8,7 @@ from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     create_linked_lesson_file,
     get_row_link_path,
     load_linked_lesson_yaml,
+    load_raw_linked_lesson_frontmatter,
     save_linked_lesson_yaml,
     set_lesson_markdown_sections,
 )
@@ -88,14 +89,20 @@ class FileSystemLessonRepository:
         """Lädt YAML-Daten für alle Zeilen einer Planungstabelle."""
         return self.load_lessons_for_rows(table, list(range(len(table.rows))))
 
-    def save_lesson_yaml(self, lesson: LessonYamlData) -> None:
+    def load_raw_lesson_frontmatter(self, path: Path) -> dict[str, object]:
+        """Lädt das geparste, nicht kanonisierte Frontmatter (ungecacht, immer frisch)."""
+        return load_raw_linked_lesson_frontmatter(path)
+
+    def save_lesson_yaml(self, lesson: LessonYamlData, *, repair_oberthema: bool = False) -> None:
         """Persistiert YAML-Daten in die verlinkte Stunden-Datei.
 
         Verwirft den Cache-Eintrag explizit statt sich auf eine unterschiedliche
         Signatur nach dem Schreiben zu verlassen — sofort korrekt statt von der
-        `mtime`-Aufloesung des Dateisystems abhaengig.
+        `mtime`-Aufloesung des Dateisystems abhaengig. Die Oberthema-Schreib-
+        Invariante prüft `save_linked_lesson_yaml` (``repair_oberthema`` nur
+        bei ausdrücklicher Korrektur).
         """
-        save_linked_lesson_yaml(lesson)
+        save_linked_lesson_yaml(lesson, repair_oberthema=repair_oberthema)
         self._lesson_yaml_cache.pop(lesson.lesson_path.resolve(), None)
 
     def create_linked_lesson_file(

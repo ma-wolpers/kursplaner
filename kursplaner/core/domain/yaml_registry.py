@@ -20,13 +20,37 @@ zu setzen (sonst würde YAML die eckigen Klammern als Flow-Sequence lesen).
 
 
 @dataclass(frozen=True)
+class RawYamlBlock:
+    """Zeilengetreu erhaltener, vom Parser nicht unterstützter YAML-Block unter einem Key.
+
+    Der projekteigene Parser kennt nur Skalare und Listen aus Strings. Ein
+    eingerückter Nicht-Listen-Block (z. B. ein Mapping) ging früher still als
+    ``[]`` verloren. Für Keys, die ein Schema in `preserve_raw_block_keys`
+    führt, liefert der Parser stattdessen dieses Objekt: Aufrufer können den
+    Wert als "ungültig" erkennen, und `render_yaml_frontmatter` schreibt ihn
+    unverändert zurück, statt ihn zu überschreiben.
+
+    Args:
+        lines: Die Originalzeilen unterhalb der Key-Zeile, inklusive Einrückung.
+    """
+
+    lines: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class YamlSchema:
-    """Beschreibt die Pflichtstruktur eines akzeptierten YAML-Frontmatters."""
+    """Beschreibt die Pflichtstruktur eines akzeptierten YAML-Frontmatters.
+
+    `preserve_raw_block_keys` ist opt-in: Nur für diese Keys wird ein
+    eingerückter Nicht-Listen-Block als `RawYamlBlock` erhalten. Alle anderen
+    Keys behalten das bisherige Parser-Verhalten.
+    """
 
     label: str
     required_keys: tuple[str, ...]
     non_empty_keys: tuple[str, ...] = ()
     value_validators: dict[str, Callable[[object], bool]] | None = None
+    preserve_raw_block_keys: tuple[str, ...] = ()
 
 
 def _is_valid_lerngruppe(value: object) -> bool:
@@ -116,6 +140,7 @@ LESSON_SCHEMA = YamlSchema(
         "Stundentyp": _is_valid_stundentyp,
         "Dauer": _is_valid_dauer,
     },
+    preserve_raw_block_keys=("Oberthema",),
 )
 
 SEQUENCE_PLAN_SCHEMA = YamlSchema(
@@ -157,6 +182,14 @@ def parse_yaml_frontmatter(
     idx = 1
     key: str | None = None
     has_closing = False
+    preserve_keys = set(schema.preserve_raw_block_keys)
+    block_lines: list[str] = []
+
+    def _finish_block() -> None:
+        # Nur für opt-in Keys: enthält der Block eine Nicht-Listen-Zeile,
+        # wird er zeilengetreu als `RawYamlBlock` erhalten statt verworfen.
+        if key in preserve_keys and any(not ln.strip().startswith("-") for ln in block_lines):
+            data[key] = RawYamlBlock(tuple(block_lines))
 
     while idx < len(lines):
         line = lines[idx]
@@ -165,6 +198,8 @@ def parse_yaml_frontmatter(
             break
 
         if re.match(r"^[A-Za-zÄÖÜäöüß].*:\s*", line):
+            _finish_block()
+            block_lines = []
             left, right = line.split(":", 1)
             key = left.strip()
             value = right.strip().strip('"')
@@ -173,18 +208,23 @@ def parse_yaml_frontmatter(
                 key = None
             else:
                 data[key] = []
-        elif key and line.strip().startswith("-"):
-            item = line.strip()[1:].strip().strip('"')
-            if not isinstance(data.get(key), list):
-                data[key] = []
-            current_list = data[key]
-            if not isinstance(current_list, list):
-                current_list = []
-                data[key] = current_list
-            if item:
-                current_list.append(item)
+        elif key and line.strip():
+            if line[0] in " \t-":
+                block_lines.append(line)
+            if line.strip().startswith("-"):
+                item = line.strip()[1:].strip().strip('"')
+                if not isinstance(data.get(key), list):
+                    data[key] = []
+                current_list = data[key]
+                if not isinstance(current_list, list):
+                    current_list = []
+                    data[key] = current_list
+                if item:
+                    current_list.append(item)
 
         idx += 1
+
+    _finish_block()
 
     if not has_closing:
         raise RuntimeError(f"YAML-Frontmatter nicht geschlossen in Datei: {source_label}")
@@ -343,7 +383,10 @@ def render_yaml_frontmatter(ordered_keys: Sequence[str], values: dict[str, objec
         if key not in values:
             continue
         value = values[key]
-        if isinstance(value, list):
+        if isinstance(value, RawYamlBlock):
+            lines.append(f"{key}:")
+            lines.extend(value.lines)
+        elif isinstance(value, list):
             lines.append(f"{key}:")
             lines.extend(f'  - "{item}"' for item in value)
         else:

@@ -19,7 +19,7 @@ class _LessonRepoStub:
     def load_lesson_yaml(self, path: Path) -> LessonYamlData:
         return self._lesson_by_path[path.resolve()]
 
-    def save_lesson_yaml(self, lesson: LessonYamlData) -> None:
+    def save_lesson_yaml(self, lesson: LessonYamlData, *, repair_oberthema: bool = False) -> None:
         self.saved.append(lesson)
         self._lesson_by_path[lesson.lesson_path.resolve()] = lesson
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.oberthema_values import OBERTHEMA_INVALID_MARKER, OBERTHEMA_KEY, normalize_oberthemen
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import PlanRepository
@@ -111,6 +112,53 @@ class SaveCellValueUseCase:
                 result.append(joined)
         return result
 
+    def _save_oberthema(
+        self,
+        table: PlanTableData,
+        row_index: int,
+        value: str,
+        lesson_path: Path | None,
+        allow_yaml_save: bool,
+    ) -> SaveCellValueResult | None:
+        """Speichert die Oberthema-Zelle als kanonische Liste (ausdrückliche Korrektur).
+
+        Die Zelle wird mit dem etablierten Listen-Parser gelesen (`` | ``, ``;``,
+        Leerzeilen trennen Einträge); Duplikate/Leereinträge entfernt die
+        zentrale Normalisierung. Bleibt der Warnmarker eines ungültigen Werts
+        unverändert stehen, wird nichts geschrieben.
+
+        Returns:
+            Ein fertiges Ergebnis, oder ``None``, wenn der allgemeine Ablauf
+            (Abbruch bei fehlender Datei/Bestätigung) greifen soll.
+        """
+        if value.strip() == OBERTHEMA_INVALID_MARKER:
+            return SaveCellValueResult(proceed=True, lesson_path=lesson_path)
+
+        group_name = str(table.metadata.get("Lerngruppe", ""))
+        topics = normalize_oberthemen(self._parse_list_entries(value), group_name)
+        if lesson_path is None:
+            if len(topics) > 1:
+                return SaveCellValueResult(
+                    proceed=False,
+                    error_message="Eine Unterrichtseinheit kann nur ein Oberthema haben.",
+                )
+            self.plan_repo.sync_thema_ausfall_to_plan_row(
+                table,
+                row_index,
+                yaml_data={"Stundentyp": "Unterricht", OBERTHEMA_KEY: topics},
+                group_name=group_name,
+            )
+            self.plan_repo.save_plan_table(table)
+            return SaveCellValueResult(proceed=True, lesson_path=None)
+
+        if not allow_yaml_save:
+            return None
+        try:
+            self.lesson_edit.set_lesson_oberthemen(lesson_path, topics, group_name)
+        except RuntimeError as exc:
+            return SaveCellValueResult(proceed=False, error_message=str(exc))
+        return SaveCellValueResult(proceed=True, lesson_path=lesson_path)
+
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
         return infer_workspace_root_from_path(table.markdown_path)
@@ -199,7 +247,7 @@ class SaveCellValueUseCase:
         row_index = day.row_index
         has_known_lesson = self.row_display_mode_usecase.is_linked_day(day)
         if not has_known_lesson:
-            if field_key == "Oberthema":
+            if field_key == OBERTHEMA_KEY:
                 return SaveCellRuntimeContext(
                     proceed=True,
                     row_index=row_index,
@@ -296,16 +344,10 @@ class SaveCellValueUseCase:
             self.plan_repo.save_plan_table(table)
             return SaveCellValueResult(proceed=True, lesson_path=lesson_path)
 
-        if field_key == "Oberthema" and lesson_path is None:
-            group_name = str(table.metadata.get("Lerngruppe", ""))
-            self.plan_repo.sync_thema_ausfall_to_plan_row(
-                table,
-                row_index,
-                yaml_data={"Stundentyp": "Unterricht", "Oberthema": value},
-                group_name=group_name,
-            )
-            self.plan_repo.save_plan_table(table)
-            return SaveCellValueResult(proceed=True, lesson_path=None)
+        if field_key == OBERTHEMA_KEY:
+            oberthema_result = self._save_oberthema(table, row_index, value, lesson_path, allow_yaml_save)
+            if oberthema_result is not None:
+                return oberthema_result
 
         if lesson_path is None:
             return SaveCellValueResult(

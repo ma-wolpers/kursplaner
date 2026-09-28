@@ -96,3 +96,34 @@ def test_parse_stufe_returns_none_for_missing_or_out_of_range():
     assert parse_stufe("keine Zahl") is None
     assert parse_stufe("0") is None
     assert parse_stufe("14") is None
+
+
+def test_raw_block_is_preserved_only_for_opt_in_keys():
+    """Ein eingerückter Mapping-Block bleibt für `Oberthema` (opt-in in LESSON_SCHEMA)
+    zeilengetreu erhalten; andere Keys behalten das bisherige Verhalten (leere Liste)."""
+    from kursplaner.core.domain.yaml_registry import (
+        LESSON_SCHEMA,
+        RawYamlBlock,
+        parse_yaml_frontmatter,
+        render_yaml_frontmatter,
+    )
+
+    text = (
+        "---\nStundentyp: Unterricht\nDauer: 2\nStundenthema: X\n"
+        "Oberthema:\n  foo: bar\nStundenziel:\n  nested: value\n---\n"
+    )
+    data, _ = parse_yaml_frontmatter(text, LESSON_SCHEMA)
+
+    assert data["Oberthema"] == RawYamlBlock(("  foo: bar",))
+    assert data["Stundenziel"] == []
+    rendered = render_yaml_frontmatter(["Oberthema"], {"Oberthema": data["Oberthema"]})
+    assert rendered == "---\nOberthema:\n  foo: bar\n---\n\n"
+
+
+def test_list_block_for_opt_in_key_stays_a_list():
+    from kursplaner.core.domain.yaml_registry import LESSON_SCHEMA, parse_yaml_frontmatter
+
+    text = '---\nStundentyp: LZK\nDauer: 2\nStundenthema: X\nOberthema:\n  - "[[g A]]"\n  - "[[g B]]"\n---\n'
+    data, _ = parse_yaml_frontmatter(text, LESSON_SCHEMA)
+
+    assert data["Oberthema"] == ["[[g A]]", "[[g B]]"]

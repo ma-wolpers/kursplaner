@@ -33,7 +33,7 @@ class _LessonRepoStub:
     def load_lesson_yaml(self, path: Path) -> LessonYamlData:
         return LessonYamlData(lesson_path=path, data=dict(self.data[path]))
 
-    def save_lesson_yaml(self, lesson: LessonYamlData) -> None:
+    def save_lesson_yaml(self, lesson: LessonYamlData, *, repair_oberthema: bool = False) -> None:
         self.data[lesson.lesson_path] = dict(lesson.data)
 
 

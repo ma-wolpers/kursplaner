@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from typing import Literal
 
+from kursplaner.core.domain.oberthema_values import (
+    OBERTHEMA_KEY,
+    UnsupportedOberthemaValue,
+    parse_oberthema_field,
+)
+
 LessonType = Literal["Unterricht", "LZK", "Ausfall", "Hospitation"]
 
 LESSON_TYPE_VALUES: tuple[LessonType, ...] = ("Unterricht", "LZK", "Ausfall", "Hospitation")
@@ -111,6 +117,32 @@ def _normalize_list(value: object) -> list[str]:
     return result
 
 
+def _normalize_oberthema_structure(value: object) -> object:
+    """Bringt ein ``Oberthema`` strukturell in Listenform, ohne ungültige Werte umzudeuten.
+
+    Gültige Werte (Legacy-Skalar oder Liste aus Strings) werden zu einer Liste
+    ohne leere Einträge und ohne Duplikate (Vergleich nach Whitespace-
+    Normalisierung, erstes Vorkommen gewinnt). Die Wiki-Link-Form
+    ``[[gruppe thema]]`` setzen die Schreiber, die die Lerngruppe kennen
+    (siehe `oberthema_values.encode_oberthemen`) — diese Policy kennt sie nicht.
+
+    Nicht unterstützte Werte (z. B. `RawYamlBlock`) werden **unverändert**
+    zurückgegeben, damit kein Normalisierungspfad aus ihnen still ``[]`` macht.
+    """
+    try:
+        entries = parse_oberthema_field(value)
+    except UnsupportedOberthemaValue:
+        return value
+    result: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        text = " ".join(entry.split())
+        if text and text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
+
+
 def _normalize_scalar(value: object) -> str:
     if isinstance(value, list):
         return ""
@@ -131,7 +163,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
     if stundentyp == "Unterricht":
         defaults.update(
             {
-                "Oberthema": "",
+                "Oberthema": [],
                 "Stundenziel": "",
                 "Teilziele": [],
                 "Sonderziele": [],
@@ -143,7 +175,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
     elif stundentyp == "LZK":
         defaults.update(
             {
-                "Oberthema": "",
+                "Oberthema": [],
                 "Kompetenzhorizont": "",
                 "Inhaltsübersicht": "",
             }
@@ -157,7 +189,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
     elif stundentyp == "Hospitation":
         defaults.update(
             {
-                "Oberthema": "",
+                "Oberthema": [],
                 "Beobachtungsschwerpunkte": "",
                 "Ressourcen": [],
                 "Baustellen": [],
@@ -193,6 +225,9 @@ def canonicalize_lesson_yaml(
             continue
         if key == "Stundentyp":
             normalized[key] = stundentyp
+            continue
+        if key == OBERTHEMA_KEY:
+            normalized[key] = _normalize_oberthema_structure(source[key])
             continue
         if key in LIST_FIELDS:
             normalized[key] = _normalize_list(source[key])

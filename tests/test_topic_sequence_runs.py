@@ -161,3 +161,59 @@ def test_find_run_for_row_index_locates_member_and_returns_none_otherwise():
     assert found.oberthema == "Mechanik"
 
     assert find_run_for_row_index(runs, 99) is None
+
+
+def _lzk(*, row_index: int, topics: list[str]):
+    """LZK mit mehreren Oberthemen (kanonische Listenform)."""
+    return make_day_column(row_index=row_index, yaml={"Stundentyp": "LZK", "Oberthema": list(topics)})
+
+
+def test_multi_topic_lzk_continues_only_the_running_chain():
+    """Sequenz A → Sequenz B → LZK A+B: Die LZK setzt nur die laufende Kette B fort;
+    die bereits durch B beendete Kette A wird nicht wieder aufgegriffen."""
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="A"),
+        _day(row_index=1, kind="Unterricht", obert="A"),
+        _day(row_index=2, kind="Unterricht", obert="B"),
+        _day(row_index=3, kind="Unterricht", obert="B"),
+        _lzk(row_index=4, topics=["A", "B"]),
+    ]
+
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert [(run.oberthema, run.member_row_indices) for run in runs] == [("A", (0, 1)), ("B", (2, 3, 4))]
+    assert find_run_for_row_index(runs, 4).oberthema == "B"
+
+
+def test_multi_topic_lzk_continues_chain_of_its_primary_topic():
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="A"),
+        _lzk(row_index=1, topics=["A", "B"]),
+    ]
+
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert [(run.oberthema, run.member_row_indices) for run in runs] == [("A", (0, 1))]
+
+
+def test_multi_topic_lzk_without_running_topic_starts_chain_with_primary_topic():
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="A"),
+        _lzk(row_index=1, topics=["B", "C"]),
+    ]
+
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert [(run.oberthema, run.member_row_indices) for run in runs] == [("A", (0,)), ("B", (1,))]
+
+
+def test_ausfall_between_chain_and_multi_topic_lzk_is_skipped():
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="B"),
+        _day(row_index=1, kind="Ausfall"),
+        _lzk(row_index=2, topics=["A", "B"]),
+    ]
+
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert [(run.oberthema, run.member_row_indices) for run in runs] == [("B", (0, 2))]

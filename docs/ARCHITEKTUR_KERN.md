@@ -1020,3 +1020,32 @@ keine Ablösung des projektweiten Frontmatter-Parsers.
 als optional-mit-Warnung — fehlt die Bibliothek in einer konkreten Umgebung, startet die
 App trotzdem, nur das Kompetenzgraph-Popup ist deaktiviert (`KOMPETENZGRAPH_YAML_AVAILABLE`-
 Guard in `wiring.py`, analog `REPORTLAB_AVAILABLE`).
+
+---
+
+## 30) Datenmodell `Oberthema` (verbindlich)
+
+**Kanonische Form:** In allen Stunden-Dateien ist `Oberthema` eine YAML-Liste aus Wiki-Links
+`[[gruppe thema]]` (leer: `[]`). Ein Legacy-Skalar wird nur noch als *Eingabe* gelesen, nie geschrieben.
+
+**Invarianten** (entschlüsselte Themenliste): keine Duplikate (erstes Vorkommen gewinnt), keine leeren
+Einträge, Unterricht/Hospitation höchstens ein Element. Das **erste Element ist das Haupt-Oberthema**,
+auf dem alle einwertigen Lesepfade arbeiten (Grid-Vergleich, Plantabelle `LZK [[gruppe A]]`, Tageslog,
+Themenfolgen-Start).
+
+**Einziger Lesepfad:** `core/domain/oberthema_values.py::read_oberthema_state` (bzw. `DayColumn.oberthema_state()`/
+`oberthemen()`/`oberthema()`). Kein Modul liest `yaml["Oberthema"]` direkt per `str(...)`.
+
+**Leer ≠ ungültig:** Nicht unterstützte Werte (`RawYamlBlock`, Flow-Mapping/-Liste, Nicht-String-Einträge)
+landen in `OberthemaState.invalid_raw`. Sie werden nie umgedeutet: Das Grid zeigt einen Warnmarker, der
+Sequenz-Sync pausiert, Kanonisierung reicht den Wert unverändert durch.
+
+**Schreib-Invariante:** An der einzigen Schreibgrenze `LessonRepository.save_lesson_yaml` gilt
+`ensure_oberthema_write_allowed`: Ein ungültiger Plattenwert darf nur unverändert durchgereicht oder mit
+`repair_oberthema=True` ausdrücklich korrigiert werden (nur bewusstes Setzen des Oberthemas durch die
+Nutzer:in). Der Parser erhält dafür opt-in (`YamlSchema.preserve_raw_block_keys`) ungültige Blöcke als
+`RawYamlBlock`.
+
+**Themenfolgen:** Eine Mehrthemen-LZK setzt nur die *laufende* Kette fort, wenn deren Thema unter ihren
+Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einheit gehört zu mehreren Läufen.
+

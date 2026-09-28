@@ -76,7 +76,7 @@ def test_non_unterricht_drops_unterrichtsbesuch_field():
 def test_lzk_defaults_include_oberthema_field():
     normalized = canonicalize_lesson_yaml({"Stundentyp": "LZK", "Stundenthema": "LZK 1", "Dauer": "2"})
     assert "Oberthema" in normalized
-    assert normalized["Oberthema"] == ""
+    assert normalized["Oberthema"] == []
 
 
 def test_lzk_preserves_oberthema_value():
@@ -88,7 +88,7 @@ def test_lzk_preserves_oberthema_value():
             "Oberthema": "Informationen und Daten",
         }
     )
-    assert normalized["Oberthema"] == "Informationen und Daten"
+    assert normalized["Oberthema"] == ["Informationen und Daten"]
 
 
 def test_infer_stundentyp_does_not_use_topic_keyword_heuristic_for_lzk():

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, encode_oberthemen, read_oberthema_state
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.ports.repositories import LessonRepository
 
@@ -42,7 +43,7 @@ class LessonCommandsUseCase:
         lesson = self.lesson_repo.load_lesson_yaml(link)
         lesson.data["Stundentyp"] = "LZK"
         lesson.data["Stundenthema"] = sanitize_hour_title(title) or "LZK"
-        lesson.data.setdefault("Oberthema", "")
+        lesson.data.setdefault(OBERTHEMA_KEY, [])
         self.lesson_repo.save_lesson_yaml(lesson)
         return link
 
@@ -74,6 +75,7 @@ class LessonCommandsUseCase:
         *,
         was_lzk: bool,
         content_before: str,
+        group_name: str = "",
     ) -> None:
         """Aktualisiert Kernfelder einer regulären Stunde in der YAML-Struktur.
 
@@ -83,13 +85,25 @@ class LessonCommandsUseCase:
             oberthema_input: Optionaler Oberthemawert.
             was_lzk: Kennzeichen, ob die Stunde vorher als LZK geführt wurde.
             content_before: Vorheriger Tabelleninhalt für Fallbacks.
+            group_name: Lerngruppe des Kurses (für die kanonische Wiki-Link-Form).
+
+        Ein eingegebenes Oberthema ist eine ausdrückliche Korrektur und darf
+        auch einen ungültigen Plattenwert ersetzen. Ohne Eingabe wird eine
+        vorherige Mehrthemen-LZK auf ihr Haupt-Oberthema reduziert, da eine
+        Unterrichtseinheit höchstens ein Oberthema trägt.
         """
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
         lesson.data["Stundentyp"] = "Unterricht"
         lesson.data["Stundenthema"] = sanitize_hour_title(topic)
+        repair = False
         if oberthema_input:
-            lesson.data["Oberthema"] = oberthema_input
-        self.lesson_repo.save_lesson_yaml(lesson)
+            lesson.data[OBERTHEMA_KEY] = encode_oberthemen([oberthema_input], group_name)
+            repair = True
+        else:
+            state = read_oberthema_state(lesson.data, group_name)
+            if len(state.topics) > 1:
+                lesson.data[OBERTHEMA_KEY] = encode_oberthemen([state.primary], group_name)
+        self.lesson_repo.save_lesson_yaml(lesson, repair_oberthema=repair)
 
     def update_lesson_sections(self, lesson_path: Path, inhalte_refs: list[str], methodik_refs: list[str]) -> None:
         """Schreibt Inhalte-/Methodik-Referenzen in die Stunden-Markdown-Datei.

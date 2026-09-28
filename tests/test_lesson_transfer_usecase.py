@@ -27,7 +27,7 @@ class _LessonRepoStub:
         lesson = self.loaded[path]
         return LessonYamlData(lesson_path=lesson.lesson_path, data=dict(lesson.data))
 
-    def save_lesson_yaml(self, lesson: LessonYamlData) -> None:
+    def save_lesson_yaml(self, lesson: LessonYamlData, *, repair_oberthema: bool = False) -> None:
         self.saved.append(lesson)
         self.loaded[lesson.lesson_path] = LessonYamlData(lesson_path=lesson.lesson_path, data=dict(lesson.data))
 
