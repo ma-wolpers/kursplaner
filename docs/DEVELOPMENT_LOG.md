@@ -8,6 +8,13 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-29) — Migration `Oberthema` Skalar → Liste (KH-Themenauswahl, Schritt 2)
+
+- **`core/usecases/migrate_oberthema_list_usecase.py`** (`MigrateOberthemaListUseCase`): läuft beim Kursladen in `overview_controller.load_selected_table` *vor* dem KH-Link-Cleanup. Vergleicht den rohen Plattenwert (`load_raw_lesson_frontmatter`) mit `canonical_oberthema_value` und schreibt nur bei Abweichung. Bereits kanonische Dateien werden nicht angefasst.
+- **Probleme statt stiller Korrektur**: nicht unterstützter Typ oder mehrere Themen bei einer Nicht-LZK → Datei bleibt unverändert, Eintrag in `MigrateOberthemaListResult.problems`. `OverviewController._show_oberthema_problems` zeigt das bei jedem Laden erneut, bis korrigiert.
+- Verdrahtet in `wiring.py` (`GuiDependencies.migrate_oberthema_list_usecase`).
+- **Tests**: `tests/test_migrate_oberthema_list_usecase.py` (Skalar, Wiki-Link-Skalar, leer, Duplikat-Liste, Dict, Mehrthemen-Nicht-LZK, bereits kanonisch ohne Schreibzugriff, Regression „Laden meldet Problem → normaler Schreibvorgang lässt Oberthema unverändert“).
+
 ### Changed (2026-09-29) — `Oberthema` als Liste, Schreib-Invariante für ungültige Werte (KH-Themenauswahl, Schritt 1)
 
 Grundlage für den Kompetenzhorizont mit Themenauswahl (Plan: LZK + Themenwahl = KH-Identität).

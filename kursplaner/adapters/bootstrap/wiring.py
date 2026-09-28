@@ -60,6 +60,7 @@ from kursplaner.core.usecases.list_lessons_usecase import ListLessonsUseCase
 from kursplaner.core.usecases.load_last_ub_insights_usecase import LoadLastUbInsightsUseCase
 from kursplaner.core.usecases.load_plan_detail_usecase import LoadPlanDetailUseCase
 from kursplaner.core.usecases.mark_unit_as_ub_usecase import MarkUnitAsUbUseCase
+from kursplaner.core.usecases.migrate_oberthema_list_usecase import MigrateOberthemaListUseCase
 from kursplaner.core.usecases.move_selected_columns_usecase import MoveSelectedColumnsUseCase
 from kursplaner.core.usecases.new_lesson_form_usecase import NewLessonFormUseCase
 from kursplaner.core.usecases.new_lesson_usecase import NewLessonUseCase
@@ -215,6 +216,7 @@ class GuiDependencies:
     Usecases erzeugen ausschliesslich PDFs bzw. (LZK) zwingend PDF+Markdown im
     selben Zug und sind ohne `reportlab` nicht sinnvoll nutzbar."""
     cleanup_lzk_expected_horizon_links_usecase: CleanupLzkExpectedHorizonLinksUseCase
+    migrate_oberthema_list_usecase: MigrateOberthemaListUseCase
     lesson_index_repo: LessonIndexRepository
     daily_course_log_usecase: DailyCourseLogUseCase
     daily_log_state_usecase: DailyLogStateUseCase
@@ -468,6 +470,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         ExportAchievementsReportUseCase(renderer=AchievementsReportPdfRenderer()) if REPORTLAB_AVAILABLE else None
     )
     cleanup_lzk_expected_horizon_links_usecase = CleanupLzkExpectedHorizonLinksUseCase(lesson_repo=lesson_repo)
+    migrate_oberthema_list_usecase = MigrateOberthemaListUseCase(lesson_repo=lesson_repo)
     daily_course_log_usecase = DailyCourseLogUseCase(
         plan_repo=plan_repo,
         lesson_repo=lesson_repo,
@@ -571,6 +574,7 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         export_lzk_expected_horizon_usecase=export_lzk_expected_horizon_usecase,
         export_achievements_report_pdf_usecase=export_achievements_report_pdf_usecase,
         cleanup_lzk_expected_horizon_links_usecase=cleanup_lzk_expected_horizon_links_usecase,
+        migrate_oberthema_list_usecase=migrate_oberthema_list_usecase,
         lesson_index_repo=lesson_index_repo,
         daily_course_log_usecase=daily_course_log_usecase,
         daily_log_state_usecase=daily_log_state_usecase,

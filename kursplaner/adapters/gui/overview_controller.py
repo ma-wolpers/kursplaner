@@ -40,6 +40,7 @@ class MainWindowOverviewController:
         self.repair_lesson_yaml_frontmatter_usecase = deps.repair_lesson_yaml_frontmatter_usecase
         self.reconcile_ub_overview_usecase = deps.reconcile_ub_overview_usecase
         self.cleanup_lzk_expected_horizon_links_usecase = deps.cleanup_lzk_expected_horizon_links_usecase
+        self.migrate_oberthema_list_usecase = deps.migrate_oberthema_list_usecase
         self.sync_topic_sequence_plans_usecase = deps.sync_topic_sequence_plans_usecase
         self.archive_former_courses_usecase = deps.archive_former_courses_usecase
         self.path_settings_usecase = app.path_settings_usecase
@@ -417,6 +418,10 @@ class MainWindowOverviewController:
             detail = self.load_plan_detail_usecase.execute(path)
             if self._run_ub_reconciliation(detail.table):
                 detail = self.load_plan_detail_usecase.execute(path)
+            migration = self.migrate_oberthema_list_usecase.execute(table=detail.table, day_columns=detail.day_columns)
+            if migration.migrated_files:
+                detail = self.load_plan_detail_usecase.execute(path)
+            oberthema_problems = migration.problems
             cleanup_result = self.cleanup_lzk_expected_horizon_links_usecase.execute(
                 table=detail.table,
                 day_columns=detail.day_columns,
@@ -446,6 +451,8 @@ class MainWindowOverviewController:
 
         self.app.preview_title_var.set(f"Kursplan · {path.name}")
         self.app._rebuild_grid()
+        if oberthema_problems:
+            self._show_oberthema_problems(oberthema_problems)
         try:
             next_index = self._next_lesson_column_index()
             if next_index is not None:
@@ -455,6 +462,21 @@ class MainWindowOverviewController:
         self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COLUMN)
         if next_index is not None and bool(self.app.auto_scroll_next_unit_var.get()):
             self.app.after_idle(self._scroll_to_next_unit)
+
+    def _show_oberthema_problems(self, problems) -> None:
+        """Zeigt nicht migrierbare Oberthema-Werte als Ladehinweis (Dateien bleiben unverändert).
+
+        Der Hinweis erscheint bei jedem Kursladen erneut, bis die Dateien
+        korrigiert sind; solange pausiert auch die automatische Sequenzdatei-Pflege.
+        """
+        lines = [f"- {problem.lesson_path.name}: {problem.reason}" for problem in problems]
+        messagebox.showwarning(
+            "Oberthema prüfen",
+            "Folgende Einheiten haben ein Oberthema, das nicht automatisch übernommen werden kann. "
+            "Sie bleiben unverändert, bis das Oberthema korrigiert ist (z. B. Oberthema-Zelle neu setzen); "
+            "bei ungültigem Format pausiert solange die automatische Sequenzdatei-Pflege.\n\n" + "\n".join(lines),
+            parent=self.app,
+        )
 
     def close_detail_view(self):
         """Wechselt zurück zur reinen Kursübersicht ohne den Kursfokus zu verlieren."""
