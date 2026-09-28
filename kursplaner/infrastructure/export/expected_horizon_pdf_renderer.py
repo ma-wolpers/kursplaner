@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from xml.sax.saxutils import escape
 
+from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
 
 try:
@@ -86,6 +88,13 @@ class ExpectedHorizonPdfRenderer:
             parent=self._cell_style,
             fontName="Helvetica-Oblique",
         )
+        self._section_style = ParagraphStyle(
+            "ExpectedHorizonSection",
+            parent=styles["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=10.5,
+            leading=13,
+        )
         self._header_style = ParagraphStyle(
             "ExpectedHorizonHeader",
             parent=styles["Normal"],
@@ -125,24 +134,40 @@ class ExpectedHorizonPdfRenderer:
             ]
         ]
 
-        for line in document.rows:
-            if line.kind == GoalKind.STUNDENZIEL:
-                text_style = self._cell_bold_style
-            elif line.kind == GoalKind.SONDERZIEL:
-                text_style = self._cell_italic_style
-            else:
-                text_style = self._cell_style
-            rows.append(
-                [
-                    Paragraph(str(line.datum or ""), text_style),
-                    Paragraph(str(line.ich_kann or ""), text_style),
-                    Paragraph("", self._cell_style),
-                    Paragraph("", self._cell_style),
-                    Paragraph("", self._cell_style),
-                ]
-            )
+        with_headings = len(document.sections) > 1
+        for section in document.sections:
+            if with_headings:
+                rows.append([Paragraph(escape(section.oberthema), self._section_style), "", "", "", ""])
+            for line in section.rows:
+                if line.kind == GoalKind.STUNDENZIEL:
+                    text_style = self._cell_bold_style
+                elif line.kind == GoalKind.SONDERZIEL:
+                    text_style = self._cell_italic_style
+                else:
+                    text_style = self._cell_style
+                rows.append(
+                    [
+                        Paragraph(str(line.datum or ""), text_style),
+                        Paragraph(str(line.ich_kann or ""), text_style),
+                        Paragraph("", self._cell_style),
+                        Paragraph("", self._cell_style),
+                        Paragraph("", self._cell_style),
+                    ]
+                )
 
         return rows
+
+    @staticmethod
+    def _section_heading_rows(document: ExpectedHorizonDocument) -> list[int]:
+        """Tabellenzeilen-Indizes der Section-Überschriften (nur bei mehreren Sections)."""
+        if len(document.sections) <= 1:
+            return []
+        indices: list[int] = []
+        row_index = 1  # Zeile 0 ist der Tabellenkopf
+        for section in document.sections:
+            indices.append(row_index)
+            row_index += 1 + len(section.rows)
+        return indices
 
     @staticmethod
     def _column_widths(frame_width: float) -> list[float]:
@@ -180,7 +205,19 @@ class ExpectedHorizonPdfRenderer:
 
         return _callback
 
-    def render(self, document: ExpectedHorizonDocument, output_path: Path) -> None:
+    def render(
+        self,
+        document: ExpectedHorizonDocument,
+        output_path: Path,
+        *,
+        reconciled: ReconciledHorizon | None = None,
+    ) -> None:
+        """Schreibt den Kompetenzhorizont als PDF.
+
+        ``reconciled`` wird bewusst ignoriert: Das PDF hat keine
+        Bewertungsspalten und zeigt immer den frischen Stand ohne entfallene Ziele.
+        """
+        del reconciled
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         pdf = BaseDocTemplate(
@@ -217,9 +254,18 @@ class ExpectedHorizonPdfRenderer:
             repeatRows=1,
             splitByRow=1,
         )
+        heading_styles = []
+        for row_index in self._section_heading_rows(document):
+            heading_styles.extend(
+                [
+                    ("SPAN", (0, row_index), (-1, row_index)),
+                    ("BACKGROUND", (0, row_index), (-1, row_index), colors.HexColor("#F3F5F8")),
+                ]
+            )
         table.setStyle(
             TableStyle(
                 [
+                    *heading_styles,
                     ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9EEF5")),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),

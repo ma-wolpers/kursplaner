@@ -99,6 +99,7 @@ from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUse
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.export.achievements_report_pdf_renderer import AchievementsReportPdfRenderer
+from kursplaner.infrastructure.export.expected_horizon_markdown_reader import ExpectedHorizonMarkdownReader
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
 from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import (
     REPORTLAB_AVAILABLE,
@@ -456,7 +457,11 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
     export_expected_horizon_pdf_usecase = (
         ExportExpectedHorizonUseCase(renderer=ExpectedHorizonPdfRenderer()) if REPORTLAB_AVAILABLE else None
     )
-    export_expected_horizon_markdown_usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    expected_horizon_reader = ExpectedHorizonMarkdownReader()
+    export_expected_horizon_markdown_usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(),
+        existing_reader=expected_horizon_reader,
+    )
     export_lzk_expected_horizon_usecase = (
         ExportLzkExpectedHorizonUseCase(
             lesson_repo=lesson_repo,

@@ -1064,4 +1064,11 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
   `(frühestes zugelassenes Datum, row_index)`. Die Themenliste einer LZK wird in dieser Reihenfolge gespeichert,
   ihr erstes Element ist damit das Haupt-Oberthema.
 - **Nicht verfügbare gespeicherte Themen** werden nicht vorselektiert, gewarnt und beim Export entfernt.
+- **Dokumentmodell:** Die fachliche Zielstruktur (`GoalKind`, `ExpectedHorizonLine`, `ExpectedHorizonSection`) liegt in
+  `core/domain/expected_horizon.py`; ein KH besteht aus einer Section je Oberthema. Überschriften sind Struktur,
+  keine Pseudo-Zielzeilen. `ExpectedHorizonDocument` ist Render-DTO im Use-Case-Modul.
+- **Reconciliation** (Übernahme von AFB/Aufg/Pkte) ist Domain-Logik (`expected_horizon_reconciliation.reconcile`),
+  nicht Teil eines Renderers. Die Merge-Quelle liest der Use Case über den Port
+  `core/ports/expected_horizon.py::ExistingExpectedHorizonReaderPort` (Implementierung:
+  `infrastructure/export/expected_horizon_markdown_reader.py`). Merge-Schlüssel ist `(Datum, Ziel)`.
 

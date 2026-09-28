@@ -8,6 +8,15 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-09-29) — KH als Sections, Reconciliation aus dem Renderer herausgelöst (KH-Themenauswahl, Schritt 4)
+
+- **Modell**: `GoalKind`, `ExpectedHorizonLine` und neu `ExpectedHorizonSection` liegen in `core/domain/expected_horizon.py`, da sie fachliche Zielstruktur sind und die Domain-Reconciliation sie braucht (Domain darf nicht aus Use Cases importieren). `ExpectedHorizonDocument` bleibt Render-DTO im Use-Case-Modul, jetzt mit `sections` statt `rows` (`rows` als abgeleitete Property). `export_date_text` bleibt bewusst, konsistent mit `TopicUnitsDocument`/`AchievementsReportDocument`. Das Use-Case-Modul re-exportiert die Modelltypen.
+- **Warum Sections statt `GoalKind.TOPIC_HEADING`**: Eine Überschrift wäre eine Pseudo-Zielzeile ohne Datum/AFB/Merge-Schlüssel, die Renderer und Merge herausfiltern müssten; mit Sections ist Zeile → Thema strukturell eindeutig.
+- **Reconciliation** (`core/domain/expected_horizon_reconciliation.py`, rein): `reconcile(sections, existing_rows) -> ReconciledHorizon`. Regeln unverändert zur früheren `_merge_with_existing`, Schlüssel bleibt `(Datum, Ziel)`. Neu: Zuordnung entfallener bewerteter Zeilen zur alten Section, sonst zur Section des Ankers, sonst zu „Nicht mehr enthalten“.
+- **Port** `core/ports/expected_horizon.py::ExistingExpectedHorizonReaderPort`, implementiert von `infrastructure/export/expected_horizon_markdown_reader.py` (liest Legacy-Tabellen und `### <Thema>`-Sections). `wiring.py` injiziert den Leser in den Markdown-`ExportExpectedHorizonUseCase` (PDF ohne Leser).
+- **Renderer**: Der Markdown-Renderer formatiert nur noch (eine Section = bisheriges Format, mehrere = `### <Thema>` + Tabelle je Section). Der PDF-Renderer setzt bei mehreren Sections je eine Überschriftenzeile über die volle Breite (SPAN) und ignoriert `reconciled`. `ExpectedHorizonRendererPort.render(..., *, reconciled=None)`.
+- **Tests**: `test_expected_horizon_reconciliation.py` (Merge über Sections, Legacy → mehrere Sections, Verankerung, entfallene/abgewählte Zeilen, Reader, Round-Trip, **Byte-Gleichheit bei einem Thema** gegen eine mit dem alten Renderer erzeugte Referenz), `test_expected_horizon_pdf_renderer.py`. Bestehende Merge-Tests laufen unverändert über den injizierten Leser.
+
 ### Added (2026-09-29) — Stichtag und Kandidatenabfrage für den KH (KH-Themenauswahl, Schritt 3)
 
 - **`core/domain/expected_horizon_cutoff.py`** (`HorizonCutoff`): `before(lzk_date)` bzw. `up_to_and_including(day)`, `admits(date | None)`. Die Semantik „vor“ vs. „bis einschließlich“ steht damit im Code statt in einem losen Bool. Datumslose Stunden werden nie zugelassen (bewusste Exportsemantik).

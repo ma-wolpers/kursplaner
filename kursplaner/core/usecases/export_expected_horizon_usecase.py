@@ -3,40 +3,47 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
-from enum import Enum
 from pathlib import Path
 from typing import Protocol
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.expected_horizon import ExpectedHorizonLine, ExpectedHorizonSection, GoalKind
+from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon, reconcile
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.ports.expected_horizon import ExistingExpectedHorizonReaderPort
 
-
-class GoalKind(Enum):
-    """Art eines Ziels im Erwartungshorizont-Export (steuert Bold/Kursiv-Darstellung)."""
-
-    STUNDENZIEL = "stundenziel"
-    TEILZIEL = "teilziel"
-    SONDERZIEL = "sonderziel"
-
-
-@dataclass(frozen=True)
-class ExpectedHorizonLine:
-    """Eine einzelne Zeile im Kompetenzhorizont-Export."""
-
-    datum: str
-    ich_kann: str
-    kind: GoalKind
+__all__ = [
+    "ExpectedHorizonDocument",
+    "ExpectedHorizonLine",
+    "ExpectedHorizonRendererPort",
+    "ExpectedHorizonSection",
+    "ExportExpectedHorizonResult",
+    "ExportExpectedHorizonUseCase",
+    "GoalKind",
+]
 
 
 @dataclass(frozen=True)
 class ExpectedHorizonDocument:
-    """Vollständige Renderdaten für den Kompetenzhorizont."""
+    """Render-DTO des Kompetenzhorizonts (Titel, Untertitel, Exportdatum, Sections).
+
+    Bewusst im Use-Case-Modul und mit bereits formatierten Texten
+    (``export_date_text``, ``datum`` als ``TT.MM.JJ``) — konsistent mit den
+    Schwester-DTOs `TopicUnitsDocument` und `AchievementsReportDocument`. Die
+    fachliche Zielstruktur (Sections/Zeilen) liegt in
+    `core.domain.expected_horizon`.
+    """
 
     title: str
     subtitle: str
     export_date_text: str
-    rows: tuple[ExpectedHorizonLine, ...]
+    sections: tuple[ExpectedHorizonSection, ...]
+
+    @property
+    def rows(self) -> tuple[ExpectedHorizonLine, ...]:
+        """Alle Zielzeilen über alle Sections hinweg in Ausgabereihenfolge."""
+        return tuple(line for section in self.sections for line in section.rows)
 
 
 @dataclass(frozen=True)
@@ -51,8 +58,22 @@ class ExportExpectedHorizonResult:
 class ExpectedHorizonRendererPort(Protocol):
     """Port zum Rendern des Kompetenzhorizonts in ein Zielformat."""
 
-    def render(self, document: ExpectedHorizonDocument, output_path: Path) -> None:
-        """Schreibt das Dokument an den angegebenen Zielpfad."""
+    def render(
+        self,
+        document: ExpectedHorizonDocument,
+        output_path: Path,
+        *,
+        reconciled: ReconciledHorizon | None = None,
+    ) -> None:
+        """Schreibt das Dokument an den angegebenen Zielpfad.
+
+        Args:
+            document: Render-DTO mit Sections.
+            output_path: Zielpfad.
+            reconciled: Mit einer bestehenden Datei abgeglichene Sections
+                (übernommene Bewertungen); Formate ohne Bewertungsspalten (PDF)
+                ignorieren sie.
+        """
 
 
 class ExportExpectedHorizonUseCase:
@@ -62,8 +83,20 @@ class ExportExpectedHorizonUseCase:
     _EXPORT_ALLOWED_TYPES = {"Unterricht"}
     _COMPETENCY_PREFIX_RE = re.compile(r"^[A-Za-zÄÖÜäöü]{1,8}\s+\d+(?:\.\d+)*(?:\s*[-:–)]\s*|\s+)?")
 
-    def __init__(self, renderer: ExpectedHorizonRendererPort):
+    def __init__(
+        self,
+        renderer: ExpectedHorizonRendererPort,
+        existing_reader: ExistingExpectedHorizonReaderPort | None = None,
+    ):
+        """Initialisiert den Export mit Renderer und optionalem Leser für die Merge-Quelle.
+
+        Args:
+            renderer: Zielformat-Renderer.
+            existing_reader: Nur für Formate mit Bewertungsspalten (Markdown):
+                liest eine bestehende KH-Datei, deren AFB/Aufg/Pkte übernommen werden.
+        """
         self._renderer = renderer
+        self._existing_reader = existing_reader
 
     @staticmethod
     def _parse_day_date(raw_value: object) -> date | None:
@@ -203,8 +236,15 @@ class ExportExpectedHorizonUseCase:
             title=title,
             subtitle=subtitle,
             export_date_text=export_date.strftime("%d.%m.%Y"),
-            rows=tuple(rows),
+            sections=(ExpectedHorizonSection(target_oberthema, tuple(rows)),),
         )
 
-        self._renderer.render(document, output_path)
+        self._renderer.render(document, output_path, reconciled=self._reconcile(document, output_path))
         return ExportExpectedHorizonResult(output_path=output_path, title=title, row_count=len(rows))
+
+    def _reconcile(self, document: ExpectedHorizonDocument, merge_source: Path | None) -> ReconciledHorizon | None:
+        """Gleicht das Dokument mit der Merge-Quelle ab (nur mit injiziertem Leser, sonst ``None``)."""
+        if self._existing_reader is None:
+            return None
+        existing = self._existing_reader.read_existing_rows(merge_source) if merge_source is not None else []
+        return reconcile(document.sections, existing)

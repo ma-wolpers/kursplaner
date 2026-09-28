@@ -7,6 +7,7 @@ from kursplaner.core.usecases.export_expected_horizon_usecase import (
     ExportExpectedHorizonUseCase,
 )
 from kursplaner.core.usecases.export_lzk_expected_horizon_usecase import ExportLzkExpectedHorizonUseCase
+from kursplaner.infrastructure.export.expected_horizon_markdown_reader import ExpectedHorizonMarkdownReader
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
 from tests.day_column_factory import make_day_column
 
@@ -118,7 +119,9 @@ def test_lzk_export_uses_same_markdown_merge_behavior_for_overwrite(tmp_path):
         }
     )
 
-    markdown_export = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    markdown_export = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
     pdf_export = _ExportUseCaseStub()
     usecase = ExportLzkExpectedHorizonUseCase(
         lesson_repo=lesson_repo,

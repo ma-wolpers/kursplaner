@@ -5,6 +5,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
+from kursplaner.infrastructure.export.expected_horizon_markdown_reader import ExpectedHorizonMarkdownReader
 from kursplaner.infrastructure.export.expected_horizon_markdown_renderer import ExpectedHorizonMarkdownRenderer
 from tests.day_column_factory import make_day_column
 
@@ -53,7 +54,9 @@ def _day(
 
 def test_expected_horizon_markdown_uses_swapped_headings_and_bold_main_goals(tmp_path: Path):
     output = tmp_path / "Kompetenzhorizont.md"
-    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
 
     day_columns = [
         _day(
@@ -87,7 +90,9 @@ def test_expected_horizon_markdown_uses_swapped_headings_and_bold_main_goals(tmp
 
 def test_expected_horizon_markdown_renders_sonderziele_in_italics(tmp_path: Path):
     output = tmp_path / "Kompetenzhorizont.md"
-    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
 
     day_columns = [
         _day(
@@ -134,7 +139,9 @@ def test_markdown_renderer_merges_existing_scores_and_marks_removed_rows(tmp_pat
         encoding="utf-8",
     )
 
-    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
     day_columns = [
         _day(
             tmp_path,
@@ -178,7 +185,9 @@ def test_markdown_renderer_merge_is_idempotent_on_repeated_export(tmp_path: Path
         encoding="utf-8",
     )
 
-    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
     day_columns = [
         _day(
             tmp_path,
@@ -231,7 +240,9 @@ def test_markdown_renderer_merges_colliding_goal_texts_by_date_and_goal_key(tmp_
         encoding="utf-8",
     )
 
-    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
     day_columns = [
         _day(
             tmp_path,
@@ -284,7 +295,9 @@ def test_markdown_renderer_keeps_old_rows_order_and_inserts_new_rows_above_ancho
         encoding="utf-8",
     )
 
-    usecase = ExportExpectedHorizonUseCase(renderer=ExpectedHorizonMarkdownRenderer())
+    usecase = ExportExpectedHorizonUseCase(
+        renderer=ExpectedHorizonMarkdownRenderer(), existing_reader=ExpectedHorizonMarkdownReader()
+    )
     day_columns = [
         _day(
             tmp_path,

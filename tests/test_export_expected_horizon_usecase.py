@@ -18,7 +18,7 @@ class _RendererSpy:
     def __init__(self):
         self.calls: list[tuple[ExpectedHorizonDocument, Path]] = []
 
-    def render(self, document: ExpectedHorizonDocument, output_path: Path) -> None:
+    def render(self, document: ExpectedHorizonDocument, output_path: Path, *, reconciled=None) -> None:
         self.calls.append((document, output_path))
 
 
