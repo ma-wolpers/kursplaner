@@ -1053,3 +1053,15 @@ als Ladehinweis gemeldet — es gibt kein dauerhaftes Dualschema, nur Eingabetol
 **Themenfolgen:** Eine Mehrthemen-LZK setzt nur die *laufende* Kette fort, wenn deren Thema unter ihren
 Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einheit gehört zu mehreren Läufen.
 
+---
+
+## 31) Kompetenzhorizont: Stichtag und Themenauswahl (verbindlich)
+
+- **Stichtag:** `core/domain/expected_horizon_cutoff.py::HorizonCutoff` — LZK-Anker: nur Stunden *vor* der LZK
+  (`before`), Unterrichts-Anker: bis *einschließlich* (`up_to_and_including`). **Datumslose Stunden fließen nie ein.**
+- **Kandidaten** (Application-Schicht, `ExpectedHorizonTopicQueryUseCase`): Oberthemen mit mindestens einer
+  datierten, zugelassenen Unterrichtsstunde in `raw_day_columns`; **chronologisch** = nach
+  `(frühestes zugelassenes Datum, row_index)`. Die Themenliste einer LZK wird in dieser Reihenfolge gespeichert,
+  ihr erstes Element ist damit das Haupt-Oberthema.
+- **Nicht verfügbare gespeicherte Themen** werden nicht vorselektiert, gewarnt und beim Export entfernt.
+

@@ -8,6 +8,13 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-29) — Stichtag und Kandidatenabfrage für den KH (KH-Themenauswahl, Schritt 3)
+
+- **`core/domain/expected_horizon_cutoff.py`** (`HorizonCutoff`): `before(lzk_date)` bzw. `up_to_and_including(day)`, `admits(date | None)`. Die Semantik „vor“ vs. „bis einschließlich“ steht damit im Code statt in einem losen Bool. Datumslose Stunden werden nie zugelassen (bewusste Exportsemantik).
+- **`core/usecases/expected_horizon_topic_query_usecase.py`** (Application, kein Domain-Konzept): `ExpectedHorizonTopicQueryUseCase.query(raw_day_columns, anchor_row_index)` → `ExpectedHorizonTopicOptions` (Stichtag, chronologische Optionen mit Zeitraum/Anzahl, Vorbelegung, gespeicherte bzw. nicht verfügbare Themen, Anzahl zugelassener Stunden mit ungültigem Oberthema). „Chronologisch“ = Sortierung nach `(frühestes zugelassenes Datum, row_index)`. `ordered_selection()` bereinigt eine Auswahl (duplikatfrei, nur Kandidaten, chronologisch).
+- Arbeitet auf `raw_day_columns` + `row_index`, nicht auf der projizierten Liste.
+- **Tests**: `tests/test_expected_horizon_topic_query_usecase.py`.
+
 ### Added (2026-09-29) — Migration `Oberthema` Skalar → Liste (KH-Themenauswahl, Schritt 2)
 
 - **`core/usecases/migrate_oberthema_list_usecase.py`** (`MigrateOberthemaListUseCase`): läuft beim Kursladen in `overview_controller.load_selected_table` *vor* dem KH-Link-Cleanup. Vergleicht den rohen Plattenwert (`load_raw_lesson_frontmatter`) mit `canonical_oberthema_value` und schreibt nur bei Abweichung. Bereits kanonische Dateien werden nicht angefasst.
