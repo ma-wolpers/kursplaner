@@ -6,6 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from kursplaner.core.domain.grade_groups import GRADE_GROUPS, expand_grade_selection
 
@@ -51,11 +52,11 @@ class GradeGroupSelector:
 
             group_var = ui.BooleanVar(value=False)
             self._group_vars[group.key] = group_var
-            widgets.Checkbutton(
+            Checkbox(
                 header,
                 text="alle",
                 variable=group_var,
-                command=lambda key=group.key: self._on_group_toggle(key),
+                on_select=lambda _selected, key=group.key: self._on_group_toggle(key),
             ).pack(side="left", padx=(10, 0))
 
             grades_frame = widgets.Frame(section)
@@ -63,11 +64,11 @@ class GradeGroupSelector:
             for grade in range(group.grade_min, group.grade_max + 1):
                 grade_var = ui.BooleanVar(value=False)
                 self._grade_vars[grade] = grade_var
-                widgets.Checkbutton(
+                Checkbox(
                     grades_frame,
                     text=str(grade),
                     variable=grade_var,
-                    command=self._on_grade_toggle,
+                    on_select=lambda _selected: self._on_grade_toggle(),
                 ).pack(side="left", padx=(0, 8))
             self._apply_expanded_visibility(group.key)
 

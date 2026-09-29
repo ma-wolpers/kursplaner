@@ -7,6 +7,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from kursplaner.adapters.gui.regex_entry_field import RegexEntryField
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
@@ -46,10 +47,11 @@ class KompetenzGraphTextSearchPanel:
         self._titel_var = ui.BooleanVar(value=initial_filter.text_search_titel)
         self._beispiel_var = ui.BooleanVar(value=initial_filter.text_search_beispiel)
         self._rest_var = ui.BooleanVar(value=initial_filter.text_search_rest)
-        widgets.Checkbutton(self.frame, text="KC-Verweis", variable=self._kc_var).pack(anchor="w")
-        widgets.Checkbutton(self.frame, text="Kompetenzname", variable=self._titel_var).pack(anchor="w")
-        widgets.Checkbutton(self.frame, text="Beispiel", variable=self._beispiel_var).pack(anchor="w")
-        widgets.Checkbutton(self.frame, text="Rest des Dokuments", variable=self._rest_var).pack(anchor="w")
+        # Checkboxes: only read when "Suchen" is pressed.
+        Checkbox(self.frame, text="KC-Verweis", variable=self._kc_var).pack(anchor="w")
+        Checkbox(self.frame, text="Kompetenzname", variable=self._titel_var).pack(anchor="w")
+        Checkbox(self.frame, text="Beispiel", variable=self._beispiel_var).pack(anchor="w")
+        Checkbox(self.frame, text="Rest des Dokuments", variable=self._rest_var).pack(anchor="w")
 
         widgets.Button(self.frame, text="Suchen", command=self._trigger_search).pack(anchor="w", pady=(6, 0))
 

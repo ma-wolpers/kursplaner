@@ -6,6 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Switch
 
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
@@ -21,7 +22,7 @@ _KONTEXTTIEFE_MAX = 5
 class KompetenzGraphFilterPanel:
     """Baut und verwaltet die Filter-Sidebar des Kompetenzgraph-Popups.
 
-    Fach ist eine echte Mehrfachauswahl (Checkbutton-Liste, analog dem
+    Fach ist eine echte Mehrfachauswahl (Switch-Liste, analog dem
     Muster in `column_visibility_dialog.py`) -- alle übrigen Filter sind
     einfache Single-Select-Comboboxen. Alle Optionslisten werden dynamisch
     aus dem übergebenen Snapshot abgeleitet (`compute_filter_options()`),
@@ -61,9 +62,9 @@ class KompetenzGraphFilterPanel:
         initial_subjects = initial.subjects or frozenset()
         for subject in self._options.subjects:
             var = ui.BooleanVar(value=subject in initial_subjects)
-            var.trace_add("write", lambda *_args: self._emit_change())
             self._subject_vars[subject] = var
-            widgets.Checkbutton(self.frame, text=subject, variable=var).pack(anchor="w")
+            # Switch: the graph re-filters immediately (effect via on_change, not a trace).
+            Switch(self.frame, text=subject, variable=var, on_change=lambda _on: self._emit_change()).pack(anchor="w")
         if not self._options.subjects:
             widgets.Label(self.frame, text="(kein strukturiertes Fach gefunden)", foreground="gray").pack(anchor="w")
 

@@ -4,6 +4,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from dataclasses import dataclass
 
@@ -41,7 +42,7 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
 
         self._hide_vars: dict[str, ui.BooleanVar] = {}
         self._hint_vars: dict[str, ui.BooleanVar] = {}
-        self._grid_widgets: dict[tuple[int, int], widgets.Checkbutton] = {}
+        self._grid_widgets: dict[tuple[int, int], Checkbox] = {}
 
         self._build_ui(current)
         self.apply_theme()
@@ -76,11 +77,11 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
 
             widgets.Label(grid, text=label).grid(row=row_index, column=0, sticky="w", pady=(4, 0))
 
-            hide_toggle = widgets.Checkbutton(grid, variable=hide_var)
+            hide_toggle = Checkbox(grid, text=f"{label} · Verstecken", variable=hide_var, show_text=False)
             hide_toggle.grid(row=row_index, column=1, sticky="w", padx=(20, 0), pady=(4, 0))
             self._register_nav_widget(hide_toggle, row=row_index, col=1)
 
-            hint_toggle = widgets.Checkbutton(grid, variable=hint_var)
+            hint_toggle = Checkbox(grid, text=f"{label} · Marker anzeigen", variable=hint_var, show_text=False)
             hint_toggle.grid(row=row_index, column=2, sticky="w", padx=(20, 0), pady=(4, 0))
             self._register_nav_widget(hint_toggle, row=row_index, col=2)
 
@@ -98,7 +99,7 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
         widgets.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right")
         widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right", padx=(0, 8))
 
-    def _register_nav_widget(self, widget: widgets.Checkbutton, *, row: int, col: int) -> None:
+    def _register_nav_widget(self, widget: Checkbox, *, row: int, col: int) -> None:
         self._grid_widgets[(row, col)] = widget
         widget.bind("<Up>", lambda event, r=row, c=col: self._move_focus(event, r, c, -1, 0), add="+")
         widget.bind("<Down>", lambda event, r=row, c=col: self._move_focus(event, r, c, 1, 0), add="+")
@@ -107,7 +108,7 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
         widget.bind("<space>", lambda _event, w=widget: self._toggle_widget(w), add="+")
 
     @staticmethod
-    def _toggle_widget(widget: widgets.Checkbutton) -> str:
+    def _toggle_widget(widget: Checkbox) -> str:
         widget.invoke()
         return "break"
 

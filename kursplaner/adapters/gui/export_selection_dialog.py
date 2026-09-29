@@ -5,6 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 
@@ -45,7 +46,7 @@ class ExportSelectionDialog(ScrollablePopupWindow):
 
         scope_frame = widgets.LabelFrame(container, text="Was")
         scope_frame.pack(fill="x", pady=(0, 10))
-        widgets.Checkbutton(
+        Checkbox(
             scope_frame,
             text="Aktuelle Sequenz",
             variable=self.scope_current_sequence_var,

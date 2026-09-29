@@ -9,6 +9,7 @@ from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_
 from bw_gui.theming import theme_canvas
 from bw_gui.menu import MenuItem as SharedMenuItem
 from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
+from bw_gui.widgets import Switch
 
 
 from bw_libs.ui_contract.keybinding import (
@@ -273,11 +274,11 @@ class ScreenBuilder:
             self.app.row_mode_labels[mode_key] = label
             self._add_help(btn, MAIN_WINDOW_HELP.get(f"mode_{mode_key}", ""))
 
-        auto_mode_check = widgets.Checkbutton(
+        auto_mode_check = Switch(
             mode_bar,
             text="Auto je Spalte",
             variable=self.app.auto_row_mode_var,
-            command=lambda: self._emit_intent(UiIntent.TOGGLE_AUTO_ROW_MODE),
+            on_change=lambda _auto: self._emit_intent(UiIntent.TOGGLE_AUTO_ROW_MODE),
         )
         auto_mode_check.pack(side="left", padx=(12, 0))
         self._add_help(auto_mode_check, MAIN_WINDOW_HELP["mode_auto"])
@@ -540,10 +541,10 @@ class ScreenBuilder:
     def _menu_items_view(self):
         return (
             SharedMenuItem(
-                type="checkbox",
+                type="switch",
                 label="Lange Zeilen aufgeklappt",
                 checked=bool(self.app.expand_long_rows_var.get()),
-                command=lambda: self._emit_intent(UiIntent.TOGGLE_EXPAND_MODE),
+                on_toggle=lambda on: self._set_var_and_emit(self.app.expand_long_rows_var, on, UiIntent.TOGGLE_EXPAND_MODE),
             ),
             SharedMenuItem(
                 type="command",
@@ -551,16 +552,18 @@ class ScreenBuilder:
                 command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
             ),
             SharedMenuItem(
-                type="checkbox",
+                type="switch",
                 label="Sequenzfelder anzeigen (Strg+Shift+S)",
                 checked=bool(self.app.sequence_fields_visible_var.get()),
-                command=lambda: self._emit_intent(UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE),
+                # The intent flips the variable itself (shared with Strg+Shift+S);
+                # the requested value is always "not checked", so this is equivalent.
+                on_toggle=lambda _on: self._emit_intent(UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE),
             ),
             SharedMenuItem(
-                type="checkbox",
+                type="switch",
                 label="Auto-Scroll zur nächsten Einheit",
                 checked=bool(self.app.auto_scroll_next_unit_var.get()),
-                command=lambda: self.app.auto_scroll_next_unit_var.set(not bool(self.app.auto_scroll_next_unit_var.get())),
+                on_toggle=self.app.auto_scroll_next_unit_var.set,
             ),
             SharedMenuItem(type="separator"),
             SharedMenuItem(
@@ -873,11 +876,11 @@ class ScreenBuilder:
             fill="x",
             expand=True,
         )
-        widgets.Checkbutton(
+        Switch(
             toolbar,
             text="Offline simulieren",
             variable=self.app.shortcut_runtime_debug_offline_var,
-            command=self._on_shortcut_runtime_offline_var_changed,
+            on_change=lambda _offline: self._on_shortcut_runtime_offline_var_changed(),
         ).pack(side="left", padx=(12, 0))
         widgets.Button(toolbar, text="Aktualisieren", command=self._refresh_shortcut_runtime_debug_dialog).pack(side="left", padx=(8, 0))
 
@@ -926,7 +929,7 @@ class ScreenBuilder:
         self.app.shortcut_runtime_debug_offline_var = None
 
     def _on_shortcut_runtime_offline_var_changed(self) -> None:
-        """Sync offline flag from dialog checkbutton and refresh diagnostics."""
+        """Sync offline flag from the dialog switch and refresh diagnostics."""
 
         tk_var = getattr(self.app, "shortcut_runtime_debug_offline_var", None)
         if tk_var is not None:
@@ -986,6 +989,17 @@ class ScreenBuilder:
                     ]
                 )
             )
+
+    def _set_var_and_emit(self, variable, value: bool, intent: str) -> None:
+        """Apply a switch menu row: set the requested value, then let the intent act on it.
+
+        Args:
+            variable: BooleanVar mirroring the setting.
+            value: The value requested by the switch (``MenuItem.on_toggle``).
+            intent: Intent that applies the current variable value.
+        """
+        variable.set(bool(value))
+        self._emit_intent(intent)
 
     def _emit_intent(self, intent: str, **payload):
         """Leitet ein View-Ereignis als Intent an die Orchestrierung weiter."""

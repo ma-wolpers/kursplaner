@@ -6,6 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets  # noqa: E402
+from bw_gui.widgets import Checkbox  # noqa: E402
 
 from kursplaner.core.config.settings import WEEKDAY_SHORT_OPTIONS  # noqa: E402
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, current_segment  # noqa: E402
@@ -16,7 +17,7 @@ class WeekdayRhythmPicker:
 
     Gemeinsames Widget für den Kurs-Erstelldialog (`NewCourseWindow`) und den
     Stundenplanänderungs-Dialog (`TimetableChangeDialog`) — beide bauten zuvor
-    dieselbe Checkbutton+Spinbox-Struktur unabhängig auf; die Erweiterung um
+    dieselbe Checkbox+Spinbox-Struktur unabhängig auf; die Erweiterung um
     eine Startzeit hätte diese Duplikation verdreifacht.
 
     Komponiert einen `widgets.Frame` statt ihn zu erben (wie `WrappedTextField`
@@ -36,7 +37,7 @@ class WeekdayRhythmPicker:
         default_hours: str = "2",
         default_start: str = "08:00",
     ):
-        """Baut je aktivierbarem Wochentag Checkbutton, Startzeit-Entry und Stunden-Spinbox."""
+        """Baut je aktivierbarem Wochentag Checkbox, Startzeit-Entry und Stunden-Spinbox."""
         self._container = widgets.Frame(master)
         self._weekdays = weekdays
         self._default_hours = default_hours
@@ -61,11 +62,11 @@ class WeekdayRhythmPicker:
             self._start_vars[weekday] = start_var
             self._hours_vars[weekday] = hours_var
 
-            widgets.Checkbutton(
+            Checkbox(
                 cell,
                 text=short_label,
                 variable=enabled_var,
-                command=lambda w=weekday: self._toggle(w),
+                on_select=lambda _selected, w=weekday: self._toggle(w),
             ).pack(side="left")
 
             start_entry = widgets.Entry(cell, textvariable=start_var, width=6)

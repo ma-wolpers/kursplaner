@@ -5,6 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
@@ -72,10 +73,10 @@ class UbMarkDialog(ScrollablePopupWindow):
 
         kind_frame = widgets.Frame(container)
         kind_frame.pack(fill="x", pady=(4, 10))
-        widgets.Checkbutton(kind_frame, text="Pädagogik", variable=self.kind_paedagogik).pack(anchor="w")
-        widgets.Checkbutton(kind_frame, text="Fach", variable=self.kind_fach).pack(anchor="w")
+        Checkbox(kind_frame, text="Pädagogik", variable=self.kind_paedagogik).pack(anchor="w")
+        Checkbox(kind_frame, text="Fach", variable=self.kind_fach).pack(anchor="w")
 
-        widgets.Checkbutton(
+        Checkbox(
             container,
             text="Langentwurf",
             variable=self.langentwurf_var,

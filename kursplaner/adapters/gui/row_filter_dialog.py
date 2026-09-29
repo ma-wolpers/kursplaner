@@ -4,6 +4,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
@@ -51,7 +52,7 @@ class RowFilterDialog(ScrollablePopupWindow):
         self._use_case = RowDisplayModeUseCase()
         self._mode_order = [mode_def.key for mode_def in self._use_case.available_modes()]
         self._vars: dict[tuple[str, str], ui.BooleanVar] = {}
-        self._grid_widgets: dict[tuple[int, int], widgets.Checkbutton] = {}
+        self._grid_widgets: dict[tuple[int, int], Checkbox] = {}
         self._build_ui(current)
         self.apply_theme()
         self.after_idle(self._focus_first_toggle)
@@ -102,7 +103,12 @@ class RowFilterDialog(ScrollablePopupWindow):
             for col_index, mode_key in enumerate(self._mode_order):
                 var = ui.BooleanVar(value=mode_key in active_modes)
                 self._vars[(field_key, mode_key)] = var
-                toggle = widgets.Checkbutton(grid, variable=var)
+                toggle = Checkbox(
+                    grid,
+                    text=f"{label} · {_MODE_COLUMN_HEADERS[mode_key]}",
+                    variable=var,
+                    show_text=False,
+                )
                 toggle.grid(row=grid_row, column=col_index + 1, sticky="w", padx=(16, 0), pady=(2, 0))
                 self._register_nav_widget(toggle, row=grid_row, col=col_index)
 
@@ -118,7 +124,7 @@ class RowFilterDialog(ScrollablePopupWindow):
             side="right", padx=(0, 8)
         )
 
-    def _register_nav_widget(self, widget: widgets.Checkbutton, *, row: int, col: int) -> None:
+    def _register_nav_widget(self, widget: Checkbox, *, row: int, col: int) -> None:
         """Registriert eine Checkbox für Pfeiltasten-Navigation in beide Richtungen."""
         self._grid_widgets[(row, col)] = widget
         widget.bind("<Up>", lambda event, r=row, c=col: self._move_focus(event, r, c, -1, 0), add="+")
@@ -128,7 +134,7 @@ class RowFilterDialog(ScrollablePopupWindow):
         widget.bind("<space>", lambda _event, w=widget: self._toggle_widget(w), add="+")
 
     @staticmethod
-    def _toggle_widget(widget: widgets.Checkbutton) -> str:
+    def _toggle_widget(widget: Checkbox) -> str:
         """Schaltet den Zustand einer Checkbox um und stoppt Event-Weiterleitung."""
         widget.invoke()
         return "break"

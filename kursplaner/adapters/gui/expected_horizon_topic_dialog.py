@@ -14,6 +14,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.usecases.expected_horizon_topic_query_usecase import (
@@ -59,7 +60,7 @@ class ExpectedHorizonTopicDialog(ScrollablePopupWindow):
         self._options = options
         preselected = set(options.preselected)
         self._vars = [ui.BooleanVar(value=option.oberthema in preselected) for option in options.options]
-        self._toggles: list[widgets.Checkbutton] = []
+        self._toggles: list[Checkbox] = []
         self._accept_button: widgets.Button | None = None
         self._build_ui()
         self.apply_theme()
@@ -85,8 +86,11 @@ class ExpectedHorizonTopicDialog(ScrollablePopupWindow):
         list_frame = widgets.Frame(frame)
         list_frame.pack(fill="x", pady=(4, 0))
         for index, (option, var) in enumerate(zip(self._options.options, self._vars)):
-            toggle = widgets.Checkbutton(
-                list_frame, text=_option_label(option), variable=var, command=self._update_accept_state
+            toggle = Checkbox(
+                list_frame,
+                text=_option_label(option),
+                variable=var,
+                on_select=lambda _selected: self._update_accept_state(),
             )
             toggle.pack(anchor="w", pady=1)
             self._register_nav(toggle, index)
@@ -115,7 +119,7 @@ class ExpectedHorizonTopicDialog(ScrollablePopupWindow):
             warnings.append(f"{count} Stunde(n) mit ungültigem Oberthema werden nicht berücksichtigt.")
         return warnings
 
-    def _register_nav(self, toggle: widgets.Checkbutton, index: int) -> None:
+    def _register_nav(self, toggle: Checkbox, index: int) -> None:
         """Pfeiltasten bewegen den Fokus in der Liste, Leertaste schaltet um."""
         toggle.bind("<Up>", lambda _e, i=index: self._focus_toggle(i - 1), add="+")
         toggle.bind("<Down>", lambda _e, i=index: self._focus_toggle(i + 1), add="+")
@@ -127,7 +131,7 @@ class ExpectedHorizonTopicDialog(ScrollablePopupWindow):
         return "break"
 
     @staticmethod
-    def _invoke(toggle: widgets.Checkbutton) -> str:
+    def _invoke(toggle: Checkbox) -> str:
         toggle.invoke()
         return "break"
 
