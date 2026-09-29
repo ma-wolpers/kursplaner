@@ -1,7 +1,13 @@
 """Zentrales Wertemodell des YAML-Felds ``Oberthema`` einer Stunden-Datei.
 
-Kanonische Form (einzige Schreibform) ist eine YAML-Liste aus Wiki-Links
-``[[gruppe thema]]``. Invarianten der entschlüsselten Themenliste:
+Kanonische Form hängt vom Stundentyp ab:
+
+* **LZK** (einziger Typ mit mehreren Themen): YAML-Liste aus Wiki-Links
+  ``[[gruppe thema]]`` in chronologischer Reihenfolge.
+* **Unterricht/Hospitation**: ein einzelner Wert, gespeichert wie eingegeben
+  (Klartext oder Wiki-Link) — keine Listenform.
+
+Invarianten der entschlüsselten Themenliste:
 
 * kein Thema doppelt (Vergleich nach Entschlüsselung + Whitespace-Normalisierung,
   erstes Vorkommen gewinnt),
@@ -14,14 +20,14 @@ Die Verantwortlichkeiten sind bewusst getrennt:
 * `parse_oberthema_field` prüft nur den **Typ** und wirft bei nicht
   unterstützten Werten `UnsupportedOberthemaValue` — es deutet nie um.
 * `normalize_oberthemen` arbeitet nur auf Strings (Invarianten durchsetzen).
-* `encode_oberthemen` erzeugt die kanonische Schreibform.
+* `encode_oberthemen` erzeugt die kanonische LZK-Schreibform.
 * `read_oberthema_state` ist der zentrale Lesepfad und hält "leer" und
   "ungültig" getrennt fest.
 * `ensure_oberthema_write_allowed` ist die Schreib-Invariante: ein ungültiger
   Plattenwert wird nie still überschrieben.
 
-Ein Legacy-Skalar (``Oberthema: "[[x]]"``) wird nur noch als *Eingabe*
-akzeptiert (Migration, noch nicht geöffnete Kurse), nie geschrieben.
+Das Lesen ist für alle Typen tolerant (Skalar oder Liste); bei einer LZK wird
+ein Legacy-Skalar nur noch als *Eingabe* akzeptiert und beim Kursladen migriert.
 """
 
 from __future__ import annotations
@@ -165,7 +171,7 @@ def normalize_oberthemen(entries: Iterable[str], group_name: str) -> list[str]:
 
 
 def encode_oberthemen(topics: Iterable[str], group_name: str) -> list[str]:
-    """Erzeugt die kanonische Schreibform ``[[gruppe thema]]`` je Thema.
+    """Erzeugt die kanonische LZK-Schreibform ``[[gruppe thema]]`` je Thema.
 
     Normalisiert die Eingabe vorher (`normalize_oberthemen`), sodass auch
     bereits kodierte oder doppelte Einträge sicher verarbeitet werden.
@@ -183,12 +189,31 @@ def encode_oberthemen(topics: Iterable[str], group_name: str) -> list[str]:
 
 
 def canonical_oberthema_value(raw: object, group_name: str) -> list[str]:
-    """Kanonische Schreibform eines Rohwerts: ``encode(normalize(parse(raw)))``.
+    """Kanonische LZK-Schreibform eines Rohwerts: ``encode(normalize(parse(raw)))``.
 
     Raises:
         UnsupportedOberthemaValue: Bei nicht unterstütztem Typ (wird nie umgedeutet).
     """
     return encode_oberthemen(parse_oberthema_field(raw), group_name)
+
+
+def distinct_raw_entries(raw: object) -> list[str]:
+    """Rohe, getrimmte Einträge ohne Leer-/Doppeleinträge (ohne Entschlüsselung).
+
+    Für Einzelwert-Stundentypen (Unterricht/Hospitation), deren ``Oberthema``
+    so gespeichert bleibt, wie es eingegeben wurde.
+
+    Raises:
+        UnsupportedOberthemaValue: Bei nicht unterstütztem Typ.
+    """
+    result: list[str] = []
+    seen: set[str] = set()
+    for entry in parse_oberthema_field(raw):
+        text = _normalize_whitespace(entry)
+        if text and text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
 
 
 def read_oberthema_state(yaml_data: dict[str, object], group_name: str) -> OberthemaState:

@@ -4,7 +4,7 @@ from kursplaner.core.domain.lesson_yaml_policy import allowed_keys_for_type, can
 def test_hospitation_defaults_include_oberthema_field():
     normalized = canonicalize_lesson_yaml({"Stundentyp": "Hospitation", "Stundenthema": "Hospitation 1", "Dauer": "2"})
     assert "Oberthema" in normalized
-    assert normalized["Oberthema"] == []
+    assert normalized["Oberthema"] == ""
 
 
 def test_hospitation_preserves_oberthema_value():
@@ -16,7 +16,7 @@ def test_hospitation_preserves_oberthema_value():
             "Oberthema": "Optik",
         }
     )
-    assert normalized["Oberthema"] == ["Optik"]
+    assert normalized["Oberthema"] == "Optik"
 
 
 def test_hospitation_allowed_keys_include_oberthema():

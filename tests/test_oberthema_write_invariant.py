@@ -96,13 +96,14 @@ def test_normal_write_replacing_invalid_oberthema_with_empty_list_is_rejected(tm
     assert path.read_text(encoding="utf-8") == before
 
 
-def test_explicit_correction_writes_canonical_list(tmp_path):
+def test_explicit_correction_writes_single_value_for_unterricht(tmp_path):
     path = _write_invalid_lesson(tmp_path)
     repo = FileSystemLessonRepository()
 
     LessonEditUseCase(repo).set_lesson_oberthemen(path, ["Potenzen", "Potenzen"], "[[11.1]]")
 
-    assert repo.load_raw_lesson_frontmatter(path)["Oberthema"] == ["[[11.1 Potenzen]]"]
+    # Unterricht: Einzelwert wie eingegeben, keine Listenform.
+    assert repo.load_raw_lesson_frontmatter(path)["Oberthema"] == "Potenzen"
 
 
 def test_explicit_correction_rejects_multiple_topics_for_unterricht(tmp_path):
@@ -191,4 +192,4 @@ def test_cell_save_of_oberthema_is_explicit_repair(tmp_path):
     result = _execute(_save_cell_usecase(repo), _table(tmp_path), "Oberthema", "Potenzen |  | Potenzen", path)
 
     assert result.proceed
-    assert repo.load_raw_lesson_frontmatter(path)["Oberthema"] == ["[[11.1 Potenzen]]"]
+    assert repo.load_raw_lesson_frontmatter(path)["Oberthema"] == "Potenzen"

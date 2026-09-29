@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, encode_oberthemen, read_oberthema_state
+from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, distinct_raw_entries, read_oberthema_state
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.ports.repositories import LessonRepository
 
@@ -85,7 +85,7 @@ class LessonCommandsUseCase:
             oberthema_input: Optionaler Oberthemawert.
             was_lzk: Kennzeichen, ob die Stunde vorher als LZK geführt wurde.
             content_before: Vorheriger Tabelleninhalt für Fallbacks.
-            group_name: Lerngruppe des Kurses (für die kanonische Wiki-Link-Form).
+            group_name: Lerngruppe des Kurses (zum Entschlüsseln des bisherigen Werts).
 
         Ein eingegebenes Oberthema ist eine ausdrückliche Korrektur und darf
         auch einen ungültigen Plattenwert ersetzen. Ohne Eingabe wird eine
@@ -97,12 +97,13 @@ class LessonCommandsUseCase:
         lesson.data["Stundenthema"] = sanitize_hour_title(topic)
         repair = False
         if oberthema_input:
-            lesson.data[OBERTHEMA_KEY] = encode_oberthemen([oberthema_input], group_name)
+            lesson.data[OBERTHEMA_KEY] = oberthema_input
             repair = True
-        else:
-            state = read_oberthema_state(lesson.data, group_name)
-            if len(state.topics) > 1:
-                lesson.data[OBERTHEMA_KEY] = encode_oberthemen([state.primary], group_name)
+        elif not read_oberthema_state(lesson.data, group_name).is_invalid:
+            entries = distinct_raw_entries(lesson.data.get(OBERTHEMA_KEY))
+            if len(entries) > 1:
+                # Vorherige Mehrthemen-LZK: Einzelwert = Haupt-Oberthema (erster Eintrag).
+                lesson.data[OBERTHEMA_KEY] = entries[0]
         self.lesson_repo.save_lesson_yaml(lesson, repair_oberthema=repair)
 
     def update_lesson_sections(self, lesson_path: Path, inhalte_refs: list[str], methodik_refs: list[str]) -> None:

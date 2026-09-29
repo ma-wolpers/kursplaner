@@ -8,6 +8,24 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-09-29) — `Oberthema` nur bei LZKs als Liste
+
+Korrektur einer zu weit gefassten Umsetzung von Schritt 1/2: Die Listenform war für *alle* Stundentypen
+eingeführt worden, gebraucht wird sie nur bei der LZK (einziger Typ mit mehreren Themen).
+
+- `lesson_yaml_policy._normalize_oberthema_structure(value, stundentyp)`: LZK → Liste; Unterricht/Hospitation →
+  Einzelwert (Liste mit einem Eintrag → Wert, leer → `""`, mehrere Themen bleiben unverändert und werden gemeldet).
+  Defaults: LZK `[]`, sonst `""`.
+- Schreiber: `LessonEditUseCase.set_lesson_oberthemen` (Zelle) und `LessonCommandsUseCase.update_regular_lesson_content`
+  schreiben bei Unterricht/Hospitation wieder den eingegebenen Text als Einzelwert (wie vor der Änderung); nur die
+  LZK bekommt `encode_oberthemen`. Neu: `oberthema_values.distinct_raw_entries`.
+- Migration: LZK-Skalar → Liste; Unterricht/Hospitation-Liste mit genau einem Eintrag → Einzelwert (repariert ggf.
+  bereits umgestellte Dateien); Einzelwerte werden nicht angefasst. Ein leerer Einzelwert (vom Parser als `[]`
+  gelesen) gilt als unverändert, damit kein Schreibzyklus bei jedem Laden entsteht.
+- Lesen bleibt für alle Typen tolerant; Schreib-Invariante für ungültige Werte gilt weiter für alle Typen.
+- Tests angepasst/ergänzt (`test_migrate_oberthema_list_usecase.py`, `test_oberthema_write_invariant.py`,
+  `test_lesson_yaml_policy_hospitation_oberthema.py` wieder im Originalzustand).
+
 ### Added (2026-09-29) — KH-Themenauswahl: Export-Use-Cases und GUI-Flow (Schritte 5+6)
 
 - **`ExportExpectedHorizonUseCase.execute(table, raw_day_columns, oberthemen, cutoff, output_path, export_date, merge_source=None)`**: eine Section je gewähltem Thema, chronologisch nach erstem Auftreten; nur zugelassene, datierte Unterrichtsstunden mit gültigem Oberthema; Titel `Kompetenzhorizont: A, B`. `default_adhoc_output_path()` für „Exportieren als…“. Die alte API (`day_columns` + `selected_day_index`, projizierte Liste) entfällt — damit fehlen ausgeblendete Spalten nicht mehr.

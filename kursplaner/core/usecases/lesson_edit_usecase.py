@@ -32,26 +32,32 @@ class LessonEditUseCase:
         """Setzt den Inhaltswert einer Tabellenzeile ohne YAML-Nebenwirkungen."""
         table.set_inhalt(row_index, value)
 
-    def set_lesson_oberthemen(self, lesson_path: Path, topics: list[str], group_name: str) -> None:
-        """Schreibt das Oberthema einer Stunde als ausdrückliche Korrektur (kanonische Liste).
+    def set_lesson_oberthemen(self, lesson_path: Path, entries: list[str], group_name: str) -> None:
+        """Schreibt das Oberthema einer Stunde als ausdrückliche Korrektur (typabhängige Form).
 
-        Setzt die Invarianten durch (Entschlüsselung, keine Duplikate/Leereinträge,
-        Wiki-Link-Form) und erlaubt als bewusstes Speichern der Oberthema-Zelle
-        auch das Ersetzen eines ungültigen Plattenwerts (``repair_oberthema``).
+        * **LZK**: kanonische Liste aus Wiki-Links (entschlüsselt, ohne Duplikate/Leereinträge).
+        * **Unterricht/Hospitation**: Einzelwert, gespeichert wie eingegeben;
+          mehr als ein (verschiedenes) Thema wird abgelehnt.
+
+        Als bewusstes Speichern der Oberthema-Zelle darf der Vorgang auch einen
+        ungültigen Plattenwert ersetzen (``repair_oberthema``).
 
         Args:
             lesson_path: Pfad der Stunden-Datei.
-            topics: Eingegebene Themen (roh, dürfen Wiki-Links/Duplikate enthalten).
+            entries: Eingegebene Einträge (roh, dürfen Wiki-Links/Duplikate enthalten).
             group_name: Lerngruppen-Bezeichnung des Kurses.
 
         Raises:
             RuntimeError: Wenn eine Nicht-LZK-Einheit mehr als ein Oberthema bekäme.
         """
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
-        normalized = normalize_oberthemen(topics, group_name)
-        if len(normalized) > 1 and infer_stundentyp(lesson.data) != "LZK":
-            raise RuntimeError("Nur eine LZK darf mehrere Oberthemen haben.")
-        lesson.data[OBERTHEMA_KEY] = encode_oberthemen(normalized, group_name)
+        if infer_stundentyp(lesson.data) == "LZK":
+            lesson.data[OBERTHEMA_KEY] = encode_oberthemen(entries, group_name)
+        else:
+            if len(normalize_oberthemen(entries, group_name)) > 1:
+                raise RuntimeError("Nur eine LZK darf mehrere Oberthemen haben.")
+            raw_entries = [str(entry).strip() for entry in entries if str(entry).strip()]
+            lesson.data[OBERTHEMA_KEY] = raw_entries[0] if raw_entries else ""
         self.lesson_repo.save_lesson_yaml(lesson, repair_oberthema=True)
 
     def set_lesson_duration(self, lesson_path: Path, value: str) -> None:

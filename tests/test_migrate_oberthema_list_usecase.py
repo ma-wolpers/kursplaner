@@ -41,21 +41,42 @@ def _run(tmp_path: Path, paths: list[Path]):
     return repo, result
 
 
-def test_legacy_scalars_are_migrated_to_canonical_list(tmp_path):
-    plain = _lesson(tmp_path, "aaa111", "Oberthema: Potenzen\n")
-    linked = _lesson(tmp_path, "bbb222", 'Oberthema: "[[11.1 Potenzen]]"\n')
+def test_lzk_legacy_scalar_is_migrated_to_canonical_list(tmp_path):
+    lzk = _lesson(tmp_path, "aaa111", "Oberthema: Potenzen\n", stundentyp="LZK")
 
-    repo, result = _run(tmp_path, [plain, linked])
+    repo, result = _run(tmp_path, [lzk])
 
-    assert set(result.migrated_files) == {plain.resolve(), linked.resolve()}
+    assert result.migrated_files == (lzk.resolve(),)
     assert result.problems == ()
-    for path in (plain, linked):
-        assert repo.load_raw_lesson_frontmatter(path)["Oberthema"] == ["[[11.1 Potenzen]]"]
-        assert path.read_text(encoding="utf-8").rstrip().endswith(f"Body {path.stem}")
+    assert repo.load_raw_lesson_frontmatter(lzk)["Oberthema"] == ["[[11.1 Potenzen]]"]
+    assert lzk.read_text(encoding="utf-8").rstrip().endswith("Body aaa111")
 
 
-def test_empty_scalar_becomes_empty_list(tmp_path):
-    empty = _lesson(tmp_path, "ccc333", "Oberthema: \n")
+def test_unterricht_and_hospitation_single_values_are_left_untouched(tmp_path):
+    plain = _lesson(tmp_path, "bbb222", "Oberthema: Potenzen\n")
+    linked = _lesson(tmp_path, "bbb333", 'Oberthema: "[[11.1 Potenzen]]"\n', stundentyp="Hospitation")
+    empty = _lesson(tmp_path, "bbb444", "Oberthema: \n")
+    before = {path: path.read_text(encoding="utf-8") for path in (plain, linked, empty)}
+
+    _repo, result = _run(tmp_path, [plain, linked, empty])
+
+    assert result.migrated_files == ()
+    assert result.problems == ()
+    assert all(path.read_text(encoding="utf-8") == text for path, text in before.items())
+
+
+def test_unterricht_list_with_one_entry_is_restored_to_single_value(tmp_path):
+    """Korrigiert Dateien, die eine frühere, zu weit gefasste Migration auf die Liste umgestellt hat."""
+    unit = _lesson(tmp_path, "ccc333", 'Oberthema:\n  - "[[11.1 Potenzen]]"\n')
+
+    repo, result = _run(tmp_path, [unit])
+
+    assert result.migrated_files == (unit.resolve(),)
+    assert repo.load_raw_lesson_frontmatter(unit)["Oberthema"] == "[[11.1 Potenzen]]"
+
+
+def test_lzk_empty_value_stays_empty_list(tmp_path):
+    empty = _lesson(tmp_path, "ccc444", "Oberthema: \n", stundentyp="LZK")
 
     repo, result = _run(tmp_path, [empty])
 
@@ -78,7 +99,7 @@ def test_list_with_duplicates_and_plain_entries_is_normalized(tmp_path):
 
 
 def test_already_canonical_file_is_not_written(tmp_path):
-    canonical = _lesson(tmp_path, "eee555", 'Oberthema:\n  - "[[11.1 Potenzen]]"\n')
+    canonical = _lesson(tmp_path, "eee555", 'Oberthema:\n  - "[[11.1 Potenzen]]"\n', stundentyp="LZK")
     before = canonical.stat().st_mtime_ns
 
     _repo, result = _run(tmp_path, [canonical])

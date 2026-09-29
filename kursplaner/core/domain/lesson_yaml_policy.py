@@ -5,7 +5,7 @@ from typing import Literal
 from kursplaner.core.domain.oberthema_values import (
     OBERTHEMA_KEY,
     UnsupportedOberthemaValue,
-    parse_oberthema_field,
+    distinct_raw_entries,
 )
 
 LessonType = Literal["Unterricht", "LZK", "Ausfall", "Hospitation"]
@@ -117,30 +117,28 @@ def _normalize_list(value: object) -> list[str]:
     return result
 
 
-def _normalize_oberthema_structure(value: object) -> object:
-    """Bringt ein ``Oberthema`` strukturell in Listenform, ohne ungültige Werte umzudeuten.
+def _normalize_oberthema_structure(value: object, stundentyp: LessonType) -> object:
+    """Bringt ``Oberthema`` in die typabhängige Form, ohne ungültige Werte umzudeuten.
 
-    Gültige Werte (Legacy-Skalar oder Liste aus Strings) werden zu einer Liste
-    ohne leere Einträge und ohne Duplikate (Vergleich nach Whitespace-
-    Normalisierung, erstes Vorkommen gewinnt). Die Wiki-Link-Form
-    ``[[gruppe thema]]`` setzen die Schreiber, die die Lerngruppe kennen
-    (siehe `oberthema_values.encode_oberthemen`) — diese Policy kennt sie nicht.
+    * **LZK**: Liste ohne Leer-/Doppeleinträge (Wiki-Link-Form setzen die
+      Schreiber, die die Lerngruppe kennen, siehe `encode_oberthemen`).
+    * **Unterricht/Hospitation**: Einzelwert, so wie gespeichert. Eine Liste mit
+      genau einem Eintrag wird zum Einzelwert, eine leere zu ``""``; eine Liste
+      mit mehreren Themen bleibt unverändert (Invariante verletzt, wird von der
+      Migration gemeldet statt still gekürzt).
 
     Nicht unterstützte Werte (z. B. `RawYamlBlock`) werden **unverändert**
-    zurückgegeben, damit kein Normalisierungspfad aus ihnen still ``[]`` macht.
+    zurückgegeben, damit kein Normalisierungspfad aus ihnen still ``[]``/``""`` macht.
     """
     try:
-        entries = parse_oberthema_field(value)
+        entries = distinct_raw_entries(value)
     except UnsupportedOberthemaValue:
         return value
-    result: list[str] = []
-    seen: set[str] = set()
-    for entry in entries:
-        text = " ".join(entry.split())
-        if text and text not in seen:
-            seen.add(text)
-            result.append(text)
-    return result
+    if stundentyp == "LZK":
+        return entries
+    if len(entries) > 1:
+        return value
+    return entries[0] if entries else ""
 
 
 def _normalize_scalar(value: object) -> str:
@@ -163,7 +161,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
     if stundentyp == "Unterricht":
         defaults.update(
             {
-                "Oberthema": [],
+                "Oberthema": "",
                 "Stundenziel": "",
                 "Teilziele": [],
                 "Sonderziele": [],
@@ -189,7 +187,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
     elif stundentyp == "Hospitation":
         defaults.update(
             {
-                "Oberthema": [],
+                "Oberthema": "",
                 "Beobachtungsschwerpunkte": "",
                 "Ressourcen": [],
                 "Baustellen": [],
@@ -227,7 +225,7 @@ def canonicalize_lesson_yaml(
             normalized[key] = stundentyp
             continue
         if key == OBERTHEMA_KEY:
-            normalized[key] = _normalize_oberthema_structure(source[key])
+            normalized[key] = _normalize_oberthema_structure(source[key], stundentyp)
             continue
         if key in LIST_FIELDS:
             normalized[key] = _normalize_list(source[key])

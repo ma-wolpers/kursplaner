@@ -72,7 +72,7 @@ class _Course:
     def _unit(self, datum: str, topic: str, ziel: str) -> None:
         row = len(self.days)
         link = self._link(f"u{row}", "Stundentyp: Unterricht\nDauer: 2\nStundenthema: U\n")
-        yaml = {"Stundentyp": "Unterricht", "Oberthema": [f"[[11.1 {topic}]]"], "Stundenziel": ziel}
+        yaml = {"Stundentyp": "Unterricht", "Oberthema": f"[[11.1 {topic}]]", "Stundenziel": ziel}
         self.days.append(make_day_column(row_index=row, datum=datum, link=link, yaml=yaml, group_name="[[11.1]]"))
 
     def _lzk(self, datum: str, oberthema: object) -> int:

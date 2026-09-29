@@ -1025,8 +1025,9 @@ Guard in `wiring.py`, analog `REPORTLAB_AVAILABLE`).
 
 ## 30) Datenmodell `Oberthema` (verbindlich)
 
-**Kanonische Form:** In allen Stunden-Dateien ist `Oberthema` eine YAML-Liste aus Wiki-Links
-`[[gruppe thema]]` (leer: `[]`). Ein Legacy-Skalar wird nur noch als *Eingabe* gelesen, nie geschrieben.
+**Kanonische Form (typabhängig):** Nur bei einer **LZK** ist `Oberthema` eine YAML-Liste aus Wiki-Links
+`[[gruppe thema]]` (leer: `[]`, chronologisch). **Unterricht/Hospitation** tragen einen **Einzelwert**, gespeichert
+wie eingegeben (Klartext oder Wiki-Link) — keine Listenform. Gelesen wird für alle Typen tolerant (Skalar oder Liste).
 
 **Invarianten** (entschlüsselte Themenliste): keine Duplikate (erstes Vorkommen gewinnt), keine leeren
 Einträge, Unterricht/Hospitation höchstens ein Element. Das **erste Element ist das Haupt-Oberthema**,
@@ -1046,8 +1047,9 @@ Sequenz-Sync pausiert, Kanonisierung reicht den Wert unverändert durch.
 Nutzer:in). Der Parser erhält dafür opt-in (`YamlSchema.preserve_raw_block_keys`) ungültige Blöcke als
 `RawYamlBlock`.
 
-**Migration:** `MigrateOberthemaListUseCase` überführt beim Kursladen Legacy-Werte in die kanonische Liste
-(Vergleich gegen den rohen Plattenwert). Nicht eindeutig migrierbare Dateien bleiben unverändert und werden
+**Migration:** `MigrateOberthemaListUseCase` überführt beim Kursladen LZK-Legacy-Skalare in die kanonische Liste und
+führt Unterricht/Hospitation-Listen mit genau einem Eintrag auf den Einzelwert zurück (Vergleich gegen den rohen
+Plattenwert; Einzelwerte bleiben unangetastet). Nicht eindeutig migrierbare Dateien bleiben unverändert und werden
 als Ladehinweis gemeldet — es gibt kein dauerhaftes Dualschema, nur Eingabetoleranz für noch nicht geöffnete Kurse.
 
 **Themenfolgen:** Eine Mehrthemen-LZK setzt nur die *laufende* Kette fort, wenn deren Thema unter ihren

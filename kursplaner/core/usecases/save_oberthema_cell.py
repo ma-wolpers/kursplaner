@@ -1,4 +1,4 @@
-"""Speichern der Oberthema-Zelle im Grid (ausdrückliche Korrektur, kanonische Liste).
+"""Speichern der Oberthema-Zelle im Grid (ausdrückliche Korrektur, typabhängige Form).
 
 Ausgelagert aus `SaveCellValueUseCase`, damit dessen Modul unter dem
 Dateigrößen-Limit bleibt. Die Zelle folgt der etablierten Listenfeld-Konvention:
@@ -44,7 +44,8 @@ def save_oberthema_cell(
     * Unveränderter Warnmarker eines ungültigen Werts → nichts wird geschrieben.
     * Einheit ohne Datei → nur die Plantabelle (höchstens ein Thema).
     * Einheit mit Datei → `LessonEditUseCase.set_lesson_oberthemen` als
-      ausdrückliche Korrektur (darf einen ungültigen Plattenwert ersetzen).
+      ausdrückliche Korrektur (LZK: Liste; Unterricht/Hospitation: Einzelwert
+      wie eingegeben; darf einen ungültigen Plattenwert ersetzen).
 
     Args:
         plan_repo: Port der Planungstabelle.
@@ -82,7 +83,7 @@ def save_oberthema_cell(
     if not allow_yaml_save:
         return None
     try:
-        lesson_edit.set_lesson_oberthemen(lesson_path, topics, group_name)
+        lesson_edit.set_lesson_oberthemen(lesson_path, list(entries), group_name)
     except RuntimeError as exc:
         return OberthemaCellOutcome(proceed=False, error_message=str(exc))
     return OberthemaCellOutcome(proceed=True, lesson_path=lesson_path)
