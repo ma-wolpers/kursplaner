@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPdfLayout
 from kursplaner.core.domain.expected_horizon_reconciliation import (
     ReconciledHorizon,
     ReconciledRow,
@@ -66,6 +67,7 @@ class ExpectedHorizonMarkdownRenderer:
         output_path: Path,
         *,
         reconciled: ReconciledHorizon | None = None,
+        layout: ExpectedHorizonPdfLayout | None = None,
     ) -> None:
         """Schreibt den Kompetenzhorizont als Markdown.
 
@@ -74,7 +76,10 @@ class ExpectedHorizonMarkdownRenderer:
             output_path: Zielpfad.
             reconciled: Abgeglichene Sections; ohne Angabe werden die Sections
                 des Dokuments ohne Merge-Quelle abgeglichen (leere Bewertungen).
+            layout: Wird ignoriert — PDF-Darstellungsoption; Markdown hat mit
+                ``Aufg`` bereits eine Aufgaben-Spalte.
         """
+        del layout
         output_path.parent.mkdir(parents=True, exist_ok=True)
         horizon = reconciled if reconciled is not None else reconcile(document.sections, [])
 

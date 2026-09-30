@@ -31,6 +31,7 @@ from kursplaner.core.domain.expected_horizon_files import (
     default_lzk_horizon_filename,
     resolve_horizon_link,
 )
+from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPdfLayout
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, encode_oberthemen
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData, parse_plan_row_date
 from kursplaner.core.ports.repositories import LessonRepository
@@ -193,6 +194,7 @@ class ExportLzkExpectedHorizonUseCase:
         markdown_path: Path,
         export_date: date,
         created_at: datetime | None = None,
+        pdf_layout: ExpectedHorizonPdfLayout | None = None,
     ) -> ExportLzkExpectedHorizonResult:
         """Schreibt Markdown + PDF und aktualisiert ``Oberthema``/``Kompetenzhorizont`` der LZK.
 
@@ -204,6 +206,8 @@ class ExportLzkExpectedHorizonUseCase:
             markdown_path: Im Speichern-Dialog gewählter Markdown-Pfad.
             export_date: Exportdatum.
             created_at: Zeitstempel für ``created_at`` (Default: jetzt).
+            pdf_layout: Darstellungsoptionen nur für das PDF (Aufgaben-Spalte,
+                Schriftgröße); ``None`` = Standardlayout.
 
         Raises:
             RuntimeError: Bei leerer Auswahl oder wenn keine Stunden einfließen.
@@ -232,6 +236,7 @@ class ExportLzkExpectedHorizonUseCase:
             cutoff=cutoff,
             output_path=pdf_path,
             export_date=export_date,
+            layout=pdf_layout,
         )
 
         link = build_horizon_link(markdown_path, course_dir=proposal.course_dir, vault_root=proposal.vault_root)

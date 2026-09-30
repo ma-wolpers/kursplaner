@@ -8,6 +8,21 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-09-30) — KH-PDF: Aufgaben-Spalte und Schriftgröße
+
+- Neuer Wertetyp `core/domain/expected_horizon_pdf_layout.py::ExpectedHorizonPdfLayout` (`with_task_column`,
+  `font_size`, begrenzt auf 6–16 pt, Default `DEFAULT_FONT_SIZE = 9.5` = bisherige feste Zellgröße).
+- Durchreichung: `ExpectedHorizonDialogResult` (Themen + Layout) aus `ask_expected_horizon_topics(..., with_pdf_layout=)`
+  → `ExpectedHorizonExportFlow` → `ExportLzkExpectedHorizonUseCase.execute(pdf_layout=)` bzw.
+  `ExportExpectedHorizonUseCase.execute(layout=)` → `ExpectedHorizonRendererPort.render(layout=)`.
+  Der Markdown-Renderer akzeptiert `layout` und ignoriert es (hat mit `Aufg` schon eine Aufgaben-Spalte).
+- Dialog zeigt die PDF-Optionen nur, wenn ein PDF entsteht (LZK-Export immer, Ad-hoc nur bei PDF); ungültige
+  Schriftgröße sperrt „Übernehmen“.
+- `ExpectedHorizonPdfRenderer`: Tabellenstile werden pro `render` via `_apply_layout` neu gebaut (Kopf/Abschnitt
+  skalieren mit `layout.scale`); Datumsspalte `max(10 %, 3.9 em + 12)`, mit Aufgaben-Spalte 3×7 % Smileys + 20 %
+  Aufgaben, Rest „Ich kann“. Smiley-Zeichnung nach `infrastructure/export/pdf_face_symbols.py` ausgelagert, damit
+  der Renderer unter dem Dateigrößen-Limit bleibt.
+
 ### Fixed (2026-09-29) — `Oberthema` nur bei LZKs als Liste
 
 Korrektur einer zu weit gefassten Umsetzung von Schritt 1/2: Die Listenform war für *alle* Stundentypen

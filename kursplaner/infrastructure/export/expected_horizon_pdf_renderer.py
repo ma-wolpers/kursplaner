@@ -3,11 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPdfLayout
 from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
+from kursplaner.infrastructure.export.pdf_face_symbols import face_symbol
 
 try:
-    from reportlab.graphics.shapes import Circle, Drawing, Line  # type: ignore[import-not-found]
     from reportlab.lib import colors  # type: ignore[import-not-found]
     from reportlab.lib.pagesizes import A4  # type: ignore[import-not-found]
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # type: ignore[import-not-found]
@@ -70,74 +71,69 @@ class ExpectedHorizonPdfRenderer:
             alignment=1,
             spaceAfter=10,
         )
+        self._base_styles = styles
+        self._apply_layout(ExpectedHorizonPdfLayout())
+
+    def _apply_layout(self, layout: ExpectedHorizonPdfLayout) -> None:
+        """Setzt Layout und Tabellen-Stile passend zur gewählten Schriftgröße.
+
+        Zellen nutzen ``layout.font_size``; Zeilenabstand, Kopf- und
+        Abschnittszeilen skalieren proportional (Faktor 1.0 = bisheriges Layout).
+
+        Args:
+            layout: Darstellungsoptionen dieses Renderlaufs.
+        """
+        self._layout = layout
+        scale = layout.scale
+        normal = self._base_styles["Normal"]
         self._cell_style = ParagraphStyle(
             "ExpectedHorizonCell",
-            parent=styles["Normal"],
+            parent=normal,
             fontName="Helvetica",
-            fontSize=9.5,
-            leading=12,
+            fontSize=layout.font_size,
+            leading=12 * scale,
             wordWrap="CJK",
         )
         self._cell_bold_style = ParagraphStyle(
-            "ExpectedHorizonCellBold",
-            parent=self._cell_style,
-            fontName="Helvetica-Bold",
+            "ExpectedHorizonCellBold", parent=self._cell_style, fontName="Helvetica-Bold"
         )
         self._cell_italic_style = ParagraphStyle(
-            "ExpectedHorizonCellItalic",
-            parent=self._cell_style,
-            fontName="Helvetica-Oblique",
+            "ExpectedHorizonCellItalic", parent=self._cell_style, fontName="Helvetica-Oblique"
         )
         self._section_style = ParagraphStyle(
             "ExpectedHorizonSection",
-            parent=styles["Normal"],
+            parent=normal,
             fontName="Helvetica-Bold",
-            fontSize=10.5,
-            leading=13,
+            fontSize=10.5 * scale,
+            leading=13 * scale,
         )
         self._header_style = ParagraphStyle(
-            "ExpectedHorizonHeader",
-            parent=styles["Normal"],
-            fontName="Helvetica-Bold",
-            fontSize=10,
-            leading=12,
-            alignment=0,
+            "ExpectedHorizonHeader", parent=normal, fontName="Helvetica-Bold", fontSize=10 * scale, leading=12 * scale
         )
 
-    @staticmethod
-    def _face_symbol(kind: str) -> Drawing:
-        drawing = Drawing(16, 16)
-        drawing.add(Circle(8, 8, 7, strokeColor=colors.black, fillColor=None, strokeWidth=1))
-        drawing.add(Circle(5.5, 10.5, 0.8, strokeColor=colors.black, fillColor=colors.black, strokeWidth=0.6))
-        drawing.add(Circle(10.5, 10.5, 0.8, strokeColor=colors.black, fillColor=colors.black, strokeWidth=0.6))
-
-        if kind == "happy":
-            drawing.add(Line(4.4, 5.2, 6.5, 3.8, strokeColor=colors.black, strokeWidth=1.1))
-            drawing.add(Line(6.5, 3.8, 9.5, 3.6, strokeColor=colors.black, strokeWidth=1.1))
-            drawing.add(Line(9.5, 3.6, 11.6, 5.0, strokeColor=colors.black, strokeWidth=1.1))
-        elif kind == "neutral":
-            drawing.add(Line(4.8, 4.4, 11.2, 4.4, strokeColor=colors.black, strokeWidth=1))
-        else:
-            drawing.add(Line(4.8, 3.8, 8.0, 5.4, strokeColor=colors.black, strokeWidth=1))
-            drawing.add(Line(8.0, 5.4, 11.2, 3.8, strokeColor=colors.black, strokeWidth=1))
-
-        return drawing
-
     def _table_rows(self, document: ExpectedHorizonDocument) -> list[list[Paragraph]]:
-        rows: list[list[Paragraph]] = [
-            [
-                Paragraph("Datum", self._header_style),
-                Paragraph("Ich kann ...", self._header_style),
-                self._face_symbol("happy"),
-                self._face_symbol("neutral"),
-                self._face_symbol("sad"),
-            ]
+        """Baut Kopfzeile, ggf. Abschnittsüberschriften und Zielzeilen der Tabelle.
+
+        Mit ``with_task_column`` erhält jede Zeile ganz rechts eine leere
+        „Aufgaben“-Zelle zum handschriftlichen Ausfüllen.
+        """
+        task_column = self._layout.with_task_column
+        header = [
+            Paragraph("Datum", self._header_style),
+            Paragraph("Ich kann ...", self._header_style),
+            face_symbol("happy"),
+            face_symbol("neutral"),
+            face_symbol("sad"),
         ]
+        if task_column:
+            header.append(Paragraph("Aufgaben", self._header_style))
+        rows: list[list[Paragraph]] = [header]
+        empty_tail = [Paragraph("", self._cell_style) for _ in range(4 if task_column else 3)]
 
         with_headings = len(document.sections) > 1
         for section in document.sections:
             if with_headings:
-                rows.append([Paragraph(escape(section.oberthema), self._section_style), "", "", "", ""])
+                rows.append([Paragraph(escape(section.oberthema), self._section_style)] + [""] * (len(header) - 1))
             for line in section.rows:
                 if line.kind == GoalKind.STUNDENZIEL:
                     text_style = self._cell_bold_style
@@ -149,9 +145,7 @@ class ExpectedHorizonPdfRenderer:
                     [
                         Paragraph(str(line.datum or ""), text_style),
                         Paragraph(str(line.ich_kann or ""), text_style),
-                        Paragraph("", self._cell_style),
-                        Paragraph("", self._cell_style),
-                        Paragraph("", self._cell_style),
+                        *empty_tail,
                     ]
                 )
 
@@ -169,11 +163,18 @@ class ExpectedHorizonPdfRenderer:
             row_index += 1 + len(section.rows)
         return indices
 
-    @staticmethod
-    def _column_widths(frame_width: float) -> list[float]:
-        # Breite Schwerpunktspalte + engere Bewertungs-Spalten.
-        factors = [0.10, 0.64, 0.08, 0.08, 0.08]
-        return [frame_width * factor for factor in factors]
+    def _column_widths(self, frame_width: float) -> list[float]:
+        """Spaltenbreiten: Datum, breite „Ich kann“-Spalte, drei Smiley-Spalten, ggf. „Aufgaben“.
+
+        Die Datumsspalte wächst mit der Schriftgröße, damit ``TT.MM.JJ`` nicht
+        umbricht (~3.9 em plus Innenabstand); die „Ich kann“-Spalte nimmt den Rest.
+        """
+        date_width = max(frame_width * 0.10, 3.9 * self._layout.font_size + 12)
+        if self._layout.with_task_column:
+            tail = [frame_width * 0.07] * 3 + [frame_width * 0.20]
+        else:
+            tail = [frame_width * 0.08] * 3
+        return [date_width, frame_width - date_width - sum(tail), *tail]
 
     def _odd_frame(self) -> Frame:
         width = self._PAGE_WIDTH - self._INNER_BINDING_MARGIN - self._OUTER_MARGIN
@@ -211,13 +212,21 @@ class ExpectedHorizonPdfRenderer:
         output_path: Path,
         *,
         reconciled: ReconciledHorizon | None = None,
+        layout: ExpectedHorizonPdfLayout | None = None,
     ) -> None:
         """Schreibt den Kompetenzhorizont als PDF.
 
         ``reconciled`` wird bewusst ignoriert: Das PDF hat keine
         Bewertungsspalten und zeigt immer den frischen Stand ohne entfallene Ziele.
+
+        Args:
+            document: Render-DTO mit Sections.
+            output_path: Zielpfad.
+            reconciled: Ignoriert (siehe oben).
+            layout: Aufgaben-Spalte und Schriftgröße; ``None`` = Standardlayout.
         """
         del reconciled
+        self._apply_layout(layout or ExpectedHorizonPdfLayout())
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         pdf = BaseDocTemplate(

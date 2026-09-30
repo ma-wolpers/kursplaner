@@ -10,6 +10,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.expected_horizon import ExpectedHorizonLine, ExpectedHorizonSection, GoalKind
 from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
 from kursplaner.core.domain.expected_horizon_files import default_adhoc_horizon_filename
+from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPdfLayout
 from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon, reconcile
 from kursplaner.core.domain.oberthema_values import normalize_oberthemen
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
@@ -68,6 +69,7 @@ class ExpectedHorizonRendererPort(Protocol):
         output_path: Path,
         *,
         reconciled: ReconciledHorizon | None = None,
+        layout: ExpectedHorizonPdfLayout | None = None,
     ) -> None:
         """Schreibt das Dokument an den angegebenen Zielpfad.
 
@@ -77,6 +79,8 @@ class ExpectedHorizonRendererPort(Protocol):
             reconciled: Mit einer bestehenden Datei abgeglichene Sections
                 (übernommene Bewertungen); Formate ohne Bewertungsspalten (PDF)
                 ignorieren sie.
+            layout: PDF-Darstellungsoptionen (Aufgaben-Spalte, Schriftgröße);
+                ``None`` = Standardlayout. Markdown ignoriert sie.
         """
 
 
@@ -249,6 +253,7 @@ class ExportExpectedHorizonUseCase:
         output_path: Path,
         export_date: date,
         merge_source: Path | None = None,
+        layout: ExpectedHorizonPdfLayout | None = None,
     ) -> ExportExpectedHorizonResult:
         """Exportiert den Kompetenzhorizont der gewählten Oberthemen bis zum Stichtag.
 
@@ -262,6 +267,8 @@ class ExportExpectedHorizonUseCase:
             export_date: Exportdatum.
             merge_source: Bestehende KH-Datei, deren Bewertungen übernommen werden
                 (nur mit injiziertem Leser wirksam); ``None`` = kein Merge.
+            layout: PDF-Darstellungsoptionen, unverändert an den Renderer
+                durchgereicht; ``None`` = Standardlayout.
 
         Raises:
             RuntimeError: Bei leerer Auswahl oder wenn keine Stunden einfließen.
@@ -289,7 +296,7 @@ class ExportExpectedHorizonUseCase:
             sections=sections,
         )
 
-        self._renderer.render(document, output_path, reconciled=self._reconcile(document, merge_source))
+        self._renderer.render(document, output_path, reconciled=self._reconcile(document, merge_source), layout=layout)
         return ExportExpectedHorizonResult(
             output_path=output_path,
             title=title,

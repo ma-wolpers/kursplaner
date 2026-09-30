@@ -58,8 +58,11 @@ class ExpectedHorizonExportFlow:
         self._run_tracked_write = run_tracked_write
         self._refresh_after_write = refresh_after_write
 
-    def _ask_topics(self, options) -> list[str] | None:
-        return ask_expected_horizon_topics(self._app, options, theme_key=self._app.theme_var.get())
+    def _ask_topics(self, options, *, with_pdf_layout: bool):
+        """Öffnet den Themendialog; bei PDF-Ausgabe zusätzlich mit den PDF-Layout-Optionen."""
+        return ask_expected_horizon_topics(
+            self._app, options, theme_key=self._app.theme_var.get(), with_pdf_layout=with_pdf_layout
+        )
 
     def _ask_path(self, *, title: str, default: Path, extension: str, label: str) -> Path | None:
         selected = filedialog.asksaveasfilename(
@@ -87,9 +90,10 @@ class ExpectedHorizonExportFlow:
             messagebox.showerror(_LZK_TITLE, str(exc), parent=self._app)
             return
 
-        selection = self._ask_topics(proposal.options)
-        if not selection:
+        choice = self._ask_topics(proposal.options, with_pdf_layout=True)
+        if choice is None or not choice.topics:
             return
+        selection = choice.topics
         default = proposal.default_markdown_path(selection, now=datetime.now())
         markdown_path = self._ask_path(title=_LZK_TITLE, default=default, extension=".md", label="Markdown")
         if markdown_path is None:
@@ -105,6 +109,7 @@ class ExpectedHorizonExportFlow:
                     selection=selection,
                     markdown_path=markdown_path,
                     export_date=date.today(),
+                    pdf_layout=choice.pdf_layout,
                 ),
                 # History capture is text-based; tracking binary PDFs would crash UTF-8 decoding.
                 extra_before=[markdown_path],
@@ -153,9 +158,10 @@ class ExpectedHorizonExportFlow:
             messagebox.showerror(_ADHOC_TITLE, str(exc), parent=self._app)
             return
 
-        selection = self._ask_topics(options)
-        if not selection:
+        choice = self._ask_topics(options, with_pdf_layout=is_pdf)
+        if choice is None or not choice.topics:
             return
+        selection = choice.topics
         extension = ".pdf" if is_pdf else ".md"
         topics = options.ordered_selection(selection)
         default = usecase.default_adhoc_output_path(
@@ -177,6 +183,7 @@ class ExpectedHorizonExportFlow:
                 export_date=date.today(),
                 # Eine bereits existierende Zieldatei ist Merge-Quelle (der Leser liefert sonst []).
                 merge_source=output_path,
+                layout=choice.pdf_layout,
             )
         except Exception as exc:
             messagebox.showerror(_ADHOC_TITLE, str(exc), parent=self._app)

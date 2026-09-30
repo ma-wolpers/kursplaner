@@ -9,6 +9,8 @@ import pytest
 
 from kursplaner.adapters.gui import expected_horizon_export_flow as flow_module
 from kursplaner.adapters.gui.expected_horizon_export_flow import ExpectedHorizonExportFlow
+from kursplaner.adapters.gui.expected_horizon_topic_dialog import ExpectedHorizonDialogResult
+from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPdfLayout
 
 
 class _Var:
@@ -29,8 +31,13 @@ class _Recorder:
 @pytest.fixture
 def dialogs(monkeypatch, tmp_path):
     """Ersetzt Themen-, Speichern- und Meldungsdialoge durch steuerbare Fakes."""
-    state = SimpleNamespace(topics=["A"], save_path=str(tmp_path / "KH.md"), messages=[])
-    monkeypatch.setattr(flow_module, "ask_expected_horizon_topics", lambda *_a, **_k: state.topics)
+    state = SimpleNamespace(topics=["A"], layout=None, save_path=str(tmp_path / "KH.md"), messages=[], dialog_kwargs=[])
+
+    def _ask(*_args, **kwargs):
+        state.dialog_kwargs.append(kwargs)
+        return None if state.topics is None else ExpectedHorizonDialogResult(state.topics, state.layout)
+
+    monkeypatch.setattr(flow_module, "ask_expected_horizon_topics", _ask)
     monkeypatch.setattr(flow_module.filedialog, "asksaveasfilename", lambda **_k: state.save_path)
     for name in ("showinfo", "showwarning", "showerror"):
         monkeypatch.setattr(
@@ -100,6 +107,53 @@ def test_lzk_export_passes_raw_day_columns_including_hidden_ones(tmp_path, dialo
     assert call["selection"] == ["A"]
     assert call["markdown_path"] == Path(dialogs.save_path).resolve()
     assert dialogs.messages[-1][0] == "showinfo"
+
+
+def test_lzk_export_asks_pdf_layout_and_passes_it_on(tmp_path, dialogs):
+    app = _app(tmp_path)
+    lzk = _LzkUseCase(tmp_path)
+    dialogs.layout = ExpectedHorizonPdfLayout(with_task_column=True, font_size=11)
+
+    _flow(app, lzk).export_lzk(anchor_row_index=1, selected_index=0)
+
+    assert dialogs.dialog_kwargs[0]["with_pdf_layout"] is True
+    assert lzk.execute_calls[0]["pdf_layout"] == dialogs.layout
+
+
+class _AdhocUseCase:
+    def __init__(self):
+        self.execute_calls: list[dict] = []
+
+    def default_adhoc_output_path(self, table, **_kwargs):
+        return table.markdown_path.parent / "KH.pdf"
+
+    def execute(self, **kwargs):
+        self.execute_calls.append(kwargs)
+        return SimpleNamespace(output_path=kwargs["output_path"], oberthemen=("A",), row_count=1)
+
+
+def _adhoc_flow(app, usecase):
+    query = SimpleNamespace(query=lambda **_k: SimpleNamespace(ordered_selection=lambda sel: tuple(sel), cutoff=None))
+    return ExpectedHorizonExportFlow(
+        app,
+        lzk_usecase=None,
+        markdown_usecase=usecase,
+        pdf_usecase=usecase,
+        topic_query=query,
+        run_tracked_write=lambda **_k: None,
+        refresh_after_write=lambda **_k: None,
+    )
+
+
+@pytest.mark.parametrize(("output_format", "expects_layout"), [("pdf", True), ("markdown", False)])
+def test_adhoc_export_asks_pdf_layout_only_for_pdf(tmp_path, dialogs, output_format, expects_layout):
+    usecase = _AdhocUseCase()
+    dialogs.layout = ExpectedHorizonPdfLayout(font_size=8) if expects_layout else None
+
+    _adhoc_flow(_app(tmp_path), usecase).export_adhoc(anchor_row_index=1, output_format=output_format)
+
+    assert dialogs.dialog_kwargs[0]["with_pdf_layout"] is expects_layout
+    assert usecase.execute_calls[0]["layout"] == dialogs.layout
 
 
 def test_cancelling_topic_dialog_aborts_export(tmp_path, dialogs):
