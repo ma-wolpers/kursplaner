@@ -22,7 +22,7 @@ def test_ctrl_enter_emits_column_intent_in_column_mode(monkeypatch):
     builder = ScreenBuilder(app)
 
     monkeypatch.setattr(
-        "kursplaner.adapters.gui.screen_builder.ScrollablePopupWindow.has_active_popup",
+        "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",
         staticmethod(lambda: False),
     )
 
@@ -41,7 +41,7 @@ def test_ctrl_enter_emits_edit_intent_outside_column_mode(monkeypatch):
     builder = ScreenBuilder(app)
 
     monkeypatch.setattr(
-        "kursplaner.adapters.gui.screen_builder.ScrollablePopupWindow.has_active_popup",
+        "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",
         staticmethod(lambda: False),
     )
 

@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-10-01) — `screen_builder.py` in Mixins aufgeteilt (Dateigrößen-Regel)
+
+- Reine Verschiebung, Methodenrümpfe unverändert: `ScreenBuilder` erbt jetzt von `ScreenKeyHandlersMixin`,
+  `ScreenShortcutDebugMixin`, `ScreenShortcutsMixin`, `ScreenMenusMixin`, `ScreenToolbarMixin`
+  (Module `adapters/gui/_screen_*.py`). Code-Zeilen: 996 → 271 (+104/146/131/218/136).
+- Ausnahme-Eintrag in `ARCHITEKTUR_KERN.md` entfernt. Tests patchen `ScrollablePopupWindow` jetzt in
+  `popup_window` statt über `screen_builder` (der Name wird dort nicht mehr nachgeschlagen).
+
 ### Added (2026-09-30) — KH-PDF: Aufgaben-Spalte und Schriftgröße
 
 - Neuer Wertetyp `core/domain/expected_horizon_pdf_layout.py::ExpectedHorizonPdfLayout` (`with_task_column`,

@@ -19,11 +19,11 @@ def test_escape_is_blocked_when_popup_is_active(monkeypatch):
     closed = {"value": False}
 
     monkeypatch.setattr(
-        "kursplaner.adapters.gui.screen_builder.ScrollablePopupWindow.has_active_popup",
+        "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",
         staticmethod(lambda: True),
     )
     monkeypatch.setattr(
-        "kursplaner.adapters.gui.screen_builder.ScrollablePopupWindow.close_active_popup",
+        "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.close_active_popup",
         staticmethod(lambda: closed.__setitem__("value", True) or True),
     )
 
@@ -40,7 +40,7 @@ def test_escape_delegates_to_intent_when_no_popup_is_active(monkeypatch):
     builder = ScreenBuilder(app)
 
     monkeypatch.setattr(
-        "kursplaner.adapters.gui.screen_builder.ScrollablePopupWindow.has_active_popup",
+        "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",
         staticmethod(lambda: False),
     )
 
