@@ -79,7 +79,7 @@ def test_plan_overview_exposes_next_ub_display(tmp_path):
         encoding="utf-8",
     )
 
-    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    ub_root = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs"
     ub_root.mkdir(parents=True)
     ub_path = ub_root / "UB 26-05-18 Funktionen.md"
     ub_path.write_text(
@@ -139,7 +139,7 @@ def test_plan_overview_next_ub_without_langentwurf_has_no_plus(tmp_path):
         encoding="utf-8",
     )
 
-    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    ub_root = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs"
     ub_root.mkdir(parents=True)
     ub_path = ub_root / "UB 26-05-18 Funktionen.md"
     ub_path.write_text(
@@ -199,7 +199,7 @@ def test_plan_overview_falls_back_to_row_date_when_ub_stem_has_no_date(tmp_path)
         encoding="utf-8",
     )
 
-    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    ub_root = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs"
     ub_root.mkdir(parents=True)
     ub_path = ub_root / "UB Sonderbesuch.md"
     ub_path.write_text(
@@ -268,7 +268,7 @@ def test_plan_overview_next_ub_uses_start_time_of_ub_date_not_row_date(tmp_path)
         encoding="utf-8",
     )
 
-    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    ub_root = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs"
     ub_root.mkdir(parents=True)
     ub_path = ub_root / f"{ub_stem}.md"
     ub_path.write_text(

@@ -41,7 +41,7 @@ def _table(plan_path: Path, lesson_stem: str) -> PlanTableData:
 
 def test_mark_unit_as_ub_creates_ub_file_updates_lesson_and_overview(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"
@@ -84,7 +84,7 @@ def test_mark_unit_as_ub_creates_ub_file_updates_lesson_and_overview(tmp_path):
 def test_mark_unit_as_ub_writes_no_jahrgangsstufe_field(tmp_path):
     """UB-Dateien tragen keine eigene Jahrgangsstufe mehr (Single Source of Truth: Kurs-`Stufe`)."""
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"
@@ -113,7 +113,7 @@ def test_mark_unit_as_ub_writes_no_jahrgangsstufe_field(tmp_path):
 
 def test_mark_unit_as_ub_rejects_non_unterricht(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 LZK.md"
@@ -141,7 +141,7 @@ def test_mark_unit_as_ub_rejects_non_unterricht(tmp_path):
 
 def test_mark_unit_as_ub_uses_lesson_file_title_for_ub_stem(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 02-06 Fach-Diagnose.md"
@@ -174,7 +174,7 @@ def test_mark_unit_as_ub_uses_lesson_file_title_for_ub_stem(tmp_path):
 
 def test_mark_unit_as_ub_allows_zusatzbesuch_without_domain_selection(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Zusatzbesuch.md"

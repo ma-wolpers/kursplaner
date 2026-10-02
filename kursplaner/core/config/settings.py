@@ -3,8 +3,8 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parents[3]
 WORKSPACE_ROOT = SCRIPT_DIR.parents[1]
 
-DEFAULT_UNTERRICHT_DIR = WORKSPACE_ROOT / "7thVault" / "🏫 Pädagogik" / "1 Unterricht"
-DEFAULT_BAUKASTEN_DIR = WORKSPACE_ROOT / "7thVault" / "🏫 Pädagogik" / "30 Baukasten"
+DEFAULT_UNTERRICHT_DIR = WORKSPACE_ROOT / "7thVault" / "Pädagogik" / "1 Unterricht"
+DEFAULT_BAUKASTEN_DIR = WORKSPACE_ROOT / "7thVault" / "Pädagogik" / "30 Baukasten"
 DEFAULT_FACHINHALTE_DIR = DEFAULT_BAUKASTEN_DIR / "34 Fachinhalte"
 DEFAULT_FACHDIDAKTIK_DIR = DEFAULT_BAUKASTEN_DIR / "33 Fachdidaktik"
 DEFAULT_MATERIALIEN_DIR = DEFAULT_BAUKASTEN_DIR / "32 Materialien"

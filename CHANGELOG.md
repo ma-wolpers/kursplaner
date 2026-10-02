@@ -28,6 +28,7 @@ The format is based on Keep a Changelog.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
 ### Fixed
+- **Vault-Ordner „Pädagogik“ ohne Emoji**: Die Standardpfade (Unterricht, Baukasten, UB-Ablage `00 Orga/02 UBs`) zeigen jetzt auf den umbenannten Vault-Ordner `Pädagogik` statt `🏫 Pädagogik`.
 - **„Lange Zeilen aufgeklappt“ im Ansicht-Menü hatte keine Wirkung**: Der Menüeintrag hat den Zustand nie umgeschaltet. Jetzt klappt er lange Zeilen wie beschriftet auf und zu.
 - **Kompetenzhorizont enthielt Stunden nach der LZK**: Bisher flossen alle Unterrichtsstunden eines Oberthemas ein, auch spätere. Jetzt zählen nur Stunden vor der LZK (bzw. bis einschließlich der gewählten Stunde); Stunden ohne Datum fließen nicht ein.
 - **Ausgeblendete Spalten fehlten im Kompetenzhorizont**: Waren Spalten über „Spalten…“ ausgeblendet, fehlten deren Ziele im Kompetenzhorizont. Der Export berücksichtigt jetzt immer alle Einheiten.

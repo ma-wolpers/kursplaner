@@ -41,7 +41,7 @@ def _table(plan_path: Path, lesson_stem: str) -> PlanTableData:
 
 def test_remove_unit_ub_link_clears_lesson_reference_and_keeps_ub_file(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"
@@ -83,7 +83,7 @@ def test_remove_unit_ub_link_clears_lesson_reference_and_keeps_ub_file(tmp_path)
 
 def test_remove_unit_ub_link_can_delete_ub_file(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"

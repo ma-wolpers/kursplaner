@@ -57,7 +57,7 @@ def _write_lesson(path: Path, ub_link: str) -> None:
 
 def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
     workspace_root = tmp_path / "7thCloud"
-    plan_dir = workspace_root / "7thVault" / "🏫 Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
     plan_dir.mkdir(parents=True)
 
     lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"

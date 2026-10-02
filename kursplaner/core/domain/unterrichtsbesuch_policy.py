@@ -10,7 +10,7 @@ UB_KIND_FACH = "Fach"
 UB_KIND_VALUES: tuple[str, ...] = (UB_KIND_PAEDAGOGIK, UB_KIND_FACH)
 
 UB_OVERVIEW_FILE_NAME = "UB Übersicht.md"
-UB_ROOT_RELATIVE_PARTS: tuple[str, ...] = ("7thVault", "🏫 Pädagogik", "00 Orga", "02 UBs")
+UB_ROOT_RELATIVE_PARTS: tuple[str, ...] = ("7thVault", "Pädagogik", "00 Orga", "02 UBs")
 
 UB_YAML_KEY_BEREICH = "Bereich"
 UB_YAML_KEY_LANGENTWURF = "Langentwurf"

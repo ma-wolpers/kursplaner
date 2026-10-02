@@ -127,7 +127,7 @@ def test_rebuild_file_relation_registry_collects_plan_links_and_sequences(tmp_pa
     expected_ub = (
         workspace_root
         / "7thVault"
-        / "🏫 Pädagogik"
+        / "Pädagogik"
         / "00 Orga"
         / "02 UBs"
         / "UB 26-03-10 Funktionen.md"

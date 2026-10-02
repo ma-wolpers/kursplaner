@@ -31,7 +31,7 @@ Ziel: Verhindern, dass nur ein Teil (z. B. nur README oder nur Code) geaendert w
 `README.md`
 
 6. Vault-Bestandsaufnahme (Ist-Dateien):
-`7thVault/🏫 Pädagogik/10 Unterricht/YAML-Tags Einheitendateien.md`
+`7thVault/Pädagogik/10 Unterricht/YAML-Tags Einheitendateien.md`
 
 ## Verbindliche Regel
 
@@ -52,7 +52,7 @@ Aenderungen an YAML-Schema oder Dateinamen gelten nur dann als fertig, wenn alle
 6. README aktualisieren:
 `README.md`
 7. Vault-Uebersicht aktualisieren:
-`7thVault/🏫 Pädagogik/10 Unterricht/YAML-Tags Einheitendateien.md`
+`7thVault/Pädagogik/10 Unterricht/YAML-Tags Einheitendateien.md`
 8. Migration planen/ausfuehren fuer bestehende Dateien (falls notwendig):
 einmaliges Migrationsskript im jeweiligen Branch (nicht als dauerhafte Projektabhaengigkeit)
 9. Validieren:

@@ -36,7 +36,7 @@ def _write_ub(path: Path, *, domains: list[str], langentwurf: bool, einheit: str
 
 def test_query_ub_plan_splits_upcoming_and_past(tmp_path, monkeypatch):
     workspace_root = tmp_path / "7thCloud"
-    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    ub_root = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs"
     unterricht_root = workspace_root / "7thVault" / "Unterricht"
     unterricht_root.mkdir(parents=True)
 
@@ -100,7 +100,7 @@ def test_query_ub_plan_uses_configured_cutoff_instead_of_hardcoded_default(tmp_p
     hinterlegt hat.
     """
     workspace_root = tmp_path / "7thCloud"
-    ub_root = workspace_root / "7thVault" / "🏫 Pädagogik" / "00 Orga" / "02 UBs"
+    ub_root = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs"
     unterricht_root = workspace_root / "7thVault" / "Unterricht"
     unterricht_root.mkdir(parents=True)
 
