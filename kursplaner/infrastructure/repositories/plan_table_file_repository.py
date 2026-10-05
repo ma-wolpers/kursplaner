@@ -10,6 +10,7 @@ from kursplaner.core.domain.lesson_directory import (
     managed_lesson_dir_names,
     resolve_lesson_dir,
 )
+from kursplaner.core.domain.lesson_files import BLATTWERK_MARKER_KEY, lesson_stems, resolve_lesson_file
 from kursplaner.core.domain.lesson_naming import generate_random_lesson_stem
 from kursplaner.core.domain.lesson_yaml_policy import (
     allowed_keys_for_type,
@@ -69,19 +70,17 @@ def _resolve_hours_link(plan_path: Path, content: str) -> Path | None:
     if not target:
         return None
 
-    if not target.endswith(".md"):
-        target += ".md"
-
-    candidate = (plan_path.parent / target).resolve()
-    if candidate.exists() and candidate.is_file():
+    # Ziel ohne Endung: `.md`, dann `.ebw` (Blattwerk-Kurzentwurf), siehe `lesson_files`.
+    candidate = resolve_lesson_file(plan_path.parent, target)
+    if candidate is not None:
         return candidate
 
     target_lower = target.lower()
     managed_prefixes = tuple(f"{name.lower()}/" for name in managed_lesson_dir_names())
     if not target_lower.startswith(managed_prefixes):
         for dir_name in managed_lesson_dir_names():
-            alt = (plan_path.parent / dir_name / target).resolve()
-            if alt.exists() and alt.is_file():
+            alt = resolve_lesson_file(plan_path.parent / dir_name, target)
+            if alt is not None:
                 return alt
 
     return None
@@ -127,15 +126,25 @@ def validate_managed_markdown_yaml(base_dir: Path):
             _parse_yaml_frontmatter(link_path)
 
 
-def _render_yaml_frontmatter(data: dict[str, object]) -> str:
+def _render_yaml_frontmatter(data: dict[str, object], *, blattwerk_marker: object = None) -> str:
     """Rendert die Lesson-Frontmatter mit Stundentyp-abhängiger Schlüsselauswahl.
 
     Dünner Wrapper um die zentrale `yaml_registry.render_yaml_frontmatter` —
     nur die Lesson-spezifische Policy (welche Keys, in welcher Reihenfolge)
     lebt hier, die Rendering-Mechanik selbst ist zentralisiert.
+
+    Args:
+        data: Lesson-YAML (wird kanonisiert).
+        blattwerk_marker: Wert von ``document_type`` aus der Datei auf der
+            Platte. Ist er ein nicht-leerer String, wird er als letzte Zeile
+            unverändert durchgereicht, damit Blattwerk-Kurzentwürfe (``.ebw``)
+            ihren Pflicht-Marker beim Speichern im Kursplaner behalten.
     """
     canonical = canonicalize_lesson_yaml(data)
-    ordered_keys = allowed_keys_for_type(infer_stundentyp(canonical))
+    ordered_keys = list(allowed_keys_for_type(infer_stundentyp(canonical)))
+    if isinstance(blattwerk_marker, str) and blattwerk_marker.strip():
+        canonical[BLATTWERK_MARKER_KEY] = blattwerk_marker.strip()
+        ordered_keys.append(BLATTWERK_MARKER_KEY)
     return render_yaml_frontmatter(ordered_keys, canonical)
 
 
@@ -188,7 +197,7 @@ def save_linked_lesson_yaml(lesson: LessonYamlData, *, repair_oberthema: bool = 
         normalized.get(OBERTHEMA_KEY),
         repair=repair_oberthema,
     )
-    frontmatter = _render_yaml_frontmatter(normalized)
+    frontmatter = _render_yaml_frontmatter(normalized, blattwerk_marker=on_disk_data.get(BLATTWERK_MARKER_KEY))
     atomic_write_text(lesson.lesson_path, frontmatter + body, encoding="utf-8")
 
 
@@ -216,10 +225,8 @@ def create_linked_lesson_file(
     plan_dir = plan_table.markdown_path.parent
     stunden_dir = resolve_lesson_dir(plan_dir, create_if_missing=True)
 
-    existing_stems = {p.stem for p in stunden_dir.glob("*.md")}
-    archive_dir = plan_dir / LESSON_DIR_ARCHIVE
-    if archive_dir.exists():
-        existing_stems |= {p.stem for p in archive_dir.glob("*.md")}
+    # Kollisionsfrei auch gegenüber `.ebw`-Stunden (gleicher Stem = gleicher Link).
+    existing_stems = lesson_stems(stunden_dir) | lesson_stems(plan_dir / LESSON_DIR_ARCHIVE)
 
     new_stem = generate_random_lesson_stem(existing_stems)
     candidate = stunden_dir / f"{new_stem}.md"

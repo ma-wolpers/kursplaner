@@ -108,10 +108,17 @@ class LessonTransferUseCase:
         prefix = current.strip()
         table.set_inhalt(row_index, f"{prefix} {link}".strip() if prefix else link)
 
-    def next_unique_stem_path(self, target_dir: Path, preferred_stem: str) -> Path:
-        """Erzeugt einen kollisionsfreien Zielpfad aus einem bevorzugten Titelstem."""
+    def next_unique_stem_path(self, target_dir: Path, preferred_stem: str, suffix: str = ".md") -> Path:
+        """Erzeugt einen kollisionsfreien Zielpfad aus einem bevorzugten Titelstem.
+
+        Args:
+            target_dir: Zielverzeichnis.
+            preferred_stem: Wunsch-Stem.
+            suffix: Endung der Quelle (``.md``/``.ebw``), damit eine eingefügte
+                Kurzentwurf-Stunde ``.ebw`` bleibt.
+        """
         stem_base = sanitize_hour_title(preferred_stem) or "Stunde"
-        return self.lesson_file_repo.unique_markdown_path(target_dir, stem_base)
+        return self.lesson_file_repo.unique_markdown_path(target_dir, stem_base, suffix=suffix)
 
     def write_pasted_lesson(
         self,
@@ -159,7 +166,9 @@ class LessonTransferUseCase:
             return link
 
         stunden_dir = link.parent
-        return self.lesson_file_repo.unique_markdown_path(stunden_dir, target_stem, current_path=link)
+        return self.lesson_file_repo.unique_markdown_path(
+            stunden_dir, target_stem, current_path=link, suffix=link.suffix or ".md"
+        )
 
     def rename_lesson_file(self, link: Path, target: Path) -> Path:
         """Benennt eine Stunden-Datei um und liefert den finalen Pfad zurück."""

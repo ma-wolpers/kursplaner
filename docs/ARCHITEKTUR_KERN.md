@@ -1085,3 +1085,8 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
 - **GUI-Schnitt:** `adapters/gui/expected_horizon_export_flow.py` orchestriert nur (Dialoge + Use-Case-Aufrufe);
   Stichtag, Reihenfolge, Identität, Default-Pfad, Link-Form und Merge-Quelle entscheiden die Use Cases.
 
+## 32) Stundendatei-Endungen (verbindlich)
+
+- Stundendateien sind `.md` oder `.ebw` (Blattwerk-Kurzentwurf; Blattwerk erkennt den Typ nur an der Endung). Einzige Regel: `core/domain/lesson_files.py`; kein `glob("*.md")` und kein fest angehängtes `.md` für Stunden außerhalb davon.
+- Linkauflösung ohne Endung: `.md` vor `.ebw`. Neue Stunden: `.md` (`DEFAULT_LESSON_SUFFIX`). Umbenennen/Verschieben/Einfügen erhalten die Endung der Quelle.
+- Frontmatter-Kanonisierung bleibt exakt je Stundentyp; einzige Ausnahme ist `document_type` (Blattwerk-Konsistenzmarker), der beim Speichern unverändert von der Platte durchgereicht wird.

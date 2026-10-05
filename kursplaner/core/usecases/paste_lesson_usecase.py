@@ -230,18 +230,21 @@ class PasteLessonUseCase:
 
         raise RuntimeError(f"Unbekannte Konfliktentscheidung: {decision}")
 
-    def build_execution_plan(self, table: PlanTableData, preferred_stem: str) -> PasteExecutionPlan:
+    def build_execution_plan(
+        self, table: PlanTableData, preferred_stem: str, suffix: str = ".md"
+    ) -> PasteExecutionPlan:
         """Berechnet den konkreten Zielpfad und den neuen Link-Stem fürs Einfügen.
 
         Args:
             table: Planungstabelle.
             preferred_stem: Wunsch-Stem für die neue Datei.
+            suffix: Endung der kopierten Quelle (``.md``/``.ebw``).
 
         Returns:
             Ausführungsplan mit konfliktfreiem Zielpfad.
         """
         stunden_dir = self.lesson_transfer.lesson_dir_for_table(table)
-        candidate = self.lesson_transfer.next_unique_stem_path(stunden_dir, preferred_stem)
+        candidate = self.lesson_transfer.next_unique_stem_path(stunden_dir, preferred_stem, suffix)
         return PasteExecutionPlan(target_path=candidate, relink_stem=candidate.stem)
 
     def apply_paste(

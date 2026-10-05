@@ -51,6 +51,7 @@ from kursplaner.core.config.path_store import (
 )
 from kursplaner.core.domain.kompetenzgraph_filter import build_initial_kompetenz_graph_filter
 from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
+from kursplaner.core.domain.lesson_files import list_lesson_files
 from kursplaner.core.domain.models import StartRequest, StartResult
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEOBACHTUNG,
@@ -379,9 +380,7 @@ class MainWindowActionController:
                 linked_paths.add(link.resolve())
 
         shadow_files: list[pathlib.Path] = []
-        for candidate in sorted(lesson_dir.glob("*.md"), key=lambda item: item.name.lower()):
-            if not candidate.is_file():
-                continue
+        for candidate in list_lesson_files(lesson_dir):
             resolved = candidate.resolve()
             if resolved in linked_paths:
                 continue
@@ -1536,7 +1535,7 @@ class MainWindowActionController:
         try:
             self._lesson_transfer_flow.validate_source(copied)
             content = self._lesson_transfer_flow.read_source_content(copied)
-            plan = self._lesson_transfer_flow.build_execution_plan(self.app.current_table, copied.stem)
+            plan = self._lesson_transfer_flow.build_execution_plan(self.app.current_table, copied.stem, copied.suffix or ".md")
         except Exception as exc:
             messagebox.showerror("Einfügen", str(exc), parent=self.app)
             return

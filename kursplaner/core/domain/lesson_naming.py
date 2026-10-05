@@ -53,7 +53,7 @@ def generate_random_lesson_stem(existing_stems: set[str]) -> str:
 
     Args:
         existing_stems: Menge aller bereits vergebenen Stems (ohne Dateiendung),
-            z. B. aus ``{p.stem for p in einheiten_dir.glob("*.md")}``.
+            z. B. aus ``lesson_files.lesson_stems(einheiten_dir)`` (`.md` und `.ebw`).
 
     Returns:
         Stem-String der Form ``"md38md"`` (6 Zeichen aus ``[a-z0-9]``).

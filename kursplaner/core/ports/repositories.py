@@ -433,13 +433,14 @@ class LessonFileRepository(Protocol):
     """
 
     def is_existing_markdown(self, path: Path) -> bool:
-        """Prüft, ob ein Pfad auf eine vorhandene Markdown-Datei zeigt.
+        """Prüft, ob ein Pfad auf eine vorhandene Stundendatei zeigt.
 
         Args:
             path: Zu prüfender Dateipfad.
 
         Returns:
-            ``True``, wenn die Datei existiert, eine Datei ist und ``.md`` endet.
+            ``True``, wenn die Datei existiert, eine Datei ist und auf ``.md``
+            oder ``.ebw`` endet (siehe `core.domain.lesson_files`).
         """
         ...
 
@@ -524,16 +525,18 @@ class LessonFileRepository(Protocol):
         target_dir: Path,
         stem_base: str,
         current_path: Path | None = None,
+        suffix: str = ".md",
     ) -> Path:
-        """Ermittelt einen kollisionsfreien Markdown-Dateipfad.
+        """Ermittelt einen kollisionsfreien Stunden-Dateipfad.
 
         Args:
             target_dir: Zielverzeichnis.
             stem_base: Gewünschter Basis-Stem.
             current_path: Optionaler bestehender Pfad, der als gleichwertig gilt.
+            suffix: Endung des Ergebnisses (``.md`` oder ``.ebw``).
 
         Returns:
-            Kollisionsfreier Dateipfad mit ``.md``.
+            Kollisionsfreier Dateipfad mit der gewünschten Endung.
         """
         ...
 

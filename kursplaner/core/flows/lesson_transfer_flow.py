@@ -44,9 +44,11 @@ class LessonTransferFlow:
         """Liefert den aktuell verlinkten Zielpfad für Konfliktdialoge."""
         return self._paste_lesson.resolve_existing_target_link(table, row_index)
 
-    def build_execution_plan(self, table: PlanTableData, preferred_stem: str) -> PasteExecutionPlan:
-        """Berechnet den konfliktfreien Zielpfad fürs Einfügen."""
-        return self._paste_lesson.build_execution_plan(table, preferred_stem)
+    def build_execution_plan(
+        self, table: PlanTableData, preferred_stem: str, suffix: str = ".md"
+    ) -> PasteExecutionPlan:
+        """Berechnet den konfliktfreien Zielpfad fürs Einfügen (Endung `suffix` der Quelle bleibt erhalten)."""
+        return self._paste_lesson.build_execution_plan(table, preferred_stem, suffix)
 
     def execute_write(self, request: LessonTransferFlowWriteRequest) -> PasteWriteResult:
         """Führt den vollständigen Paste-Write-Flow aus."""

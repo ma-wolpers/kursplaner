@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-10-05) — `.ebw`-Stundendateien (Blattwerk-Kurzentwurf)
+
+- Neues Domain-Modul `core/domain/lesson_files.py` als einzige Regel "was ist eine Stundendatei" (`LESSON_FILE_SUFFIXES = (.md, .ebw)`, `resolve_lesson_file`, `list_lesson_files`, `lesson_stems`, `strip_lesson_suffix`).
+- Umgestellt: `_resolve_hours_link` (`.md` vor `.ebw`), `lesson_index_repository.rebuild_index`, Schattendateien im `action_controller`, Zufallsstem-Kollision in `create_linked_lesson_file`, `extract_wiki_link_target`, `is_existing_markdown`.
+- Endung bleibt erhalten: `unique_markdown_path(..., suffix=)`, `compute_rename_target`, Rename ohne Konfliktsuffix, Einfügen (`build_execution_plan(..., suffix)` aus der kopierten Quelle).
+- `save_linked_lesson_yaml` reicht `document_type` von der Platte als letzte Frontmatter-Zeile durch (sonst entfernt die Kanonisierung ihn, Blattwerk meldet dann FM009).
+- Anlass: Blattwerk-Migration der Vault-Einheiten mit Kurzentwurf-Struktur nach `.ebw`. Tests: `tests/test_lesson_files_ebw.py`.
+
 ### Changed (2026-10-01) — `screen_builder.py` in Mixins aufgeteilt (Dateigrößen-Regel)
 
 - Reine Verschiebung, Methodenrümpfe unverändert: `ScreenBuilder` erbt jetzt von `ScreenKeyHandlersMixin`,

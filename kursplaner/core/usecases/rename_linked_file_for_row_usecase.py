@@ -126,7 +126,7 @@ class RenameLinkedFileForRowUseCase:
             if not normalized_stem:
                 target = link
             else:
-                target = link.with_name(f"{normalized_stem}.md")
+                target = link.with_name(f"{normalized_stem}{link.suffix or '.md'}")
                 if target.exists() and target.resolve() != link.resolve():
                     return RenameLinkedFileResult(
                         proceed=False,

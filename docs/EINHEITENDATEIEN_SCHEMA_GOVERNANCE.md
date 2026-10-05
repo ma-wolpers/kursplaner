@@ -21,6 +21,9 @@ Ziel: Verhindern, dass nur ein Teil (z. B. nur README oder nur Code) geaendert w
 3. Dateibenennung (6-stelliger Zufallscode `[a-z0-9]{6}`, z. B. `ab12cd`):
 `kursplaner/core/domain/lesson_naming.py` → `generate_random_lesson_stem()`
 
+3b. Dateiendungen von Stundendateien (`.md`, Blattwerk-Kurzentwurf `.ebw`) und durchgereichter Blattwerk-Marker `document_type`:
+`kursplaner/core/domain/lesson_files.py`
+
 3a. Archivordner für vergangene Einheiten: `Alteinheiten/` (zweiter Suchpfad):
 `kursplaner/core/domain/lesson_directory.py` → `LESSON_DIR_ARCHIVE`, `managed_lesson_dir_names()`
 

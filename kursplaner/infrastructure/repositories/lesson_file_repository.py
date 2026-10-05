@@ -4,14 +4,15 @@ import shutil
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
+from kursplaner.core.domain.lesson_files import DEFAULT_LESSON_SUFFIX, is_lesson_file
 
 
 class FileSystemLessonFileRepository:
     """Dateibasierte Stunden-Dateioperationen für das Dateisystem."""
 
     def is_existing_markdown(self, path: Path) -> bool:
-        """Prüft, ob ein Pfad auf eine existierende Markdown-Datei zeigt."""
-        return path.suffix.lower() == ".md" and path.exists() and path.is_file()
+        """Prüft, ob ein Pfad auf eine existierende Stundendatei (``.md``/``.ebw``) zeigt."""
+        return is_lesson_file(path)
 
     def ensure_directory(self, path: Path) -> None:
         """Stellt sicher, dass ein Verzeichnis rekursiv existiert."""
@@ -53,11 +54,25 @@ class FileSystemLessonFileRepository:
         """Löscht eine Datei tolerant, falls sie nicht existiert."""
         path.unlink(missing_ok=True)
 
-    def unique_markdown_path(self, target_dir: Path, stem_base: str, current_path: Path | None = None) -> Path:
-        """Ermittelt einen kollisionsfreien Markdown-Pfad mit numerischem Suffix."""
-        candidate = target_dir / f"{stem_base}.md"
+    def unique_markdown_path(
+        self,
+        target_dir: Path,
+        stem_base: str,
+        current_path: Path | None = None,
+        suffix: str = DEFAULT_LESSON_SUFFIX,
+    ) -> Path:
+        """Ermittelt einen kollisionsfreien Stunden-Pfad mit numerischem Suffix.
+
+        Args:
+            target_dir: Zielverzeichnis.
+            stem_base: Gewünschter Basis-Stem.
+            current_path: Bestehender Pfad, der nicht als Kollision zählt.
+            suffix: Dateiendung des Ergebnisses (``.md`` oder ``.ebw``), damit
+                Umbenennen/Einfügen die Endung der Quelle erhält.
+        """
+        candidate = target_dir / f"{stem_base}{suffix}"
         number = 2
         while candidate.exists() and (current_path is None or candidate.resolve() != current_path.resolve()):
-            candidate = target_dir / f"{stem_base} {number}.md"
+            candidate = target_dir / f"{stem_base} {number}{suffix}"
             number += 1
         return candidate

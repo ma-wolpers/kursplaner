@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+from kursplaner.core.domain.lesson_files import strip_lesson_suffix
+
 
 def _normalize_component(value: str) -> str:
     """Normalizes a wiki-link component so malformed bracket input cannot break syntax."""
@@ -77,7 +79,7 @@ def extract_wiki_link_target(text: str) -> str:
     (`LoadPlanDetailUseCase._extract_primary_link_target`,
     `QueryUbPlanUseCase._extract_primary_link_target`). Bevorzugt bei
     Alias-Links (`[[ziel|alias]]`) das Ziel vor dem Alias, entfernt eine
-    ``.md``-Endung sowie einen ggf. vorhandenen Pfadanteil.
+    ``.md``- bzw. ``.ebw``-Endung sowie einen ggf. vorhandenen Pfadanteil.
 
     Example::
 
@@ -90,8 +92,7 @@ def extract_wiki_link_target(text: str) -> str:
     raw = match.group(1).strip()
     if "|" in raw:
         raw = raw.split("|", 1)[0].strip()
-    if raw.lower().endswith(".md"):
-        raw = raw[:-3].strip()
+    raw = strip_lesson_suffix(raw).strip()
     if "/" in raw or "\\" in raw:
         raw = raw.replace("\\", "/").split("/")[-1].strip()
     return raw

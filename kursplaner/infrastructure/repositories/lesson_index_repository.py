@@ -10,6 +10,7 @@ from typing import Dict, List
 from bw_libs.safe_read import read_or_default, read_text_or_default
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.domain.lesson_directory import managed_lesson_dir_names
+from kursplaner.core.domain.lesson_files import is_lesson_suffix
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.yaml_registry import LESSON_SCHEMA, parse_yaml_frontmatter
 from kursplaner.infrastructure.repositories.plan_table_file_repository import get_row_link_path
@@ -175,7 +176,7 @@ class FileSystemLessonIndexRepository:
                 if not stunden_dir.exists() or not stunden_dir.is_dir():
                     continue
                 for path in stunden_dir.iterdir():
-                    if path.suffix.lower() != ".md":
+                    if not is_lesson_suffix(path.suffix):
                         continue
                     scanned_files += 1
                     try:

@@ -77,6 +77,8 @@ Die verlinkten Einheiten-Dateien tragen die inhaltlichen Daten in YAML, z. B.:
 - `Kompetenzen` (Liste)
 - `Material` (Liste)
 
+Einheiten-Dateien enden auf `.md` oder – als Blattwerk-Kurzentwurf – auf `.ebw`. Beide werden gleich behandelt; ein Link `[[ab12cd]]` findet zuerst `ab12cd.md`, sonst `ab12cd.ebw`. Das Blattwerk-Feld `document_type` bleibt beim Speichern erhalten.
+
 ---
 
 ## Manager-Hauptfenster
