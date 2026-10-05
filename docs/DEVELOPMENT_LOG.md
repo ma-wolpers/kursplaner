@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-10-05) — Guardrail nach `screen_builder`-Aufteilung
+
+- `tools/ci/check_ai_guardrails.py` prueft die ScreenBuilder-Vertraege (Runtime-Shortcuts, Popup-Registry, Shared-Menu/Hover-Tooltip, Future-GUI-Entry-Snippets) jetzt ueber `_read_screen_builder_family()` = `screen_builder.py` + `_screen_*.py`. Seit dem Mixin-Split (7f4d194) lagen die geforderten Snippets in den Mixins, der Check schlug deshalb fehl. Mixin-Dateien zusaetzlich in `GUARDRAIL_RELEVANT_PATHS`.
+
 ### Added (2026-10-05) — `.ebw`-Stundendateien (Blattwerk-Kurzentwurf)
 
 - Neues Domain-Modul `core/domain/lesson_files.py` als einzige Regel "was ist eine Stundendatei" (`LESSON_FILE_SUFFIXES = (.md, .ebw)`, `resolve_lesson_file`, `list_lesson_files`, `lesson_stems`, `strip_lesson_suffix`).

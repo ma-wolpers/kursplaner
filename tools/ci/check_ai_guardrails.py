@@ -18,6 +18,11 @@ GUARDRAIL_RELEVANT_PATHS = {
     "docs/ARCHITEKTUR_UMSETZUNGSPLAN.md",
     "kursplaner/adapters/gui/main_window.py",
     "kursplaner/adapters/gui/screen_builder.py",
+    "kursplaner/adapters/gui/_screen_key_handlers.py",
+    "kursplaner/adapters/gui/_screen_menus.py",
+    "kursplaner/adapters/gui/_screen_shortcuts.py",
+    "kursplaner/adapters/gui/_screen_shortcut_debug.py",
+    "kursplaner/adapters/gui/_screen_toolbar.py",
     "kursplaner/adapters/gui/hover_tooltip.py",
     "kursplaner/core/config/path_store.py",
     "kursplaner/core/usecases/daily_course_log_usecase.py",
@@ -109,7 +114,7 @@ SHORTCUT_COVERAGE_SOFT_CHECKS = (
         "label": "shortcut-escape",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("SHORTCUT_ESCAPE", "shortcut.escape"),
-        "shortcut_paths": ("kursplaner/adapters/gui/screen_builder.py",),
+        "shortcut_paths": ("kursplaner/adapters/gui/screen_builder.py", "kursplaner/adapters/gui/_screen_shortcuts.py"),
         "shortcut_markers": ("intent=UiIntent.SHORTCUT_ESCAPE", "<Escape>"),
     },
 )
@@ -203,6 +208,29 @@ def _read(rel_path: str) -> str:
     if not path.exists():
         raise RuntimeError(f"Missing required file: {rel_path}")
     return path.read_text(encoding="utf-8")
+
+
+SCREEN_BUILDER_PATH = "kursplaner/adapters/gui/screen_builder.py"
+SCREEN_BUILDER_MIXIN_GLOB = "kursplaner/adapters/gui/_screen_*.py"
+
+
+def _read_screen_builder_family() -> str:
+    """Liest `screen_builder.py` samt seiner Mixin-Module als einen Prüftext.
+
+    `ScreenBuilder` ist seit 2026-10-01 auf Mixins (`_screen_key_handlers.py`,
+    `_screen_menus.py`, `_screen_shortcuts.py`, `_screen_shortcut_debug.py`,
+    `_screen_toolbar.py`) aufgeteilt (Dateigrößen-Regel). Die Verträge gelten
+    für die Klasse als Ganzes, deshalb prüfen die ScreenBuilder-Guardrails den
+    zusammengesetzten Text statt nur der Einstiegsdatei.
+
+    Returns:
+        Inhalt von `screen_builder.py`, gefolgt von allen Mixin-Dateien
+        (alphabetisch), jeweils durch eine Leerzeile getrennt.
+    """
+    parts = [_read(SCREEN_BUILDER_PATH)]
+    for mixin in sorted(ROOT.glob(SCREEN_BUILDER_MIXIN_GLOB)):
+        parts.append(mixin.read_text(encoding="utf-8"))
+    return "\n\n".join(parts)
 
 
 def _require_substring(text: str, needle: str, source: str, errors: list[str]) -> None:
@@ -563,7 +591,7 @@ def _check_undo_writeflow_guardrails(errors: list[str]) -> None:
 def _check_runtime_shortcut_integration(errors: list[str]) -> None:
     """Validate ScreenBuilder runtime shortcut and popup policy integration."""
 
-    screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
+    screen_builder = _read_screen_builder_family()
     _require_substring(
         screen_builder,
         "from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry",
@@ -606,7 +634,7 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
     absichtlich entfernten Stelle.
     """
 
-    screen_builder = _read("kursplaner/adapters/gui/screen_builder.py")
+    screen_builder = _read_screen_builder_family()
     for snippet in (
         "from bw_gui.menu import MenuItem as SharedMenuItem",
         "from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent",
@@ -655,7 +683,7 @@ def _check_future_gui_entry_contracts(errors: list[str]) -> None:
         if rel_path in FUTURE_GUI_ENTRY_BASELINES:
             continue
 
-        text = _read(rel_path)
+        text = _read_screen_builder_family() if rel_path.replace("\\", "/") == SCREEN_BUILDER_PATH else _read(rel_path)
         for snippet in FUTURE_GUI_REQUIRED_SHARED_SNIPPETS:
             _require_substring(text, snippet, rel_path, errors)
 
