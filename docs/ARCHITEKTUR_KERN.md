@@ -1025,6 +1025,13 @@ als optional-mit-Warnung — fehlt die Bibliothek in einer konkreten Umgebung, s
 App trotzdem, nur das Kompetenzgraph-Popup ist deaktiviert (`KOMPETENZGRAPH_YAML_AVAILABLE`-
 Guard in `wiring.py`, analog `REPORTLAB_AVAILABLE`).
 
+**Tool-Ausnahme (2026-10-06):** Das einmalige Upgrade-Werkzeug
+`tools/migrate_sequence_focus_competencies.py` nutzt PyYAML (eigener `SafeLoader`-Subtyp
+mit Duplikat-Erkennung), um die YAML-Typen der Altwerte exakt zu bestimmen und die
+Struktur vor dem Schreiben zu verifizieren — ohne selbstgebaute Typheuristik. Es liegt
+außerhalb des Pakets `kursplaner/`, wird von keinem Produktmodul importiert und nach dem
+bestätigten Migrationslauf wieder entfernt. Der Produkt-Parser bleibt unberührt.
+
 ---
 
 ## 30) Datenmodell `Oberthema` (verbindlich)

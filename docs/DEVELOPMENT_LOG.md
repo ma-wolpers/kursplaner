@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-10-06) — Migrationstool `Leitkompetenz` → `Leitkompetenzen`
+
+- Neues einmaliges Upgrade-Werkzeug `tools/migrate_sequence_focus_competencies.py` (`python -m tools.migrate_sequence_focus_competencies [--dry-run] [--no-archive] [--unterricht-dir]`), Vorbereitung des Hard Cuts auf `Leitkompetenzen` (YAML-Liste). Einziger Ort mit Wissen über den alten Key; wird nach bestätigtem Lauf entfernt.
+- Typbestimmung per PyYAML mit `_UniqueKeyLoader` (doppelte Keys → Konflikt statt „letzter gewinnt“). Text → genau ein Eintrag, `""`/`null` → leere Liste, Liste aus Texten → unverändert; jeder Eintrag muss `list_entry_violation` bestehen (kein Trimmen/Verwerfen). Konflikte: anderer Typ, Invariantenverstoß, Duplikat eines Keys, beide Keys, eingerückter Key, Backslash im Altwert (alte App las ihn wörtlich, PyYAML deutet Escapes), nicht parsebar (inkl. Tab vor/nach dem Wert), Abweichung Zeilen-Scan ↔ YAML-Struktur. Übersprungen: „bereits migriert“, „nicht betroffen“ (kein Key → nichts einfügen).
+- Ersetzt nur den Block des alten Keys; Strukturprüfung: neues Frontmatter muss exakt altes − `Leitkompetenz` + `Leitkompetenzen` ergeben. Schreibt atomar als Bytes (`_atomic_write_bytes`), weil `atomic_write_text` im Textmodus unter Windows LF → CRLF umwandeln würde; Zeilenenden, BOM und Body bleiben byte-identisch. Leere Liste wird als `Leitkompetenzen:` ohne Wert geschrieben (der Projektparser liest `[]` als Text).
+- Trockenlauf gegen den echten Bestand (nur Zählung): 17 von 18 Sequenzdateien migrierbar, 1 Konflikt (Datei ohne Frontmatter, Altlast).
+- Mini-ADR §29 um die Tool-Ausnahme für PyYAML ergänzt. Tests: `tests/test_migrate_sequence_focus_competencies.py`.
+
 ### Changed (2026-10-06) — Verlustfreier Listenzellen-Vertrag (`--`/`;`)
 
 - Neues Domain-Modul `core/domain/list_cell_text.py` als einzige Quelle für Anzeige (`format_list_cell`, Trennzeile `--`), Eingabe (`parse_list_cell`: Trenner = Zeile aus ≥ 2 `-` und `;`) und Gültigkeit (`list_entry_violation`, `list_field_violations(allow_scalar=)`, `raise_on_violation`, `ListFieldViolationError`). Roundtrip `parse(format(e)) == e` für alle Einträge, die die Invariante erfüllen (nicht leer, kein Rand-Whitespace, einzeilig, kein `;`, nicht nur Striche). Siehe ARCHITEKTUR_KERN §33.
