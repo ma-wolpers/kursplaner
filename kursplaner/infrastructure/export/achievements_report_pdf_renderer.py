@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kursplaner.core.usecases.export_achievements_report_usecase import AchievementsReportDocument
+from kursplaner.infrastructure.export.pdf_fonts import register_pdf_fonts
 
 try:
     from reportlab.lib import colors  # type: ignore[import-not-found]
@@ -28,11 +29,13 @@ class AchievementsReportPdfRenderer:
     """Rendert den Achievement-Fortschritt als PDF: pro Fach eine Ueberschrift + Tabelle."""
 
     def __init__(self):
+        # Unicode-fähige, gebündelte Schrift für alle Texte (siehe pdf_fonts.py).
+        self._fonts = register_pdf_fonts()
         styles = getSampleStyleSheet()
         self._title_style = ParagraphStyle(
             "AchievementsReportTitle",
             parent=styles["Heading1"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=20,
             leading=24,
             alignment=1,
@@ -41,7 +44,7 @@ class AchievementsReportPdfRenderer:
         self._date_style = ParagraphStyle(
             "AchievementsReportDate",
             parent=styles["Normal"],
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=10,
             leading=12,
             alignment=1,
@@ -50,7 +53,7 @@ class AchievementsReportPdfRenderer:
         self._domain_heading_style = ParagraphStyle(
             "AchievementsReportDomainHeading",
             parent=styles["Heading2"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=13,
             leading=16,
             spaceBefore=10,
@@ -59,14 +62,14 @@ class AchievementsReportPdfRenderer:
         self._header_style = ParagraphStyle(
             "AchievementsReportHeader",
             parent=styles["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=10,
             leading=12,
         )
         self._cell_style = ParagraphStyle(
             "AchievementsReportCell",
             parent=styles["Normal"],
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=10,
             leading=13,
         )
@@ -92,6 +95,7 @@ class AchievementsReportPdfRenderer:
         table.setStyle(
             TableStyle(
                 [
+                    ("FONTNAME", (0, 0), (-1, -1), self._fonts.regular),  # Tabellen-Standardschrift, sonst Helvetica
                     ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9EEF5")),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -110,6 +114,7 @@ class AchievementsReportPdfRenderer:
 
         pdf = SimpleDocTemplate(
             str(output_path),
+            initialFontName=self._fonts.regular,  # sonst setzt der Canvas Helvetica als Startschrift
             pagesize=A4,
             leftMargin=36,
             rightMargin=36,

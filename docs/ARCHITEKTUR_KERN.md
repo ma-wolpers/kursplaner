@@ -1107,6 +1107,13 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
 - **Laufzeit vs. Prüftool:** Laufzeit bricht beim ersten Verstoß ab; `tools/check_list_field_entries.py` meldet alle Verstöße gesammelt. Beide nutzen ausschließlich `list_field_violations` (keine zweite Validierungslogik). Felder mit reinem Listenvertrag (z. B. `Leitkompetenzen`) prüfen mit `allow_scalar=False`.
 - **Ausnahme:** Die UB-Felder `Professionalisierungsschritte`/`Nutzbare Ressourcen` stammen aus Markdown-Aufzählungen der UB-Datei, unterliegen nicht der Invariante und werden weiter zeilenweise angezeigt.
 
+## 35) PDF-Schrift (verbindlich)
+
+- Alle reportlab-Renderer (`topic_units_pdf_renderer`, `expected_horizon_pdf_renderer`, `achievements_report_pdf_renderer`) verwenden ausschließlich die Schriftnamen aus `infrastructure/export/pdf_fonts.py::register_pdf_fonts()` (DejaVu Sans, vier Schnitte, als Familie registriert für `<b>`/`<i>`). Kein `"Helvetica…"`-Literal in Renderern; zusätzlich `initialFontName` am DocTemplate und `FONTNAME` in jeder `TableStyle`, sonst setzt reportlab Helvetica als Canvas-/Zellen-Standard.
+- Schriftdateien liegen versioniert unter `kursplaner/resources/fonts/` (kein Bundler — die App läuft aus dem Checkout); Herkunft, Version 2.37, SHA-256 und Lizenz in `SOURCE.md`, geprüft von `tests/test_pdf_fonts.py`. Fehlt eine Datei: `RuntimeError`, kein stiller Rückfall auf Helvetica.
+- Breitenabhängige Layoutregeln werden mit der echten Schrift gemessen (`pdfmetrics.stringWidth`), nicht über auf eine Schrift geeichte Faktoren (Beispiel: KH-Datumsspalte).
+- Tests: Jeder Renderer hat Smoke-/Regressionstests über `tests/pdf_assertions.py::assert_valid_pdf` (pypdf, Dev-Abhängigkeit): gültiges PDF, Seitenzahl, extrahierbarer Text inkl. Unicode-Probe, Sentinel-Tokens (nichts abgeschnitten), DejaVu eingebettet, keine Helvetica. `Times-Roman` darf als bloße Ressource vorkommen (reportlab-`Drawing`s der Smiley-Symbole).
+
 ## 34) Datenmodell `Leitkompetenzen` (verbindlich, Hard Cut)
 
 - **Einziger Vertrag:** Sequenzdateien tragen `Leitkompetenzen` als YAML-Liste (Pflichtfeld in `SEQUENCE_PLAN_SCHEMA`, darf leer sein; leer = Key ohne Wert, weil der Projektparser `[]` als Text liest). Im Code ausschließlich `leitkompetenzen: tuple[str, ...]` (Port `SequencePlanRepository.read/write_goal_and_focus_competencies`, `TopicSequencePlanView`, `SequenceExportSyncResult`, `UpdateSequenceGoalFieldResult`, Export-DTOs). Key-Konstante: `sequence_planning.SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY`.

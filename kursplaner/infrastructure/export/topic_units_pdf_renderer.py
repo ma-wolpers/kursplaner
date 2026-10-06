@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import TopicUnitsPdfDocument
+from kursplaner.infrastructure.export.pdf_fonts import register_pdf_fonts
 
 try:
     from reportlab.lib import colors  # type: ignore[import-not-found]
@@ -28,11 +29,13 @@ class TopicUnitsPdfRenderer:
     """Rendert den Oberthema-Export als Querformat-PDF mit umbrechender Tabelle."""
 
     def __init__(self):
+        # Unicode-fähige, gebündelte Schrift für alle Texte (siehe pdf_fonts.py).
+        self._fonts = register_pdf_fonts()
         styles = getSampleStyleSheet()
         self._title_style = ParagraphStyle(
             "TopicExportTitle",
             parent=styles["Heading1"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=22,
             leading=26,
             alignment=1,
@@ -41,7 +44,7 @@ class TopicUnitsPdfRenderer:
         self._subtitle_style = ParagraphStyle(
             "TopicExportSubtitle",
             parent=styles["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=14,
             leading=18,
             alignment=1,
@@ -50,7 +53,7 @@ class TopicUnitsPdfRenderer:
         self._date_style = ParagraphStyle(
             "TopicExportDate",
             parent=styles["Normal"],
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=11,
             leading=14,
             alignment=1,
@@ -59,7 +62,7 @@ class TopicUnitsPdfRenderer:
         self._sequence_meta_style = ParagraphStyle(
             "TopicExportSequenceMeta",
             parent=styles["Normal"],
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=10,
             leading=13,
             alignment=1,
@@ -68,7 +71,7 @@ class TopicUnitsPdfRenderer:
         self._cell_style = ParagraphStyle(
             "TopicExportCell",
             parent=styles["Normal"],
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=9.5,
             leading=12,
             wordWrap="CJK",
@@ -76,7 +79,7 @@ class TopicUnitsPdfRenderer:
         self._header_style = ParagraphStyle(
             "TopicExportHeader",
             parent=styles["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=10,
             leading=12,
         )
@@ -115,6 +118,7 @@ class TopicUnitsPdfRenderer:
 
         pdf = SimpleDocTemplate(
             str(output_path),
+            initialFontName=self._fonts.regular,  # sonst setzt der Canvas Helvetica als Startschrift
             pagesize=landscape(A4),
             leftMargin=32,
             rightMargin=32,
@@ -146,6 +150,7 @@ class TopicUnitsPdfRenderer:
         table.setStyle(
             TableStyle(
                 [
+                    ("FONTNAME", (0, 0), (-1, -1), self._fonts.regular),  # Tabellen-Standardschrift, sonst Helvetica
                     ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9EEF5")),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),

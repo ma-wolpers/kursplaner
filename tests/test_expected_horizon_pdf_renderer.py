@@ -78,3 +78,40 @@ def test_task_column_and_font_size_are_applied(tmp_path: Path):
 def test_font_size_is_clamped():
     assert ExpectedHorizonPdfLayout(font_size=2).font_size == 6
     assert ExpectedHorizonPdfLayout(font_size=40).font_size == 16
+
+
+def test_smoke_unicode_sentinels_and_dejavu(tmp_path: Path):
+    """Regression nach Schriftumstellung: gültig, Unicode korrekt, nichts abgeschnitten, DejaVu eingebettet."""
+    from tests.pdf_assertions import UNICODE_PROBE, assert_valid_pdf
+
+    sections = tuple(
+        ExpectedHorizonSection(
+            f"Thema {topic} {UNICODE_PROBE}",
+            tuple(
+                ExpectedHorizonLine(
+                    f"{idx + 1:02d}.09.26", f"... Ziel {topic}{idx} lang " * 6 + f"ZZQ{topic}{idx}END", kind
+                )
+                for idx in range(12)
+                for kind in (GoalKind.STUNDENZIEL,)
+            ),
+        )
+        for topic in ("A", "B")
+    )
+    document = ExpectedHorizonDocument("Kompetenzhorizont", "Mathematik", "06.10.2026", sections)
+    sentinels = [f"ZZQ{topic}{idx}END" for topic in "AB" for idx in range(12)]
+
+    for layout in (ExpectedHorizonPdfLayout(), ExpectedHorizonPdfLayout(with_task_column=True, font_size=16)):
+        output = tmp_path / f"KH-{layout.font_size}.pdf"
+        pdf_renderer.ExpectedHorizonPdfRenderer().render(document, output, layout=layout)
+        assert_valid_pdf(output, min_pages=2, contains=[*sentinels, UNICODE_PROBE])
+
+
+def test_date_column_fits_date_in_bundled_font_at_max_size():
+    """Die Datumsspalte wird mit der echten Schrift gemessen und bricht ``TT.MM.JJ`` nie um."""
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+
+    renderer = pdf_renderer.ExpectedHorizonPdfRenderer()
+    renderer._layout = ExpectedHorizonPdfLayout(font_size=16)
+    width = renderer._column_widths(500)[0]
+
+    assert width - 12 >= stringWidth("00.00.00", renderer._fonts.bold, 16)

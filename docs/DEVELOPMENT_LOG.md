@@ -8,6 +8,16 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-10-06) — DejaVu Sans für alle PDF-Exporte
+
+- Neues Modul `infrastructure/export/pdf_fonts.py` (`register_pdf_fonts()` idempotent, `PdfFonts`, `FONTS_DIR`, Fehler bei fehlender Datei). Schriften: DejaVu 2.37 aus dem offiziellen Release-Archiv, `kursplaner/resources/fonts/` + `LICENSE` + `SOURCE.md` (URL, SHA-256 von Archiv und Dateien, Abrufdatum).
+- Alle drei Renderer: `fontName` aus `self._fonts`, `initialFontName=self._fonts.regular` am DocTemplate und `("FONTNAME", …)` in der `TableStyle` — ohne die beiden letzten blieb `/Helvetica` als Canvas-Startschrift bzw. Tabellenzellen-Standard im PDF.
+- KH-Datumsspalte: Breite jetzt per `stringWidth("00.00.00", bold, size)` + 14 pt statt `3.9 em + 12` (der Faktor war auf Helvetica geeicht; mit DejaVu brach `TT.MM.JJ` bei 14 pt um — im Regressionsvergleich gefunden).
+- Regressionsvergleich (synthetische Daten, vorher/nachher, Sichtprüfung): KH Standard 4 → 4 Seiten, Achievement-Report 3 → 3 Seiten, KH mit Aufgaben-Spalte bei 14 pt 10 → 14 Seiten (DejaVu läuft breiter; Layout intakt, nur mehr Umbrüche).
+- Spike `minRowHeights` + `splitInRow` (reportlab 4.4.2) für den Sequenzplan: kurze Zeile = 68 pt, lange wächst (330 pt), eine einzelne extrem lange Zeile wird ohne `LayoutError` über 10 Seiten geteilt, Kopf wiederholt, alle 400 Sentinels im Text. Eigene Höhenmessung über `rowHeights` damit unnötig.
+- Tests: `tests/pdf_assertions.py` (gemeinsame Kriterien, pypdf neu in `requirements-dev.txt`), `test_pdf_fonts.py` (Dateien, Prüfsummen gegen SOURCE.md, Idempotenz, Fehlerfall), `test_achievements_report_pdf_renderer.py` (neu, bisher kein Renderer-Test), `test_topic_units_pdf_renderer.py` (neu), `test_expected_horizon_pdf_renderer.py` erweitert (Unicode/Sentinels, Datumsspalte gemessen).
+- Nebenfund (unverändert): `achievements_report_pdf_renderer` escaped Titel nicht für das Paragraph-Markup (`&`/`<` im Titel würden das Rendering brechen); Titel stammen aus `resources/achievements/requirements.json`.
+
 ### Changed (2026-10-06) — Hard Cut auf `Leitkompetenzen: tuple[str, ...]`
 
 - `SEQUENCE_PLAN_SCHEMA.required_keys` + `Leitkompetenzen`; neue Dateien schreiben `Leitkompetenzen:` (leere Liste). Kein Lesepfad für `Leitkompetenz` mehr (Schema-Fehler bei Altbestand).

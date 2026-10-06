@@ -7,11 +7,13 @@ from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPd
 from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
 from kursplaner.infrastructure.export.pdf_face_symbols import face_symbol
+from kursplaner.infrastructure.export.pdf_fonts import register_pdf_fonts
 
 try:
     from reportlab.lib import colors  # type: ignore[import-not-found]
     from reportlab.lib.pagesizes import A4  # type: ignore[import-not-found]
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # type: ignore[import-not-found]
+    from reportlab.pdfbase.pdfmetrics import stringWidth  # type: ignore[import-not-found]
     from reportlab.platypus import (  # type: ignore[import-not-found]
         BaseDocTemplate,
         Frame,
@@ -43,11 +45,13 @@ class ExpectedHorizonPdfRenderer:
         # auch importierbar bleibt, wenn `reportlab` fehlt -- nur die Instanziierung
         # soll dann fehlschlagen, nicht schon der Modul-Import.
         self._PAGE_WIDTH, self._PAGE_HEIGHT = A4
+        # Unicode-fähige, gebündelte Schrift für alle Texte (siehe pdf_fonts.py).
+        self._fonts = register_pdf_fonts()
         styles = getSampleStyleSheet()
         self._title_style = ParagraphStyle(
             "ExpectedHorizonTitle",
             parent=styles["Heading1"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=20,
             leading=24,
             alignment=1,
@@ -56,7 +60,7 @@ class ExpectedHorizonPdfRenderer:
         self._subtitle_style = ParagraphStyle(
             "ExpectedHorizonSubtitle",
             parent=styles["Normal"],
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=13,
             leading=16,
             alignment=1,
@@ -65,7 +69,7 @@ class ExpectedHorizonPdfRenderer:
         self._date_style = ParagraphStyle(
             "ExpectedHorizonDate",
             parent=styles["Normal"],
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=10,
             leading=12,
             alignment=1,
@@ -89,26 +93,26 @@ class ExpectedHorizonPdfRenderer:
         self._cell_style = ParagraphStyle(
             "ExpectedHorizonCell",
             parent=normal,
-            fontName="Helvetica",
+            fontName=self._fonts.regular,
             fontSize=layout.font_size,
             leading=12 * scale,
             wordWrap="CJK",
         )
         self._cell_bold_style = ParagraphStyle(
-            "ExpectedHorizonCellBold", parent=self._cell_style, fontName="Helvetica-Bold"
+            "ExpectedHorizonCellBold", parent=self._cell_style, fontName=self._fonts.bold
         )
         self._cell_italic_style = ParagraphStyle(
-            "ExpectedHorizonCellItalic", parent=self._cell_style, fontName="Helvetica-Oblique"
+            "ExpectedHorizonCellItalic", parent=self._cell_style, fontName=self._fonts.italic
         )
         self._section_style = ParagraphStyle(
             "ExpectedHorizonSection",
             parent=normal,
-            fontName="Helvetica-Bold",
+            fontName=self._fonts.bold,
             fontSize=10.5 * scale,
             leading=13 * scale,
         )
         self._header_style = ParagraphStyle(
-            "ExpectedHorizonHeader", parent=normal, fontName="Helvetica-Bold", fontSize=10 * scale, leading=12 * scale
+            "ExpectedHorizonHeader", parent=normal, fontName=self._fonts.bold, fontSize=10 * scale, leading=12 * scale
         )
 
     def _table_rows(self, document: ExpectedHorizonDocument) -> list[list[Paragraph]]:
@@ -167,9 +171,14 @@ class ExpectedHorizonPdfRenderer:
         """Spaltenbreiten: Datum, breite „Ich kann“-Spalte, drei Smiley-Spalten, ggf. „Aufgaben“.
 
         Die Datumsspalte wächst mit der Schriftgröße, damit ``TT.MM.JJ`` nicht
-        umbricht (~3.9 em plus Innenabstand); die „Ich kann“-Spalte nimmt den Rest.
+        umbricht: Die Breite wird mit der tatsächlich verwendeten Schrift
+        gemessen (fetter Schnitt, breiteste Ziffern ``00.00.00``) plus
+        Innenabstand und kleiner Reserve — ein fester em-Faktor war auf
+        Helvetica geeicht und brach mit der breiteren DejaVu Sans das Datum um.
+        Die „Ich kann“-Spalte nimmt den Rest.
         """
-        date_width = max(frame_width * 0.10, 3.9 * self._layout.font_size + 12)
+        measured = stringWidth("00.00.00", self._fonts.bold, self._layout.font_size)
+        date_width = max(frame_width * 0.10, measured + 12 + 2)
         if self._layout.with_task_column:
             tail = [frame_width * 0.07] * 3 + [frame_width * 0.20]
         else:
@@ -231,6 +240,7 @@ class ExpectedHorizonPdfRenderer:
 
         pdf = BaseDocTemplate(
             str(output_path),
+            initialFontName=self._fonts.regular,  # sonst setzt der Canvas Helvetica als Startschrift
             pagesize=A4,
             leftMargin=self._INNER_BINDING_MARGIN,
             rightMargin=self._OUTER_MARGIN,
@@ -274,6 +284,7 @@ class ExpectedHorizonPdfRenderer:
         table.setStyle(
             TableStyle(
                 [
+                    ("FONTNAME", (0, 0), (-1, -1), self._fonts.regular),  # Tabellen-Standardschrift, sonst Helvetica
                     *heading_styles,
                     ("GRID", (0, 0), (-1, -1), 0.6, colors.black),
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E9EEF5")),
