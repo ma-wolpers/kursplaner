@@ -98,12 +98,12 @@ def test_replacing_generated_table_leaves_frontmatter_and_brainstorming_untouche
     repo.write_goal_and_focus_competencies(sequence_path=path, sequenzziel="Ziel", leitkompetenzen=("A", "B"))
     repo.write_brainstorming(sequence_path=path, brainstorming_text="Idee")
     repo.replace_trailing_table(
-        sequence_path=path, table_lines=repo.render_markdown_table(headers=["X"], rows=[["alt1"], ["alt2"]])
+        sequence_path=path, table_lines=repo.render_markdown_table(headers=["X"], rows=[(("alt1",),), (("alt2",),)])
     )
     frontmatter_before = path.read_text(encoding="utf-8").split("---")[1]
 
     repo.replace_trailing_table(
-        sequence_path=path, table_lines=repo.render_markdown_table(headers=["X"], rows=[["neu"]])
+        sequence_path=path, table_lines=repo.render_markdown_table(headers=["X"], rows=[(("neu",),)])
     )
 
     text = path.read_text(encoding="utf-8")

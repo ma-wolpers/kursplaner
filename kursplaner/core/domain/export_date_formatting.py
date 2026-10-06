@@ -36,22 +36,6 @@ def parse_day_date(raw_value: object) -> date | None:
     return None
 
 
-def format_day_date(raw_value: object) -> str:
-    """Formatiert einen Datumswert einheitlich als ``TT.MM.JJJJ``.
-
-    Args:
-        raw_value: Roher Datumswert aus einer Tages-Spalte.
-
-    Returns:
-        Das formatierte Datum, oder der unveränderte Originaltext, wenn er sich
-        nicht parsen lässt.
-    """
-    parsed = parse_day_date(raw_value)
-    if parsed is None:
-        return str(raw_value or "").strip()
-    return parsed.strftime("%d.%m.%Y")
-
-
 def extract_term_token(table: PlanTableData) -> str:
     """Ermittelt das Halbjahres-Token (z. B. ``25-2``) aus Ordner- oder Dateinamen.
 

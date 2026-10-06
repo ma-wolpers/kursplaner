@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
@@ -18,6 +19,8 @@ from kursplaner.core.domain.sequence_planning import (
 )
 from kursplaner.core.domain.yaml_registry import SEQUENCE_PLAN_SCHEMA, parse_yaml_frontmatter
 from kursplaner.core.domain.yaml_scalars import yaml_double_quote
+from kursplaner.core.ports.sequence_export import ExportTableRow
+from kursplaner.infrastructure.export.markdown_text import markdown_table_lines
 
 _GOAL_KEY = "Sequenzziel"
 _FOCUS_COMPETENCIES_KEY = SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY
@@ -229,17 +232,22 @@ class FileSystemSequencePlanRepository:
         atomic_write_text(path, new_text, encoding="utf-8")
 
     @staticmethod
-    def render_markdown_table(*, headers: list[str], rows: list[list[str]]) -> list[str]:
-        """Render one markdown table as line list."""
-        escaped_headers = [str(cell or "").replace("|", "\\|").strip() for cell in headers]
-        lines = [
-            "| " + " | ".join(escaped_headers) + " |",
-            "| " + " | ".join(["---"] * len(escaped_headers)) + " |",
-        ]
-        for row in rows:
-            escaped = [str(cell or "").replace("|", "\\|").replace("\n", " ").strip() for cell in row]
-            lines.append("| " + " | ".join(escaped) + " |")
-        return lines
+    def render_markdown_table(*, headers: Sequence[str], rows: Sequence[ExportTableRow]) -> list[str]:
+        """Rendert die generierte Export-Tabelle der Sequenzdatei als Zeilenliste.
+
+        Delegiert an `infrastructure/export/markdown_text.markdown_table_lines`,
+        damit die Tabelle in der Sequenzdatei exakt wie der Markdown-Export
+        aussieht (HTML-neutral, ``\\|``-Tabellen-Escape, mehrzeilige Zellen mit
+        ``<br>``).
+
+        Args:
+            headers: Spaltenüberschriften.
+            rows: Tabellenzeilen aus `ExportCell`-Tupeln.
+
+        Returns:
+            Die Markdown-Tabellenzeilen.
+        """
+        return markdown_table_lines(headers, rows)
 
     @staticmethod
     def _coerce_frontmatter_text(raw_value: object) -> str:

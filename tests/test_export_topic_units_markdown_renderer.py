@@ -90,6 +90,33 @@ def test_markdown_renderer_writes_topic_units_table(tmp_path: Path):
     )
 
     text = output.read_text(encoding="utf-8")
-    assert "| Datum | Stunden | Thema | Stundenziel | geförderte Prozesskompetenzen |" in text
-    assert "| 01.09.2025 | 2 | Sortieren | Sortierverfahren vergleichen | PK1 |" in text
-    assert "| 08.09.2025 | 1 | LZK Sortieren | Verfahren anwenden | PK1 |" in text
+    assert text.startswith("# Sequenzplan\n")
+    assert "Exportdatum: 01.04.2026" in text
+    assert "Kurs: Informatik lila-5 2025/26 Hj. 2" in text
+    assert "**Thema der Sequenz:** Algorithmen" in text
+    assert "**Vorrangig geförderte Kompetenz(en):** _(nicht gesetzt)_" in text
+    assert "Sequenzziel" not in text
+    assert "| Datum und Stunde | Kompetenzbezug | Stundenthema | Stundenziel | Material |" in text
+    assert "| Mo 01.09.2025<br>08:00 · 2 Std. | PK1 | Sortieren | Sortierverfahren vergleichen |  |" in text
+    assert "| Mo 08.09.2025<br>08:00 · 1 Std. | PK1 | LZK Sortieren | Verfahren anwenden |  |" in text
+
+
+def test_meta_values_are_html_neutral_and_pipe_stays_literal(tmp_path: Path):
+    from kursplaner.core.usecases.export_topic_units_pdf_usecase import TopicUnitsPdfDocument
+
+    document = TopicUnitsPdfDocument(
+        document_title="Sequenzplan",
+        export_date_text="06.10.2026",
+        course_line="Mathe <7a> & Co",
+        sequence_topic="A | B <i>",
+        leitkompetenzen=("[[K/Modellieren|Modellieren]]", "x & y"),
+        rows=(),
+    )
+    output = tmp_path / "seq.md"
+
+    TopicUnitsMarkdownRenderer().render(document, output)
+
+    text = output.read_text(encoding="utf-8")
+    assert "Kurs: Mathe &lt;7a&gt; &amp; Co" in text
+    assert "**Thema der Sequenz:** A | B &lt;i&gt;" in text
+    assert "**Vorrangig geförderte Kompetenz(en):** [[K/Modellieren|Modellieren]]<br>x &amp; y" in text

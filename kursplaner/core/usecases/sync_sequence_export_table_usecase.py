@@ -9,11 +9,13 @@ aufrufenden Export-Use-Case; dieser Use Case kennt nur die Sequenzdatei.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import SequencePlanRepository
+from kursplaner.core.ports.sequence_export import ExportTableRow
 
 
 @dataclass(frozen=True)
@@ -48,8 +50,8 @@ class SyncSequenceExportTableUseCase:
         *,
         table: PlanTableData,
         oberthema: str,
-        headers: list[str],
-        rows: list[list[str]],
+        headers: Sequence[str],
+        rows: Sequence[ExportTableRow],
     ) -> SequenceExportSyncResult:
         """Stellt die Sequenzdatei sicher und ersetzt darin die Export-Tabelle.
 
@@ -59,7 +61,7 @@ class SyncSequenceExportTableUseCase:
             oberthema: Oberthema-Text der Sequenz; dient als `sequence_name` für
                 die Dateiauflösung.
             headers: Spaltenüberschriften der Export-Tabelle.
-            rows: Zeilenwerte der Export-Tabelle, spaltenweise passend zu `headers`.
+            rows: Tabellenzeilen (je Spalte eine `ExportCell`), passend zu `headers`.
 
         Returns:
             Ergebnis mit Dateipfad und aktuellem Sequenzziel/Leitkompetenzen, zur

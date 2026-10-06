@@ -136,12 +136,19 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
 
     document, rendered_path = renderer.calls[0]
     assert rendered_path == output_path
-    assert document.title == "Informatik lila-5 2025/26 Hj. 2"
-    assert document.subtitle == '"Algorithmen"'
+    assert document.document_title == "Sequenzplan"
+    assert document.course_line == "Informatik lila-5 2025/26 Hj. 2"
+    assert document.sequence_topic == "Algorithmen"
     assert document.export_date_text == "31.03.2026"
+    assert document.leitkompetenzen == ()
+    assert not hasattr(document, "sequenzziel")  # Sequenzziel nicht im Export
     assert len(document.rows) == 2
-    assert document.rows[0].datum == "01.09.2025"
-    assert document.rows[0].prozesskompetenzen == "PK1; PK2"
+    date_cell, competence_cell, topic_cell, goal_cell, material_cell = document.rows[0]
+    assert date_cell == ("Mo 01.09.2025",)  # ohne Rhythmus: keine Startzeit/Stundenzahl
+    assert competence_cell == ("PK1", "PK2")  # ein Eintrag pro Zeile
+    assert topic_cell == ("Sortieren",)
+    assert goal_cell == ("Sortierverfahren vergleichen",)
+    assert material_cell == ()
 
 
 def test_export_title_uses_requested_halfyear_format(tmp_path):
@@ -200,7 +207,7 @@ def test_export_does_not_merge_non_adjacent_occurrences_of_same_oberthema(tmp_pa
 
     assert result.row_count == 1
     document, _rendered_path = renderer.calls[0]
-    assert document.rows[0].thema == "Einstieg"
+    assert document.rows[0][2] == ("Einstieg",)
 
 
 def test_export_includes_hospitation_in_chain_but_not_as_table_row(tmp_path):
@@ -222,7 +229,7 @@ def test_export_includes_hospitation_in_chain_but_not_as_table_row(tmp_path):
 
     assert result.row_count == 2
     document, _rendered_path = renderer.calls[0]
-    assert [row.thema for row in document.rows] == ["Linsen", "Brennweite"]
+    assert [row[2] for row in document.rows] == [("Linsen",), ("Brennweite",)]
 
 
 def test_export_ausfall_does_not_break_the_chain(tmp_path):
@@ -263,6 +270,6 @@ def test_export_updates_sequence_file_export_table(tmp_path):
     )
 
     sequence_text = result.sequence_path.read_text(encoding="utf-8")
-    assert "| Datum | Std. | Thema | Stundenziel | Kompetenzen |" in sequence_text
+    assert "| Datum und Stunde | Kompetenzbezug | Stundenthema | Stundenziel | Material |" in sequence_text
     assert "Kraft" in sequence_text
     assert "Impuls" in sequence_text

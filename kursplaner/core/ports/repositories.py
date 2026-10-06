@@ -14,6 +14,7 @@ from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFileDiagn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzkatalog import Kompetenzkatalog, KompetenzkatalogManifestEntry
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
+from kursplaner.core.ports.sequence_export import ExportTableRow
 
 ConfirmChange = Callable[[str, str], bool]
 PlanCalendarEvent = tuple[str, date, date]
@@ -805,8 +806,8 @@ class SequencePlanRepository(Protocol):
         """Replace only the trailing markdown table in a sequence file."""
         ...
 
-    def render_markdown_table(self, *, headers: list[str], rows: list[list[str]]) -> list[str]:
-        """Render rows into a markdown table line representation."""
+    def render_markdown_table(self, *, headers: Sequence[str], rows: Sequence[ExportTableRow]) -> list[str]:
+        """Render rows (one `ExportCell` per column) into markdown table lines."""
         ...
 
     def read_goal_and_focus_competencies(self, sequence_path: Path) -> tuple[str, tuple[str, ...]]:

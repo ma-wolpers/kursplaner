@@ -16,9 +16,10 @@ Anzeige-Einstellungen ist.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.export_date_formatting import format_day_date
+from kursplaner.core.domain.export_date_formatting import parse_day_date
 
 ELIGIBLE_SEQUENCE_TYPES = frozenset({"Unterricht", "LZK", "Hospitation"})
 """Stundentypen, die selbst ein Oberthema tragen und Teil einer Sequenz sein können."""
@@ -28,9 +29,6 @@ SKIPPED_SEQUENCE_TYPES = frozenset({"Ausfall"})
 
 EXPORTABLE_LESSON_TYPES = frozenset({"Unterricht", "LZK"})
 """Stundentypen, die als eigene Zeile in der Sequenz-Export-Tabelle erscheinen."""
-
-EXPORT_TABLE_HEADERS: tuple[str, ...] = ("Datum", "Std.", "Thema", "Stundenziel", "Kompetenzen")
-"""Spaltenüberschriften der Sequenz-Export-Tabelle (manueller Export und Auto-Sync)."""
 
 
 def row_lesson_type(day: DayColumn) -> str:
@@ -184,21 +182,61 @@ def find_run_for_row_index(runs: list[TopicSequenceRun], row_index: int) -> Topi
 
 @dataclass(frozen=True)
 class TopicUnitExportRow:
-    """Eine exportierte Tabellenzeile eines Sequenz-Laufs."""
+    """Fachdaten einer Einheit für den Sequenzplan-Export (Export-DTO, typisiert).
 
-    datum: str
-    stunden: str
-    thema: str
+    Reines Export-DTO: wird nur von `build_export_rows_for_run` erzeugt und nur
+    von den beiden Exportpfaden (manueller Sequenzplan-Export, Sequenzdatei-
+    Sync) konsumiert. Es trägt bewusst **keine** vorformatierten Strings —
+    Wochentag, ``Std.``-Suffix, Zeilenaufteilung und Material-Anzeigenamen sind
+    Darstellungsregeln und liegen in der Anwendungsschicht
+    (`core/usecases/sequence_export_table.py`).
+
+    Attributes:
+        datum: Geparstes Datum der Einheit oder ``None``, wenn nicht parsebar.
+        datum_raw: Roher Datumswert der Planzeile (Fallback-Anzeige).
+        startzeit: Startzeit laut Rhythmus (``"HH:MM"``) oder ``""``.
+        stunden: Stundenzahl laut Rhythmus (``0`` = unbekannt).
+        stundenthema: Stundenthema der Einheit.
+        stundenziel: Stundenziel der Einheit.
+        kompetenzen: Einträge des Listenfelds ``Kompetenzen``.
+        material: Einträge des Listenfelds ``Material`` (bei LZK leer).
+    """
+
+    datum: date | None
+    datum_raw: str
+    startzeit: str
+    stunden: int
+    stundenthema: str
     stundenziel: str
-    prozesskompetenzen: str
+    kompetenzen: tuple[str, ...]
+    material: tuple[str, ...]
 
 
-def _format_competencies_text(value: object) -> str:
-    """Formatiert die Kompetenzen-Liste einer Einheit als Fließtext für den Export."""
-    if isinstance(value, list):
-        cleaned = [str(item).strip() for item in value if str(item).strip()]
-        return "; ".join(cleaned)
-    return str(value or "").strip()
+def _yaml_list_field(day: DayColumn, key: str) -> tuple[str, ...]:
+    """Liest ein Listenfeld aus dem kanonisierten YAML einer Tages-Spalte.
+
+    `canonicalize_lesson_yaml` garantiert für Listenfelder ``list[str]`` mit
+    Einträgen, die die Listen-Invariante erfüllen; fehlt der Key (z. B.
+    ``Material`` bei einer LZK), gibt es keine Einträge. Jeder andere Wert ist
+    eine Verletzung dieser Invariante und wird nicht still per ``str()``
+    umgedeutet.
+
+    Args:
+        day: Tages-Spalte mit kanonisiertem YAML.
+        key: Name des Listenfelds.
+
+    Returns:
+        Die Einträge unverändert.
+
+    Raises:
+        TypeError: Wenn der Wert keine Liste aus Texten ist.
+    """
+    value = day.yaml.get(key)
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise TypeError(f"Listenfeld {key!r} ist keine Liste aus Texten: {value!r}")
+    return tuple(value)
 
 
 def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRun) -> list[TopicUnitExportRow]:
@@ -233,11 +271,14 @@ def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRu
 
         rows.append(
             TopicUnitExportRow(
-                datum=format_day_date(day.datum),
-                stunden=str(day.stunden()),
-                thema=str(day.yaml.get("Stundenthema", "")).strip(),
+                datum=parse_day_date(day.datum),
+                datum_raw=str(day.datum or "").strip(),
+                startzeit=day.startzeit(),
+                stunden=day.stunden(),
+                stundenthema=str(day.yaml.get("Stundenthema", "")).strip(),
                 stundenziel=str(day.yaml.get("Stundenziel", "")).strip(),
-                prozesskompetenzen=_format_competencies_text(day.yaml.get("Kompetenzen", [])),
+                kompetenzen=_yaml_list_field(day, "Kompetenzen"),
+                material=_yaml_list_field(day, "Material"),
             )
         )
     return rows

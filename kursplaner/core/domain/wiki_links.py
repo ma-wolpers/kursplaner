@@ -98,6 +98,40 @@ def extract_wiki_link_target(text: str) -> str:
     return raw
 
 
+def wiki_link_display_text(entry: str) -> str:
+    """Anzeigename eines Listeneintrags, der ein einzelner Wiki-Link sein kann.
+
+    Unterstützter Vertrag (bewusst eng): Besteht der **gesamte** Eintrag aus
+    genau einem ``[[…]]``, wird der Alias angezeigt (``[[ziel|alias]]`` →
+    ``alias``), sonst das Ziel ohne Pfad und ohne Stunden-Endung ``.md``/``.ebw``
+    (`extract_wiki_link_target`). Jeder andere Text — Freitext, eingebettete
+    Links, URLs, Anker — bleibt unverändert. Weitere Syntax wird nicht
+    interpretiert.
+
+    Args:
+        entry: Ein Listeneintrag (z. B. aus ``Material``).
+
+    Returns:
+        Der anzuzeigende Text.
+
+    Example::
+
+        wiki_link_display_text("[[Material/AB Brüche.pdf|AB 1]]")  # -> "AB 1"
+        wiki_link_display_text("[[Material/AB Brüche.pdf]]")       # -> "AB Brüche.pdf"
+        wiki_link_display_text("Tafelbild [[Skizze]]")             # -> unverändert
+    """
+    text = str(entry)
+    match = re.fullmatch(r"\[\[([^\[\]]+)\]\]", text)
+    if match is None:
+        return text
+    inner = match.group(1)
+    if "|" in inner:
+        alias = inner.split("|", 1)[1].strip()
+        if alias:
+            return alias
+    return extract_wiki_link_target(text) or text
+
+
 def strip_group_prefixed_link(raw: str, group_name: str) -> str:
     """Entschlüsselt einen ggf. wiki-verlinkten, gruppen-präfigierten Text.
 

@@ -3,9 +3,12 @@
 Exportiert ausschließlich die zusammenhängende Kette benachbarter Einheiten, die
 zur ausgewählten Einheit gehört (siehe `topic_sequence_runs.compute_topic_sequence_runs`),
 nicht mehr jedes Vorkommen desselben Oberthema-Textes im gesamten Kursplan.
-Zusätzlich zur Tabelle werden Sequenzziel und Leitkompetenzen aus der persistenten
-Sequenzdatei geladen (und deren Export-Tabelle beim Export aktualisiert), damit
-Renderer sie zwischen Titel/Untertitel und Tabelle anzeigen können.
+Zusätzlich werden die Leitkompetenzen aus der persistenten Sequenzdatei geladen
+(deren Export-Tabelle beim Export aktualisiert wird) und im Kopf des Dokuments
+angezeigt. Das Sequenzziel bleibt programmintern erhalten (Rückgabe, Sequenzdatei),
+erscheint aber nicht im Export. Aufbau des Dokuments nach der Ref-Vorlage
+„Sequenzplan“: Exportdatum, Titel, Kurszeile, Thema der Sequenz, vorrangig
+geförderte Kompetenz(en), Tabelle (`sequence_export_table`).
 """
 
 from __future__ import annotations
@@ -19,42 +22,58 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.export_date_formatting import extract_term_token, schoolyear_from_term
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
-    EXPORT_TABLE_HEADERS,
     EXPORTABLE_LESSON_TYPES,
-    TopicUnitExportRow,
     build_export_rows_for_run,
     compute_topic_sequence_runs,
     find_run_for_row_index,
     row_lesson_type,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.ports.sequence_export import ExportTableRow
+from kursplaner.core.usecases.sequence_export_table import EXPORT_TABLE_HEADERS, export_row_cells
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
+
+SEQUENCE_PLAN_TITLE = "Sequenzplan"
+"""Dokumenttitel des Sequenzplan-Exports (Ref-Vorlage)."""
 
 
 @dataclass(frozen=True)
 class TopicUnitsPdfDocument:
-    """Vollstaendige Renderdaten fuer den Sequenz-PDF-Export.
+    """Vollständige, medienneutrale Renderdaten des Sequenzplan-Exports (PDF/Markdown).
+
+    Die Spaltenüberschriften sind fester Teil des Exportformats und stehen
+    deshalb nicht hier, sondern einzig in `sequence_export_table.EXPORT_TABLE_HEADERS`.
+    Das Sequenzziel gehört bewusst nicht zum Dokument (nicht im Export).
 
     Attributes:
-        title: Kopfzeile (Fach/Lerngruppe/Schuljahr/Halbjahr).
-        subtitle: Anzeigename der Sequenz (Oberthema in Anführungszeichen).
-        export_date_text: Formatiertes Exportdatum.
-        rows: Exportierte Tabellenzeilen der Sequenz.
-        sequenzziel: Übergeordnetes Sequenzziel, wird zwischen Titel und Tabelle angezeigt.
-        leitkompetenzen: Vorrangig geförderte Kompetenzen, ebenfalls zwischen Titel und Tabelle.
+        document_title: Dokumenttitel (``"Sequenzplan"``), auch PDF-Metadatentitel.
+        export_date_text: Formatiertes Exportdatum (``TT.MM.JJJJ``).
+        course_line: Kurszeile ``"Fach Lerngruppe Schuljahr Hj. X"``.
+        sequence_topic: Thema der Sequenz (Oberthema, Klartext).
+        leitkompetenzen: Vorrangig geförderte Kompetenzen.
+        rows: Tabellenzeilen (`ExportCell` je Spalte).
     """
 
-    title: str
-    subtitle: str
+    document_title: str
     export_date_text: str
-    rows: tuple[TopicUnitExportRow, ...]
-    sequenzziel: str
+    course_line: str
+    sequence_topic: str
     leitkompetenzen: tuple[str, ...]
+    rows: tuple[ExportTableRow, ...]
 
 
 @dataclass(frozen=True)
 class ExportTopicUnitsPdfResult:
-    """Rueckgabe des Use Cases mit Zielpfad, Titel und Sequenz-Metadaten."""
+    """Rückgabe des Use Cases mit Zielpfad, Kurszeile und Sequenz-Metadaten.
+
+    Attributes:
+        output_path: Geschriebene Datei.
+        title: Kurszeile (für Statusmeldungen der GUI).
+        row_count: Anzahl exportierter Einheiten.
+        sequence_path: Aktualisierte Sequenzdatei.
+        sequenzziel: Sequenzziel (programmintern, nicht im Export).
+        leitkompetenzen: Vorrangig geförderte Kompetenzen.
+    """
 
     output_path: Path
     title: str
@@ -147,23 +166,22 @@ class ExportTopicUnitsPdfUseCase:
         subject = str(table.metadata.get("Kursfach", "")).strip() or "Fach"
         group = strip_wiki_link(str(table.metadata.get("Lerngruppe", ""))).strip() or "Lerngruppe"
         title = f"{subject} {group} {schoolyear} Hj. {halfyear}"
-        subtitle = f'"{run.oberthema}"'
 
-        export_rows = [[row.datum, row.stunden, row.thema, row.stundenziel, row.prozesskompetenzen] for row in rows]
+        table_rows = tuple(export_row_cells(row) for row in rows)
         sync_result = self._sequence_export_sync.execute(
             table=table,
             oberthema=run.oberthema,
-            headers=list(EXPORT_TABLE_HEADERS),
-            rows=export_rows,
+            headers=EXPORT_TABLE_HEADERS,
+            rows=table_rows,
         )
 
         document = TopicUnitsPdfDocument(
-            title=title,
-            subtitle=subtitle,
+            document_title=SEQUENCE_PLAN_TITLE,
             export_date_text=export_date.strftime("%d.%m.%Y"),
-            rows=tuple(rows),
-            sequenzziel=sync_result.sequenzziel,
+            course_line=title,
+            sequence_topic=run.oberthema,
             leitkompetenzen=sync_result.leitkompetenzen,
+            rows=table_rows,
         )
 
         self._renderer.render(document, output_path)

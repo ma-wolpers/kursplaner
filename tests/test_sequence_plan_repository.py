@@ -44,7 +44,12 @@ def test_sequence_document_brainstorming_and_table_update(tmp_path):
 
     table_lines = repo.render_markdown_table(
         headers=["Datum", "Thema"],
-        rows=[["10-03-26", "Lineare Funktionen"]],
+        rows=[
+            (
+                ("10-03-26",),
+                ("Lineare Funktionen",),
+            )
+        ],
     )
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
 
@@ -54,7 +59,12 @@ def test_sequence_document_brainstorming_and_table_update(tmp_path):
 
     replacement_table = repo.render_markdown_table(
         headers=["Datum", "Thema"],
-        rows=[["17-03-26", "Quadratische Funktionen"]],
+        rows=[
+            (
+                ("17-03-26",),
+                ("Quadratische Funktionen",),
+            )
+        ],
     )
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=replacement_table)
 
@@ -115,7 +125,12 @@ def test_replace_trailing_table_skips_write_when_content_unchanged(tmp_path):
 
     table_lines = repo.render_markdown_table(
         headers=["Datum", "Thema"],
-        rows=[["10-03-26", "Lineare Funktionen"]],
+        rows=[
+            (
+                ("10-03-26",),
+                ("Lineare Funktionen",),
+            )
+        ],
     )
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
     content_after_first_write = sequence_path.read_text(encoding="utf-8")
@@ -131,7 +146,12 @@ def test_replace_trailing_table_skips_write_when_content_unchanged(tmp_path):
     # Tatsächlich geänderter Inhalt muss weiterhin geschrieben werden.
     changed_table_lines = repo.render_markdown_table(
         headers=["Datum", "Thema"],
-        rows=[["10-03-26", "Andere Einheit"]],
+        rows=[
+            (
+                ("10-03-26",),
+                ("Andere Einheit",),
+            )
+        ],
     )
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=changed_table_lines)
     assert "Andere Einheit" in sequence_path.read_text(encoding="utf-8")
@@ -163,7 +183,7 @@ def test_write_goal_and_focus_competencies_round_trips_and_preserves_rest_of_fil
     sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
 
     repo.write_brainstorming(sequence_path=sequence_path, brainstorming_text="Idee A")
-    table_lines = repo.render_markdown_table(headers=["Datum"], rows=[["10-03-26"]])
+    table_lines = repo.render_markdown_table(headers=["Datum"], rows=[(("10-03-26",),)])
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
 
     repo.write_goal_and_focus_competencies(
@@ -234,7 +254,7 @@ def test_sequence_document_with_export_rows_is_not_trivial(tmp_path):
     repo, table = _plan_with_two_sequences(tmp_path)
     sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
 
-    table_lines = repo.render_markdown_table(headers=["Datum"], rows=[["10-03-26"]])
+    table_lines = repo.render_markdown_table(headers=["Datum"], rows=[(("10-03-26",),)])
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
 
     assert repo.is_trivial(sequence_path) is False

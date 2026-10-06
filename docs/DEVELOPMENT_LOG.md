@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-10-06) — Sequenzplan-Export nach Ref-Vorlage
+
+- Export-Zeilenmodell: `TopicUnitExportRow` typisiert (Datum/Startzeit/Stundenzahl/Listen statt vorformatierter Strings), `_yaml_list_field` ersetzt `_format_competencies_text` (keine `str()`-Umdeutung mehr), `EXPORT_TABLE_HEADERS` von `topic_sequence_runs` nach `core/usecases/sequence_export_table.py` verschoben (jetzt „Datum und Stunde | Kompetenzbezug | Stundenthema | Stundenziel | Material“). `export_date_formatting.format_day_date` entfernt (durch diese Änderung ohne Aufrufer).
+- Neu: `core/ports/sequence_export.py` (`ExportCell`, `ExportTableRow`), `core/usecases/sequence_export_table.py` (`export_row_cells` u. a.), `wiki_links.wiki_link_display_text`, `infrastructure/export/markdown_text.py`. Die doppelte Listenbildung in Export- und Sync-Use-Case ist durch `export_row_cells` ersetzt.
+- `TopicUnitsPdfDocument` neu geschnitten (Titel „Sequenzplan“, Kurszeile, Thema, Leitkompetenzen, Zellen; ohne Header/Sequenzziel). Markdown- und PDF-Renderer neu; `FileSystemSequencePlanRepository.render_markdown_table` delegiert an `markdown_table_lines` (Sequenzdatei-Tabelle = Markdown-Export-Tabelle, mehrzeilige Zellen mit `<br>` statt Zusammenziehen auf eine Zeile).
+- Abweichung von den festgelegten Spaltenbreiten, bewusst: Bei 10 % Breite bricht „Mo 07.09.2026“ in DejaVu 9,5 pt um (benötigt 71,4 pt, verfügbar 67,8 pt); die Datumsspalte wächst deshalb auf die gemessene Datumsbreite (≈ 10,7 % im Querformat), die übrigen Spalten behalten ihr Verhältnis.
+- Tests: neu `test_sequence_export_table.py`, `test_markdown_text.py` (test-lokaler GFM-Splitter als Orakel, Roundtrip inkl. `\`, `|`, `\|`, `\\|`, `&<>`), `test_topic_units_pdf_renderer.py` (Kopf/Meta, Sonderzeichen, Mindesthöhe kurz/lang, viele Zeilen, einzelne überlange Zeile mit 300 Sentinels und Kopf auf jeder Seite, Spaltenbreiten); angepasst `test_export_topic_units_pdf_usecase`, `test_export_topic_units_markdown_renderer`, `test_sequence_plan_repository`, `test_sequence_focus_competencies`.
+
 ### Changed (2026-10-06) — DejaVu Sans für alle PDF-Exporte
 
 - Neues Modul `infrastructure/export/pdf_fonts.py` (`register_pdf_fonts()` idempotent, `PdfFonts`, `FONTS_DIR`, Fehler bei fehlender Datei). Schriften: DejaVu 2.37 aus dem offiziellen Release-Archiv, `kursplaner/resources/fonts/` + `LICENSE` + `SOURCE.md` (URL, SHA-256 von Archiv und Dateien, Abrufdatum).

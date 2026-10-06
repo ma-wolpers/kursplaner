@@ -23,12 +23,12 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
-    EXPORT_TABLE_HEADERS,
     TopicSequenceRun,
     build_export_rows_for_run,
     compute_topic_sequence_runs,
 )
 from kursplaner.core.ports.repositories import SequencePlanRepository
+from kursplaner.core.usecases.sequence_export_table import EXPORT_TABLE_HEADERS, export_row_cells
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 
 MIN_SEQUENCE_MEMBER_COUNT = 2
@@ -143,14 +143,11 @@ class SyncTopicSequencePlansUseCase:
 
             export_rows = build_export_rows_for_run(day_columns, run)
             if export_rows:
-                rows = [
-                    [row.datum, row.stunden, row.thema, row.stundenziel, row.prozesskompetenzen]
-                    for row in export_rows
-                ]
+                rows = [export_row_cells(row) for row in export_rows]
                 sync_result = self._sequence_export_sync.execute(
                     table=table,
                     oberthema=run.oberthema,
-                    headers=list(EXPORT_TABLE_HEADERS),
+                    headers=EXPORT_TABLE_HEADERS,
                     rows=rows,
                 )
                 sequence_path = sync_result.sequence_path
@@ -201,6 +198,6 @@ class SyncTopicSequencePlansUseCase:
             if not sequence_name or sequence_name in synced_oberthemen:
                 continue
             self._sequence_export_sync.execute(
-                table=table, oberthema=sequence_name, headers=list(EXPORT_TABLE_HEADERS), rows=[]
+                table=table, oberthema=sequence_name, headers=EXPORT_TABLE_HEADERS, rows=[]
             )
             self._sequence_plan_repo.delete_if_trivial(sequence_path)
