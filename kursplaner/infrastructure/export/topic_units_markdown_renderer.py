@@ -16,7 +16,7 @@ class TopicUnitsMarkdownRenderer:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         sequenzziel_text = document.sequenzziel.strip() or "_(nicht gesetzt)_"
-        leitkompetenz_text = document.leitkompetenz.strip() or "_(nicht gesetzt)_"
+        leitkompetenz_text = "; ".join(document.leitkompetenzen) or "_(nicht gesetzt)_"
 
         lines = [
             f"# {document.title}",
@@ -26,7 +26,7 @@ class TopicUnitsMarkdownRenderer:
             f"Exportdatum: {document.export_date_text}",
             "",
             f"**Sequenzziel:** {sequenzziel_text}",
-            f"**Leitkompetenz:** {leitkompetenz_text}",
+            f"**Leitkompetenzen:** {leitkompetenz_text}",
             "",
             "| Datum | Stunden | Thema | Stundenziel | geförderte Prozesskompetenzen |",
             "| --- | --- | --- | --- | --- |",

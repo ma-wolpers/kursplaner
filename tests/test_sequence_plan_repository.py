@@ -137,7 +137,7 @@ def test_replace_trailing_table_skips_write_when_content_unchanged(tmp_path):
     assert "Andere Einheit" in sequence_path.read_text(encoding="utf-8")
 
 
-def test_new_sequence_document_has_empty_goal_and_focus_competency(tmp_path):
+def test_new_sequence_document_has_empty_goal_and_focus_competencies(tmp_path):
     plan_dir = tmp_path / "Unterricht" / "M GK blau-1 26-2"
     plan_dir.mkdir(parents=True, exist_ok=True)
     plan_path = plan_dir / "M GK blau-1 26-2.md"
@@ -147,12 +147,12 @@ def test_new_sequence_document_has_empty_goal_and_focus_competency(tmp_path):
     repo = FileSystemSequencePlanRepository()
     sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
 
-    sequenzziel, leitkompetenz = repo.read_goal_and_focus_competency(sequence_path)
+    sequenzziel, leitkompetenzen = repo.read_goal_and_focus_competencies(sequence_path)
     assert sequenzziel == ""
-    assert leitkompetenz == ""
+    assert leitkompetenzen == ()
 
 
-def test_write_goal_and_focus_competency_round_trips_and_preserves_rest_of_file(tmp_path):
+def test_write_goal_and_focus_competencies_round_trips_and_preserves_rest_of_file(tmp_path):
     plan_dir = tmp_path / "Unterricht" / "M GK blau-1 26-2"
     plan_dir.mkdir(parents=True, exist_ok=True)
     plan_path = plan_dir / "M GK blau-1 26-2.md"
@@ -166,29 +166,33 @@ def test_write_goal_and_focus_competency_round_trips_and_preserves_rest_of_file(
     table_lines = repo.render_markdown_table(headers=["Datum"], rows=[["10-03-26"]])
     repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
 
-    repo.write_goal_and_focus_competency(
+    repo.write_goal_and_focus_competencies(
         sequence_path=sequence_path,
         sequenzziel="Steigungen sicher berechnen",
-        leitkompetenz="Modellieren",
+        leitkompetenzen=("Modellieren", 'Argumentieren "mathematisch"'),
     )
 
-    sequenzziel, leitkompetenz = repo.read_goal_and_focus_competency(sequence_path)
+    sequenzziel, leitkompetenzen = repo.read_goal_and_focus_competencies(sequence_path)
     assert sequenzziel == "Steigungen sicher berechnen"
-    assert leitkompetenz == "Modellieren"
+    assert leitkompetenzen == ("Modellieren", 'Argumentieren "mathematisch"')
 
     text = sequence_path.read_text(encoding="utf-8")
     assert 'Kursplan: "[[M GK blau-1 26-2]]"' in text
     assert "Idee A" in text
     assert "| 10-03-26 |" in text
 
-    repo.write_goal_and_focus_competency(
+    repo.write_goal_and_focus_competencies(
         sequence_path=sequence_path,
         sequenzziel="Geänderter Text",
-        leitkompetenz="Modellieren",
+        leitkompetenzen=("Modellieren",),
     )
-    updated_sequenzziel, _ = repo.read_goal_and_focus_competency(sequence_path)
+    updated_sequenzziel, updated_focus = repo.read_goal_and_focus_competencies(sequence_path)
     assert updated_sequenzziel == "Geänderter Text"
-    assert sequence_path.read_text(encoding="utf-8").count("Sequenzziel:") == 1
+    assert updated_focus == ("Modellieren",)
+    text = sequence_path.read_text(encoding="utf-8")
+    assert text.count("Sequenzziel:") == 1
+    assert text.count("Leitkompetenzen:") == 1
+    assert "Argumentieren" not in text  # alter Listenblock komplett ersetzt, keine verwaisten Einträge
 
 
 def _plan_with_two_sequences(tmp_path):
@@ -249,7 +253,7 @@ def test_sequence_document_with_only_goal_is_not_trivial(tmp_path):
     repo, table = _plan_with_two_sequences(tmp_path)
     sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
 
-    repo.write_goal_and_focus_competency(sequence_path=sequence_path, sequenzziel="Ziel", leitkompetenz="")
+    repo.write_goal_and_focus_competencies(sequence_path=sequence_path, sequenzziel="Ziel", leitkompetenzen=())
 
     assert repo.is_trivial(sequence_path) is False
 

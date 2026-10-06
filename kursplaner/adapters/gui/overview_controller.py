@@ -623,6 +623,20 @@ class MainWindowOverviewController:
         if self.app.current_table is None:
             self.app.topic_sequence_plans = []
             return
-        self.app.topic_sequence_plans = self.sync_topic_sequence_plans_usecase.execute(
-            table=self.app.current_table, day_columns=self.app.raw_day_columns
-        )
+        try:
+            self.app.topic_sequence_plans = self.sync_topic_sequence_plans_usecase.execute(
+                table=self.app.current_table, day_columns=self.app.raw_day_columns
+            )
+        except RuntimeError as exc:
+            # Ungültige Sequenzdatei (z. B. nicht migrierter Altbestand ohne
+            # `Leitkompetenzen` oder ein ungültiger Listeneintrag): reine
+            # Fehlerdarstellung, kein Kompatibilitätsmodus. Ohne Teilzustand
+            # weiterarbeiten; dieselbe Meldung nur einmal zeigen, da der Sync
+            # nach jedem Grid-Rebuild erneut läuft.
+            self.app.topic_sequence_plans = []
+            message = str(exc)
+            if message != getattr(self, "_last_sequence_sync_error", None):
+                self._last_sequence_sync_error = message
+                messagebox.showerror("Sequenzdatei ungültig", message, parent=self.app)
+            return
+        self._last_sequence_sync_error = None

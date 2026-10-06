@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-10-06) — Hard Cut auf `Leitkompetenzen: tuple[str, ...]`
+
+- `SEQUENCE_PLAN_SCHEMA.required_keys` + `Leitkompetenzen`; neue Dateien schreiben `Leitkompetenzen:` (leere Liste). Kein Lesepfad für `Leitkompetenz` mehr (Schema-Fehler bei Altbestand).
+- Port/Repository: `read_goal_and_focus_competency` → `read_goal_and_focus_competencies` (liefert `tuple[str, tuple[str, ...]]`, prüft über `raise_on_violation(allow_scalar=False)`), `write_goal_and_focus_competency` → `write_goal_and_focus_competencies(leitkompetenzen=...)` (validiert vor dem Schreiben, ersetzt komplette Key-Blöcke über `_without_key_blocks`, damit keine verwaisten `- …`-Zeilen bleiben), `_FOCUS_COMPETENCY_KEY` → `_FOCUS_COMPETENCIES_KEY`.
+- Use Cases: `TopicSequencePlanView.leitkompetenzen` + neue `field_text(field_key)` (einzige Grid-Darstellung beider Felder, ersetzt dreifaches `view.sequenzziel if … else view.leitkompetenz` in `sequence_field_grid_renderer`, `grid_renderer`, `editor_controller`), `SequenceExportSyncResult.leitkompetenzen`, `UpdateSequenceGoalFieldUseCase` (`SequenceFieldKey = Literal["Sequenzziel", "Leitkompetenzen"]`, parst den Zelltext mit `parse_list_cell`; Name bleibt — „goal field“ = eines der beiden Sequenz-Zielfelder), `ExportTopicUnitsPdfResult`/`TopicUnitsPdfDocument.leitkompetenzen` (Renderer vorerst `; `-verbunden, Neugestaltung folgt).
+- GUI: Feldschlüssel/Zeilenbeschriftung `Leitkompetenzen` (`SEQUENCE_FIELD_ROW_ORDER`), Warntext in `action_controller`; `overview_controller._sync_topic_sequence_plans` fängt `RuntimeError` (inkl. `ListFieldViolationError`) und zeigt die Meldung als Dialog (dieselbe Meldung nur einmal, da der Sync nach jedem Grid-Rebuild läuft), Sequenz-Views dann leer.
+- README: Abschnitt „Upgrade auf mehrere Leitkompetenzen“; ARCHITEKTUR_KERN §34. Tests: neu `tests/test_sequence_focus_competencies.py`; umgestellt `test_sequence_plan_repository`, `test_sync_topic_sequence_plans_usecase`, `test_update_sequence_goal_field_usecase`, `test_grid_renderer_sequence_field_mount`, `test_export_topic_units_pdf_usecase`. Abschluss-Check (alter Vertrag) ohne unerlaubte Treffer.
+
 ### Added (2026-10-06) — Migrationstool `Leitkompetenz` → `Leitkompetenzen`
 
 - Neues einmaliges Upgrade-Werkzeug `tools/migrate_sequence_focus_competencies.py` (`python -m tools.migrate_sequence_focus_competencies [--dry-run] [--no-archive] [--unterricht-dir]`), Vorbereitung des Hard Cuts auf `Leitkompetenzen` (YAML-Liste). Einziger Ort mit Wissen über den alten Key; wird nach bestätigtem Lauf entfernt.

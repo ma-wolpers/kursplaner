@@ -4,7 +4,7 @@ Dieser Use Case verbindet die reine Adjazenz-Erkennung aus
 `kursplaner.core.domain.topic_sequence_runs` mit der persistenten
 Sequenz-Dateiablage (`SequencePlanRepository`): für jeden erkannten Lauf von
 mindestens zwei benachbarten, gleichthematischen Einheiten wird sichergestellt,
-dass eine Sequenzdatei existiert, und deren aktuelles Sequenzziel/Leitkompetenz
+dass eine Sequenzdatei existiert, und deren aktuelles Sequenzziel/Leitkompetenzen
 wird für die Grid-Anzeige geladen.
 
 Hält zusätzlich die `## Export`-Tabelle jeder Sequenzdatei aktuell (dieselbe
@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
     EXPORT_TABLE_HEADERS,
@@ -42,18 +43,37 @@ class TopicSequencePlanView:
         run: Der zugrunde liegende, fachlich erkannte Sequenz-Lauf.
         sequence_path: Pfad der zugehörigen, persistenten Sequenz-Markdown-Datei.
         sequenzziel: Aktueller Sequenzziel-Text (kann leer sein).
-        leitkompetenz: Aktueller Leitkompetenz-Text (kann leer sein).
+        leitkompetenzen: Aktuelle vorrangig geförderte Kompetenzen (kann leer sein).
     """
 
     run: TopicSequenceRun
     sequence_path: Path
     sequenzziel: str
-    leitkompetenz: str
+    leitkompetenzen: tuple[str, ...]
 
     @property
     def is_incomplete(self) -> bool:
-        """Prüft, ob Sequenzziel oder Leitkompetenz noch unausgefüllt sind."""
-        return not self.sequenzziel.strip() or not self.leitkompetenz.strip()
+        """Prüft, ob das Sequenzziel leer ist oder noch keine Leitkompetenz eingetragen ist."""
+        return not self.sequenzziel.strip() or not self.leitkompetenzen
+
+    def field_text(self, field_key: str) -> str:
+        """Liefert den Grid-Zelltext eines der beiden Sequenz-Zielfelder.
+
+        Einzige Stelle für die Darstellung beider Felder im Grid, damit
+        Rendering, Mount-Reconciliation und Dirty-Check im Editor exakt
+        denselben Text vergleichen: ``Sequenzziel`` als Text,
+        ``Leitkompetenzen`` als Listenzelle mit ``--``-Trennzeilen
+        (`list_cell_text.format_list_cell`).
+
+        Args:
+            field_key: ``"Sequenzziel"`` oder ``"Leitkompetenzen"``.
+
+        Returns:
+            Der anzuzeigende Zelltext.
+        """
+        if field_key == "Sequenzziel":
+            return self.sequenzziel
+        return format_list_cell(self.leitkompetenzen)
 
 
 class SyncTopicSequencePlansUseCase:
@@ -135,19 +155,21 @@ class SyncTopicSequencePlansUseCase:
                 )
                 sequence_path = sync_result.sequence_path
                 sequenzziel = sync_result.sequenzziel
-                leitkompetenz = sync_result.leitkompetenz
+                leitkompetenzen = sync_result.leitkompetenzen
             else:
                 sequence_path = self._sequence_plan_repo.ensure_sequence_document(
                     table=table, sequence_name=run.oberthema
                 )
-                sequenzziel, leitkompetenz = self._sequence_plan_repo.read_goal_and_focus_competency(sequence_path)
+                sequenzziel, leitkompetenzen = self._sequence_plan_repo.read_goal_and_focus_competencies(
+                    sequence_path
+                )
 
             views.append(
                 TopicSequencePlanView(
                     run=run,
                     sequence_path=sequence_path,
                     sequenzziel=sequenzziel,
-                    leitkompetenz=leitkompetenz,
+                    leitkompetenzen=leitkompetenzen,
                 )
             )
 

@@ -4,10 +4,12 @@ import re
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
+from kursplaner.core.domain.list_cell_text import raise_on_violation
 from kursplaner.core.domain.markdown_sections import find_heading_line_index
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.sequence_planning import (
     SEQUENCE_YAML_COURSE_PLAN_KEY,
+    SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY,
     build_sequence_stem,
     course_plan_wiki_link,
     extract_halfyear_token_from_table,
@@ -18,7 +20,7 @@ from kursplaner.core.domain.yaml_registry import SEQUENCE_PLAN_SCHEMA, parse_yam
 from kursplaner.core.domain.yaml_scalars import yaml_double_quote
 
 _GOAL_KEY = "Sequenzziel"
-_FOCUS_COMPETENCY_KEY = "Leitkompetenz"
+_FOCUS_COMPETENCIES_KEY = SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY
 
 
 class FileSystemSequencePlanRepository:
@@ -108,7 +110,8 @@ class FileSystemSequencePlanRepository:
             f"Lerngruppe: {self._yaml_quote(group_name)}",
             f"Halbjahr: {self._yaml_quote(halfyear_token)}",
             f"{_GOAL_KEY}: {self._yaml_quote('')}",
-            f"{_FOCUS_COMPETENCY_KEY}: {self._yaml_quote('')}",
+            # Leere Liste = Key ohne Wert (der Projektparser liest `[]` als Text "[]").
+            f"{_FOCUS_COMPETENCIES_KEY}:",
             "---",
             "",
             f"# {title}",
@@ -128,8 +131,8 @@ class FileSystemSequencePlanRepository:
     def read_sequence_name(self, sequence_path: Path) -> str:
         """Liest den `Sequenzname`-Frontmatter-Wert einer Sequenzdatei.
 
-        Wirft wie die übrigen Lesemethoden dieser Klasse (`read_goal_and_focus_competency`,
-        `write_goal_and_focus_competency`) bei fehlendem/kaputtem Frontmatter durch —
+        Wirft wie die übrigen Lesemethoden dieser Klasse (`read_goal_and_focus_competencies`,
+        `write_goal_and_focus_competencies`) bei fehlendem/kaputtem Frontmatter durch —
         kein abweichendes Fehlerverhalten nur für diese eine Methode einführen. Der
         `Sequenzen/`-Ordner enthält per Konstruktion ausschließlich über
         `ensure_sequence_document()` erzeugte, schema-konforme Dateien.
@@ -252,41 +255,83 @@ class FileSystemSequencePlanRepository:
             return ""
         return str(raw_value or "").strip()
 
-    def read_goal_and_focus_competency(self, sequence_path: Path) -> tuple[str, str]:
-        """Liest Sequenzziel und Leitkompetenz aus dem YAML-Frontmatter einer Sequenzdatei.
+    def read_goal_and_focus_competencies(self, sequence_path: Path) -> tuple[str, tuple[str, ...]]:
+        """Liest Sequenzziel und Leitkompetenzen aus dem YAML-Frontmatter einer Sequenzdatei.
+
+        ``Leitkompetenzen`` ist Pflichtfeld des `SEQUENCE_PLAN_SCHEMA` und eine
+        reine YAML-Liste: Ein Skalar oder ein Eintrag, der die Listen-Invariante
+        verletzt, ist ungültiger Datenbestand und wird nicht umgedeutet
+        (`ListFieldViolationError`). Eine Datei ohne ``Leitkompetenzen`` (z. B.
+        nicht migrierter Altbestand) scheitert an der regulären Schema-Prüfung.
 
         Args:
             sequence_path: Pfad der Sequenz-Markdown-Datei.
 
         Returns:
-            Tupel ``(sequenzziel, leitkompetenz)``; beide leer, wenn (noch) nicht gesetzt.
+            Tupel ``(sequenzziel, leitkompetenzen)``; leer, wenn (noch) nicht gesetzt.
+
+        Raises:
+            RuntimeError: Bei fehlendem/kaputtem Frontmatter oder fehlenden Pflichtfeldern.
+            ListFieldViolationError: Bei einem ungültigen ``Leitkompetenzen``-Wert.
         """
         path = sequence_path.expanduser().resolve()
         text = path.read_text(encoding="utf-8")
         data, _ = parse_yaml_frontmatter(text, SEQUENCE_PLAN_SCHEMA, source_label=str(path))
         sequenzziel = self._coerce_frontmatter_text(data.get(_GOAL_KEY, ""))
-        leitkompetenz = self._coerce_frontmatter_text(data.get(_FOCUS_COMPETENCY_KEY, ""))
-        return sequenzziel, leitkompetenz
+        leitkompetenzen = raise_on_violation(
+            _FOCUS_COMPETENCIES_KEY, data.get(_FOCUS_COMPETENCIES_KEY), source_label=str(path), allow_scalar=False
+        )
+        return sequenzziel, tuple(leitkompetenzen)
 
-    def write_goal_and_focus_competency(
-        self, *, sequence_path: Path, sequenzziel: str, leitkompetenz: str
+    @staticmethod
+    def _without_key_blocks(frontmatter_lines: list[str], keys: tuple[str, ...]) -> list[str]:
+        """Entfernt komplette Key-Blöcke (Key-Zeile + eingerückte/``-``-Folgezeilen).
+
+        Eine Listen-Key-Zeile (``Leitkompetenzen:``) hat ihre Einträge in den
+        Folgezeilen; würde nur die Key-Zeile entfernt, blieben verwaiste
+        ``- …``-Zeilen unter dem vorherigen Key stehen.
+
+        Args:
+            frontmatter_lines: Zeilen zwischen den ``---``-Markern.
+            keys: Zu entfernende Top-Level-Keys.
+
+        Returns:
+            Die Zeilen ohne die Blöcke dieser Keys.
+        """
+        result: list[str] = []
+        skipping = False
+        for line in frontmatter_lines:
+            is_key_line = bool(line) and line[0] not in " \t-" and ":" in line
+            if is_key_line:
+                skipping = line.split(":", 1)[0].strip() in keys
+            elif skipping and line.strip() and line[0] not in " \t-":
+                skipping = False
+            if not skipping:
+                result.append(line)
+        return result
+
+    def write_goal_and_focus_competencies(
+        self, *, sequence_path: Path, sequenzziel: str, leitkompetenzen: tuple[str, ...]
     ) -> None:
-        """Schreibt Sequenzziel/Leitkompetenz chirurgisch in das Frontmatter zurück.
+        """Schreibt Sequenzziel/Leitkompetenzen chirurgisch in das Frontmatter zurück.
 
-        Ersetzt ausschließlich die beiden betroffenen Frontmatter-Zeilen zwischen
-        den beiden ``---``-Markern; alle anderen Frontmatter-Felder sowie der
-        gesamte Dateikörper (Titel, Brainstorming, Export-Tabelle) bleiben
-        unverändert.
+        Ersetzt ausschließlich die Blöcke dieser beiden Felder zwischen den
+        ``---``-Markern; alle anderen Frontmatter-Felder sowie der gesamte
+        Dateikörper (Titel, Brainstorming, Export-Tabelle) bleiben unverändert.
+        ``Leitkompetenzen`` wird immer als YAML-Liste geschrieben (leer: Key
+        ohne Wert).
 
         Args:
             sequence_path: Pfad der Sequenz-Markdown-Datei.
             sequenzziel: Neuer Text für das Sequenzziel-Feld.
-            leitkompetenz: Neuer Text für das Leitkompetenz-Feld.
+            leitkompetenzen: Neue Einträge; müssen die Listen-Invariante erfüllen.
 
         Raises:
             RuntimeError: Wenn die Datei kein (geschlossenes) YAML-Frontmatter besitzt.
+            ListFieldViolationError: Wenn ein Eintrag die Listen-Invariante verletzt.
         """
         path = sequence_path.expanduser().resolve()
+        entries = raise_on_violation(_FOCUS_COMPETENCIES_KEY, list(leitkompetenzen), source_label=str(path))
         lines = path.read_text(encoding="utf-8").splitlines()
         if not lines or lines[0].strip() != "---":
             raise RuntimeError(f"Fehlendes YAML-Frontmatter in Sequenzdatei: {path}")
@@ -295,13 +340,10 @@ class FileSystemSequencePlanRepository:
         if closing_index is None:
             raise RuntimeError(f"YAML-Frontmatter nicht geschlossen in Sequenzdatei: {path}")
 
-        frontmatter_body = [
-            line
-            for line in lines[1:closing_index]
-            if not line.startswith(f"{_GOAL_KEY}:") and not line.startswith(f"{_FOCUS_COMPETENCY_KEY}:")
-        ]
+        frontmatter_body = self._without_key_blocks(lines[1:closing_index], (_GOAL_KEY, _FOCUS_COMPETENCIES_KEY))
         frontmatter_body.append(f"{_GOAL_KEY}: {self._yaml_quote(sequenzziel)}")
-        frontmatter_body.append(f"{_FOCUS_COMPETENCY_KEY}: {self._yaml_quote(leitkompetenz)}")
+        frontmatter_body.append(f"{_FOCUS_COMPETENCIES_KEY}:")
+        frontmatter_body.extend(f"  - {self._yaml_quote(entry)}" for entry in entries)
 
         new_lines = ["---"] + frontmatter_body + lines[closing_index:]
         atomic_write_text(path, "\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
@@ -309,7 +351,7 @@ class FileSystemSequencePlanRepository:
     def is_trivial(self, sequence_path: Path) -> bool:
         """Prüft, ob eine Sequenzdatei außer Struktur keinen echten Inhalt trägt.
 
-        "Inhalt" umfasst Brainstorming-Text, Sequenzziel, Leitkompetenz und
+        "Inhalt" umfasst Brainstorming-Text, Sequenzziel, Leitkompetenzen und
         Export-Tabellenzeilen. Frontmatter-Metadaten (Sequenzname, Lerngruppe,
         Halbjahr, Kursplan-Link) und die Titelzeile zählen nicht, da sie beim
         Anlegen immer gesetzt werden und für sich keinen fachlichen Inhalt tragen.
@@ -326,8 +368,8 @@ class FileSystemSequencePlanRepository:
             return False
         if self.read_brainstorming(path).strip():
             return False
-        sequenzziel, leitkompetenz = self.read_goal_and_focus_competency(path)
-        if sequenzziel.strip() or leitkompetenz.strip():
+        sequenzziel, leitkompetenzen = self.read_goal_and_focus_competencies(path)
+        if sequenzziel.strip() or leitkompetenzen:
             return False
         lines = path.read_text(encoding="utf-8").splitlines()
         blocks = self._extract_table_blocks(lines)

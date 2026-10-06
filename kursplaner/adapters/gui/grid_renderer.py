@@ -366,7 +366,7 @@ class GridRenderer:
         del self.app.cell_widgets[(field_key, day_index)]
 
     def _reconcile_sequence_field_mounts(self, mounted_range: tuple[int, int]) -> None:
-        """Hält Sequenzfeld-Spannzellen (Sequenzziel/Leitkompetenz) auf ihre
+        """Hält Sequenzfeld-Spannzellen (Sequenzziel/Leitkompetenzen) auf ihre
 
         Schnittmenge mit dem aktuellen Mount-Fenster begrenzt (Kursplaner
         Item 4, Stufe 6). Bewusst als eigene Methode neben
@@ -390,7 +390,7 @@ class GridRenderer:
         Text-Rettung vor der Zerstörung ist reines Lesen-und-Merken in
         `pending_cell_text` (geschlüsselt als `(field_key, first_row_index)`
         -- eigener Namensraum ohne Kollisionsrisiko, da "Sequenzziel"/
-        "Leitkompetenz" nie als Feld-Schlüssel normaler Zeilen vorkommen).
+        "Leitkompetenzen" nie als Feld-Schlüssel normaler Zeilen vorkommen).
         `save_sequence_field()` wird hier nie aufgerufen -- anders als im
         ursprünglichen Plan-Entwurf, der noch von einem Force-Commit-
         Mechanismus ausging, den Stufe 4 zugunsten von `pending_cell_text`
@@ -420,7 +420,7 @@ class GridRenderer:
                 )
                 widget_key = (field_key, view.run.first_row_index)
                 existing = self.app.sequence_field_widgets.get(widget_key)
-                domain_value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
+                domain_value = view.field_text(field_key)
 
                 sub_span = None
                 if full_span is not None:

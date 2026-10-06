@@ -248,14 +248,14 @@ class MainWindowEditorController:
             raise RuntimeError(result.error_message or "Speichern fehlgeschlagen")
 
     def save_sequence_field(self, sequence_field_key: str, first_row_index: int) -> bool:
-        """Persistiert eine bearbeitete Sequenzfeld-Zelle (Sequenzziel/Leitkompetenz).
+        """Persistiert eine bearbeitete Sequenzfeld-Zelle (Sequenzziel/Leitkompetenzen).
 
         Spiegelt `save_cell()`, schreibt aber nicht in eine Einheiten-Datei,
         sondern über `UpdateSequenceGoalFieldUseCase` in die zentrale,
         persistente Sequenzdatei der betroffenen Sequenz.
 
         Args:
-            sequence_field_key: ``"Sequenzziel"`` oder ``"Leitkompetenz"``.
+            sequence_field_key: ``"Sequenzziel"`` oder ``"Leitkompetenzen"``.
             first_row_index: Stabiler Zeilenindex der ersten Einheit der
                 Sequenz; identifiziert Widget und `TopicSequencePlanView`
                 eindeutig, auch wenn mehrere Sequenzen denselben Oberthema-Text
@@ -281,7 +281,7 @@ class MainWindowEditorController:
             return False
 
         value = cell.get("1.0", "end-1c").strip()
-        current_value = view.sequenzziel if sequence_field_key == "Sequenzziel" else view.leitkompetenz
+        current_value = view.field_text(sequence_field_key)
         if value == current_value.strip():
             # s. save_cell(): ein evtl. veralteter pending_cell_text-Eintrag
             # aus einem frueheren COLD-Zyklus muss auch hier verschwinden.

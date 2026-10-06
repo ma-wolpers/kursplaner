@@ -1487,8 +1487,8 @@ class MainWindowActionController:
         warnings: list[str] = []
         if not bool(self.app.sequence_fields_visible_var.get()):
             warnings.append("Die Sequenzfelder sind in der Ansicht aktuell ausgeblendet.")
-        if not result.sequenzziel.strip() or not result.leitkompetenz.strip():
-            warnings.append("Sequenzziel oder Leitkompetenz sind für diese Sequenz noch leer.")
+        if not result.sequenzziel.strip() or not result.leitkompetenzen:
+            warnings.append("Sequenzziel oder Leitkompetenzen sind für diese Sequenz noch leer.")
 
         if warnings:
             messagebox.showwarning(

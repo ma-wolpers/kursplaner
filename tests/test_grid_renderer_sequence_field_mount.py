@@ -1,6 +1,6 @@
 """Tests für `GridRenderer._reconcile_sequence_field_mounts()`/
 `_evict_sequence_field_to_cold()` (Kursplaner Item 4, Stufe 6 -- die laut
-Plan "trickiest correctness surface": Sequenzziel-/Leitkompetenz-Zellen
+Plan "trickiest correctness surface": Sequenzziel-/Leitkompetenzen-Zellen
 überspannen mehrere Tages-Spalten statt einer.
 
 Design-Korrektur gegenüber dem ursprünglichen Plan-Entwurf: der dort noch
@@ -34,10 +34,10 @@ ensure_bw_gui_on_path()
 _DAY_COUNT = 10
 
 
-def _view(*, member_row_indices, sequenzziel="Ziel", leitkompetenz="Kompetenz") -> TopicSequencePlanView:
+def _view(*, member_row_indices, sequenzziel="Ziel", leitkompetenzen=("Kompetenz",)) -> TopicSequencePlanView:
     run = TopicSequenceRun(oberthema="Testthema", member_row_indices=tuple(member_row_indices))
     return TopicSequencePlanView(
-        run=run, sequence_path=Path("dummy-sequenz.md"), sequenzziel=sequenzziel, leitkompetenz=leitkompetenz
+        run=run, sequence_path=Path("dummy-sequenz.md"), sequenzziel=sequenzziel, leitkompetenzen=leitkompetenzen
     )
 
 
@@ -145,7 +145,7 @@ def test_widget_is_respanned_not_recreated_when_subspan_shifts():
     cell = _SpanCellStub("Ziel", column=2, columnspan=3)  # Platzierung passend zu altem Fenster (2,4)
     other_field_cell = _SpanCellStub("Kompetenz", column=4, columnspan=3)  # bereits am NEUEN Fenster (4,6)
     renderer = _renderer(
-        sequence_field_widgets={("Sequenzziel", 2): cell, ("Leitkompetenz", 2): other_field_cell},
+        sequence_field_widgets={("Sequenzziel", 2): cell, ("Leitkompetenzen", 2): other_field_cell},
         topic_sequence_plans=[view],
         mounted_range=(4, 6),
     )
@@ -162,7 +162,7 @@ def test_widget_not_regridded_when_subspan_unchanged():
     cell = _SpanCellStub("Ziel", column=4, columnspan=3)  # bereits exakt an sub_span (4,6) platziert
     other_field_cell = _SpanCellStub("Kompetenz", column=4, columnspan=3)
     renderer = _renderer(
-        sequence_field_widgets={("Sequenzziel", 2): cell, ("Leitkompetenz", 2): other_field_cell},
+        sequence_field_widgets={("Sequenzziel", 2): cell, ("Leitkompetenzen", 2): other_field_cell},
         topic_sequence_plans=[view],
         mounted_range=(4, 6),
     )
@@ -237,12 +237,12 @@ def test_reconciliation_never_touches_save_sequence_field_or_editor_controller()
 
     ein versehentlicher Aufruf wuerde mit AttributeError crashen."""
     view_dirty = _view(member_row_indices=(5, 6, 7, 8), sequenzziel="Domain")
-    view_clean = _view(member_row_indices=(0, 1), leitkompetenz="Unveraendert")
+    view_clean = _view(member_row_indices=(0, 1), leitkompetenzen=("Unveraendert",))
     cells = {
         ("Sequenzziel", 5): _SpanCellStub("dirty", column=5, columnspan=4),  # weicht von "Domain" ab
-        ("Leitkompetenz", 5): _SpanCellStub("Kompetenz", column=5, columnspan=4),  # Default, unveraendert
+        ("Leitkompetenzen", 5): _SpanCellStub("Kompetenz", column=5, columnspan=4),  # Default, unveraendert
         ("Sequenzziel", 0): _SpanCellStub("Ziel", column=0, columnspan=2),  # Default, unveraendert
-        ("Leitkompetenz", 0): _SpanCellStub("Unveraendert", column=0, columnspan=2),  # entspricht Domain-Wert
+        ("Leitkompetenzen", 0): _SpanCellStub("Unveraendert", column=0, columnspan=2),  # entspricht Domain-Wert
     }
     # Fenster (2,3) ueberlappt weder mit view_dirty (Spalten 5-8) noch mit
     # view_clean (Spalten 0-1) -- beide Laeufe werden komplett evictet.
@@ -370,8 +370,8 @@ def _real_renderer_for_multi_view_scenario(tk_root):
     """
     renderer = object.__new__(GridRenderer)
     grid_inner = tk.Frame(tk_root)
-    view_a = _view(member_row_indices=tuple(range(2, 10)), sequenzziel="A-Ziel", leitkompetenz="A-Kompetenz")
-    view_b = _view(member_row_indices=(11, 12, 13), sequenzziel="B-Ziel", leitkompetenz="B-Kompetenz")
+    view_a = _view(member_row_indices=tuple(range(2, 10)), sequenzziel="A-Ziel", leitkompetenzen=("A-Kompetenz",))
+    view_b = _view(member_row_indices=(11, 12, 13), sequenzziel="B-Ziel", leitkompetenzen=("B-Kompetenz",))
     app = SimpleNamespace(
         day_columns=[make_day_column(row_index=i) for i in range(20)],
         day_grid_columns={i: i for i in range(20)},
@@ -447,8 +447,8 @@ def test_scenario_multiple_window_transitions_never_leaves_gap_or_stray_widget(t
     mounted = _mounted_grid_cols_for_field(app, "Sequenzziel")
     assert mounted == {11: (11, 13)}
     assert app.sequence_field_widgets[("Sequenzziel", 11)].get("1.0", "end-1c") == "B-Ziel"
-    # Leitkompetenz-Zeile unabhaengig, aber symmetrisch geprueft.
-    assert _mounted_grid_cols_for_field(app, "Leitkompetenz") == {11: (11, 13)}
+    # Leitkompetenzen-Zeile unabhaengig, aber symmetrisch geprueft.
+    assert _mounted_grid_cols_for_field(app, "Leitkompetenzen") == {11: (11, 13)}
 
     # Schritt 6: Fenster (15,16) -> ausserhalb beider Laeufe. sub_span fuer
     # BEIDE ist leer -- kein Widget bleibt faelschlich sichtbar, keins wird
@@ -477,7 +477,7 @@ def test_scenario_reconciling_same_window_twice_is_idempotent(tk_root):
     widget_after = app.sequence_field_widgets[("Sequenzziel", 2)]
     assert widget_after is widget_before  # keine Destroy/Recreate-Runde
     assert widget_after.grid_info() == grid_info_before  # keine erneute grid()-Umplatzierung
-    assert len(app.sequence_field_widgets) == 2  # Sequenzziel + Leitkompetenz, keine Duplikate
+    assert len(app.sequence_field_widgets) == 2  # Sequenzziel + Leitkompetenzen, keine Duplikate
 
 
 def test_scenario_never_triggers_save_or_editor_controller_across_full_transition_sequence(tk_root):

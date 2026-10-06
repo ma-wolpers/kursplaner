@@ -125,14 +125,14 @@ class TopicUnitsPdfRenderer:
         )
 
         sequenzziel_text = document.sequenzziel.strip() or "(nicht gesetzt)"
-        leitkompetenz_text = document.leitkompetenz.strip() or "(nicht gesetzt)"
+        leitkompetenz_text = "; ".join(document.leitkompetenzen) or "(nicht gesetzt)"
 
         story = [
             Paragraph(document.title, self._title_style),
             Paragraph(document.subtitle, self._subtitle_style),
             Paragraph(document.export_date_text, self._date_style),
             Paragraph(f"<b>Sequenzziel:</b> {sequenzziel_text}", self._sequence_meta_style),
-            Paragraph(f"<b>Leitkompetenz:</b> {leitkompetenz_text}", self._sequence_meta_style),
+            Paragraph(f"<b>Leitkompetenzen:</b> {leitkompetenz_text}", self._sequence_meta_style),
             Spacer(1, 6),
         ]
 

@@ -17,7 +17,7 @@ CreateTextCell = Callable[..., ui.Text]
 # sequence_field_mounts()` (Kursplaner Item 4, Stufe 6) genutzt, um den
 # `row_idx` einer Zeile ohne Voll-Rebuild aufzulösen, statt die Reihenfolge
 # ein zweites Mal hart zu kodieren.
-SEQUENCE_FIELD_ROW_ORDER = ("Sequenzziel", "Leitkompetenz")
+SEQUENCE_FIELD_ROW_ORDER = ("Sequenzziel", "Leitkompetenzen")
 
 
 def compute_row_index_to_grid_col(
@@ -42,7 +42,7 @@ def compute_row_index_to_grid_col(
 
 
 class SequenceFieldGridRenderer:
-    """Rendert die über mehrere Tages-Spalten spannenden Sequenzziel-/Leitkompetenz-Zeilen.
+    """Rendert die über mehrere Tages-Spalten spannenden Sequenzziel-/Leitkompetenzen-Zeilen.
 
     Ausgelagert aus `GridRenderer`, weil dieses Sub-Feature in sich
     geschlossen ist: es bekommt seinen benötigten Zustand (Zeilenindex,
@@ -72,7 +72,7 @@ class SequenceFieldGridRenderer:
         day_grid_columns: dict[int, int],
         row_pixel_heights: dict[int, int],
     ) -> int:
-        """Rendert die spannenden Sequenzziel-/Leitkompetenz-Zeilen, falls Sequenzen erkannt wurden.
+        """Rendert die spannenden Sequenzziel-/Leitkompetenzen-Zeilen, falls Sequenzen erkannt wurden.
 
         Wird nur aufgerufen, wenn `sequence_fields_visible_var` aktiv ist. Baut
         pro erkannter Sequenz (`self.app.topic_sequence_plans`) ein oder mehrere
@@ -147,7 +147,7 @@ class SequenceFieldGridRenderer:
         grid_col_is_cancel: dict[int, bool],
         row_pixel_heights: dict[int, int],
     ) -> int:
-        """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenz).
+        """Rendert genau eine Sequenzfeld-Zeile (Sequenzziel ODER Leitkompetenzen).
 
         Ein Lauf spannt sich immer über genau eine zusammenhängende Zelle
         (siehe `_run_span()`) — auch über dazwischenliegende Marker-Spalten
@@ -180,7 +180,7 @@ class SequenceFieldGridRenderer:
             if full_span is None:
                 continue
             covered_grid_cols.update(full_span)
-            value = view.sequenzziel if field_key == "Sequenzziel" else view.leitkompetenz
+            value = view.field_text(field_key)
             widget_key = (field_key, view.run.first_row_index)
 
             cell = self._create_text_cell(

@@ -1,7 +1,7 @@
 """Use Case: Aktualisieren der persistenten Sequenzdatei beim Export einer Sequenz.
 
 Kapselt den Ablauf "Sequenzdatei sicherstellen → Export-Tabelle einsetzen →
-aktuelles Sequenzziel/Leitkompetenz auslesen" als einen einzigen, von
+aktuelles Sequenzziel/Leitkompetenzen auslesen" als einen einzigen, von
 `ExportTopicUnitsPdfUseCase` wiederverwendbaren Schritt. Die eigentliche
 Tabellen-/Feld-Fachlogik (welche Zeilen exportiert werden) bleibt beim
 aufrufenden Export-Use-Case; dieser Use Case kennt nur die Sequenzdatei.
@@ -23,12 +23,12 @@ class SequenceExportSyncResult:
     Attributes:
         sequence_path: Pfad der aktualisierten Sequenz-Markdown-Datei.
         sequenzziel: Aktuell in der Sequenzdatei hinterlegtes Sequenzziel.
-        leitkompetenz: Aktuell in der Sequenzdatei hinterlegte Leitkompetenz.
+        leitkompetenzen: Aktuell in der Sequenzdatei hinterlegte Leitkompetenzen.
     """
 
     sequence_path: Path
     sequenzziel: str
-    leitkompetenz: str
+    leitkompetenzen: tuple[str, ...]
 
 
 class SyncSequenceExportTableUseCase:
@@ -62,15 +62,15 @@ class SyncSequenceExportTableUseCase:
             rows: Zeilenwerte der Export-Tabelle, spaltenweise passend zu `headers`.
 
         Returns:
-            Ergebnis mit Dateipfad und aktuellem Sequenzziel/Leitkompetenz, zur
+            Ergebnis mit Dateipfad und aktuellem Sequenzziel/Leitkompetenzen, zur
             direkten Weiterverwendung im PDF-/Markdown-Export.
         """
         sequence_path = self._sequence_plan_repo.ensure_sequence_document(table=table, sequence_name=oberthema)
         table_lines = self._sequence_plan_repo.render_markdown_table(headers=headers, rows=rows)
         self._sequence_plan_repo.replace_trailing_table(sequence_path=sequence_path, table_lines=table_lines)
-        sequenzziel, leitkompetenz = self._sequence_plan_repo.read_goal_and_focus_competency(sequence_path)
+        sequenzziel, leitkompetenzen = self._sequence_plan_repo.read_goal_and_focus_competencies(sequence_path)
         return SequenceExportSyncResult(
             sequence_path=sequence_path,
             sequenzziel=sequenzziel,
-            leitkompetenz=leitkompetenz,
+            leitkompetenzen=leitkompetenzen,
         )

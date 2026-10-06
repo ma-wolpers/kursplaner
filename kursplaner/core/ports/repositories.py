@@ -809,18 +809,21 @@ class SequencePlanRepository(Protocol):
         """Render rows into a markdown table line representation."""
         ...
 
-    def read_goal_and_focus_competency(self, sequence_path: Path) -> tuple[str, str]:
-        """Read the ``Sequenzziel``/``Leitkompetenz`` frontmatter fields of a sequence file.
+    def read_goal_and_focus_competencies(self, sequence_path: Path) -> tuple[str, tuple[str, ...]]:
+        """Read the ``Sequenzziel``/``Leitkompetenzen`` frontmatter fields of a sequence file.
+
+        ``Leitkompetenzen`` is a mandatory YAML list (may be empty); a scalar or an
+        entry violating the list invariant is invalid data and raises.
 
         Returns:
-            A ``(sequenzziel, leitkompetenz)`` tuple; both empty strings if unset.
+            A ``(sequenzziel, leitkompetenzen)`` tuple; empty values if unset.
         """
         ...
 
-    def write_goal_and_focus_competency(
-        self, *, sequence_path: Path, sequenzziel: str, leitkompetenz: str
+    def write_goal_and_focus_competencies(
+        self, *, sequence_path: Path, sequenzziel: str, leitkompetenzen: tuple[str, ...]
     ) -> None:
-        """Persist ``Sequenzziel``/``Leitkompetenz`` into the frontmatter, preserving the rest of the file."""
+        """Persist ``Sequenzziel``/``Leitkompetenzen`` into the frontmatter, preserving the rest of the file."""
         ...
 
 

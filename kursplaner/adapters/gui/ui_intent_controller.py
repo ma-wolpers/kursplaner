@@ -419,7 +419,7 @@ class MainWindowUiIntentController:
         return None
 
     def intent_toggle_sequence_fields_visible(self):
-        """Schaltet die Sichtbarkeit der Sequenzziel-/Leitkompetenz-Zeilen um.
+        """Schaltet die Sichtbarkeit der Sequenzziel-/Leitkompetenzen-Zeilen um.
 
         Ein reiner Struktur-Wechsel (Zeilenmodell ändert sich), daher wird das
         Grid komplett neu aufgebaut statt patch-aktualisiert.

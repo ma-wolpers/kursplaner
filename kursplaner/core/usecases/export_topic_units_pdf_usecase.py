@@ -3,7 +3,7 @@
 Exportiert ausschließlich die zusammenhängende Kette benachbarter Einheiten, die
 zur ausgewählten Einheit gehört (siehe `topic_sequence_runs.compute_topic_sequence_runs`),
 nicht mehr jedes Vorkommen desselben Oberthema-Textes im gesamten Kursplan.
-Zusätzlich zur Tabelle werden Sequenzziel und Leitkompetenz aus der persistenten
+Zusätzlich zur Tabelle werden Sequenzziel und Leitkompetenzen aus der persistenten
 Sequenzdatei geladen (und deren Export-Tabelle beim Export aktualisiert), damit
 Renderer sie zwischen Titel/Untertitel und Tabelle anzeigen können.
 """
@@ -41,7 +41,7 @@ class TopicUnitsPdfDocument:
         export_date_text: Formatiertes Exportdatum.
         rows: Exportierte Tabellenzeilen der Sequenz.
         sequenzziel: Übergeordnetes Sequenzziel, wird zwischen Titel und Tabelle angezeigt.
-        leitkompetenz: Vorderrangig geförderte Kompetenz, ebenfalls zwischen Titel und Tabelle.
+        leitkompetenzen: Vorrangig geförderte Kompetenzen, ebenfalls zwischen Titel und Tabelle.
     """
 
     title: str
@@ -49,7 +49,7 @@ class TopicUnitsPdfDocument:
     export_date_text: str
     rows: tuple[TopicUnitExportRow, ...]
     sequenzziel: str
-    leitkompetenz: str
+    leitkompetenzen: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -61,7 +61,7 @@ class ExportTopicUnitsPdfResult:
     row_count: int
     sequence_path: Path
     sequenzziel: str
-    leitkompetenz: str
+    leitkompetenzen: tuple[str, ...]
 
 
 class TopicUnitsPdfRendererPort(Protocol):
@@ -81,7 +81,7 @@ class ExportTopicUnitsPdfUseCase:
             renderer: Konkreter Renderer (PDF oder Markdown), der das
                 vorbereitete Dokument tatsächlich schreibt.
             sequence_export_sync: Use Case, der die persistente Sequenzdatei
-                (Export-Tabelle, Sequenzziel/Leitkompetenz) aktuell hält.
+                (Export-Tabelle, Sequenzziel/Leitkompetenzen) aktuell hält.
         """
         self._renderer = renderer
         self._sequence_export_sync = sequence_export_sync
@@ -116,7 +116,7 @@ class ExportTopicUnitsPdfUseCase:
 
         Returns:
             Ergebnis mit Zielpfad, Titel, Zeilenanzahl sowie Pfad und
-            aktuellem Sequenzziel/Leitkompetenz der persistenten Sequenzdatei.
+            aktuellem Sequenzziel/Leitkompetenzen der persistenten Sequenzdatei.
 
         Raises:
             RuntimeError: Wenn keine gültige Einheit ausgewählt ist, sie nicht
@@ -163,7 +163,7 @@ class ExportTopicUnitsPdfUseCase:
             export_date_text=export_date.strftime("%d.%m.%Y"),
             rows=tuple(rows),
             sequenzziel=sync_result.sequenzziel,
-            leitkompetenz=sync_result.leitkompetenz,
+            leitkompetenzen=sync_result.leitkompetenzen,
         )
 
         self._renderer.render(document, output_path)
@@ -173,5 +173,5 @@ class ExportTopicUnitsPdfUseCase:
             row_count=len(rows),
             sequence_path=sync_result.sequence_path,
             sequenzziel=sync_result.sequenzziel,
-            leitkompetenz=sync_result.leitkompetenz,
+            leitkompetenzen=sync_result.leitkompetenzen,
         )

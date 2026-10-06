@@ -60,7 +60,7 @@ def test_creates_sequence_file_only_for_runs_with_at_least_two_members(tmp_path)
     assert views[0].run.oberthema == "Lineare Funktionen"
     assert views[0].sequence_path.exists()
     assert views[0].sequenzziel == ""
-    assert views[0].leitkompetenz == ""
+    assert views[0].leitkompetenzen == ()
     assert views[0].is_incomplete is True
 
 
@@ -75,10 +75,10 @@ def test_resync_is_idempotent_and_reads_back_persisted_values(tmp_path):
     ]
 
     first_views = usecase.execute(table=table, day_columns=day_columns)
-    repo.write_goal_and_focus_competency(
+    repo.write_goal_and_focus_competencies(
         sequence_path=first_views[0].sequence_path,
         sequenzziel="Ableitungen sicher anwenden",
-        leitkompetenz="Modellieren",
+        leitkompetenzen=("Modellieren",),
     )
 
     second_views = usecase.execute(table=table, day_columns=day_columns)
@@ -86,7 +86,7 @@ def test_resync_is_idempotent_and_reads_back_persisted_values(tmp_path):
     assert len(second_views) == 1
     assert second_views[0].sequence_path == first_views[0].sequence_path
     assert second_views[0].sequenzziel == "Ableitungen sicher anwenden"
-    assert second_views[0].leitkompetenz == "Modellieren"
+    assert second_views[0].leitkompetenzen == ("Modellieren",)
     assert second_views[0].is_incomplete is False
 
 
@@ -133,8 +133,8 @@ def test_cleared_oberthema_removes_unit_from_export_table(tmp_path):
     ]
     first_views = usecase.execute(table=table, day_columns=day_columns)
     sequence_path = first_views[0].sequence_path
-    repo.write_goal_and_focus_competency(
-        sequence_path=sequence_path, sequenzziel="Verschlüsselungen verstehen", leitkompetenz="Modellieren"
+    repo.write_goal_and_focus_competencies(
+        sequence_path=sequence_path, sequenzziel="Verschlüsselungen verstehen", leitkompetenzen=("Modellieren",)
     )
     assert "Caesar" in sequence_path.read_text(encoding="utf-8")
 
@@ -150,13 +150,13 @@ def test_cleared_oberthema_removes_unit_from_export_table(tmp_path):
     content = sequence_path.read_text(encoding="utf-8")
     assert "Caesar" not in content
     assert "Vigenere" not in content
-    # Datei bleibt erhalten, da Sequenzziel/Leitkompetenz noch gesetzt sind (nicht trivial).
+    # Datei bleibt erhalten, da Sequenzziel/Leitkompetenzen noch gesetzt sind (nicht trivial).
     assert sequence_path.exists()
 
 
 def test_cleared_oberthema_deletes_file_when_it_becomes_fully_trivial(tmp_path):
     """Wird eine Sequenzdatei durch das Bereinigen komplett inhaltsleer
-    (kein Sequenzziel/Leitkompetenz/Brainstorming), wird sie gelöscht."""
+    (kein Sequenzziel/Leitkompetenzen/Brainstorming), wird sie gelöscht."""
     repo = FileSystemSequencePlanRepository()
     usecase = _usecase(repo)
     table = _table(tmp_path)

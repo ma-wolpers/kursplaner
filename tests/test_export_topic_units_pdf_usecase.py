@@ -130,7 +130,7 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
     assert result.row_count == 2
     assert result.title == "Informatik lila-5 2025/26 Hj. 2"
     assert result.sequenzziel == ""
-    assert result.leitkompetenz == ""
+    assert result.leitkompetenzen == ()
     assert result.sequence_path.exists()
     assert len(renderer.calls) == 1
 

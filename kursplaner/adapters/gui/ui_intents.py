@@ -31,7 +31,7 @@ class UiIntent:
     GRID_DATE_CELL_CLICK = "grid.date_cell_click"
     GRID_COLUMN_CLICK = "grid.column_click"
 
-    # Sequence-field intents (spanning Sequenzziel/Leitkompetenz cells)
+    # Sequence-field intents (spanning Sequenzziel/Leitkompetenzen cells)
     GRID_SEQUENCE_FIELD_CLICK = "grid.sequence_field_click"
     GRID_SEQUENCE_FIELD_FOCUS_IN = "grid.sequence_field_focus_in"
     GRID_COMMIT_SEQUENCE_FIELD = "grid.commit_sequence_field"

@@ -6,7 +6,10 @@ from typing import Callable, Sequence
 
 from kursplaner.core.domain.course_rhythm import is_valid_rhythm_value
 from kursplaner.core.domain.course_subject import normalize_course_subject
-from kursplaner.core.domain.sequence_planning import SEQUENCE_YAML_COURSE_PLAN_KEY
+from kursplaner.core.domain.sequence_planning import (
+    SEQUENCE_YAML_COURSE_PLAN_KEY,
+    SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY,
+)
 from kursplaner.core.domain.yaml_scalars import decode_yaml_scalar, yaml_double_quote
 
 WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
@@ -146,13 +149,22 @@ LESSON_SCHEMA = YamlSchema(
 
 SEQUENCE_PLAN_SCHEMA = YamlSchema(
     label="Sequenz-Datei",
-    required_keys=(SEQUENCE_YAML_COURSE_PLAN_KEY, "Sequenzname", "Lerngruppe", "Halbjahr"),
+    required_keys=(
+        SEQUENCE_YAML_COURSE_PLAN_KEY,
+        "Sequenzname",
+        "Lerngruppe",
+        "Halbjahr",
+        SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY,
+    ),
 )
 """Schema für die persistente Sequenz-Markdown-Datei (`Sequenzen/*.md`).
 
-`Sequenzziel` und `Leitkompetenz` sind bewusst nicht in `required_keys`
-aufgeführt: sie werden bei Neuanlage der Datei leer angelegt und erst später
-vom Nutzer befüllt (siehe `FileSystemSequencePlanRepository`).
+`Leitkompetenzen` (YAML-Liste, darf leer sein) ist Pflichtfeld: Eine Datei ohne
+dieses Feld — z. B. nicht migrierter Altbestand — ist ungültig und wird von der
+regulären Schema-Prüfung abgelehnt; es gibt keinen Kompatibilitätspfad.
+`Sequenzziel` ist nicht in `required_keys` aufgeführt: es wird bei Neuanlage
+leer angelegt und erst später vom Nutzer befüllt (siehe
+`FileSystemSequencePlanRepository`).
 """
 
 
