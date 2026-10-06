@@ -189,7 +189,7 @@ def test_cell_save_of_oberthema_is_explicit_repair(tmp_path):
     path = _write_invalid_lesson(tmp_path)
     repo = FileSystemLessonRepository()
 
-    result = _execute(_save_cell_usecase(repo), _table(tmp_path), "Oberthema", "Potenzen |  | Potenzen", path)
+    result = _execute(_save_cell_usecase(repo), _table(tmp_path), "Oberthema", "Potenzen\n--\n\n--\nPotenzen", path)
 
     assert result.proceed
     assert repo.load_raw_lesson_frontmatter(path)["Oberthema"] == "Potenzen"

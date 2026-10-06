@@ -39,8 +39,6 @@ from typing import Iterable
 from kursplaner.core.domain.wiki_links import strip_group_prefixed_link, strip_wiki_link
 
 OBERTHEMA_KEY = "Oberthema"
-OBERTHEMA_DISPLAY_SEPARATOR = " | "
-"""Trenner mehrerer Oberthemen in der Grid-Anzeige (vom Listen-Parser verstanden)."""
 OBERTHEMA_INVALID_MARKER = "⚠ ungültiges Oberthema"
 """Grid-Anzeige für einen nicht unterstützten gespeicherten Oberthema-Wert."""
 

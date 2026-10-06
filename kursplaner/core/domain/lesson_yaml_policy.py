@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from kursplaner.core.domain.list_cell_text import raise_on_violation
 from kursplaner.core.domain.oberthema_values import (
     OBERTHEMA_KEY,
     UnsupportedOberthemaValue,
@@ -101,20 +102,28 @@ def allowed_keys_for_type(stundentyp: LessonType) -> tuple[str, ...]:
     return _ALLOWED_BY_TYPE[stundentyp]
 
 
-def _normalize_list(value: object) -> list[str]:
-    if isinstance(value, list):
-        items = value
-    elif isinstance(value, str) and value.strip():
-        items = [value]
-    else:
-        return []
+def _normalize_list(field: str, value: object, *, source_label: str = "") -> list[str]:
+    """Übernimmt ein Listenfeld erst **nach** Prüfung der Listen-Invariante.
 
-    result: list[str] = []
-    for item in items:
-        text = str(item).strip()
-        if text:
-            result.append(text)
-    return result
+    Reihenfolge verbindlich: roher Wert → `list_cell_text.raise_on_violation`
+    → bei Verstoß `ListFieldViolationError` (Datei, Feld, Eintrag, Ursache) →
+    erst danach Übernahme. Es wird nichts vorab getrimmt, gefiltert oder per
+    ``str()`` umgewandelt — früher verschwanden leere Einträge bzw. Einträge
+    mit Leerzeichen am Rand hier still, das ist mit dem verlustfreien
+    Listenvertrag (siehe `list_cell_text`) unvereinbar.
+
+    Args:
+        field: Name des Listenfelds (für die Fehlermeldung).
+        value: Roher Feldwert aus dem Frontmatter.
+        source_label: Datei bzw. Herkunft für die Fehlermeldung.
+
+    Returns:
+        Die gültigen Einträge unverändert.
+
+    Raises:
+        ListFieldViolationError: Bei einem ungültigen Eintrag.
+    """
+    return raise_on_violation(field, value, source_label=source_label)
 
 
 def _normalize_oberthema_structure(value: object, stundentyp: LessonType) -> object:
@@ -203,8 +212,22 @@ def canonicalize_lesson_yaml(
     forced_type: LessonType | None = None,
     topic_hint: str = "",
     duration_hint: int | str = 2,
+    source_label: str = "",
 ) -> dict[str, object]:
-    """Normalisiert YAML-Daten auf den exakten Schluesselsatz des Stundentyps."""
+    """Normalisiert YAML-Daten auf den exakten Schluesselsatz des Stundentyps.
+
+    Listenfelder (`LIST_FIELDS`) werden dabei gegen die Listen-Invariante
+    geprüft (`_normalize_list`); ein ungültiger Eintrag macht die Stunde
+    nicht ladbar (`ListFieldViolationError`).
+
+    Args:
+        data: Rohes Frontmatter-Dict (oder ``None``).
+        forced_type: Erzwingt einen Stundentyp statt ihn abzuleiten.
+        topic_hint: Ersatz-Stundenthema, falls keines gesetzt ist.
+        duration_hint: Ersatz-Dauer, falls keine gesetzt ist.
+        source_label: Datei bzw. Herkunft, erscheint in Fehlermeldungen zu
+            ungültigen Listeneinträgen (z. B. der Pfad der Stunden-Datei).
+    """
     source = data if isinstance(data, dict) else {}
     stundentyp = forced_type if forced_type is not None else infer_stundentyp(source)
 
@@ -228,7 +251,7 @@ def canonicalize_lesson_yaml(
             normalized[key] = _normalize_oberthema_structure(source[key], stundentyp)
             continue
         if key in LIST_FIELDS:
-            normalized[key] = _normalize_list(source[key])
+            normalized[key] = _normalize_list(key, source[key], source_label=source_label)
             continue
         if key == "Stundenthema":
             text = _normalize_scalar(source[key])

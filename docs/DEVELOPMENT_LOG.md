@@ -8,6 +8,17 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-10-06) — Verlustfreier Listenzellen-Vertrag (`--`/`;`)
+
+- Neues Domain-Modul `core/domain/list_cell_text.py` als einzige Quelle für Anzeige (`format_list_cell`, Trennzeile `--`), Eingabe (`parse_list_cell`: Trenner = Zeile aus ≥ 2 `-` und `;`) und Gültigkeit (`list_entry_violation`, `list_field_violations(allow_scalar=)`, `raise_on_violation`, `ListFieldViolationError`). Roundtrip `parse(format(e)) == e` für alle Einträge, die die Invariante erfüllen (nicht leer, kein Rand-Whitespace, einzeilig, kein `;`, nicht nur Striche). Siehe ARCHITEKTUR_KERN §33.
+- Ersetzt drei unabhängige Implementierungen: `GridCellPolicyUseCase.format_list_entries` (`—`), `MainWindowLessonContextController.format/parse_list_entries` (+ tote Wrapper `main_window._format/_parse_list_entries` entfernt) und `SaveCellValueUseCase._parse_list_entries`. Letzterer trennte zusätzlich an `|` (zerlegte Alias-Links `[[x|y]]`) und an Leerzeilen; beide Parser entfernten undokumentiert Nummerierungs-Präfixe (`[1]`, `1)`, `1.`) und beschädigten damit Einträge wie „2. Binomische Formel“.
+- Oberthema (LZK, mehrere Themen) nutzt denselben Vertrag: `DayColumn.oberthema_display` formatiert über `format_list_cell`, `OBERTHEMA_DISPLAY_SEPARATOR` (` | `) entfällt. Ein Thema, das sich nicht verlustfrei darstellen lässt, erscheint als `OBERTHEMA_INVALID_MARKER` (Speichern ignoriert den Marker).
+- Ladegrenze: `canonicalize_lesson_yaml(..., source_label=)` → `_normalize_list(field, value)` prüft roh über `raise_on_violation` (kein vorheriges `strip()`/Filtern/`str()` mehr). Aufrufer mit Pfad: `plan_table_file_repository.load_linked_lesson_yaml`, `LoadPlanDetailUseCase._ensure_valid_lesson_yaml`.
+- `yaml_registry.parse_yaml_frontmatter` verwirft leere Listeneinträge (`- ""`, `- `) nicht mehr still, damit sie die Prüfungen erreichen. Test-Fixtures, die `- ""` als Leerlisten-Muster nutzten, auf leere Keys umgestellt (im echten Bestand kommt das Muster laut Prüftool nicht vor).
+- Neues Prüftool `tools/check_list_field_entries.py` (nur lesend, `python -m tools.check_list_field_entries`) + gemeinsamer Kurs-Iterator `tools/vault_courses.py`. Prüft die je Stundentyp übernommenen Listenfelder und `Leitkompetenzen` in Sequenzdateien (`allow_scalar=False`), meldet alle Verstöße gesammelt. Neue Konstante `sequence_planning.SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY`.
+- Bekannt, unverändert: UB-Felder (`Professionalisierungsschritte`/`Nutzbare Ressourcen`) werden zeilenweise angezeigt, beim Speichern verschmelzen mehrere Zeilen aber zu einem Eintrag (der Parser trennt nicht an einfachen Zeilenumbrüchen) — bestand schon vorher.
+- Tests: `tests/test_list_cell_text.py`, `tests/test_check_list_field_entries.py`; angepasst: `test_day_column_oberthemen`, `test_lesson_context_controller`, `test_oberthema_write_invariant` sowie fünf Fixture-Dateien.
+
 ### Fixed (2026-10-06) — Symmetrisches Quoting von YAML-Skalaren
 
 - Neues Domain-Modul `core/domain/yaml_scalars.py`: `yaml_double_quote()` (maskiert erst `\`, dann `"`) und `decode_yaml_scalar()` (Gegenstück; löst nur `\\` und `\"` auf, andere Backslash-Folgen aus Altbestand bleiben stehen; ungequotete Werte behalten das alte `strip('"')`-Verhalten).

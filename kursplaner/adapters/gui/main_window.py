@@ -499,16 +499,6 @@ class KursplanerApp(BwBaseWindow):
         return self.lesson_context_controller.estimate_visual_lines(text)
 
     @staticmethod
-    def _format_list_entries(entries: list[str]) -> str:
-        """Formatiert Listeninhalte für die Darstellung in Grid-Zellen."""
-        return MainWindowLessonContextController.format_list_entries(entries)
-
-    @staticmethod
-    def _parse_list_entries(text: str) -> list[str]:
-        """Parst mehrzeilige Zelltexte in bereinigte Listeneinträge."""
-        return MainWindowLessonContextController.parse_list_entries(text)
-
-    @staticmethod
     def _keyword_match(text: str, keywords: list[str]) -> bool:
         """Prüft case-insensitiv, ob eines der Keywords im Text enthalten ist."""
         return MainWindowLessonContextController.keyword_match(text, keywords)

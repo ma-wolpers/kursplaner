@@ -161,7 +161,7 @@ def get_row_link_path(table: PlanTableData, row_index: int) -> Path | None:
 
 def load_linked_lesson_yaml(path: Path) -> LessonYamlData:
     data, _ = _parse_yaml_frontmatter(path)
-    normalized = canonicalize_lesson_yaml(data, topic_hint=path.stem)
+    normalized = canonicalize_lesson_yaml(data, topic_hint=path.stem, source_label=str(path))
     return LessonYamlData(lesson_path=path, data=normalized)
 
 

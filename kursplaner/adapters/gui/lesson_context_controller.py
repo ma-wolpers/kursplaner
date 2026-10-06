@@ -8,6 +8,7 @@ from kursplaner.core.domain.content_markers import normalize_marker_text
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import sanitize_hour_title
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
@@ -84,10 +85,16 @@ class MainWindowLessonContextController:
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""
-            cleaned = [str(item).strip() for item in entries if str(item).strip()]
             if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
+                # UB-Felder stammen aus Markdown-Aufzählungen der UB-Datei, nicht
+                # aus Lesson-YAML; sie unterliegen nicht der Listen-Invariante und
+                # behalten ihre bisherige zeilenweise Anzeige.
+                cleaned = [str(item).strip() for item in entries if str(item).strip()]
                 return "\n".join(cleaned)
-            return self.format_list_entries(cleaned)
+            # Lesson-Listenfelder sind beim Laden bereits gegen die Listen-
+            # Invariante geprüft (`canonicalize_lesson_yaml`) und werden
+            # unverändert mit `--`-Trennzeilen angezeigt.
+            return format_list_cell([item for item in entries if isinstance(item, str)])
 
         return ""
 
@@ -172,35 +179,6 @@ class MainWindowLessonContextController:
             else:
                 estimated += max(1, (length + chars_per_line - 1) // chars_per_line)
         return max(1, estimated)
-
-    @staticmethod
-    def format_list_entries(entries: list[str]) -> str:
-        """Formatiert Listenwerte für die mehrzeilige Grid-Darstellung."""
-        if not entries:
-            return ""
-        return "\n—\n".join(entries)
-
-    @staticmethod
-    def parse_list_entries(text: str) -> list[str]:
-        """Parst UI-Mehrzeilentext zurück in normalisierte Listeneinträge."""
-        parts = re.split(r"\n\s*[—\-]{1,}\s*\n", text.strip()) if text.strip() else []
-        result: list[str] = []
-        if not parts:
-            return result
-
-        for part in parts:
-            chunk = part.strip()
-            if not chunk:
-                continue
-            lines = [line.strip() for line in chunk.splitlines() if line.strip()]
-            if not lines:
-                continue
-            joined = " ".join(lines)
-            joined = re.sub(r"^\[(\d+)\]\s*", "", joined)
-            joined = re.sub(r"^(\d+)[\).:]\s*", "", joined)
-            if joined:
-                result.append(joined)
-        return result
 
     @staticmethod
     def keyword_match(text: str, keywords: list[str]) -> bool:

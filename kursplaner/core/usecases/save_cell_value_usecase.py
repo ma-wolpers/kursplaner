@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.list_cell_text import parse_list_cell
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
@@ -93,27 +93,6 @@ class SaveCellValueUseCase:
         return any(keyword.lower() in lowered for keyword in keywords)
 
     @staticmethod
-    def _parse_list_entries(text: str) -> list[str]:
-        """Parst Freitext in bereinigte Listenpunkte für YAML-Listenfelder."""
-        if not text.strip():
-            return []
-        result: list[str] = []
-        normalized = text.replace("\n—\n", "\n\n")
-        chunks = re.split(r"(?:\n\s*\n|;|\s*\|\s*)", normalized)
-        for chunk in chunks:
-            if not chunk:
-                continue
-            lines = [line.strip() for line in chunk.splitlines() if line.strip()]
-            if not lines:
-                continue
-            joined = " ".join(lines)
-            joined = re.sub(r"^\[(\d+)\]\s*", "", joined)
-            joined = re.sub(r"^(\d+)[\).:]\s*", "", joined)
-            if joined:
-                result.append(joined)
-        return result
-
-    @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
         return infer_workspace_root_from_path(table.markdown_path)
 
@@ -160,7 +139,7 @@ class SaveCellValueUseCase:
         """Ermittelt fachliche Vorabdaten für den Zell-Speicherfluss."""
         list_entries: list[str] | None = None
         if field_key in self.row_display_mode_usecase.list_like_fields():
-            list_entries = self._parse_list_entries(value)
+            list_entries = parse_list_cell(value)
 
         return SaveCellEditPlan(
             list_entries=list_entries,
@@ -305,7 +284,7 @@ class SaveCellValueUseCase:
                 table=table,
                 row_index=row_index,
                 raw_value=value,
-                entries=self._parse_list_entries(value),
+                entries=parse_list_cell(value),
                 lesson_path=lesson_path,
                 allow_yaml_save=allow_yaml_save,
             )

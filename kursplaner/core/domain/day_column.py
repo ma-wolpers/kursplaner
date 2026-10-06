@@ -40,8 +40,8 @@ from kursplaner.core.domain.content_markers import (
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, hours_for_date, start_time_for_date
 from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.list_cell_text import format_list_cell, list_entry_violation
 from kursplaner.core.domain.oberthema_values import (
-    OBERTHEMA_DISPLAY_SEPARATOR,
     OBERTHEMA_INVALID_MARKER,
     OberthemaState,
     read_oberthema_state,
@@ -233,15 +233,21 @@ class DayColumn:
     def oberthema_display(self) -> str:
         """Anzeigetext der Oberthema-Zelle im Grid.
 
-        Mehrere Themen (nur LZK) werden mit `` | `` verbunden — dieselbe
-        Trennung, die der Listen-Parser beim Speichern versteht
-        (`SaveCellValueUseCase._parse_list_entries`). Ein ungültiger YAML-Wert
-        erscheint als `OBERTHEMA_INVALID_MARKER`, damit die Datei nicht wie
-        "ohne Oberthema" aussieht.
+        Mehrere Themen (nur LZK) werden wie jede Grid-Listenzelle mit
+        ``--``-Trennzeilen dargestellt (`list_cell_text.format_list_cell`) —
+        dieselbe Trennung, die der Speicher-Parser (`parse_list_cell`) versteht.
+        Ein ungültiger YAML-Wert erscheint als `OBERTHEMA_INVALID_MARKER`,
+        damit die Datei nicht wie "ohne Oberthema" aussieht. Dasselbe gilt für
+        ein Thema, das sich nicht verlustfrei als Listenzelle darstellen lässt
+        (z. B. mit ``;``): Der Marker wird beim Speichern unverändert ignoriert
+        (`save_oberthema_cell`), sodass der Plattenwert nie still umgedeutet wird.
         """
         if self.oberthema_state().is_invalid:
             return OBERTHEMA_INVALID_MARKER
-        return OBERTHEMA_DISPLAY_SEPARATOR.join(self.oberthemen())
+        topics = self.oberthemen()
+        if any(list_entry_violation(topic) is not None for topic in topics):
+            return OBERTHEMA_INVALID_MARKER
+        return format_list_cell(topics)
 
     def oberthema(self) -> str:
         """Das *Haupt-Oberthema* dieses Kurstags (erstes Element von `oberthemen()`).

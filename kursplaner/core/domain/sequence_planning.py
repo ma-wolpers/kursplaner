@@ -8,6 +8,8 @@ from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
 
 SEQUENCE_DIR_NAME = "Sequenzen"
 SEQUENCE_YAML_COURSE_PLAN_KEY = "Kursplan"
+SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY = "Leitkompetenzen"
+"""Frontmatter-Key der vorrangig geförderten Kompetenzen (YAML-Liste) einer Sequenzdatei."""
 
 _HALFYEAR_RE = re.compile(r"\b(\d{2}-[12])\b")
 

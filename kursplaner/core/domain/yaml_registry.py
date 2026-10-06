@@ -220,8 +220,10 @@ def parse_yaml_frontmatter(
                 if not isinstance(current_list, list):
                     current_list = []
                     data[key] = current_list
-                if item:
-                    current_list.append(item)
+                # Leere Einträge (`- ""`, `- `) werden bewusst NICHT verworfen:
+                # Nachgelagerte Prüfungen (Listen-Invariante, Rhythmus-Validator, …)
+                # sollen sie sehen und melden, statt dass Daten still verschwinden.
+                current_list.append(item)
 
         idx += 1
 

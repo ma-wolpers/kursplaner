@@ -16,9 +16,7 @@ def _write_unterricht_lesson(path: Path, ub_link: str):
         "Oberthema: Analysis\n"
         'Stundenziel: ""\n'
         "Kompetenzen:\n"
-        '  - ""\n'
         "Material:\n"
-        '  - ""\n'
         f"Unterrichtsbesuch: {ub_link}\n"
         "---\n\n"
         "# Inhalt\n",

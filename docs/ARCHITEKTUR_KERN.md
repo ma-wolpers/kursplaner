@@ -1090,3 +1090,12 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
 - Stundendateien sind `.md` oder `.ebw` (Blattwerk-Kurzentwurf; Blattwerk erkennt den Typ nur an der Endung). Einzige Regel: `core/domain/lesson_files.py`; kein `glob("*.md")` und kein fest angehängtes `.md` für Stunden außerhalb davon.
 - Linkauflösung ohne Endung: `.md` vor `.ebw`. Neue Stunden: `.md` (`DEFAULT_LESSON_SUFFIX`). Umbenennen/Verschieben/Einfügen erhalten die Endung der Quelle.
 - Frontmatter-Kanonisierung bleibt exakt je Stundentyp; einzige Ausnahme ist `document_type` (Blattwerk-Konsistenzmarker), der beim Speichern unverändert von der Platte durchgereicht wird.
+
+## 33) Listenzellen-Vertrag (verbindlich)
+
+- **Drei Ebenen:** In der Datei sind Listenfelder echte YAML-Listen (Obsidian-nativ). Im Grid werden sie mit `--`-Trennzeilen angezeigt; bei der Eingabe trennen eine Zeile aus ≥ 2 `-` sowie `;`. Ein einzelnes `-`, Leerzeilen und `|` trennen nicht (`|` gehört zu Alias-Links).
+- **Einzige Quelle:** `core/domain/list_cell_text.py` (`format_list_cell`, `parse_list_cell`, `list_entry_violation`, `list_field_violations`, `raise_on_violation`). Gilt für alle Listenfelder und für mehrere Oberthemen einer LZK. Keine eigenen Trenner/Parser in GUI oder Use Cases. Liegt in `core/domain`, weil core-Use-Cases (Anzeige, Speichern) und Adapter denselben Textvertrag einhalten müssen.
+- **Invariante eines Eintrags:** nicht leer, ohne Leerzeichen am Rand, einzeilig, ohne `;`, nicht nur aus Strichen. Nur dafür ist `parse_list_cell(format_list_cell(e)) == e` garantiert; es gibt bewusst keine Escape-Regel und keine Nummerierungs-Heuristik.
+- **Durchsetzung an der Ladegrenze:** `canonicalize_lesson_yaml` prüft jedes Listenfeld *roh* (kein Trimmen/Filtern/`str()` vorab) und wirft `ListFieldViolationError` mit Datei, Feld, Eintrag und Erklärtext — die Stunde ist dann nicht ladbar. Der YAML-Parser reicht leere Listeneinträge (`- ""`, `- `) deshalb durch, statt sie zu verwerfen.
+- **Laufzeit vs. Prüftool:** Laufzeit bricht beim ersten Verstoß ab; `tools/check_list_field_entries.py` meldet alle Verstöße gesammelt. Beide nutzen ausschließlich `list_field_violations` (keine zweite Validierungslogik). Felder mit reinem Listenvertrag (z. B. `Leitkompetenzen`) prüfen mit `allow_scalar=False`.
+- **Ausnahme:** Die UB-Felder `Professionalisierungsschritte`/`Nutzbare Ressourcen` stammen aus Markdown-Aufzählungen der UB-Datei, unterliegen nicht der Invariante und werden weiter zeilenweise angezeigt.

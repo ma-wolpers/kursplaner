@@ -13,11 +13,9 @@ def create_dummy_lesson(path: Path, title: str, oberthema: str = ""):
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
         "Kompetenzen:\n"
-        '  - ""\n'
         "Stundenthema: " + title + "\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
         "Oberthema: " + oberthema + "\n"
         "---\n\n# Inhalt\n"
     )

@@ -15,7 +15,7 @@ def test_lzk_with_multiple_topics_exposes_list_primary_and_joined_display():
 
     assert day.oberthemen() == ("Potenzen", "Exponential")
     assert day.oberthema() == "Potenzen"
-    assert day.oberthema_display() == "Potenzen | Exponential"
+    assert day.oberthema_display() == "Potenzen\n--\nExponential"
 
 
 def test_unit_without_yaml_topic_falls_back_to_plan_cell():

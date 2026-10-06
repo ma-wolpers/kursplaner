@@ -7,6 +7,7 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,
 )
+from kursplaner.core.domain.list_cell_text import parse_list_cell
 
 
 class MainWindowEditorController:
@@ -68,9 +69,7 @@ class MainWindowEditorController:
             self.app.lesson_conversion_controller.resolve_kompetenz_options()
         )
 
-        kompetenzen_initial = self.app.lesson_context_controller.parse_list_entries(
-            self.app._field_value(day, "Kompetenzen")
-        )
+        kompetenzen_initial = parse_list_cell(self.app._field_value(day, "Kompetenzen"))
         stundenziel_initial = self.app._field_value(day, "Stundenziel")
 
         date_label = day.datum.strip()

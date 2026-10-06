@@ -14,7 +14,7 @@ def test_plan_overview_uses_index(tmp_path):
     (root / "FachX" / "Einheiten").mkdir(parents=True)
     lesson_path = root / "FachX" / "Einheiten" / "stunde-1.md"
     lesson_path.write_text(
-        '---\nStundentyp: Unterricht\nDauer: 2\nKompetenzen:\n  - ""\nStundenthema: Thema1\nStundenziel: ""\nMaterial:\n  - ""\nOberthema: ""\n---\n\n# Inhalt\n',
+        '---\nStundentyp: Unterricht\nDauer: 2\nKompetenzen:\nStundenthema: Thema1\nStundenziel: ""\nMaterial:\nOberthema: ""\n---\n\n# Inhalt\n',
         encoding="utf-8",
     )
 
@@ -67,11 +67,9 @@ def test_plan_overview_exposes_next_ub_display(tmp_path):
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
         "Kompetenzen:\n"
-        '  - ""\n'
         "Stundenthema: Thema1\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
         "Oberthema: Ober\n"
         'Unterrichtsbesuch: "[[UB 26-05-18 Funktionen]]"\n'
         "---\n\n"
@@ -127,11 +125,9 @@ def test_plan_overview_next_ub_without_langentwurf_has_no_plus(tmp_path):
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
         "Kompetenzen:\n"
-        '  - ""\n'
         "Stundenthema: Thema1\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
         "Oberthema: Ober\n"
         'Unterrichtsbesuch: "[[UB 26-05-18 Funktionen]]"\n'
         "---\n\n"
@@ -187,11 +183,9 @@ def test_plan_overview_falls_back_to_row_date_when_ub_stem_has_no_date(tmp_path)
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
         "Kompetenzen:\n"
-        '  - ""\n'
         "Stundenthema: Thema1\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
         "Oberthema: Ober\n"
         'Unterrichtsbesuch: "[[UB Sonderbesuch]]"\n'
         "---\n\n"
@@ -256,11 +250,9 @@ def test_plan_overview_next_ub_uses_start_time_of_ub_date_not_row_date(tmp_path)
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
         "Kompetenzen:\n"
-        '  - ""\n'
         "Stundenthema: Thema1\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
         "Oberthema: Ober\n"
         f'Unterrichtsbesuch: "[[{ub_stem}]]"\n'
         "---\n\n"

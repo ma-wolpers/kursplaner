@@ -11,11 +11,9 @@ def _create_lesson(path: Path, title: str, oberthema: str = ""):
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
         "Kompetenzen:\n"
-        '  - ""\n'
         f"Stundenthema: {title}\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
         f"Oberthema: {oberthema}\n"
         "---\n\n# Inhalt\n"
     )

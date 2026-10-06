@@ -117,6 +117,7 @@ class LoadPlanDetailUseCase:
         merged_data = canonicalize_lesson_yaml(
             lesson.data if isinstance(lesson.data, dict) else {},
             topic_hint=topic,
+            source_label=str(lesson.lesson_path),
         )
 
         topic_now = str(merged_data.get("Stundenthema", "")).strip()

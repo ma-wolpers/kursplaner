@@ -39,7 +39,7 @@ def test_other_list_fields_keep_separator_format():
 
     value = controller.field_value(day, "Kompetenzen")
 
-    assert value == "K1\n—\nK2"
+    assert value == "K1\n--\nK2"
 
 
 def test_ausfallgrund_returns_header_content_on_cancel_day():

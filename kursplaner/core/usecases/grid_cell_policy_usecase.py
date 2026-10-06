@@ -4,6 +4,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.content_markers import normalize_marker_text
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.list_cell_text import format_list_cell
 
 
 class GridCellPolicyUseCase:
@@ -11,10 +12,18 @@ class GridCellPolicyUseCase:
 
     @staticmethod
     def format_list_entries(entries: list[str]) -> str:
-        """Formatiert Listenwerte als durch Trennlinie separierten Mehrzeilentext."""
-        if not entries:
-            return ""
-        return "\n—\n".join(entries)
+        """Formatiert Listenwerte für die Grid-Anzeige.
+
+        Delegiert an die zentrale `list_cell_text.format_list_cell`
+        (Trennzeile ``--``), damit Anzeige und Speicher-Parser nie auseinanderlaufen.
+
+        Args:
+            entries: Gültige Listeneinträge (siehe Listen-Invariante).
+
+        Returns:
+            Der mehrzeilige Zelltext.
+        """
+        return format_list_cell(entries)
 
     def field_value(self, day: DayColumn, field_key: str) -> str:
         """Ermittelt den darzustellenden Zellwert für ein Feld einer Tages-Spalte."""
@@ -67,8 +76,11 @@ class GridCellPolicyUseCase:
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""
-            cleaned = [str(item).strip() for item in entries if str(item).strip()]
-            return self.format_list_entries(cleaned)
+            if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
+                # UB-Felder (Markdown-Aufzählungen der UB-Datei) unterliegen nicht
+                # der Listen-Invariante; zeilenweise wie in der GUI-Anzeige.
+                return "\n".join(str(item).strip() for item in entries if str(item).strip())
+            return self.format_list_entries([item for item in entries if isinstance(item, str)])
 
         return ""
 
