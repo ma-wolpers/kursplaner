@@ -15,6 +15,7 @@ from kursplaner.core.domain.sequence_planning import (
     sequence_directory_for_plan,
 )
 from kursplaner.core.domain.yaml_registry import SEQUENCE_PLAN_SCHEMA, parse_yaml_frontmatter
+from kursplaner.core.domain.yaml_scalars import yaml_double_quote
 
 _GOAL_KEY = "Sequenzziel"
 _FOCUS_COMPETENCY_KEY = "Leitkompetenz"
@@ -28,8 +29,13 @@ class FileSystemSequencePlanRepository:
 
     @staticmethod
     def _yaml_quote(value: str) -> str:
-        escaped = str(value or "").replace('"', '\\"')
-        return f'"{escaped}"'
+        """Quotet einen Frontmatter-Wert über die zentrale `yaml_double_quote`.
+
+        Leere/``None``-Werte werden als leerer String geschrieben (``""``).
+        Schreiben und Lesen (`decode_yaml_scalar` im Parser) bleiben so
+        symmetrisch, auch für Backslash und ``"`` im Wert.
+        """
+        return yaml_double_quote(str(value or ""))
 
     @staticmethod
     def _is_separator_row(row_line: str) -> bool:

@@ -7,6 +7,7 @@ from typing import Callable, Sequence
 from kursplaner.core.domain.course_rhythm import is_valid_rhythm_value
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.sequence_planning import SEQUENCE_YAML_COURSE_PLAN_KEY
+from kursplaner.core.domain.yaml_scalars import decode_yaml_scalar, yaml_double_quote
 
 WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
 MARKDOWN_LINK_VALUE_RE = re.compile(r"^\s*\[[^\]]+\]\([^\)]+\.md\)\s*$", re.IGNORECASE)
@@ -202,7 +203,7 @@ def parse_yaml_frontmatter(
             block_lines = []
             left, right = line.split(":", 1)
             key = left.strip()
-            value = right.strip().strip('"')
+            value = decode_yaml_scalar(right.strip())
             if value:
                 data[key] = value
                 key = None
@@ -212,7 +213,7 @@ def parse_yaml_frontmatter(
             if line[0] in " \t-":
                 block_lines.append(line)
             if line.strip().startswith("-"):
-                item = line.strip()[1:].strip().strip('"')
+                item = decode_yaml_scalar(line.strip()[1:].strip())
                 if not isinstance(data.get(key), list):
                     data[key] = []
                 current_list = data[key]
@@ -342,8 +343,7 @@ def _yaml_scalar_line(key: str, value: object) -> str:
     """Rendert eine einzelne skalare YAML-Zeile, mit Link-Escaping bei Bedarf."""
     text = "true" if value is True else "false" if value is False else str(value or "")
     if WIKI_LINK_VALUE_RE.fullmatch(text) or MARKDOWN_LINK_VALUE_RE.fullmatch(text):
-        escaped = text.replace('"', '\\"')
-        return f'{key}: "{escaped}"'
+        return f"{key}: {yaml_double_quote(text)}"
     return f"{key}: {text}"
 
 
@@ -388,7 +388,7 @@ def render_yaml_frontmatter(ordered_keys: Sequence[str], values: dict[str, objec
             lines.extend(value.lines)
         elif isinstance(value, list):
             lines.append(f"{key}:")
-            lines.extend(f'  - "{item}"' for item in value)
+            lines.extend(f"  - {yaml_double_quote(item)}" for item in value)
         else:
             lines.append(_yaml_scalar_line(key, value))
     lines.append("---")

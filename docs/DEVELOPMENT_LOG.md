@@ -8,6 +8,12 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-10-06) — Symmetrisches Quoting von YAML-Skalaren
+
+- Neues Domain-Modul `core/domain/yaml_scalars.py`: `yaml_double_quote()` (maskiert erst `\`, dann `"`) und `decode_yaml_scalar()` (Gegenstück; löst nur `\\` und `\"` auf, andere Backslash-Folgen aus Altbestand bleiben stehen; ungequotete Werte behalten das alte `strip('"')`-Verhalten).
+- `yaml_registry.parse_yaml_frontmatter` liest Skalare und Listeneinträge über `decode_yaml_scalar`; `render_yaml_frontmatter`/`_yaml_scalar_line` schreiben über `yaml_double_quote`. `plan_repository._yaml_quote` und `sequence_plan_repository._yaml_quote` delegieren an `yaml_double_quote` (vorher drei unabhängige, unterschiedlich unvollständige Implementierungen).
+- Anlass: Listeneinträge wurden als `- "{item}"` ohne Maskierung geschrieben (ein `"` ergab ungültiges YAML), und die Repositories maskierten `"` als `\"`, ohne dass der Parser es zurückwandelte — der Backslash wuchs bei jedem Speichern. Vorbereitender Schritt für den Sequenzplan-Umbau (Listen-Invariante, `Leitkompetenzen`). Tests: `tests/test_yaml_scalars.py`.
+
 ### Fixed (2026-10-05) — Guardrail nach `screen_builder`-Aufteilung
 
 - `tools/ci/check_ai_guardrails.py` prueft die ScreenBuilder-Vertraege (Runtime-Shortcuts, Popup-Registry, Shared-Menu/Hover-Tooltip, Future-GUI-Entry-Snippets) jetzt ueber `_read_screen_builder_family()` = `screen_builder.py` + `_screen_*.py`. Seit dem Mixin-Split (7f4d194) lagen die geforderten Snippets in den Mixins, der Check schlug deshalb fehl. Mixin-Dateien zusaetzlich in `GUARDRAIL_RELEVANT_PATHS`.

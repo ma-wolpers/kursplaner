@@ -11,6 +11,7 @@ from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, body_after_frontmatter, parse_yaml_frontmatter
+from kursplaner.core.domain.yaml_scalars import yaml_double_quote
 from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     load_last_plan_table,
     save_plan_table,
@@ -244,9 +245,13 @@ class FileSystemPlanRepository:
 
     @staticmethod
     def _yaml_quote(value: str) -> str:
-        """Quotet Frontmatter-Werte robust für einfache YAML-Scalars."""
-        escaped = value.replace('"', '\\"')
-        return f'"{escaped}"'
+        """Quotet Frontmatter-Werte robust für einfache YAML-Scalars.
+
+        Delegiert an die zentrale `yaml_scalars.yaml_double_quote`, damit
+        Schreiben (maskiert ``\\`` und ``"``) und Lesen
+        (`decode_yaml_scalar` im Parser) exakt symmetrisch bleiben.
+        """
+        return yaml_double_quote(value)
 
     def write_plan_metadata(
         self,
