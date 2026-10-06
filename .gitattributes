@@ -1,0 +1,3 @@
+# Gebündelte Schrift samt Lizenz byte-genau ausliefern (SHA-256 in SOURCE.md, geprüft von tests/test_pdf_fonts.py):
+# keine Zeilenende-Umwandlung durch core.autocrlf.
+kursplaner/resources/fonts/** -text
