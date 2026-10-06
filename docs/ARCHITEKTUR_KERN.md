@@ -1025,12 +1025,10 @@ als optional-mit-Warnung — fehlt die Bibliothek in einer konkreten Umgebung, s
 App trotzdem, nur das Kompetenzgraph-Popup ist deaktiviert (`KOMPETENZGRAPH_YAML_AVAILABLE`-
 Guard in `wiring.py`, analog `REPORTLAB_AVAILABLE`).
 
-**Tool-Ausnahme (2026-10-06):** Das einmalige Upgrade-Werkzeug
-`tools/migrate_sequence_focus_competencies.py` nutzt PyYAML (eigener `SafeLoader`-Subtyp
-mit Duplikat-Erkennung), um die YAML-Typen der Altwerte exakt zu bestimmen und die
-Struktur vor dem Schreiben zu verifizieren — ohne selbstgebaute Typheuristik. Es liegt
-außerhalb des Pakets `kursplaner/`, wird von keinem Produktmodul importiert und nach dem
-bestätigten Migrationslauf wieder entfernt. Der Produkt-Parser bleibt unberührt.
+**Tool-Ausnahme (historisch, 2026-10-06):** Das einmalige Upgrade-Werkzeug
+`tools/migrate_sequence_focus_competencies.py` nutzte PyYAML (eigener `SafeLoader`-Subtyp
+mit Duplikat-Erkennung). Es wurde nach dem erfolgreichen Migrationslauf entfernt (Git-Historie,
+Commit `8df8f2f`); die Ausnahme ist damit erloschen. Der Produkt-Parser war nie betroffen.
 
 ---
 
@@ -1127,6 +1125,6 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
 
 - **Einziger Vertrag:** Sequenzdateien tragen `Leitkompetenzen` als YAML-Liste (Pflichtfeld in `SEQUENCE_PLAN_SCHEMA`, darf leer sein; leer = Key ohne Wert, weil der Projektparser `[]` als Text liest). Im Code ausschließlich `leitkompetenzen: tuple[str, ...]` (Port `SequencePlanRepository.read/write_goal_and_focus_competencies`, `TopicSequencePlanView`, `SequenceExportSyncResult`, `UpdateSequenceGoalFieldResult`, Export-DTOs). Key-Konstante: `sequence_planning.SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY`.
 - **Kein Legacy-Pfad:** Der alte Einzelwert `Leitkompetenz` wird zur Laufzeit weder gelesen noch normalisiert; eine Datei ohne `Leitkompetenzen` scheitert an der regulären Schema-Prüfung, ein Skalar oder ungültiger Eintrag an `raise_on_violation(allow_scalar=False)` (§33). Die GUI zeigt den Fehler in `_sync_topic_sequence_plans` als Dialog (je Meldung einmal) und arbeitet ohne Sequenz-Views weiter — reine Fehlerdarstellung, kein Kompatibilitätsmodus.
-- **Upgrade:** Einzig `tools/migrate_sequence_focus_competencies.py` kennt den alten Key; Ablauf siehe README. Nach bestätigtem Migrationslauf werden Tool und Test entfernt (Git-Historie bewahrt sie).
+- **Upgrade (abgeschlossen 2026-10-06):** Der Bestand wurde einmalig mit `tools/migrate_sequence_focus_competencies.py` migriert; Tool und Test sind danach entfernt (Git-Historie, Commit `8df8f2f`). Im aktiven Code kennt nichts mehr den alten Key.
 - **Grid-Darstellung:** `TopicSequencePlanView.field_text(field_key)` ist die einzige Stelle, die beide Sequenz-Zielfelder als Zelltext liefert (Rendering, Mount-Reconciliation, Dirty-Check). `UpdateSequenceGoalFieldUseCase` erhält den rohen Zelltext und parst `Leitkompetenzen` mit `parse_list_cell`.
-- **Abschluss-Check (alter Vertrag):** `rg "^\s*Leitkompetenz\s*:|[\"']Leitkompetenz[\"']"` und `rg -w "leitkompetenz|_FOCUS_COMPETENCY_KEY|read_goal_and_focus_competency|write_goal_and_focus_competency"` über `kursplaner/`, `tests/`, `tools/`, README und dieses Dokument. Erlaubte Treffer: das Migrationstool samt Test, `tests/test_sequence_focus_competencies.py` (beweist die Ablehnung des Altkeys), der Upgrade-Abschnitt in README/CHANGELOG und historische CHANGELOG-/DEVELOPMENT_LOG-Einträge.
+- **Abschluss-Check (alter Vertrag):** `rg "^\s*Leitkompetenz\s*:|[\"']Leitkompetenz[\"']"` und `rg -w "leitkompetenz|_FOCUS_COMPETENCY_KEY|read_goal_and_focus_competency|write_goal_and_focus_competency"` über `kursplaner/`, `tests/`, `tools/`, README und dieses Dokument. Erlaubte Treffer: `tests/test_sequence_focus_competencies.py` (beweist die Ablehnung des Altkeys), der Upgrade-Abschnitt in README/CHANGELOG und historische CHANGELOG-/DEVELOPMENT_LOG-Einträge.

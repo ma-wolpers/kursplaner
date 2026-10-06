@@ -23,12 +23,10 @@ Zusätzlich gibt es den **Terminplaner-CLI-Einstiegspunkt**.
 
 ## Upgrade auf mehrere Leitkompetenzen (Pflicht, einmalig)
 
-Sequenzdateien speichern die vorrangig geförderten Kompetenzen jetzt als YAML-Liste `Leitkompetenzen`. Das frühere Einzelfeld `Leitkompetenz` wird von der App **nicht mehr unterstützt**. Ablauf (im Ordner `kursplaner`, mit aktivierter `.venv`):
+Sequenzdateien speichern die vorrangig geförderten Kompetenzen als YAML-Liste `Leitkompetenzen`. Das frühere Einzelfeld `Leitkompetenz` wird von der App **nicht mehr unterstützt**.
 
-1. Vault sichern.
-2. `python -m tools.migrate_sequence_focus_competencies --dry-run` ausführen und die Ausgabe prüfen, danach ohne `--dry-run`. Der Exit-Code muss 0 sein; gemeldete Konflikte vorher in Obsidian beheben und erneut ausführen.
-3. `python -m tools.check_list_field_entries` ausführen (nur lesend). Gemeldete Listeneinträge (z. B. mit `;`) in Obsidian korrigieren, bis der Exit-Code 0 ist.
-4. Erst danach die neue Version nutzen. Nicht migrierte oder ungültige Dateien lehnt die App mit einer Fehlermeldung ab.
+- **Erledigt (2026-10-06):** Der Vault-Bestand ist migriert. Das einmalige Werkzeug `tools/migrate_sequence_focus_competencies.py` wurde danach entfernt; bei Bedarf (z. B. für eine alte Vault-Kopie) ist es in der Git-Historie abrufbar (`git show 8df8f2f:tools/migrate_sequence_focus_competencies.py`).
+- **Weiterhin nutzbar:** `python -m tools.check_list_field_entries` (nur lesend, im Ordner `kursplaner` mit aktivierter `.venv`) meldet Listeneinträge, die den Listenvertrag verletzen (z. B. mit `;`), sowie nicht lesbare Stunden-/Sequenzdateien. Solche Dateien lehnt die App mit einer Fehlermeldung ab.
 
 ---
 

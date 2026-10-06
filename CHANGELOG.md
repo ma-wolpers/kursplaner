@@ -6,7 +6,7 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
-> **Upgrade erforderlich (einmalig, vor dem ersten Start dieser Version):** Vault sichern → `python -m tools.migrate_sequence_focus_competencies --dry-run`, dann ohne `--dry-run` (Exit-Code 0, Konflikte vorher beheben) → `python -m tools.check_list_field_entries` (gemeldete Einträge in Obsidian korrigieren, bis Exit-Code 0). Erst danach die neue Version nutzen; das alte Feld `Leitkompetenz` wird nicht mehr unterstützt. Details: README, Abschnitt „Upgrade auf mehrere Leitkompetenzen“.
+> **Upgrade (einmalig, am 2026-10-06 durchgeführt):** Sequenzdateien wurden von `Leitkompetenz` auf die Liste `Leitkompetenzen` migriert; das alte Feld wird nicht mehr unterstützt. Das Migrationswerkzeug ist danach entfernt worden (Git-Historie, Commit `8df8f2f`). Listeneinträge prüft weiterhin `python -m tools.check_list_field_entries`. Details: README, Abschnitt „Upgrade auf mehrere Leitkompetenzen“.
 
 ### Added
 - **Mehrere Leitkompetenzen pro Sequenz**: Die Zeile „Leitkompetenzen“ im Grid nimmt mehrere vorrangig geförderte Kompetenzen auf (getrennt wie jede Listenzelle durch eine Zeile `--` oder `;`). Die Sequenzdatei speichert sie als Liste `Leitkompetenzen`. Eine Sequenzdatei, die noch das alte Feld `Leitkompetenz` trägt oder einen ungültigen Eintrag enthält, wird mit einer Fehlermeldung abgelehnt (einmal pro Meldung, nicht bei jeder Bearbeitung erneut).

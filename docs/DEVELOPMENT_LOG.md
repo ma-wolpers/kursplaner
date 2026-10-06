@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+### Removed (2026-10-06) — Migrationstool `Leitkompetenz` → `Leitkompetenzen`
+
+- Echter Lauf über den Vault: 17 Sequenzdateien migriert, 0 Konflikte, Exit 0; alle 17 mit `read_goal_and_focus_competencies` ladbar. Vorab: ein alter Markdown-Export (`-ALT/Mat lila-5 26-2/Sequenzen/Sequenzplan-Export 2026-06-05.md`, kein Frontmatter) aus `Sequenzen/` in den Kursordner verschoben; 5 Listeneinträge mit `;` in zwei Stunden (`Inf gr6 26-2/Alteinheiten`) in einzelne Einträge aufgeteilt (Body byte-identisch). Offen bleiben zwei `.ebw`-Stunden ohne `Stundentyp`/`Dauer` (bestanden schon vorher).
+- `tools/migrate_sequence_focus_competencies.py` und `tests/test_migrate_sequence_focus_competencies.py` entfernt (Hard Cut abgeschlossen, Git-Historie `8df8f2f`). README/CHANGELOG-Upgrade-Hinweis und ARCHITEKTUR_KERN §29/§34 auf „historisch“ gesetzt.
+
 ### Changed (2026-10-06) — Sequenzplan-Export nach Ref-Vorlage
 
 - Export-Zeilenmodell: `TopicUnitExportRow` typisiert (Datum/Startzeit/Stundenzahl/Listen statt vorformatierter Strings), `_yaml_list_field` ersetzt `_format_competencies_text` (keine `str()`-Umdeutung mehr), `EXPORT_TABLE_HEADERS` von `topic_sequence_runs` nach `core/usecases/sequence_export_table.py` verschoben (jetzt „Datum und Stunde | Kompetenzbezug | Stundenthema | Stundenziel | Material“). `export_date_formatting.format_day_date` entfernt (durch diese Änderung ohne Aufrufer).

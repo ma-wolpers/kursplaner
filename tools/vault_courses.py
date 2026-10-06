@@ -4,7 +4,8 @@ Liefert die Kursordner unter dem konfigurierten Unterrichtsordner (und
 optional dem Archiv ``_ALT/Kursordner``) sowie deren Stunden- und
 Sequenzdateien. Gleiches Muster wie ``tools/migrate_plan_table_schema.py``
 (``<Kursordner>/<Kursordner>.md`` = Kursplan), hier als wiederverwendbares
-Modul für ``check_list_field_entries`` und ``migrate_sequence_focus_competencies``.
+Modul für ``check_list_field_entries`` (ursprünglich auch für das inzwischen entfernte
+Migrationswerkzeug ``migrate_sequence_focus_competencies``).
 
 Aufruf der Tools immer vom Repo-Wurzelverzeichnis als Modul
 (``python -m tools.<name>``), damit ``kursplaner`` und ``tools`` importierbar sind.
