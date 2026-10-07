@@ -31,7 +31,7 @@ class NewLessonFormData:
     period_raw: str
     base_dir_raw: str
     calendar_dir_raw: str
-    day_rhythm_raw: dict[int, tuple[str, str]]
+    day_rhythm_raw: dict[tuple[int, int | None], tuple[str, str]]
     vacation_break_horizon_raw: str = "1"
     kc_profile_id_raw: str = ""
     process_competencies_raw: tuple[str, ...] = ()
