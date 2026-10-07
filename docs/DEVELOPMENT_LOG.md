@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+### Added (2026-10-07) — Nutzeranleitung `docs/STUNDENPLAN_RHYTHMUS.md`
+
+- Neue Anleitung zum `Rhythmus`-Format (Zeilenaufbau, `gKW`/`uKW`, A/B-Tage, `ab`-Abschnitte mit Ganz-Segment-Regel und Basis-Pflicht, ISO-KW-53, Dialoge „Neuer Kurs“/„Stundenplanänderung…“ inkl. Rückkehr-Segment, Verlängern, CLI, Plantabelle mit Markern, Fehlerbilder). Alle Rhythmus-Beispiele der Anleitung gegen `parse_rhythm`/`hours_for_date` geprüft.
+- README: Abschnitte „Plan-Datei“, „Plan-Tabelle“ und „Neu-Fenster“ waren veraltet (Feld `Fach` statt `Kursfach`, kein `Rhythmus`, Tabelle noch mit der seit 2026-08-09 entfernten `Stunden`-Spalte, Ferien als „Stunden = 0“ statt Marker `X <Grund> X`) — auf den aktuellen Stand gebracht und auf die Anleitung verlinkt.
+
 ### Fixed (2026-10-07) — pre-commit-Hooks liefen nie (Pfade aus Eltern-Repo-Zeit)
 
 - `.pre-commit-config.yaml` filterte `ruff`/`ruff-format` auf `^Code/kursplaner/.*\.py$` und `ai-guardrails` auf `^Code/kursplaner/`, die `entry`-Pfade lauteten `python Code/kursplaner/tools/...` — Überbleibsel aus der Zeit, als kursplaner in einem übergeordneten Repo lag. Relativ zur heutigen Repo-Wurzel passte kein Pfad, jeder Commit meldete „no files to check — Skipped“; die Gates waren unbemerkt wirkungslos. Filter entfernt (ruff filtert per Hook-Definition auf Python-Dateien, die Guardrails liefen ursprünglich bei jeder Änderung im Repo), `entry`-Pfade relativ zur Repo-Wurzel.

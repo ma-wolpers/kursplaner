@@ -54,25 +54,25 @@ Die Python-Pakete sind jetzt tiefer verschachtelt für mehr Übersicht:
 
 ### Plan-Datei (pro Kurs)
 
-Neu erstellte Plan-Dateien erhalten am Anfang YAML-Metadaten:
+Plan-Dateien tragen am Anfang YAML-Metadaten:
 
-- `Lerngruppe`
-- `Fach`
-- `Stufe`
+- `Lerngruppe` (Wiki-Link, z. B. `"[[GK blau-1]]"`)
+- `Kursfach`
+- `Stufe` (1–13)
+- `Rhythmus`: der Stundenplan des Kurses, also Wochentage, Startzeit und Stundenzahl, optional nur in geraden/ungeraden Kalenderwochen (`gKW`/`uKW`) und mit Stundenplanwechseln (`ab <Datum>`), z. B. `"Mo 08:00 2"` oder `"Do 07:50 2 gKW"`
+- optional `KC-Profil`, `Kompetenzen`, `Stundenziel`
+
+**Ausführliche Anleitung zum Stundenplan-Format, zu zweiwöchigem Unterricht und zu Stundenplanänderungen: [docs/STUNDENPLAN_RHYTHMUS.md](docs/STUNDENPLAN_RHYTHMUS.md).**
 
 ### Plan-Tabelle in der Kursdatei
 
-Die Planungstabelle hat nur noch diese 3 Spalten:
+Die Planungstabelle hat diese 3 Spalten:
 
-- `Datum`
-- `Stunden` (Dauer der Einheit in Stunden)
-- `Inhalt`
+- `Datum` (`TT-MM-JJ`)
+- `Inhalt`: Link auf eine Einheit (z. B. `[[ab12cd]]`) oder leer
+- `Thema/Ausfall`: Oberthema einer noch nicht angelegten Einheit, ein Ausfall (`X <Grund>`) oder Ferien/Feiertag (`X <Grund> X`)
 
-`Inhalt` ist entweder:
-
-- ein Ausfallgrund (kein Link),
-- ein Link auf eine Einheit im Ordner `Einheiten` (z. B. `[[Einheiten/Inf8 Thema]]`),
-- oder leer.
+Startzeit und Stundenzahl stehen nicht in der Tabelle. Sie werden für jedes Datum aus `Rhythmus` berechnet; Ferien- und Ausfallzeilen zählen mit 0 Stunden.
 
 ### Einheiten-Dateien (Ordner `Einheiten`)
 
@@ -263,15 +263,17 @@ Eingaben:
 - Lerngruppe
 - Stufe (1–13)
 - Halbjahr **oder** Startdatum
-- Unterrichtstage Mo–Fr inkl. Stunden (1–4)
+- Unterrichtsrhythmus Mo–Fr: je Tag Häkchen, Woche (`jede Woche`, `gKW`, `uKW` oder `gKW + uKW` für A/B-Wochen mit zweiter Eingabezeile), Startzeit und Stunden (1–4)
 
 Beim Anlegen:
 
 - Unterrichtsordner wird angelegt
 - Plan-Datei wird neu erstellt
-- YAML-Metadaten werden vorangestellt
-- Terminplan wird angehängt
-- Feiertage/Ferien setzen `Stunden` automatisch auf `0`
+- YAML-Metadaten inkl. `Rhythmus` werden vorangestellt
+- Terminplan wird angehängt (zweiwöchige Tage nur in den passenden Kalenderwochen)
+- Feiertage/Ferien werden als `X <Grund> X` markiert und zählen mit 0 Stunden
+
+Stundenplanwechsel im laufenden Kurs: Menü **Aktion → Stundenplanänderung…**. Details zu beidem stehen in [docs/STUNDENPLAN_RHYTHMUS.md](docs/STUNDENPLAN_RHYTHMUS.md).
 
 ---
 
