@@ -11,10 +11,21 @@ Format je Zeile::
     ["ab" <DD-MM-YY>] <Wochentag> <HH:MM> <Stunden>
 
 ``ab <Datum>`` ist optional und markiert den Beginn eines neuen Segments
-(z. B. nach einer Stundenplanaenderung); fehlt es, gilt der Eintrag seit
-Kursbeginn. Mehrere Segmente fuer denselben Wochentag koennen nebeneinander
-bestehen - fuer ein konkretes Datum gilt stets das Segment mit dem spaetesten
-``valid_from``, das nicht in der Zukunft liegt (siehe :func:`current_segment`).
+(z. B. nach einer Stundenplanaenderung); Eintraege ohne ``ab`` bilden das
+Basis-Segment, das seit Kursbeginn gilt.
+
+Ganz-Segment-Regel: Ein ``ab``-Segment beschreibt den vollstaendigen Rhythmus
+ab diesem Datum. Nicht aufgefuehrte Wochentage entfallen. Fuer ein konkretes
+Datum gilt stets genau das Segment mit dem spaetesten ``valid_from``, das
+nicht nach diesem Datum liegt (siehe :func:`current_segment`). Eine fruehere
+Fassung loeste Segmente je Wochentag auf - dadurch blieben bei einem Wechsel
+von ``Mo, Do`` auf ``ab X Di`` nach X faelschlich ``Mo, Di, Do`` aktiv.
+
+Invarianten (geprueft von :func:`validate_rhythm`):
+
+- Es gibt ein Basis-Segment (mindestens einen Eintrag ohne ``ab``). Ohne
+  Basis waere die Zeit vor dem ersten ``ab`` undefiniert.
+- Je Segment hat jeder Wochentag hoechstens einen Eintrag.
 """
 
 from __future__ import annotations
@@ -137,8 +148,9 @@ def parse_rhythm(value: object) -> tuple[WeekdayRhythm, ...]:
         Geparste Rhythmus-Eintraege, unsortiert in Eingabereihenfolge.
 
     Raises:
-        ValueError: Wenn ein Eintrag ungueltig ist oder ``value`` weder
-            Zeichenkette noch Liste ist.
+        ValueError: Wenn ein Eintrag ungueltig ist, ``value`` weder
+            Zeichenkette noch Liste ist oder die Invarianten von
+            :func:`validate_rhythm` verletzt sind.
     """
     if value is None:
         return ()
@@ -149,7 +161,9 @@ def parse_rhythm(value: object) -> tuple[WeekdayRhythm, ...]:
     else:
         raise ValueError(f"Unerwarteter Rhythmus-Werttyp: {type(value)!r}")
 
-    return tuple(parse_rhythm_entry(item) for item in raw_items)
+    entries = tuple(parse_rhythm_entry(item) for item in raw_items)
+    validate_rhythm(entries)
+    return entries
 
 
 def format_rhythm(entries: tuple[WeekdayRhythm, ...]) -> list[str]:
@@ -160,7 +174,7 @@ def format_rhythm(entries: tuple[WeekdayRhythm, ...]) -> list[str]:
         format_rhythm((WeekdayRhythm(weekday=3, start_time="07:50", hours=2),))
         # -> ["Do 07:50 2"]
     """
-    ordered = sorted(entries, key=lambda entry: (entry.valid_from or date.min, entry.weekday))
+    ordered = sorted(entries, key=_sort_key)
     lines: list[str] = []
     for entry in ordered:
         base = f"{weekday_token(entry.weekday)} {entry.start_time} {entry.hours}"
@@ -184,27 +198,76 @@ def is_valid_rhythm_value(value: object) -> bool:
     return len(entries) > 0
 
 
-def current_segment(entries: tuple[WeekdayRhythm, ...], on: date) -> tuple[WeekdayRhythm, ...]:
-    """Liefert je Wochentag den zum Datum ``on`` gueltigen Rhythmus-Eintrag.
+def _sort_key(entry: WeekdayRhythm) -> tuple[date, int]:
+    """Kanonischer Sortierschluessel: Segmentbeginn, dann Wochentag.
 
-    Bei mehreren Segmenten fuer denselben Wochentag gewinnt das Segment mit
-    dem spaetesten ``valid_from``, das nicht nach ``on`` liegt.
+    ``valid_from=None`` (Basis-Segment) zaehlt als ``date.min`` - ``None``
+    wird so nie direkt mit einem ``date`` verglichen.
+    """
+    return (entry.valid_from or date.min, entry.weekday)
+
+
+def validate_rhythm(entries: tuple[WeekdayRhythm, ...]) -> None:
+    """Prueft die Rhythmus-Invarianten ueber alle Segmente.
+
+    Oeffentlich, weil neben :func:`parse_rhythm` auch die Eingabe-Validierung
+    (``validators.normalize_day_rhythm``) und das Zusammenfuegen von
+    Segmenten dieselben Regeln brauchen.
+
+    Raises:
+        ValueError: Wenn kein Basis-Segment existiert oder ein Wochentag
+            innerhalb eines Segments mehrfach vorkommt.
+    """
+    if entries and all(entry.valid_from is not None for entry in entries):
+        raise ValueError(
+            "Rhythmus braucht mindestens einen Eintrag ohne 'ab <Datum>' (Basis-Rhythmus seit Kursbeginn)."
+        )
+    seen: set[tuple[date, int]] = set()
+    for entry in entries:
+        key = _sort_key(entry)
+        if key in seen:
+            segment = "Basis" if entry.valid_from is None else f"ab {entry.valid_from.strftime('%d-%m-%y')}"
+            raise ValueError(f"Wochentag '{weekday_token(entry.weekday)}' mehrfach im Segment '{segment}'.")
+        seen.add(key)
+
+
+def segment_start(entries: tuple[WeekdayRhythm, ...], on: date) -> date | None:
+    """Liefert den Beginn (``valid_from or date.min``) des am Datum ``on`` gueltigen Segments.
+
+    ``None``, wenn kein Segment greift (nur moeglich ohne Basis-Segment,
+    das :func:`validate_rhythm` fuer gueltige Rhythmen ausschliesst).
+    """
+    starts = [entry.valid_from or date.min for entry in entries]
+    eligible = [start for start in starts if start <= on]
+    return max(eligible) if eligible else None
+
+
+def current_segment(entries: tuple[WeekdayRhythm, ...], on: date) -> tuple[WeekdayRhythm, ...]:
+    """Liefert das vollstaendige, zum Datum ``on`` gueltige Rhythmus-Segment.
+
+    Ganz-Segment-Regel (siehe Modul-Docstring): Es gewinnt das Segment mit
+    dem spaetesten ``valid_from``, das nicht nach ``on`` liegt; zurueckgegeben
+    werden genau dessen Eintraege. Wochentage frueherer Segmente, die im
+    gueltigen Segment fehlen, sind an ``on`` kein Unterrichtstag.
 
     Args:
         entries: Alle Rhythmus-Eintraege eines Kurses (ueber alle Segmente).
         on: Referenzdatum.
 
     Returns:
-        Ein Eintrag pro aktivem Wochentag, sortiert nach Wochentag.
+        Die Eintraege des gueltigen Segments, kanonisch sortiert.
+
+    Example::
+
+        entries = parse_rhythm(["Mo 08:00 2", "Do 07:50 2", "ab 20-04-26 Di 10:00 2"])
+        current_segment(entries, date(2026, 5, 1))
+        # -> (WeekdayRhythm(weekday=1, ..., valid_from=date(2026, 4, 20)),)
     """
-    by_weekday: dict[int, WeekdayRhythm] = {}
-    for entry in entries:
-        if entry.valid_from is not None and entry.valid_from > on:
-            continue
-        existing = by_weekday.get(entry.weekday)
-        if existing is None or (entry.valid_from or date.min) >= (existing.valid_from or date.min):
-            by_weekday[entry.weekday] = entry
-    return tuple(by_weekday[weekday] for weekday in sorted(by_weekday))
+    start = segment_start(entries, on)
+    if start is None:
+        return ()
+    active = [entry for entry in entries if (entry.valid_from or date.min) == start]
+    return tuple(sorted(active, key=_sort_key))
 
 
 def rhythm_for_date(entries: tuple[WeekdayRhythm, ...], day: date) -> WeekdayRhythm | None:
@@ -248,7 +311,8 @@ def add_segment(
 
     Bestehende Eintraege (fruehere Segmente) bleiben unveraendert erhalten,
     damit vergangene Zeilen ihre historisch korrekte Stundenzahl/Startzeit
-    behalten (siehe Modul-Docstring).
+    behalten. ``new_segment`` muss nach der Ganz-Segment-Regel den
+    vollstaendigen Rhythmus ab seinem ``valid_from`` enthalten.
     """
     return tuple(entries) + tuple(new_segment)
 

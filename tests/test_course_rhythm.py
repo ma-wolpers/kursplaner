@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 
+from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
 from kursplaner.core.domain.course_rhythm import (
     WeekdayRhythm,
     active_weekdays,
@@ -14,7 +15,9 @@ from kursplaner.core.domain.course_rhythm import (
     parse_lesson_hours,
     parse_rhythm,
     parse_rhythm_entry,
+    segment_start,
     start_time_for_date,
+    validate_rhythm,
     weekday_from_token,
     weekday_token,
 )
@@ -123,3 +126,69 @@ def test_parse_lesson_hours_parses_valid_digit_string():
 def test_parse_lesson_hours_raises_on_invalid_value(raw):
     with pytest.raises(ValueError):
         parse_lesson_hours(raw)
+
+
+# --- Ganz-Segment-Regel und Invarianten -------------------------------------
+
+
+def test_current_segment_replaces_whole_rhythm_dropped_weekdays_end():
+    """Ein ab-Segment ersetzt den ganzen Rhythmus: weggefallene Tage bleiben nicht aktiv."""
+    entries = parse_rhythm(["Mo 08:00 2", "Do 07:50 2", "ab 20-04-26 Di 10:00 2"])
+    before = current_segment(entries, date(2026, 4, 19))
+    after = current_segment(entries, date(2026, 4, 20))
+    assert [entry.weekday for entry in before] == [0, 3]
+    assert [entry.weekday for entry in after] == [1]
+    assert hours_for_date(entries, date(2026, 4, 23)) == 0  # Do nach dem Wechsel
+    assert hours_for_date(entries, date(2026, 4, 21)) == 2  # Di nach dem Wechsel
+
+
+def test_segment_start_treats_base_as_date_min():
+    entries = parse_rhythm(["Mo 08:00 2", "ab 20-04-26 Mo 14:00 1"])
+    assert segment_start(entries, date(2026, 1, 1)) == date.min
+    assert segment_start(entries, date(2026, 4, 20)) == date(2026, 4, 20)
+
+
+def test_validate_rhythm_requires_base_segment():
+    with pytest.raises(ValueError, match="ohne 'ab"):
+        parse_rhythm(["ab 20-04-26 Mo 08:00 2"])
+
+
+def test_validate_rhythm_rejects_duplicate_weekday_in_segment():
+    with pytest.raises(ValueError, match="mehrfach"):
+        parse_rhythm(["Mo 08:00 2", "Mo 10:00 1"])
+    with pytest.raises(ValueError, match="mehrfach"):
+        validate_rhythm(parse_rhythm(["Mo 08:00 2"]) + parse_rhythm(["Mo 08:00 2"]))
+
+
+def test_same_weekday_in_different_segments_is_valid():
+    validate_rhythm(parse_rhythm(["Mo 08:00 2", "ab 20-04-26 Mo 14:00 1"]))
+
+
+def test_legacy_rhythm_with_several_historic_segments_keeps_meaning():
+    """Alte Dateien (Basis + mehrere ab-Segmente, ohne Kuerzel) bleiben ohne Migration gueltig."""
+    raw = ["Mo 08:00 2", "ab 20-04-26 Mo 14:00 1", "ab 01-06-26 Mo 09:00 3"]
+    assert is_valid_rhythm_value(raw) is True
+    entries = parse_rhythm(raw)
+    assert hours_for_date(entries, date(2026, 4, 13)) == 2
+    assert start_time_for_date(entries, date(2026, 4, 27)) == "14:00"
+    assert hours_for_date(entries, date(2026, 6, 1)) == 3
+    assert format_rhythm(entries) == raw
+
+
+def _plan_frontmatter(rhythm_lines: list[str]) -> str:
+    """Baut eine minimal gueltige Plan-Frontmatter mit den gegebenen Rhythmus-Zeilen."""
+    items = "".join(f'  - "{line}"\n' for line in rhythm_lines)
+    return f'---\nLerngruppe: "[[GK blau-1]]"\nKursfach: "Mathematik"\nStufe: 11\nRhythmus:\n{items}---\n'
+
+
+def test_plan_schema_accepts_valid_rhythm():
+    data, _ = parse_yaml_frontmatter(_plan_frontmatter(["Mo 08:00 2", "ab 20-04-26 Di 10:00 2"]), PLAN_METADATA_SCHEMA)
+    assert data["Rhythmus"] == ["Mo 08:00 2", "ab 20-04-26 Di 10:00 2"]
+
+
+def test_plan_schema_rejects_rhythm_violating_invariants():
+    """Hand-Dateien mit verletzter Invariante werden ueber den echten Ladepfad abgelehnt."""
+    with pytest.raises(RuntimeError, match="Rhythmus"):
+        parse_yaml_frontmatter(_plan_frontmatter(["Mo 08:00 2", "Mo 10:00 1"]), PLAN_METADATA_SCHEMA)
+    with pytest.raises(RuntimeError, match="Rhythmus"):
+        parse_yaml_frontmatter(_plan_frontmatter(["ab 20-04-26 Mo 08:00 2"]), PLAN_METADATA_SCHEMA)

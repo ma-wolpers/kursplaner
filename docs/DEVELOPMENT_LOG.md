@@ -8,6 +8,13 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-10-07) — Rhythmus: Ganz-Segment-Regel statt Auflösung je Wochentag
+
+- `core/domain/course_rhythm.py::current_segment` löste `ab`-Segmente bisher je Wochentag auf: Ein bei einer Stundenplanänderung weggefallener Wochentag blieb über sein älteres Segment aktiv (`Mo, Do` → `ab X Di` ergab nach X `Mo, Di, Do`). Betroffen war u. a. `ExtendPlanToNextVacationUseCase`, das mit `current_segment(rhythm, takeover_start)` wieder Zeilen am weggefallenen Tag erzeugte. Neue Semantik: Ein `ab`-Segment beschreibt den vollständigen Rhythmus ab diesem Datum. Nicht aufgeführte Wochentage entfallen. `current_segment` liefert genau die Einträge des Segments mit dem spätesten `valid_from <= on` (neu: `segment_start`, `None` = `date.min`).
+- Neu `validate_rhythm` (öffentlich, weil auch Eingabe-Validierung/Segment-Zusammenführung sie brauchen), aufgerufen in `parse_rhythm`: Basis-Segment ohne `ab` ist Pflicht (alle Schreibpfade erzeugen eines; ohne wäre die Zeit vor dem ersten `ab` undefiniert), je Segment höchstens ein Eintrag pro Wochentag. Verstöße machen `is_valid_rhythm_value` falsch, das Plan-Schema lehnt die Datei ab. Gemeinsamer Sortierschlüssel `_sort_key` (`valid_from or date.min`, Wochentag) für `format_rhythm`/`current_segment`.
+- Beide Dialoge schreiben ohnehin immer den vollständigen Rhythmus, dort ändert sich nichts. Hand-Dateien, die per `ab` nur einen Tag geändert hatten, müssen die übrigen Tage im neuen Segment wiederholen.
+- Tests: `test_course_rhythm.py` (Ganz-Segment-Wechsel, `segment_start`, Basis-Pflicht, doppelter Wochentag, Legacy mit mehreren historischen Segmenten, Ablehnung über `parse_yaml_frontmatter` + `PLAN_METADATA_SCHEMA`). Vorab-Charakterisierung `test_planner_generate_rows.py` (Commit `5cdb3ba`) für die anstehende Umstellung der Zeilengenerierung.
+
 ### Removed (2026-10-06) — Migrationstool `Leitkompetenz` → `Leitkompetenzen`
 
 - Echter Lauf über den Vault: 17 Sequenzdateien migriert, 0 Konflikte, Exit 0; alle 17 mit `read_goal_and_focus_competencies` ladbar. Vorab: ein alter Markdown-Export (`-ALT/Mat lila-5 26-2/Sequenzen/Sequenzplan-Export 2026-06-05.md`, kein Frontmatter) aus `Sequenzen/` in den Kursordner verschoben; 5 Listeneinträge mit `;` in zwei Stunden (`Inf gr6 26-2/Alteinheiten`) in einzelne Einträge aufgeteilt (Body byte-identisch). Offen bleiben zwei `.ebw`-Stunden ohne `Stundentyp`/`Dauer` (bestanden schon vorher).
