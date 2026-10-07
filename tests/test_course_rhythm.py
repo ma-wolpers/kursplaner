@@ -4,7 +4,6 @@ from datetime import date
 
 import pytest
 
-from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
 from kursplaner.core.domain.course_rhythm import (
     WeekdayRhythm,
     active_weekdays,
@@ -21,6 +20,7 @@ from kursplaner.core.domain.course_rhythm import (
     weekday_from_token,
     weekday_token,
 )
+from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
 
 
 def test_weekday_token_roundtrip():
@@ -83,9 +83,7 @@ def test_is_valid_rhythm_value():
 
 
 def test_current_segment_prefers_latest_valid_from_not_in_future():
-    entries = parse_rhythm(
-        ["Mo 08:00 2", "ab 20-04-26 Mo 14:00 1", "ab 01-06-26 Mo 09:00 3"]
-    )
+    entries = parse_rhythm(["Mo 08:00 2", "ab 20-04-26 Mo 14:00 1", "ab 01-06-26 Mo 09:00 3"])
     active = current_segment(entries, date(2026, 5, 1))
     assert len(active) == 1
     assert active[0].start_time == "14:00"
