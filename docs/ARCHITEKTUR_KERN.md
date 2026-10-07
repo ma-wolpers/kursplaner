@@ -14,7 +14,7 @@ Der Programmkern beantwortet ausschließlich: **„Was ist fachlich richtig?“*
 Zum Kern gehören:
 
 - Kursplan-Tabelle (`Datum`, `Inhalt`, `Thema/Ausfall`)
-- `Rhythmus`: kursweites YAML-Feld (Wochentag + Startzeit + Stundenzahl, optional segmentiert per `ab <Datum>`; ein Segment beschreibt den vollständigen Rhythmus ab seinem Datum, ein Basis-Segment ohne `ab` ist Pflicht), einzige Quelle für die Stundenzahl/Startzeit eines Kalendertags — siehe `core/domain/course_rhythm.py`
+- `Rhythmus`: kursweites YAML-Feld (Wochentag + Startzeit + Stundenzahl, optional `gKW`/`uKW` für gerade/ungerade ISO-KW, optional segmentiert per `ab <Datum>`; ein Segment beschreibt den vollständigen Rhythmus ab seinem Datum, ein Basis-Segment ohne `ab` ist Pflicht), einzige Quelle für die Stundenzahl/Startzeit eines Kalendertags — siehe `core/domain/course_rhythm.py`
 - Verlinkte Einheiten-Dateien (YAML + optionale Inhalte)
 - Termin-/Ferienlogik; Ferien sind am Marker `X <Grund> X` erkennbar (Schluss-X), ein normaler Ausfall bleibt `X <Grund>` — siehe `core/domain/content_markers.py`
 - Fachliche Planoperationen (Ausfall, LZK, Verschieben, Zuordnen)

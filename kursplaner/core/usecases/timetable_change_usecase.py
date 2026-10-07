@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import is_ferien_marker
-from kursplaner.core.domain.course_rhythm import WeekdayRhythm, active_weekdays, hours_for_date
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, hours_for_date
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import parse_plan_row_date
 from kursplaner.core.domain.planner import PlanRow, generate_rows
@@ -122,7 +122,9 @@ class TimetableChangeUseCase:
             day_columns: Alle Planzeilen des geladenen Kursplans.
             date_from: Erster Tag des Änderungsbereichs.
             date_to: Letzter Tag des Änderungsbereichs.
-            new_rhythm: Neuer Wochentags-Rhythmus (Startzeit + Stunden je Wochentag).
+            new_rhythm: Neues, ab ``date_from`` gueltiges Rhythmus-Segment
+                (vollstaendig nach der Ganz-Segment-Regel, ggf. mit
+                ``gKW``/``uKW``-Eintraegen).
             calendar_dir: Kalenderordner für Ferien-/Feiertagsdaten.
 
         Returns:
@@ -134,7 +136,10 @@ class TimetableChangeUseCase:
         years = {date_from.year, date_to.year}
         events, _blocks, _warnings = self._calendar_repo.load_calendar_data(calendar_dir, years)
 
-        new_rows = generate_rows(date_from, date_to, active_weekdays(new_rhythm), events)
+        # Bewusst nur das neue Segment: Nach `splice_segment` (Schritt 2) gibt es
+        # in [date_from, date_to] kein anderes Segment mehr, das neue Segment
+        # ist dort also der vollstaendige Rhythmus (Vertrag von generate_rows).
+        new_rows = generate_rows(date_from, date_to, new_rhythm, events)
         draft_slots = self._build_draft_slots(old_units, new_rows, weeks_with_manual_ausfall, new_rhythm)
 
         return TimetableChangeResult(old_units=old_units, draft_slots=draft_slots)

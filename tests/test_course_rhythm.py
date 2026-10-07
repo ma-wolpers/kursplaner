@@ -8,9 +8,13 @@ from kursplaner.core.domain.course_rhythm import (
     WeekdayRhythm,
     active_weekdays,
     current_segment,
+    entry_applies_on,
     format_rhythm,
     hours_for_date,
+    is_teaching_day,
     is_valid_rhythm_value,
+    parity_from_token,
+    parity_token,
     parse_lesson_hours,
     parse_rhythm,
     parse_rhythm_entry,
@@ -190,3 +194,77 @@ def test_plan_schema_rejects_rhythm_violating_invariants():
         parse_yaml_frontmatter(_plan_frontmatter(["Mo 08:00 2", "Mo 10:00 1"]), PLAN_METADATA_SCHEMA)
     with pytest.raises(RuntimeError, match="Rhythmus"):
         parse_yaml_frontmatter(_plan_frontmatter(["ab 20-04-26 Mo 08:00 2"]), PLAN_METADATA_SCHEMA)
+
+
+# --- Wochenparitaet (gKW/uKW) -------------------------------------------------
+
+
+def test_parse_and_format_roundtrip_with_parity():
+    raw = ["Mo 08:00 2", "Do 07:50 2 gKW", "Do 11:30 1 uKW", "ab 20-04-26 Di 10:00 2 uKW"]
+    entries = parse_rhythm(raw)
+    assert [entry.week_parity for entry in entries] == [None, 0, 1, 1]
+    assert format_rhythm(entries) == raw
+
+
+def test_format_sorts_every_week_before_even_before_odd():
+    entries = (
+        WeekdayRhythm(weekday=3, start_time="11:30", hours=1, week_parity=1),
+        WeekdayRhythm(weekday=3, start_time="07:50", hours=2, week_parity=0),
+        WeekdayRhythm(weekday=0, start_time="08:00", hours=2),
+    )
+    assert format_rhythm(entries) == ["Mo 08:00 2", "Do 07:50 2 gKW", "Do 11:30 1 uKW"]
+
+
+def test_parse_rejects_unknown_parity_token():
+    with pytest.raises(ValueError):
+        parse_rhythm_entry("Mo 08:00 2 aKW")
+
+
+def test_validate_rejects_parity_overlaps():
+    with pytest.raises(ValueError, match="mehrfach"):
+        parse_rhythm(["Mo 08:00 2", "Mo 10:00 1 gKW"])
+    with pytest.raises(ValueError, match="mehrfach"):
+        parse_rhythm(["Mo 08:00 2 gKW", "Mo 10:00 1 gKW"])
+
+
+def test_weekday_rhythm_constructor_enforces_invariants():
+    with pytest.raises(ValueError):
+        WeekdayRhythm(weekday=0, start_time="08:00", hours=2, week_parity=2)
+    with pytest.raises(ValueError):
+        WeekdayRhythm(weekday=7, start_time="08:00", hours=2)
+
+
+def test_parity_tokens_roundtrip():
+    assert parity_token(0) == "gKW"
+    assert parity_from_token("uKW") == 1
+
+
+def test_entry_applies_on_checks_weekday_and_iso_week_parity():
+    entry = parse_rhythm_entry("Mo 08:00 2 gKW")
+    assert entry_applies_on(entry, date(2026, 10, 12)) is True  # Mo, KW 42
+    assert entry_applies_on(entry, date(2026, 10, 5)) is False  # Mo, KW 41
+    assert entry_applies_on(entry, date(2026, 10, 13)) is False  # Di
+
+
+def test_ab_day_has_independent_hours_and_start_times():
+    entries = parse_rhythm(["Mo 08:00 2 gKW", "Mo 11:30 1 uKW"])
+    assert hours_for_date(entries, date(2026, 10, 12)) == 2
+    assert start_time_for_date(entries, date(2026, 10, 12)) == "08:00"
+    assert hours_for_date(entries, date(2026, 10, 5)) == 1
+    assert start_time_for_date(entries, date(2026, 10, 5)) == "11:30"
+
+
+def test_biweekly_day_has_no_lesson_in_other_week():
+    entries = parse_rhythm(["Do 07:50 2 uKW"])
+    assert is_teaching_day(entries, date(2026, 10, 8)) is True  # KW 41
+    assert is_teaching_day(entries, date(2026, 10, 15)) is False  # KW 42
+    assert hours_for_date(entries, date(2026, 10, 15)) == 0
+
+
+def test_iso_week_53_and_week_1_are_both_odd():
+    """Kalendertechnisch: 2026 hat KW 53, danach folgt KW 1 - zwei ungerade Wochen hintereinander."""
+    entries = parse_rhythm(["Do 07:50 2 uKW"])
+    assert date(2026, 12, 31).isocalendar().week == 53
+    assert date(2027, 1, 7).isocalendar().week == 1
+    assert is_teaching_day(entries, date(2026, 12, 31)) is True
+    assert is_teaching_day(entries, date(2027, 1, 7)) is True

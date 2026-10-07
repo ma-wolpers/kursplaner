@@ -8,7 +8,14 @@ Plantabelle selbst traegt dafuer keine eigene Spalte mehr.
 
 Format je Zeile::
 
-    ["ab" <DD-MM-YY>] <Wochentag> <HH:MM> <Stunden>
+    ["ab" <DD-MM-YY>] <Wochentag> <HH:MM> <Stunden> ["gKW" | "uKW"]
+
+Das optionale Kuerzel am Zeilenende beschraenkt den Eintrag auf gerade
+(``gKW``) bzw. ungerade (``uKW``) ISO-Kalenderwochen
+(``date.isocalendar().week % 2``); ohne Kuerzel gilt er jede Woche. Die
+Paritaet folgt strikt der ISO-Regel: In Jahren mit KW 53 folgen zwei
+ungerade Wochen aufeinander (z. B. KW 53/2026 und KW 1/2027). Einziger Ort,
+der die Paritaet gegen ein Datum prueft, ist :func:`entry_applies_on`.
 
 ``ab <Datum>`` ist optional und markiert den Beginn eines neuen Segments
 (z. B. nach einer Stundenplanaenderung); Eintraege ohne ``ab`` bilden das
@@ -25,7 +32,8 @@ Invarianten (geprueft von :func:`validate_rhythm`):
 
 - Es gibt ein Basis-Segment (mindestens einen Eintrag ohne ``ab``). Ohne
   Basis waere die Zeit vor dem ersten ``ab`` undefiniert.
-- Je Segment hat jeder Wochentag hoechstens einen Eintrag.
+- Je Segment hat jeder Wochentag entweder genau einen Eintrag ohne Kuerzel
+  oder hoechstens je einen ``gKW``- und ``uKW``-Eintrag (A/B-Woche).
 """
 
 from __future__ import annotations
@@ -36,12 +44,14 @@ from datetime import date, datetime
 
 WEEKDAY_TOKENS: tuple[str, ...] = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 RHYTHM_YAML_KEY = "Rhythmus"
+PARITY_TOKENS: dict[int, str] = {0: "gKW", 1: "uKW"}
 
 RHYTHM_ENTRY_RE = re.compile(
     r"^(?:ab\s+(?P<valid_from>\d{2}-\d{2}-\d{2})\s+)?"
     r"(?P<weekday>Mo|Di|Mi|Do|Fr|Sa|So)\s+"
     r"(?P<time>\d{2}:\d{2})\s+"
-    r"(?P<hours>\d{1,2})$"
+    r"(?P<hours>\d{1,2})"
+    r"(?:\s+(?P<parity>gKW|uKW))?$"
 )
 
 
@@ -55,12 +65,28 @@ class WeekdayRhythm:
         hours: Stundenzahl an diesem Wochentag (1-4).
         valid_from: Erster Geltungstag dieses Eintrags, oder ``None`` fuer
             "seit Kursbeginn gueltig".
+        week_parity: ``0`` = nur gerade KW (``gKW``), ``1`` = nur ungerade
+            KW (``uKW``), ``None`` = jede Woche.
+
+    Raises:
+        ValueError: Bei Wochentag ausserhalb ``0..6`` oder unbekannter
+            Paritaet. Die Pruefung sitzt im Typ selbst, weil Eintraege auch
+            ausserhalb des Parsers gebaut werden (Eingabe-Validierung,
+            Migrationstool, ``dataclasses.replace``).
     """
 
     weekday: int
     start_time: str
     hours: int
     valid_from: date | None = None
+    week_parity: int | None = None
+
+    def __post_init__(self) -> None:
+        """Erzwingt Wochentag ``0..6`` und Paritaet ``None | 0 | 1``."""
+        if not 0 <= self.weekday <= 6:
+            raise ValueError(f"Wochentag-Index ausserhalb 0..6: {self.weekday}")
+        if self.week_parity not in (None, 0, 1):
+            raise ValueError(f"Unbekannte Wochenparitaet: {self.week_parity!r} (erlaubt: None, 0, 1).")
 
 
 def weekday_token(weekday: int) -> str:
@@ -90,11 +116,40 @@ def weekday_from_token(token: str) -> int:
         raise ValueError(f"Unbekannter Wochentag-Token: '{token}'.") from exc
 
 
+def parity_token(week_parity: int) -> str:
+    """Liefert das md-Kuerzel einer Wochenparitaet.
+
+    Example::
+
+        parity_token(0)
+        # -> "gKW"
+    """
+    try:
+        return PARITY_TOKENS[week_parity]
+    except KeyError as exc:
+        raise ValueError(f"Unbekannte Wochenparitaet: {week_parity!r}") from exc
+
+
+def parity_from_token(token: str) -> int:
+    """Liefert die Wochenparitaet (0 = gerade, 1 = ungerade) eines md-Kuerzels.
+
+    Example::
+
+        parity_from_token("uKW")
+        # -> 1
+    """
+    for parity, known in PARITY_TOKENS.items():
+        if known == token:
+            return parity
+    raise ValueError(f"Unbekanntes Wochen-Kuerzel: '{token}' (erlaubt: gKW, uKW).")
+
+
 def parse_rhythm_entry(text: str) -> WeekdayRhythm:
     """Parst eine einzelne Rhythmus-Zeile in einen :class:`WeekdayRhythm`.
 
     Args:
-        text: Eine Zeile im Format ``["ab" DD-MM-YY] Wochentag HH:MM Stunden``.
+        text: Eine Zeile im Format
+            ``["ab" DD-MM-YY] Wochentag HH:MM Stunden ["gKW"|"uKW"]``.
 
     Returns:
         Der geparste Eintrag.
@@ -106,13 +161,15 @@ def parse_rhythm_entry(text: str) -> WeekdayRhythm:
 
         parse_rhythm_entry("Mo 12:15 2")
         # -> WeekdayRhythm(weekday=0, start_time="12:15", hours=2, valid_from=None)
+        parse_rhythm_entry("ab 20-04-26 Do 07:50 1 uKW").week_parity
+        # -> 1
     """
     raw = str(text or "").strip()
     match = RHYTHM_ENTRY_RE.match(raw)
     if match is None:
         raise ValueError(
             f"Ungueltiger Rhythmus-Eintrag: '{raw}'. Erwartet: "
-            "'[ab DD-MM-YY] Wochentag HH:MM Stunden', z. B. 'Mo 12:15 2'."
+            "'[ab DD-MM-YY] Wochentag HH:MM Stunden [gKW|uKW]', z. B. 'Mo 12:15 2' oder 'Do 07:50 2 gKW'."
         )
 
     weekday = weekday_from_token(match.group("weekday"))
@@ -130,7 +187,12 @@ def parse_rhythm_entry(text: str) -> WeekdayRhythm:
     valid_from_text = match.group("valid_from")
     valid_from = datetime.strptime(valid_from_text, "%d-%m-%y").date() if valid_from_text else None
 
-    return WeekdayRhythm(weekday=weekday, start_time=time_text, hours=hours, valid_from=valid_from)
+    parity_text = match.group("parity")
+    week_parity = parity_from_token(parity_text) if parity_text else None
+
+    return WeekdayRhythm(
+        weekday=weekday, start_time=time_text, hours=hours, valid_from=valid_from, week_parity=week_parity
+    )
 
 
 def parse_rhythm(value: object) -> tuple[WeekdayRhythm, ...]:
@@ -167,7 +229,7 @@ def parse_rhythm(value: object) -> tuple[WeekdayRhythm, ...]:
 
 
 def format_rhythm(entries: tuple[WeekdayRhythm, ...]) -> list[str]:
-    """Formatiert Rhythmus-Eintraege kanonisch (sortiert nach Segment, Wochentag).
+    """Formatiert Rhythmus-Eintraege kanonisch (sortiert nach Segment, Wochentag, Paritaet).
 
     Example::
 
@@ -178,6 +240,8 @@ def format_rhythm(entries: tuple[WeekdayRhythm, ...]) -> list[str]:
     lines: list[str] = []
     for entry in ordered:
         base = f"{weekday_token(entry.weekday)} {entry.start_time} {entry.hours}"
+        if entry.week_parity is not None:
+            base = f"{base} {parity_token(entry.week_parity)}"
         if entry.valid_from is not None:
             lines.append(f"ab {entry.valid_from.strftime('%d-%m-%y')} {base}")
         else:
@@ -198,13 +262,15 @@ def is_valid_rhythm_value(value: object) -> bool:
     return len(entries) > 0
 
 
-def _sort_key(entry: WeekdayRhythm) -> tuple[date, int]:
-    """Kanonischer Sortierschluessel: Segmentbeginn, dann Wochentag.
+def _sort_key(entry: WeekdayRhythm) -> tuple[date, int, int]:
+    """Kanonischer Sortierschluessel: Segmentbeginn, Wochentag, Paritaet.
 
     ``valid_from=None`` (Basis-Segment) zaehlt als ``date.min`` - ``None``
-    wird so nie direkt mit einem ``date`` verglichen.
+    wird so nie direkt mit einem ``date`` verglichen. Bei gleichem Wochentag
+    kommt "jede Woche" (``-1``) vor ``gKW`` (0) vor ``uKW`` (1).
     """
-    return (entry.valid_from or date.min, entry.weekday)
+    parity_rank = -1 if entry.week_parity is None else entry.week_parity
+    return (entry.valid_from or date.min, entry.weekday, parity_rank)
 
 
 def validate_rhythm(entries: tuple[WeekdayRhythm, ...]) -> None:
@@ -216,19 +282,24 @@ def validate_rhythm(entries: tuple[WeekdayRhythm, ...]) -> None:
 
     Raises:
         ValueError: Wenn kein Basis-Segment existiert oder ein Wochentag
-            innerhalb eines Segments mehrfach vorkommt.
+            innerhalb eines Segments sich ueberschneidende Eintraege hat
+            (doppelt, oder "jede Woche" zusammen mit ``gKW``/``uKW``).
     """
     if entries and all(entry.valid_from is not None for entry in entries):
         raise ValueError(
             "Rhythmus braucht mindestens einen Eintrag ohne 'ab <Datum>' (Basis-Rhythmus seit Kursbeginn)."
         )
-    seen: set[tuple[date, int]] = set()
+    parities_by_day: dict[tuple[date, int], list[int | None]] = {}
     for entry in entries:
-        key = _sort_key(entry)
-        if key in seen:
-            segment = "Basis" if entry.valid_from is None else f"ab {entry.valid_from.strftime('%d-%m-%y')}"
-            raise ValueError(f"Wochentag '{weekday_token(entry.weekday)}' mehrfach im Segment '{segment}'.")
-        seen.add(key)
+        parities_by_day.setdefault((entry.valid_from or date.min, entry.weekday), []).append(entry.week_parity)
+    for (start, weekday), parities in parities_by_day.items():
+        overlapping = len(parities) != len(set(parities)) or (None in parities and len(parities) > 1)
+        if overlapping:
+            segment = "Basis" if start == date.min else f"ab {start.strftime('%d-%m-%y')}"
+            raise ValueError(
+                f"Wochentag '{weekday_token(weekday)}' mehrfach im Segment '{segment}' "
+                "(erlaubt: ein Eintrag ohne Kuerzel oder je einer mit gKW/uKW)."
+            )
 
 
 def segment_start(entries: tuple[WeekdayRhythm, ...], on: date) -> date | None:
@@ -270,16 +341,41 @@ def current_segment(entries: tuple[WeekdayRhythm, ...], on: date) -> tuple[Weekd
     return tuple(sorted(active, key=_sort_key))
 
 
+def entry_applies_on(entry: WeekdayRhythm, day: date) -> bool:
+    """Prueft, ob ein Eintrag nach Wochentag und KW-Paritaet auf ``day`` passt.
+
+    Einzige Stelle, die ``week_parity`` gegen ein Datum prueft; das
+    Segment (``valid_from``) beruecksichtigt :func:`current_segment`.
+
+    Example::
+
+        entry = parse_rhythm_entry("Mo 08:00 2 gKW")
+        entry_applies_on(entry, date(2026, 10, 12))  # Mo, KW 42
+        # -> True
+        entry_applies_on(entry, date(2026, 10, 5))  # Mo, KW 41
+        # -> False
+    """
+    if entry.weekday != day.weekday():
+        return False
+    return entry.week_parity is None or day.isocalendar().week % 2 == entry.week_parity
+
+
 def rhythm_for_date(entries: tuple[WeekdayRhythm, ...], day: date) -> WeekdayRhythm | None:
     """Liefert den fuer einen konkreten Kalendertag gueltigen Rhythmus-Eintrag.
 
-    ``None``, wenn an diesem Wochentag zum gegebenen Datum kein Unterricht
-    stattfindet (kein passendes Segment vorhanden).
+    ``None``, wenn an diesem Tag kein Unterricht stattfindet (Wochentag nicht
+    im gueltigen Segment oder falsche KW-Paritaet). Wegen der Invarianten
+    aus :func:`validate_rhythm` passt hoechstens ein Eintrag.
     """
     for entry in current_segment(entries, day):
-        if entry.weekday == day.weekday():
+        if entry_applies_on(entry, day):
             return entry
     return None
+
+
+def is_teaching_day(entries: tuple[WeekdayRhythm, ...], day: date) -> bool:
+    """Prueft, ob laut Rhythmus (Segment, Wochentag, KW-Paritaet) an ``day`` Unterricht ist."""
+    return rhythm_for_date(entries, day) is not None
 
 
 def hours_for_date(entries: tuple[WeekdayRhythm, ...], day: date) -> int:

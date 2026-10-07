@@ -51,14 +51,17 @@ class ExtendPlanToNextVacationUseCase:
 
         takeover_start = last_date + timedelta(days=1)
         rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
-        active_rhythm = current_segment(rhythm, takeover_start)
-        if not active_rhythm:
+        if not current_segment(rhythm, takeover_start):
             raise RuntimeError("Keine unterrichtbaren Wochentage im bestehenden Plan (Rhythmus) gefunden.")
 
+        # Vollstaendiger Rhythmus statt nur des aktuellen Segments: ein
+        # spaeteres `ab`-Segment im Verlaengerungszeitraum muss dort greifen
+        # (Vertrag von `planner.generate_rows`). CreatePlanUseCase schreibt
+        # den Rhythmus nicht zurueck.
         plan_result: PlanResult = self._create_plan_usecase.execute(
             target_markdown=markdown_path,
             term=None,
-            rhythm=active_rhythm,
+            rhythm=rhythm,
             calendar_dir=calendar_dir,
             takeover_start=takeover_start,
             stop_at_next_break=True,

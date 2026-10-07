@@ -249,3 +249,23 @@ def test_compute_more_new_than_old_leaves_empty_slots():
     assert len(stattfindend) == 2
     assert stattfindend[0].content == "[[abc]]"
     assert stattfindend[1].content == ""
+
+
+def test_compute_with_biweekly_rhythm_only_creates_matching_week_slots():
+    """Ein zweiwoechiger neuer Rhythmus erzeugt nur Slots in der passenden KW, mit A/B-Stunden."""
+    from kursplaner.core.domain.course_rhythm import parse_rhythm
+
+    new_rhythm = parse_rhythm(["Mo 08:00 2 gKW", "Mo 11:30 1 uKW", "Do 07:50 2 uKW"])
+    result = _make_uc().compute(
+        day_columns=[],
+        date_from=date(2026, 9, 28),
+        date_to=date(2026, 10, 11),
+        new_rhythm=new_rhythm,
+        calendar_dir=Path("."),
+    )
+    # KW 40 (gerade): Mo 28.09.; KW 41 (ungerade): Mo 05.10., Do 08.10.; Do 01.10. (KW 40) entfaellt.
+    assert [(slot.datum, slot.stunden) for slot in result.draft_slots] == [
+        (date(2026, 9, 28), 2),
+        (date(2026, 10, 5), 1),
+        (date(2026, 10, 8), 2),
+    ]

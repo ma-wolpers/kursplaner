@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from kursplaner.core.domain.content_markers import build_ferien_marker
-from kursplaner.core.domain.course_rhythm import WeekdayRhythm, active_weekdays
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, active_weekdays, is_teaching_day
 from kursplaner.core.domain.models import PlanResult
 
 PlanRow = tuple[date, str]
@@ -92,25 +92,43 @@ def find_next_halfyear_boundary_start(from_date: date, ferien_blocks: list[PlanC
 def generate_rows(
     start: date,
     end: date,
-    weekdays: set[int],
+    rhythm: tuple[WeekdayRhythm, ...],
     events: dict[date, str],
     include_end_even_if_not_weekday: bool = False,
 ) -> list[PlanRow]:
     """Erzeugt fachliche Planzeilen im Bereich ``start`` bis ``end``.
 
-    Pro konfiguriertem Wochentag wird eine Zeile erzeugt. Ferien/Feiertage
+    Vertrag: ``rhythm`` ist der **vollstaendige** Rhythmus eines Kurses mit
+    allen ``ab``-Segmenten. Fuer jeden Tag entscheidet
+    :func:`~kursplaner.core.domain.course_rhythm.is_teaching_day` (Segment,
+    Wochentag, KW-Paritaet), ob eine Zeile entsteht; innerhalb eines Aufrufs
+    wechselt der Rhythmus daher an jeder ``ab``-Grenze. Ferien/Feiertage
     bleiben als Datumseintrag mit Ferien-Marker (siehe
     :func:`kursplaner.core.domain.content_markers.build_ferien_marker`)
-    sichtbar; die Stundenzahl selbst wird nicht mehr in der Zeile gefuehrt,
-    sondern spaeter aus dem persistenten Rhythmus abgeleitet
-    (siehe :mod:`kursplaner.core.domain.course_rhythm`).
+    sichtbar; die Stundenzahl selbst wird nicht in der Zeile gefuehrt,
+    sondern spaeter aus dem Rhythmus abgeleitet.
+
+    Args:
+        start: Erster Tag des Bereichs.
+        end: Letzter Tag des Bereichs (inklusive).
+        rhythm: Vollstaendiger Rhythmus (alle Segmente).
+        events: Ferien-/Feiertagsnotizen je Datum.
+        include_end_even_if_not_weekday: Fuegt eine Zeile am Tag ``end``
+            ein, falls die normale Generierung fuer ``end`` keine Zeile
+            erzeugt hat. Diese Abschlusszeile traegt immer einen
+            Ferien-Marker (Grund aus ``events``, ersatzweise
+            ``Ferienbeginn``) und ist keine Unterrichtsstunde: Der einzige
+            Aufrufer (Uebernahme-/Verlaengern-Modus in
+            :func:`create_plan_result`) uebergibt als ``end`` den ersten
+            Ferientag. Ferienzeilen haben in ``DayColumn.stunden()`` stets
+            0 Stunden, auch wenn der Rhythmus an diesem Datum eine Stunde
+            kennt. "weekday" im Namen meint historisch "Unterrichtstag".
     """
     rows: list[PlanRow] = []
     current = start
 
     while current <= end:
-        weekday = current.weekday()
-        if weekday in weekdays:
+        if is_teaching_day(rhythm, current):
             note = events.get(current, "")
             # Calendar events are loaded only from Ferien/Feiertag sources.
             # Therefore, any event note marks a non-teaching day (Ferien/Feiertag).
@@ -164,14 +182,15 @@ def create_plan_result(
     """Erzeugt Planzeilen und fachliches Ergebnisobjekt für den gewünschten Modus.
 
     Unterstützt Halbjahres- und Übernahme-Modus (bis nächste Ferienphase).
-    Liefert nur fachliche Datenstrukturen, keine Persistenz-Nebenwirkungen.
+    ``rhythm`` ist der vollständige Rhythmus mit allen Segmenten (siehe
+    Vertrag von :func:`generate_rows`). Liefert nur fachliche
+    Datenstrukturen, keine Persistenz-Nebenwirkungen.
     """
     ferien_blocks = [item for item in blocks if "ferien" in item[0].lower()]
     if not ferien_blocks:
         raise RuntimeError("Keine Ferienblöcke in den Kalenderdaten gefunden.")
 
-    weekdays = active_weekdays(rhythm)
-    if not weekdays:
+    if not active_weekdays(rhythm):
         raise RuntimeError("Rhythmus enthält keine aktiven Unterrichtstage.")
 
     if stop_at_next_break:
@@ -182,7 +201,7 @@ def create_plan_result(
         rows = generate_rows(
             start,
             end,
-            weekdays,
+            rhythm,
             events,
             include_end_even_if_not_weekday=True,
         )
@@ -193,7 +212,7 @@ def create_plan_result(
         start, end = determine_term_range(term, ferien_blocks)
         if takeover_start and takeover_start > start:
             start = takeover_start
-        rows = generate_rows(start, end, weekdays, events)
+        rows = generate_rows(start, end, rhythm, events)
 
     if not rows:
         raise RuntimeError("Terminplan lieferte keine Termine.")

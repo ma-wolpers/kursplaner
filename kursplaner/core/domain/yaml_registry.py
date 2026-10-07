@@ -121,13 +121,18 @@ PLAN_METADATA_SCHEMA = YamlSchema(
 
 ``Rhythmus`` traegt den wochentagsbezogenen Startzeit-/Stundenrhythmus des
 Kurses als Liste von Zeilen im Format
-``["ab" DD-MM-YY] Wochentag HH:MM Stunden`` (siehe
+``["ab" DD-MM-YY] Wochentag HH:MM Stunden ["gKW"|"uKW"]`` (siehe
 :mod:`kursplaner.core.domain.course_rhythm`), z. B.::
 
     Rhythmus:
       - "Mo 12:15 2"
-      - "Mi 08:00 1"
+      - "Mi 08:00 1 gKW"
+      - "Mi 09:45 2 uKW"
       - "ab 20-04-26 Mo 14:00 1"
+
+``gKW``/``uKW`` beschraenken einen Eintrag auf gerade/ungerade ISO-KW. Ein
+``ab``-Segment beschreibt den vollstaendigen Rhythmus ab seinem Datum; ein
+Basis-Segment ohne ``ab`` ist Pflicht.
 
 Er ist seit der Entfernung der ``Stunden``-Spalte aus der Plantabelle die
 einzige Quelle fuer die Stundenzahl/Startzeit eines Kalendertags. Dateien im
