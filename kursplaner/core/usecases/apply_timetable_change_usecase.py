@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker
 from kursplaner.core.domain.course_rhythm import (
     RHYTHM_YAML_KEY,
     WeekdayRhythm,
-    add_segment,
     format_rhythm,
     parse_rhythm,
+    splice_segment,
 )
 from kursplaner.core.domain.plan_row_placement import strip_empty_dateless_rows
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
@@ -110,15 +110,16 @@ class ApplyTimetableChangeUseCase:
             date_from: Erster Tag des Änderungsbereichs.
             date_to: Letzter Tag des Änderungsbereichs.
             draft_slots: Endgültiger Entwurf aus dem Dialog.
-            rhythm_segment: Neues, ab ``date_from`` gültiges Rhythmus-Segment.
-                Gibt es im Plan keine Zeile vor ``date_from`` (die also auf
-                ein früheres Segment angewiesen wäre), ersetzt dieses Segment
-                den kompletten Rhythmus statt ihn zu ergänzen (kein
-                sinnloses ``ab``-Segment, wenn ``date_from`` faktisch der
-                Kursbeginn ist) — sonst bleiben frühere Segmente für
-                vergangene Zeilen erhalten (siehe :func:`~kursplaner.core.
-                domain.course_rhythm.add_segment`). Leer, wenn sich nur
-                Inhalte, aber nicht der Rhythmus geändert haben.
+            rhythm_segment: Neuer, im Bereich ``[date_from, date_to]``
+                gültiger vollständiger Rhythmus. Wird über
+                :func:`~kursplaner.core.domain.course_rhythm.splice_segment`
+                eingefügt: ohne Planzeile vor ``date_from`` ersetzt er den
+                Rhythmus bis ``date_to`` (kein sinnloses ``ab``-Segment am
+                faktischen Kursbeginn), sonst bleiben frühere Segmente für
+                vergangene Zeilen erhalten; gibt es Planzeilen nach
+                ``date_to``, gilt dort automatisch wieder der vorherige
+                Rhythmus (Rückkehr-Segment). Leer, wenn sich nur Inhalte,
+                aber nicht der Rhythmus geändert haben.
 
         Returns:
             ApplyTimetableChangeResult mit den aus dem Plan herausgefallenen Inhalten.
@@ -130,11 +131,14 @@ class ApplyTimetableChangeUseCase:
         idx_datum = idx_datum if idx_datum is not None else 0
 
         if rhythm_segment:
-            if self._has_row_before(table, date_from, idx_datum):
-                existing_rhythm = parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, []))
-                combined_rhythm = add_segment(existing_rhythm, rhythm_segment)
-            else:
-                combined_rhythm = tuple(replace(entry, valid_from=None) for entry in rhythm_segment)
+            combined_rhythm = splice_segment(
+                parse_rhythm(table.metadata.get(RHYTHM_YAML_KEY, [])),
+                rhythm_segment,
+                date_from=date_from,
+                date_to=date_to,
+                has_row_before=self._has_row_before(table, date_from, idx_datum),
+                has_row_after=self._has_row_after(table, date_to, idx_datum),
+            )
             self._plan_repo.update_plan_rhythm(table.markdown_path, combined_rhythm)
             table.metadata[RHYTHM_YAML_KEY] = format_rhythm(combined_rhythm)
         idx_inhalt = self._col_index(headers, "inhalt")
@@ -173,6 +177,23 @@ class ApplyTimetableChangeUseCase:
             raw = row[idx_datum] if idx_datum < len(row) else ""
             d = parse_plan_row_date(raw)
             if d is not None and d < cutoff:
+                return True
+        return False
+
+    @staticmethod
+    def _has_row_after(table: PlanTableData, cutoff: date, idx_datum: int) -> bool:
+        """Prüft, ob der Plan eine datierte Zeile nach ``cutoff`` enthält.
+
+        Spiegelbild zu :meth:`_has_row_before`: zählt jede Zeile mit
+        parsebarem Datum (Unterricht, Ferien, Ausfall), datumslose Slots
+        nicht. Gleichwertig mit "``cutoff`` liegt vor dem letzten
+        Plandatum" - dann ist die Änderung befristet und der vorherige
+        Rhythmus muss danach wieder gelten.
+        """
+        for row in table.rows:
+            raw = row[idx_datum] if idx_datum < len(row) else ""
+            d = parse_plan_row_date(raw)
+            if d is not None and d > cutoff:
                 return True
         return False
 

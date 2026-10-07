@@ -39,8 +39,8 @@ Invarianten (geprueft von :func:`validate_rhythm`):
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
-from datetime import date, datetime
+from dataclasses import dataclass, replace
+from datetime import date, datetime, timedelta
 
 WEEKDAY_TOKENS: tuple[str, ...] = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 RHYTHM_YAML_KEY = "Rhythmus"
@@ -411,6 +411,71 @@ def add_segment(
     vollstaendigen Rhythmus ab seinem ``valid_from`` enthalten.
     """
     return tuple(entries) + tuple(new_segment)
+
+
+def splice_segment(
+    existing: tuple[WeekdayRhythm, ...],
+    new_segment: tuple[WeekdayRhythm, ...],
+    *,
+    date_from: date,
+    date_to: date,
+    has_row_before: bool,
+    has_row_after: bool,
+) -> tuple[WeekdayRhythm, ...]:
+    """Fuegt das Rhythmus-Segment einer Stundenplanaenderung in den Bestand ein.
+
+    Reine Funktion; arbeitet in fester Reihenfolge, damit kein Schritt einen
+    bereits veraenderten Bestand liest:
+
+    1. **Rueckkehr-Rhythmus aus dem unveraenderten ``existing``:** Gibt es
+       nach ``date_to`` noch eine Planzeile (``has_row_after``) und beginnt
+       in ``existing`` nicht ohnehin ein Segment am Folgetag, wird der dort
+       ohne die Aenderung gueltige Rhythmus als Segment ``ab date_to+1``
+       wieder eingetragen. Das geschieht zuerst, damit der temporaere
+       Rhythmus nie als Rueckkehr-Rhythmus erscheint.
+    2. **Ueberdeckte Segmente entfernen:** Segmente mit Beginn in
+       ``[date_from, date_to]`` wuerden das neue Segment ueberstimmen. Ohne
+       Planzeile vor ``date_from`` (Ersatz-Zweig) faellt der gesamte Bestand
+       bis ``date_to`` weg, auch Basis und aeltere ``ab``-Segmente.
+       Spaetere Segmente bleiben.
+    3. **Neues Segment einsetzen:** im Ersatz-Zweig ohne ``valid_from`` (es
+       wird zur Basis), sonst ab ``date_from``.
+    4. **Zusammensetzen und kanonisch sortieren.**
+    5. **Pruefen** mit :func:`validate_rhythm` (Absicherung gegen Logikfehler).
+
+    Args:
+        existing: Bisheriger, gueltiger Rhythmus (alle Segmente).
+        new_segment: Vollstaendiger neuer Rhythmus fuer den Aenderungsbereich.
+        date_from: Erster Tag des Aenderungsbereichs.
+        date_to: Letzter Tag des Aenderungsbereichs.
+        has_row_before: Es gibt eine datierte Planzeile vor ``date_from``.
+        has_row_after: Es gibt eine datierte Planzeile nach ``date_to``
+            (Unterricht, Ferien oder Ausfall; datumslose Slots zaehlen nicht).
+
+    Returns:
+        Der zusammengefuegte Rhythmus, kanonisch sortiert.
+
+    Example::
+
+        existing = parse_rhythm(["Mo 08:00 2"])
+        splice_segment(existing, parse_rhythm(["Di 10:00 1"]), date_from=date(2026, 3, 2),
+                       date_to=date(2026, 3, 13), has_row_before=True, has_row_after=True)
+        # -> Mo (Basis), Di ab 02.03., Mo ab 14.03. (Rueckkehr)
+    """
+    return_at = date_to + timedelta(days=1)
+    restore: tuple[WeekdayRhythm, ...] = ()
+    if has_row_after and segment_start(existing, return_at) != return_at:
+        restore = tuple(replace(entry, valid_from=return_at) for entry in current_segment(existing, return_at))
+
+    lower = date_from if has_row_before else date.min
+    kept = tuple(entry for entry in existing if not lower <= (entry.valid_from or date.min) <= date_to)
+
+    new_valid_from = date_from if has_row_before else None
+    inserted = tuple(replace(entry, valid_from=new_valid_from) for entry in new_segment)
+
+    result = tuple(sorted(kept + inserted + restore, key=_sort_key))
+    validate_rhythm(result)
+    return result
 
 
 def parse_lesson_hours(raw: object) -> int:

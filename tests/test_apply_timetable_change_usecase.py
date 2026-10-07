@@ -224,3 +224,103 @@ def test_rhythm_segment_replaces_instead_of_appending_when_no_earlier_row_exists
     assert len(combined) == 1
     assert combined[0].start_time == "11:30"
     assert combined[0].valid_from is None
+
+
+# ---------------------------------------------------------------------------
+# Befristete Stundenplanaenderung (Bis vor Kursende) -> Rueckkehr-Segment
+# ---------------------------------------------------------------------------
+
+
+def _apply_rhythm_change(rows, *, existing, new, date_from, date_to):
+    """Fuehrt eine Stundenplanaenderung mit neuem Rhythmus aus und liefert den persistierten Rhythmus."""
+    from kursplaner.core.domain.course_rhythm import parse_rhythm
+
+    uc, repo = _make_uc()
+    table = _table(rows)
+    table.metadata["Rhythmus"] = existing
+    segment = tuple(
+        WeekdayRhythm(
+            weekday=e.weekday, start_time=e.start_time, hours=e.hours, valid_from=date_from, week_parity=e.week_parity
+        )
+        for e in parse_rhythm(new)
+    )
+    uc.execute(table, date_from=date_from, date_to=date_to, draft_slots=[], rhythm_segment=segment)
+    assert len(repo.rhythm_calls) == 1
+    return repo.rhythm_calls[0][1]
+
+
+def test_temporary_change_before_course_end_restores_old_rhythm_afterwards():
+    from kursplaner.core.domain.course_rhythm import format_rhythm, hours_for_date, start_time_for_date
+
+    rows = [["02-03-26", "", ""], ["09-03-26", "", ""], ["16-03-26", "", ""], ["23-03-26", "", ""]]
+    combined = _apply_rhythm_change(
+        rows, existing=["Mo 08:00 2"], new=["Mo 11:30 1"], date_from=date(2026, 3, 9), date_to=date(2026, 3, 15)
+    )
+    assert format_rhythm(combined) == ["Mo 08:00 2", "ab 09-03-26 Mo 11:30 1", "ab 16-03-26 Mo 08:00 2"]
+    assert hours_for_date(combined, date(2026, 3, 9)) == 1
+    assert hours_for_date(combined, date(2026, 3, 16)) == 2
+    assert start_time_for_date(combined, date(2026, 3, 23)) == "08:00"
+
+
+def test_temporary_change_from_first_plan_day_restores_original_base():
+    """Ersatz-Zweig (keine Zeile vor date_from): Rueckkehr nutzt trotzdem den urspruenglichen Rhythmus."""
+    from kursplaner.core.domain.course_rhythm import format_rhythm, hours_for_date
+
+    rows = [["02-03-26", "", ""], ["09-03-26", "", ""], ["16-03-26", "", ""]]
+    combined = _apply_rhythm_change(
+        rows, existing=["Mo 08:00 2"], new=["Mo 11:30 1"], date_from=date(2026, 3, 2), date_to=date(2026, 3, 8)
+    )
+    assert format_rhythm(combined) == ["Mo 11:30 1", "ab 09-03-26 Mo 08:00 2"]
+    assert hours_for_date(combined, date(2026, 3, 16)) == 2
+
+
+def test_only_ferien_row_after_date_to_still_triggers_return():
+    from kursplaner.core.domain.course_rhythm import format_rhythm
+
+    rows = [["02-03-26", "", ""], ["09-03-26", "", ""], ["16-03-26", "", "X Osterferien X"]]
+    combined = _apply_rhythm_change(
+        rows, existing=["Mo 08:00 2"], new=["Mo 11:30 1"], date_from=date(2026, 3, 9), date_to=date(2026, 3, 15)
+    )
+    assert format_rhythm(combined)[-1] == "ab 16-03-26 Mo 08:00 2"
+
+
+def test_dateless_row_after_date_to_does_not_trigger_return():
+    from kursplaner.core.domain.course_rhythm import format_rhythm
+
+    rows = [["02-03-26", "", ""], ["09-03-26", "", ""], ["", "[[verdraengt]]", ""]]
+    combined = _apply_rhythm_change(
+        rows, existing=["Mo 08:00 2"], new=["Mo 11:30 1"], date_from=date(2026, 3, 9), date_to=date(2026, 3, 15)
+    )
+    assert format_rhythm(combined) == ["Mo 08:00 2", "ab 09-03-26 Mo 11:30 1"]
+
+
+def test_preview_hours_match_persisted_rhythm_even_with_existing_segment_in_range():
+    """Vorschau (TimetableChangeUseCase.compute) = Ergebnis nach dem Uebernehmen im Aenderungsbereich."""
+    from kursplaner.core.domain.course_rhythm import hours_for_date, parse_rhythm
+    from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
+
+    class _NoCalendar:
+        def load_calendar_data(self, calendar_dir, years):
+            return {}, [], []
+
+    date_from, date_to = date(2026, 9, 28), date(2026, 10, 25)
+    new = tuple(
+        WeekdayRhythm(
+            weekday=e.weekday, start_time=e.start_time, hours=e.hours, valid_from=date_from, week_parity=e.week_parity
+        )
+        for e in parse_rhythm(["Mo 08:00 2 gKW", "Mo 11:30 1 uKW", "Do 07:50 3"])
+    )
+    preview = TimetableChangeUseCase(calendar_repo=_NoCalendar()).compute(
+        day_columns=[], date_from=date_from, date_to=date_to, new_rhythm=new, calendar_dir=Path(".")
+    )
+    rows = [["21-09-26", "", ""], ["26-10-26", "", ""]]
+    combined = _apply_rhythm_change(
+        rows,
+        existing=["Mo 08:00 2", "ab 05-10-26 Fr 10:00 1"],
+        new=["Mo 08:00 2 gKW", "Mo 11:30 1 uKW", "Do 07:50 3"],
+        date_from=date_from,
+        date_to=date_to,
+    )
+    assert preview.draft_slots
+    for slot in preview.draft_slots:
+        assert hours_for_date(combined, slot.datum) == slot.stunden
