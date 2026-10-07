@@ -4,22 +4,19 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
-        files: ^Code/kursplaner/.*\.py$
       - id: ruff-format
-        files: ^Code/kursplaner/.*\.py$
 
   - repo: local
     hooks:
       - id: ai-guardrails
         name: ai-guardrails
-        entry: python Code/kursplaner/tools/ci/check_ai_guardrails.py
+        entry: python tools/ci/check_ai_guardrails.py
         language: python
         pass_filenames: false
-        files: ^Code/kursplaner/
 
       - id: mypy
         name: mypy
-        entry: python Code/kursplaner/tools/ci/run_mypy_hook.py
+        entry: python tools/ci/run_mypy_hook.py
         language: python
         additional_dependencies: [mypy>=1.10]
         pass_filenames: false
@@ -27,7 +24,7 @@ repos:
 
       - id: pytest
         name: pytest
-        entry: python Code/kursplaner/tools/ci/run_pytest_hook.py
+        entry: python tools/ci/run_pytest_hook.py
         language: python
         additional_dependencies: [pytest>=8.0, reportlab==4.4.2]
         pass_filenames: false

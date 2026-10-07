@@ -8,6 +8,13 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-10-07) — pre-commit-Hooks liefen nie (Pfade aus Eltern-Repo-Zeit)
+
+- `.pre-commit-config.yaml` filterte `ruff`/`ruff-format` auf `^Code/kursplaner/.*\.py$` und `ai-guardrails` auf `^Code/kursplaner/`, die `entry`-Pfade lauteten `python Code/kursplaner/tools/...` — Überbleibsel aus der Zeit, als kursplaner in einem übergeordneten Repo lag. Relativ zur heutigen Repo-Wurzel passte kein Pfad, jeder Commit meldete „no files to check — Skipped“; die Gates waren unbemerkt wirkungslos. Filter entfernt (ruff filtert per Hook-Definition auf Python-Dateien, die Guardrails liefen ursprünglich bei jeder Änderung im Repo), `entry`-Pfade relativ zur Repo-Wurzel.
+- `tools/ci/run_pytest_hook.py`/`run_mypy_hook.py`: `ROOT = parents[4]` (Desktop-Ordner) + `Code/kursplaner` ersetzt durch `parents[2]` (Repo-Wurzel, wie bereits `check_ai_guardrails.py`); funktionierte vorher nur zufällig am aktuellen Ablageort. Tote erste `cmd`-Zuweisung in `run_mypy_hook.py` entfernt, Docstrings ergänzt.
+- Projekt-venv um `requirements.txt` + `requirements-dev.txt` ergänzt (u. a. fehlte `pypdf`); damit sammeln/laufen auch die PDF-Renderer-Tests — komplette Suite 1421 grün (der Umgebungshinweis im Eintrag „Wochen-Auswahl im Rhythmus-Picker“ ist damit erledigt).
+- Hinweis: Mit aktiven Hooks formatiert `ruff-format` künftig jede angefasste Python-Datei vollständig — Commits können daher auch Formatierungsänderungen an bisher unformatierten Stellen derselben Datei enthalten. Installiert ist aktuell nur der `pre-commit`-Hook; `pre-push` (mypy, pytest) laut README separat per `pre_commit install -t pre-push`.
+
 ### Added (2026-10-07) — Wochen-Auswahl im Rhythmus-Picker, CLI und Eingabe-Normalisierung
 
 - `core/domain/validators.py::normalize_day_rhythm` nimmt jetzt `{(weekday, week_parity): (start_raw, hours_raw)}` — bewusst eine reine Boundary-Struktur zwischen Picker/CLI und Validator, keine eigene Dataclass. Gleiche Prüfungen wie zuvor, danach `validate_rhythm` (Überschneidungsregel; ohne `valid_from`, da ein `ab`-Segment allein keine Basis ist), `ValueError` → `ValidationError`. `NewLessonFormUseCase.day_rhythm_raw` entsprechend typisiert. Diese Umstellung kam erst mit dem Picker, damit GUI/CLI zwischen den Commits lauffähig blieben.
