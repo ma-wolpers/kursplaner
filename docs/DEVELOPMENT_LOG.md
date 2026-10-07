@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+### Fixed (2026-10-07) — Rhythmus-Picker zu breit für „Neuer Kurs“
+
+- Vom Nutzer gemeldet: Im Kurs-Erstelldialog lag Freitag außerhalb des Fensters. `WeekdayRhythmPicker._build_day` setzte Checkbox, Wochenmodus-Combobox und Eingabezeile nebeneinander — headless gemessen 1185 px bei 980 px Fensterbreite (minsize 920). Jetzt gestapelt je Zelle: Checkbox + Modus oben, Startzeit/Stunden darunter, im A/B-Modus die uKW-Zeile darunter. Breite 690 px — exakt wie vor der Wochenmodus-Erweiterung (gegen den Stand `8816502` gemessen), also auch im Kopf des Stundenplanänderungs-Dialogs kein Breitenzuwachs; nur die Höhe wächst um eine Zeile (A/B: zwei).
+- Regressionstest `test_picker_fits_into_new_course_window_width` (alle Tage im A/B-Modus, `winfo_reqwidth() <= 880`).
+
 ### Added (2026-10-07) — Nutzeranleitung `docs/STUNDENPLAN_RHYTHMUS.md`
 
 - Neue Anleitung zum `Rhythmus`-Format (Zeilenaufbau, `gKW`/`uKW`, A/B-Tage, `ab`-Abschnitte mit Ganz-Segment-Regel und Basis-Pflicht, ISO-KW-53, Dialoge „Neuer Kurs“/„Stundenplanänderung…“ inkl. Rückkehr-Segment, Verlängern, CLI, Plantabelle mit Markern, Fehlerbilder). Alle Rhythmus-Beispiele der Anleitung gegen `parse_rhythm`/`hours_for_date` geprüft.

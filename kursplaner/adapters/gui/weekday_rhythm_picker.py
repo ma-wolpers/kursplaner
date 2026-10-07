@@ -111,7 +111,13 @@ class WeekdayRhythmPicker:
             self._refresh(weekday)
 
     def _build_day(self, parent, short_label: str, weekday: int) -> _DayInputs:
-        """Baut die Zelle eines Wochentags: Kopfzeile (Checkbox, Modus, Zeile 1) und Zeile 2."""
+        """Baut die Zelle eines Wochentags, gestapelt statt nebeneinander.
+
+        Oben Checkbox + Wochenmodus, darunter Zeile 1 (Startzeit/Stunden),
+        im A/B-Modus darunter Zeile 2. Gestapelt, weil fuenf Zellen mit
+        Checkbox, Combobox und Eingaben in einer Reihe (~1185 px) breiter als
+        der Kurs-Erstelldialog (980 px) waren und Freitag abgeschnitten wurde.
+        """
         cell = widgets.Frame(parent)
         cell.pack(side="left", anchor="n", padx=(0, 12))
         head = widgets.Frame(cell)
@@ -128,8 +134,8 @@ class WeekdayRhythmPicker:
         mode_widget = widgets.Combobox(head, textvariable=mode_var, values=list(WEEK_MODES), state="readonly", width=10)
         mode_widget.pack(side="left", padx=(4, 0))
 
-        first = self._build_line(head)
-        first.frame.pack(side="left")
+        first = self._build_line(cell)
+        first.frame.pack(anchor="w", pady=(2, 0))
         second = self._build_line(cell)
         day = _DayInputs(enabled_var=enabled_var, mode_var=mode_var, mode_widget=mode_widget, lines=(first, second))
         mode_var.trace_add("write", lambda *_args, w=weekday: self._refresh(w))
@@ -169,7 +175,7 @@ class WeekdayRhythmPicker:
         first.label_var.set("g" if is_ab else "")
         second.label_var.set("u" if is_ab else "")
         if is_ab:
-            second.frame.pack(anchor="e", pady=(2, 0))
+            second.frame.pack(anchor="w", pady=(2, 0))
         else:
             second.frame.pack_forget()
 

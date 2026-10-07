@@ -104,3 +104,16 @@ def test_mode_for_parities():
     assert mode_for_parities({0, 1}) == MODE_AB
     with pytest.raises(ValueError):
         mode_for_parities({None, 0})
+
+
+def test_picker_fits_into_new_course_window_width(tk_root):
+    """Regression: Alle fuenf Tage muessen in den Kurs-Erstelldialog passen (minsize 920 px).
+
+    Mit Checkbox, Wochenmodus und Eingaben nebeneinander war der Picker
+    ~1185 px breit und schnitt Freitag ab; gestapelt sind es ~690 px.
+    """
+    picker = _picker(tk_root)
+    for weekday in picker._days:
+        _set_day(picker, weekday, enabled=True, mode=MODE_AB)
+    picker.update_idletasks()
+    assert picker.winfo_reqwidth() <= 880
