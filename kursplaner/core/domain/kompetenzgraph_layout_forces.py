@@ -280,7 +280,7 @@ def relax_horizontal_positions(
     Ausreißer sortiert sich einfach dorthin ein, wo sein Ziel tatsächlich
     liegt, statt alles Nachfolgende in der alten Reihenfolge mitzuziehen.
 
-    **Explizit in Kauf genommener Trade-off:** Kantenkreuzungen werden durch
+    **GRENZE (explizit in Kauf genommener Trade-off):** Kantenkreuzungen werden durch
     diese Positionierung NICHT mehr aktiv minimiert -- das ist ein visuelles,
     kein fachliches Problem (die tatsächliche Verbindung bleibt über Kante +
     sichtbaren Andockpunkt am Knotenrand erkennbar, siehe

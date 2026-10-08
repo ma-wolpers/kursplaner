@@ -174,7 +174,7 @@ def compute_layered_layout(
     Knoten Richtung des Medians ihrer verbundenen Nachbarn UND sortiert die
     Schicht dabei nach diesem Ziel neu -- Reihenfolge ist bewusst KEIN
     eigener Optimierungsgegenstand mehr, siehe die ausführliche Begründung
-    dort; **Kantenkreuzungen werden dadurch nicht mehr aktiv minimiert**,
+    dort; GRENZE: **Kantenkreuzungen werden dadurch nicht mehr aktiv minimiert**,
     ein bewusst in Kauf genommener, rein visueller Trade-off, die
     tatsächliche Verbindung bleibt über Kante + sichtbaren Andockpunkt am
     Knotenrand erkennbar), oberhalb von `MAX_NODES_FOR_RELAXATION`

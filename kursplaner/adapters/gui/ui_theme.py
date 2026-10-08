@@ -154,7 +154,7 @@ def normalize_theme_key(theme_key: str | None = None) -> str:
     return _normalize(theme_key)
 
 
-def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  # deliberate exception: long by necessity
+def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  # GRENZE(dateigroesse): long by necessity
     """Configure the bw_gui baseline and add kursplaner-specific style overrides.
 
     Calls ``bw_gui.theming.configure_ttk_theme()`` first (which sets the

@@ -8,6 +8,19 @@ Regel:
 
 ## [Unreleased]
 
+### Changed (2026-10-08) — Einheitliche Marker für akzeptierte Grenzen
+
+Reine Kommentar-/Doku-Migration, keine Verhaltensänderung. Bewusst akzeptierte Einschränkungen
+tragen jetzt projektübergreifend den Marker `GRENZE:` bzw. `GRENZE(<scope>):`, offene Punkte
+künftig `BAUSTELLE:` (globale Suche: `rg -n "\b(GRENZE|BAUSTELLE)\b"`, case-sensitiv).
+Umgestellt: `# deliberate exception: long by necessity` → `# GRENZE(dateigroesse): long by necessity`
+in `grid_renderer.py::_rebuild_grid` und `ui_theme.py::configure_ttk_theme` (Regeltext in
+`ARCHITEKTUR_KERN.md` §28 entsprechend, Ausnahmetabelle als `GRENZE(dateigroesse)` überschrieben);
+Höhenmessungs-Grenze in `grid_renderer.py` (`GRENZE(viewport)`), Kantenkreuzungs-Trade-off in
+`kompetenzgraph_layout.py`/`kompetenzgraph_layout_forces.py` und die zugehörigen Einträge in
+diesem Log (Kräfte-Layout, YAML-Cache-Rename-Pfad). Ältere Log-Einträge, die den alten
+Markernamen als damaligen Stand zitieren, bleiben unverändert.
+
 ### Fixed (2026-10-07) — Rhythmus-Picker zu breit für „Neuer Kurs“
 
 - Vom Nutzer gemeldet: Im Kurs-Erstelldialog lag Freitag außerhalb des Fensters. `WeekdayRhythmPicker._build_day` setzte Checkbox, Wochenmodus-Combobox und Eingabezeile nebeneinander — headless gemessen 1185 px bei 980 px Fensterbreite (minsize 920). Jetzt gestapelt je Zelle: Checkbox + Modus oben, Startzeit/Stunden darunter, im A/B-Modus die uKW-Zeile darunter. Breite 690 px — exakt wie vor der Wochenmodus-Erweiterung (gegen den Stand `8816502` gemessen), also auch im Kopf des Stundenplanänderungs-Dialogs kein Breitenzuwachs; nur die Höhe wächst um eine Zeile (A/B: zwei).
@@ -759,8 +772,8 @@ Knoten mit kleinem Ziel, wurde Letzterer stur auf "Vorgänger + Mindestabstand" 
 unabhängig von der Diskrepanz. **Fix**: die Kopplung ist vollständig aufgelöst.
 `relax_horizontal_positions()` (`kompetenzgraph_layout_forces.py`) sortiert eine Schicht jetzt
 in JEDEM Sweep neu nach ihrem gerade berechneten Kräfte-Ziel, bevor der Mindestabstand angewendet
-wird -- die crossing-minimierte Eingabe dient nur noch als Sweep-0-Startpunkt. Bewusster,
-dokumentierter Trade-off: Kantenkreuzungen werden dadurch nicht mehr aktiv minimiert (rein
+wird -- die crossing-minimierte Eingabe dient nur noch als Sweep-0-Startpunkt. GRENZE (bewusster,
+dokumentierter Trade-off): Kantenkreuzungen werden dadurch nicht mehr aktiv minimiert (rein
 visuelles Artefakt, keine Korrektheitsbedingung mehr) -- die tatsächliche Verbindung bleibt über
 Kante + sichtbaren Andockpunkt erkennbar (siehe unten). `kompetenzgraph_layout_crossing.py` und
 sein Test-Modul wurden vollständig entfernt (kein anderer Aufrufer vorhanden), das
@@ -1395,7 +1408,7 @@ Alle drei fallen auf den vollen Sweep zurueck, solange das Grid noch nicht aufge
 
 **Primärfix — Einzelzeilen-Patch** (`core/usecases/load_plan_detail_usecase.py`): `build_day_columns()` in einen gemeinsamen Zeilen-Konstruktionshelfer (`_build_one_day_column()`) plus duennen Aufrufer aufgeteilt. Neue `build_day_columns_incremental(table, previous_day_columns, changed_row_indices)`: unveraenderte Zeilen bekommen ihr bisheriges `DayColumn`-Objekt zurueck (sicher wiederverwendbar — `DayColumn` ist laut eigenem Klassendocstring ohnehin ein unveraenderlicher, bei jeder Aenderung frisch gebauter Snapshot, Invariante vor der Umsetzung im Code verifiziert statt nur angenommen), nur tatsaechlich geaenderte Zeilen werden ueber denselben Helfer neu von der Platte gelesen. Faellt auf einen vollstaendigen Rebuild zurueck, sobald eine Sicherheitsannahme nicht zutrifft (kein vorheriger Stand, andere Zeilenanzahl, geaenderte Lerngruppe/Rhythmus) — lieber einmal zu viel lesen als eine strukturelle Aenderung uebersehen. Behandelt den Randfall "mehrere Zeilen verlinken dieselbe Datei" (von `FileSystemLessonRepository.load_lessons_for_rows()` an anderer Stelle bereits antizipiert): jede Zeile, deren aufgeloester Link-Pfad mit dem alten ODER neuen Link-Pfad einer geaenderten Zeile uebereinstimmt, wird ebenfalls neu gebaut. Eine leere `changed_row_indices`-Menge gibt den kompletten vorherigen Bestand unveraendert zurueck (kein Rebuild, kein Festplattenzugriff) statt unnoetig auf einen Voll-Rebuild zurueckzufallen.
 
-**Ergaenzung — Datei-signaturbasierter YAML-Cache** (`infrastructure/repositories/lesson_repository.py::FileSystemLessonRepository`, Singleton fuer die App-Laufzeit, Cache daher Instanzzustand statt Modul-Global): fuer Faelle, die trotz Punkt 1 einen vollstaendigen Neu-Einlesevorgang brauchen (initiales Laden eines Plans, Kurswechsel). Nutzt dieselbe `(mtime_ns, size)`-Signatur, die bereits fuer die Plan-Datei selbst existierte (`PlanTableData.source_mtime_ns`/`source_size`, `save_plan_table()`) — dafuer in eine geteilte `infrastructure/repositories/file_signature.py` extrahiert statt eine zweite, potenziell abweichende Variante zu erfinden. Auf Nutzervorgabe bewusst mehr als nur `mtime` (manche Sync-Tools aktualisieren `mtime` nicht immer zuverlaessig): zusaetzlich abweichende Dateigroesse erkennt zumindest die haeufigste Aenderungsklasse auch dann. Der Cache ist ausschliesslich eine Optimierung, nie Quelle der Wahrheit — `save_lesson_yaml()`/`set_lesson_markdown_sections()` verwerfen ihren Cache-Eintrag explizit statt sich auf die Signaturpruefung allein zu verlassen. Bekannte, akzeptierte Grenze: der (aktuell im Editor-Zell-Flow nicht erreichbare) Rename-Pfad in `RenameLinkedFileForRowUseCase` invalidiert den Cache-Eintrag des *alten* Pfads nicht explizit — praktisch folgenlos, da der Pfad danach nicht mehr existiert und wegen der zufaelligen Dateinamens-Vergabe kaum je erneut belegt wird.
+**Ergaenzung — Datei-signaturbasierter YAML-Cache** (`infrastructure/repositories/lesson_repository.py::FileSystemLessonRepository`, Singleton fuer die App-Laufzeit, Cache daher Instanzzustand statt Modul-Global): fuer Faelle, die trotz Punkt 1 einen vollstaendigen Neu-Einlesevorgang brauchen (initiales Laden eines Plans, Kurswechsel). Nutzt dieselbe `(mtime_ns, size)`-Signatur, die bereits fuer die Plan-Datei selbst existierte (`PlanTableData.source_mtime_ns`/`source_size`, `save_plan_table()`) — dafuer in eine geteilte `infrastructure/repositories/file_signature.py` extrahiert statt eine zweite, potenziell abweichende Variante zu erfinden. Auf Nutzervorgabe bewusst mehr als nur `mtime` (manche Sync-Tools aktualisieren `mtime` nicht immer zuverlaessig): zusaetzlich abweichende Dateigroesse erkennt zumindest die haeufigste Aenderungsklasse auch dann. Der Cache ist ausschliesslich eine Optimierung, nie Quelle der Wahrheit — `save_lesson_yaml()`/`set_lesson_markdown_sections()` verwerfen ihren Cache-Eintrag explizit statt sich auf die Signaturpruefung allein zu verlassen. GRENZE: der (aktuell im Editor-Zell-Flow nicht erreichbare) Rename-Pfad in `RenameLinkedFileForRowUseCase` invalidiert den Cache-Eintrag des *alten* Pfads nicht explizit — praktisch folgenlos, da der Pfad danach nicht mehr existiert und wegen der zufaelligen Dateinamens-Vergabe kaum je erneut belegt wird.
 
 **Verkabelung**: `OverviewController.collect_day_columns()`/`MainWindow._collect_day_columns()` bekommen einen neuen optionalen `changed_row_indices`-Parameter; nur die beiden Einzelzell-Edit-Aufrufer in `editor_controller.py` (`save_cell()`, `handle_editor_focus_in()`) uebergeben ihn (`{day_index}`). Alle anderen sieben Aufrufer (Spaltentausch, Lesson-Konvertierung, Sequenzfeld-Edits, Aktions-Controller, UI-Intent-Controller) bleiben unveraendert beim vollstaendigen Rebuild — dort koennen mehrere/unbekannte Zeilen betroffen sein.
 

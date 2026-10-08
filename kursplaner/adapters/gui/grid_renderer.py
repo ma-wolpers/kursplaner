@@ -770,7 +770,7 @@ class GridRenderer:
 
     def _rebuild_grid(self):
         """Baut den gesamten Grid-Inhalt aus dem aktuellen UI-Zustand neu auf."""
-        # deliberate exception: long by necessity — muss Fix-Spalte, Header-Zeile,
+        # GRENZE(dateigroesse): long by necessity — muss Fix-Spalte, Header-Zeile,
         # Marker-Spalten, Sequenzfeld-Zeilen und alle Tages-Zellen in einem
         # zusammenhängenden Widget-Baum neu aufbauen (Tk-Grid-Layout erfordert
         # konsistente Spalten-/Zeilenindizes über alle Container hinweg); eine
@@ -990,7 +990,7 @@ class GridRenderer:
     def update_row_style(self, field_key: str):
         """Aktualisiert Label, Hoehe und Zellstile einer Feldzeile.
 
-        Bekannte, bewusst akzeptierte Grenze seit der Viewport-Virtualisierung:
+        GRENZE(viewport): bewusst akzeptiert seit der Viewport-Virtualisierung --
         die Hoehenmessung unten loopt ueber ALLE Tage, misst aber nur aktuell
         materialisierte Zellen (`cell_widgets.get(...)`, `continue` bei COLD)
         -- ist die inhaltlich hoechste Zelle eines Feldes gerade ausserhalb

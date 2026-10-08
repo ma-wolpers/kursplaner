@@ -969,12 +969,13 @@ Neue und geänderte Module dürfen **300 ausführbare Codezeilen** nicht übersc
 Gültige Ausnahmen:
 
 - **Rein datenhaltige Dateien** (große Dicts/Konstanten ohne echte Logik) sind vollständig ausgenommen.
-- **Unvermeidbar lange Methoden** werden mit `# deliberate exception: long by necessity` markiert;
+- **Unvermeidbar lange Methoden** werden mit `# GRENZE(dateigroesse): long by necessity — <Grund>` markiert
+  (einheitlicher Marker für akzeptierte Grenzen, global per `rg "\bGRENZE\b"` auffindbar);
   die Datei zählt dennoch zum Limit.
 - **Strukturell unvermeidlich große Dateien** (z. B. weil sie eine kohärente Verantwortungsgruppe
   bündeln, die sinnvoll nicht weiter zerlegbar ist) werden hier als benannte Ausnahmen geführt.
 
-### Benannte Ausnahmen (Stand 2026-08-04)
+### GRENZE(dateigroesse): Benannte Ausnahmen (Stand 2026-08-04)
 
 | Datei | Executable Lines | Begründung |
 |---|---|---|
