@@ -8,6 +8,7 @@ Regel:
 
 ## [Unreleased]
 
+- Schritt-0-Invariante (bw-gui-Wunschliste, 2026-10-09): neuer Test `tests/test_bw_gui_import_source.py` prüft per `bw_gui.testing.import_source.assert_bw_gui_from_sibling`, dass bw_gui aus dem Geschwister-Checkout und nie aus einer verschachtelten `bw-gui/`-Kopie geladen wird. Bleibt dauerhaft, auch nach Entfernen des Fallbacks 3 in `ensure_bw_gui_on_path`.
 ### Changed (2026-10-08) — Einheitliche Marker für akzeptierte Grenzen
 
 Reine Kommentar-/Doku-Migration, keine Verhaltensänderung. Bewusst akzeptierte Einschränkungen
