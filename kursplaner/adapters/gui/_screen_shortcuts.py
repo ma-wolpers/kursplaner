@@ -7,9 +7,9 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import ui  # noqa: E402
 
-from bw_libs.ui_contract.keybinding import (
+from bw_libs.ui_contract.keybinding import (  # noqa: E402
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
     UI_MODE_GLOBAL,
@@ -18,11 +18,12 @@ from bw_libs.ui_contract.keybinding import (
     KeyBindingDefinition,
     KeybindingRuntimeContext,
 )
-from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability
-from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
-from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
-from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
-from kursplaner.adapters.gui.ui_intents import UiIntent
+from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability  # noqa: E402
+from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest  # noqa: E402
+from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow  # noqa: E402
+from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries  # noqa: E402
+from kursplaner.adapters.gui.tk_sequence_keyspec import tk_sequence_to_keyspec  # noqa: E402
+from kursplaner.adapters.gui.ui_intents import UiIntent  # noqa: E402
 
 
 class ScreenShortcutsMixin:
@@ -48,14 +49,64 @@ class ScreenShortcutsMixin:
             intent=UiIntent.TOOLBAR_RENAME,
             modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
         )
-        self._bind_runtime_shortcut("<Return>", self._on_grid_enter, binding_id="grid.enter", intent=UiIntent.GRID_ENTER, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<KP_Enter>", self._on_grid_enter, binding_id="grid.enter.numpad", intent=UiIntent.GRID_ENTER, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Up>", self._on_grid_nav_up, binding_id="grid.nav.up", intent=UiIntent.GRID_NAV_UP, modes=(UI_MODE_PREVIEW,), add="+")
-        self._bind_runtime_shortcut("<Down>", self._on_grid_nav_down, binding_id="grid.nav.down", intent=UiIntent.GRID_NAV_DOWN, modes=(UI_MODE_PREVIEW,), add="+")
-        self._bind_runtime_shortcut("<Left>", self._on_detail_left, binding_id="detail.left", intent=UiIntent.SHORTCUT_DETAIL_LEFT, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Right>", self._on_detail_right, binding_id="detail.right", intent=UiIntent.SHORTCUT_DETAIL_RIGHT, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Alt-Left>", self._on_detail_left_all, binding_id="detail.left.all", intent=UiIntent.SHORTCUT_DETAIL_LEFT_ALL, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Alt-Right>", self._on_detail_right_all, binding_id="detail.right.all", intent=UiIntent.SHORTCUT_DETAIL_RIGHT_ALL, modes=(UI_MODE_PREVIEW,))
+        self._bind_runtime_shortcut(
+            "<Return>",
+            self._on_grid_enter,
+            binding_id="grid.enter",
+            intent=UiIntent.GRID_ENTER,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<KP_Enter>",
+            self._on_grid_enter,
+            binding_id="grid.enter.numpad",
+            intent=UiIntent.GRID_ENTER,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<Up>",
+            self._on_grid_nav_up,
+            binding_id="grid.nav.up",
+            intent=UiIntent.GRID_NAV_UP,
+            modes=(UI_MODE_PREVIEW,),
+            add="+",
+        )
+        self._bind_runtime_shortcut(
+            "<Down>",
+            self._on_grid_nav_down,
+            binding_id="grid.nav.down",
+            intent=UiIntent.GRID_NAV_DOWN,
+            modes=(UI_MODE_PREVIEW,),
+            add="+",
+        )
+        self._bind_runtime_shortcut(
+            "<Left>",
+            self._on_detail_left,
+            binding_id="detail.left",
+            intent=UiIntent.SHORTCUT_DETAIL_LEFT,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<Right>",
+            self._on_detail_right,
+            binding_id="detail.right",
+            intent=UiIntent.SHORTCUT_DETAIL_RIGHT,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<Alt-Left>",
+            self._on_detail_left_all,
+            binding_id="detail.left.all",
+            intent=UiIntent.SHORTCUT_DETAIL_LEFT_ALL,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<Alt-Right>",
+            self._on_detail_right_all,
+            binding_id="detail.right.all",
+            intent=UiIntent.SHORTCUT_DETAIL_RIGHT_ALL,
+            modes=(UI_MODE_PREVIEW,),
+        )
         for digit in range(10):
             self._bind_runtime_shortcut(
                 f"<Key-{digit}>",
@@ -64,16 +115,73 @@ class ScreenShortcutsMixin:
                 intent=UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET,
                 modes=(UI_MODE_PREVIEW,),
             )
-        self._bind_runtime_shortcut("<Home>", self._on_home, binding_id="grid.home", intent=UiIntent.GRID_HOME, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<End>", self._on_end, binding_id="grid.end", intent=UiIntent.GRID_END, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Delete>", self._on_grid_delete, binding_id="grid.delete", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<BackSpace>", self._on_grid_delete, binding_id="grid.delete.backspace", intent=UiIntent.GRID_DELETE_CELL, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Control-Return>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
-        self._bind_runtime_shortcut("<Control-KP_Enter>", self._on_ctrl_enter, binding_id="grid.commit.ctrl-enter-numpad", intent=UiIntent.SHORTCUT_COMMIT_EDIT, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
-        self._bind_runtime_shortcut("<Shift-Return>", self._on_find_previous, binding_id="search.find-previous", intent=UiIntent.SHORTCUT_FIND_PREVIOUS, modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR), allow_when_text_input=True)
-        self._bind_runtime_shortcut("<Control-f>", self._on_search_open, binding_id="search.open", intent=UiIntent.SEARCH_OPEN, modes=(UI_MODE_PREVIEW,))
-        self._bind_runtime_shortcut("<Escape>", self._on_escape, binding_id="global.escape", intent=UiIntent.SHORTCUT_ESCAPE, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG), allow_when_text_input=True)
-        self._bind_runtime_shortcut("<Button-1>", self._on_global_click_commit_cell, binding_id="global.click-commit", intent=UiIntent.GLOBAL_CLICK_COMMIT_CELL, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW), add="+")
+        self._bind_runtime_shortcut(
+            "<Home>", self._on_home, binding_id="grid.home", intent=UiIntent.GRID_HOME, modes=(UI_MODE_PREVIEW,)
+        )
+        self._bind_runtime_shortcut(
+            "<End>", self._on_end, binding_id="grid.end", intent=UiIntent.GRID_END, modes=(UI_MODE_PREVIEW,)
+        )
+        self._bind_runtime_shortcut(
+            "<Delete>",
+            self._on_grid_delete,
+            binding_id="grid.delete",
+            intent=UiIntent.GRID_DELETE_CELL,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<BackSpace>",
+            self._on_grid_delete,
+            binding_id="grid.delete.backspace",
+            intent=UiIntent.GRID_DELETE_CELL,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<Control-Return>",
+            self._on_ctrl_enter,
+            binding_id="grid.commit.ctrl-enter",
+            intent=UiIntent.SHORTCUT_COMMIT_EDIT,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-KP_Enter>",
+            self._on_ctrl_enter,
+            binding_id="grid.commit.ctrl-enter-numpad",
+            intent=UiIntent.SHORTCUT_COMMIT_EDIT,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Shift-Return>",
+            self._on_find_previous,
+            binding_id="search.find-previous",
+            intent=UiIntent.SHORTCUT_FIND_PREVIOUS,
+            modes=(UI_MODE_PREVIEW, UI_MODE_EDITOR),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Control-f>",
+            self._on_search_open,
+            binding_id="search.open",
+            intent=UiIntent.SEARCH_OPEN,
+            modes=(UI_MODE_PREVIEW,),
+        )
+        self._bind_runtime_shortcut(
+            "<Escape>",
+            self._on_escape,
+            binding_id="global.escape",
+            intent=UiIntent.SHORTCUT_ESCAPE,
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG),
+            allow_when_text_input=True,
+        )
+        self._bind_runtime_shortcut(
+            "<Button-1>",
+            self._on_global_click_commit_cell,
+            binding_id="global.click-commit",
+            intent=UiIntent.GLOBAL_CLICK_COMMIT_CELL,
+            modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+            add="+",
+        )
         self._bind_runtime_shortcut(
             "<Control-Shift-d>",
             lambda _event: self._open_shortcut_runtime_debug_dialog(),
@@ -104,9 +212,14 @@ class ScreenShortcutsMixin:
     ) -> KeyBindingDefinition:
         """Register one runtime shortcut definition in the central resolver."""
 
+        # BAUSTELLE: reine Uebergangsloesung bis zur Migration auf ApplicationShortcutBinder
+        # (siehe tk_sequence_keyspec.py); Tk-Sequenzen gehoeren nicht mehr in App-Code.
+        keyspec = tk_sequence_to_keyspec(sequence)
+        if keyspec is None:
+            raise ValueError(f"Shortcut {binding_id!r}: {sequence!r} ist keine Tastatursequenz")
         definition = KeyBindingDefinition(
             binding_id=binding_id,
-            sequence=sequence,
+            keys=(keyspec,),
             intent=intent,
             modes=modes,
             allow_when_text_input=allow_when_text_input,
@@ -159,6 +272,17 @@ class ScreenShortcutsMixin:
     ) -> None:
         """Bind one shortcut through runtime evaluator before handler execution."""
 
+        if tk_sequence_to_keyspec(sequence) is None:
+            # Mausereignisse (z. B. <Button-1>) sind keine Keybindings und stehen
+            # nicht in der Registry; gegatet wird nur auf Texteingabe-Fokus.
+            def _wrapped_pointer(event):
+                if not allow_when_text_input and self._build_runtime_context(event).text_input_focused:
+                    return None
+                return handler(event)
+
+            self.app.bind_all(sequence, _wrapped_pointer, add=add)
+            return
+
         definition = self._register_runtime_shortcut(
             binding_id=binding_id,
             sequence=sequence,
@@ -187,7 +311,7 @@ class ScreenShortcutsMixin:
         if effective_definition is None:
             effective_definition = KeyBindingDefinition(
                 binding_id=f"adhoc.{entry.intent}.{entry.key_sequence}",
-                sequence=entry.key_sequence,
+                keys=(tk_sequence_to_keyspec(entry.key_sequence),),
                 intent=entry.intent,
                 modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
                 allow_when_text_input=True,

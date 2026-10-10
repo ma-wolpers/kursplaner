@@ -7,10 +7,10 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
-from bw_gui.widgets import Switch
+from bw_gui.runtime import ui, widgets  # noqa: E402
+from bw_gui.widgets import Switch  # noqa: E402
 
-from bw_libs.ui_contract.keybinding import (
+from bw_libs.ui_contract.keybinding import (  # noqa: E402
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
     UI_MODE_GLOBAL,
@@ -68,7 +68,9 @@ class ScreenShortcutDebugMixin:
             variable=self.app.shortcut_runtime_debug_offline_var,
             on_change=lambda _offline: self._on_shortcut_runtime_offline_var_changed(),
         ).pack(side="left", padx=(12, 0))
-        widgets.Button(toolbar, text="Aktualisieren", command=self._refresh_shortcut_runtime_debug_dialog).pack(side="left", padx=(8, 0))
+        widgets.Button(toolbar, text="Aktualisieren", command=self._refresh_shortcut_runtime_debug_dialog).pack(
+            side="left", padx=(8, 0)
+        )
 
         body = widgets.Frame(window, padding=(10, 0, 10, 8))
         body.pack(fill="both", expand=True)
@@ -158,7 +160,13 @@ class ScreenShortcutDebugMixin:
                 table.insert(
                     "",
                     "end",
-                    values=(mode, definition.sequence, definition.binding_id, status, "" if can_execute else reason),
+                    values=(
+                        mode,
+                        str(definition.primary_key),
+                        definition.binding_id,
+                        status,
+                        "" if can_execute else reason,
+                    ),
                 )
 
         total = active_count + disabled_count

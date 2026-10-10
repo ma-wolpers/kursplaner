@@ -8,6 +8,7 @@ Regel:
 
 ## [Unreleased]
 
+- KeySpec-Übergangsbrücke (2026-10-10, REINE ÜBERGANGSLÖSUNG): bw-gui `6d32767` stellt `KeyBindingDefinition` von `sequence` auf `keys: tuple[KeySpec, ...]` um, der Kursplaner stürzte beim Start ab. Neues Modul `kursplaner/adapters/gui/tk_sequence_keyspec.py` übersetzt die weiterhin per `bind_all` gebundenen Tk-Sequenzen nur für Registry, LaufKern-Manifest (`metadata.sequence` = `str(primary_key)`) und Debug-Ansicht. `<Button-1>` (global.click-commit) ist kein Keybinding mehr und wird ohne Registry-Eintrag nur auf Texteingabe-Fokus gegatet. BAUSTELLE: Migration auf `ApplicationShortcutBinder` + `KeySpec` + `EventResult`, danach entfällt das Modul ersatzlos.
 - Schritt-0-Invariante (bw-gui-Wunschliste, 2026-10-09): neuer Test `tests/test_bw_gui_import_source.py` prüft per `bw_gui.testing.import_source.assert_bw_gui_from_sibling`, dass bw_gui aus dem Geschwister-Checkout und nie aus einer verschachtelten `bw-gui/`-Kopie geladen wird. Bleibt dauerhaft, auch nach Entfernen des Fallbacks 3 in `ensure_bw_gui_on_path`.
 ### Changed (2026-10-08) — Einheitliche Marker für akzeptierte Grenzen
 

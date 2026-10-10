@@ -1,3 +1,5 @@
+from bw_gui.contracts.key_spec import KeySpec  # noqa: E402
+
 from bw_libs.ui_contract import (
     LaufKernManifest,
     LaufKernRoute,
@@ -15,7 +17,7 @@ def test_laufkern_bridge_manifest_and_reachability():
         keybindings=(
             KeyBindingDefinition(
                 binding_id="global.open",
-                sequence="<Control-o>",
+                keys=(KeySpec.parse("Ctrl+O"),),
                 intent="open",
             ),
         ),

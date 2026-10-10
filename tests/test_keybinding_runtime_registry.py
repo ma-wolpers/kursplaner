@@ -1,3 +1,5 @@
+from bw_gui.contracts.key_spec import KeySpec  # noqa: E402
+
 from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
@@ -15,7 +17,7 @@ def test_evaluate_runtime_reason_matrix() -> None:
 
     global_binding = KeyBindingDefinition(
         binding_id="global.save",
-        sequence="<Control-s>",
+        keys=(KeySpec.parse("Ctrl+S"),),
         intent="save",
         modes=(UI_MODE_GLOBAL,),
         allow_when_text_input=False,
@@ -23,14 +25,14 @@ def test_evaluate_runtime_reason_matrix() -> None:
     )
     dialog_binding = KeyBindingDefinition(
         binding_id="dialog.confirm",
-        sequence="<Return>",
+        keys=(KeySpec.parse("Enter"),),
         intent="dialog.confirm",
         modes=(UI_MODE_DIALOG,),
         allow_when_text_input=True,
     )
     preview_binding = KeyBindingDefinition(
         binding_id="preview.right",
-        sequence="<Right>",
+        keys=(KeySpec.parse("Right"),),
         intent="preview.right",
         modes=(UI_MODE_PREVIEW,),
         allow_when_text_input=False,
@@ -64,7 +66,7 @@ def test_active_for_mode_filters_offline_and_text_input() -> None:
     registry.register(
         KeyBindingDefinition(
             binding_id="global.search",
-            sequence="<Control-f>",
+            keys=(KeySpec.parse("Ctrl+F"),),
             intent="search",
             modes=(UI_MODE_GLOBAL,),
             allow_when_text_input=False,
@@ -74,7 +76,7 @@ def test_active_for_mode_filters_offline_and_text_input() -> None:
     registry.register(
         KeyBindingDefinition(
             binding_id="editor.commit",
-            sequence="<Control-Return>",
+            keys=(KeySpec.parse("Ctrl+Enter"),),
             intent="commit",
             modes=(UI_MODE_EDITOR,),
             allow_when_text_input=True,
