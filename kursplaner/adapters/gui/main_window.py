@@ -634,10 +634,6 @@ class KursplanerApp(BwBaseWindow):
         if not selected or self.current_table is None:
             return
 
-        values = list(self.lesson_tree.item(selected, "values"))
-        if len(values) < 6:
-            return
-
         (
             next_theme,
             remaining_hours,
@@ -648,12 +644,19 @@ class KursplanerApp(BwBaseWindow):
             _has_upcoming_unit,
             _has_any_dated_unit,
         ) = self._plan_overview_query.summarize_plan(self.current_table)
-        values[1] = next_theme
-        values[2] = next_unit
-        values[3] = str(remaining_hours)
-        values[4] = next_lzk
-        values[5] = next_ub
-        self.lesson_tree.item(selected, values=tuple(values))
+        # Schreibzugriff über Spalten-IDs statt Positionsindizes, damit neue oder
+        # umsortierte Übersichtsspalten (z. B. "stufe") keine Werte verschieben.
+        updates = {
+            "next_topic": next_theme,
+            "next_unit": next_unit,
+            "remaining_hours": str(remaining_hours),
+            "next_lzk": next_lzk,
+            "next_ub": next_ub,
+        }
+        available_columns = set(self.lesson_tree["columns"])
+        for column_id, value in updates.items():
+            if column_id in available_columns:
+                self.lesson_tree.set(selected, column_id, value)
 
     def _on_grid_mousewheel(self, event):
         """Delegiert Scroll-/Zoom-Interaktion des Grids an den Renderer."""

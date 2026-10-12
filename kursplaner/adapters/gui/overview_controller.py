@@ -11,6 +11,7 @@ ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
+from kursplaner.adapters.gui.overview_columns import overview_row_values
 from kursplaner.core.config.ui_preferences_store import (
     NEXT_UNIT_MODE_FEST,
     load_next_unit_cutoff_time,
@@ -294,14 +295,16 @@ class MainWindowOverviewController:
                 "",
                 "end",
                 iid=iid,
-                values=(
-                    name,
-                    str(lesson.grade_level) if lesson.grade_level is not None else "",
-                    lesson.next_topic,
-                    lesson.next_unit,
-                    str(lesson.remaining_hours),
-                    lesson.next_lzk,
-                    lesson.next_ub,
+                values=overview_row_values(
+                    {
+                        "name": name,
+                        "stufe": str(lesson.grade_level) if lesson.grade_level is not None else "",
+                        "next_topic": lesson.next_topic,
+                        "next_unit": lesson.next_unit,
+                        "remaining_hours": str(lesson.remaining_hours),
+                        "next_lzk": lesson.next_lzk,
+                        "next_ub": lesson.next_ub,
+                    }
                 ),
                 tags=tags,
             )

@@ -16,6 +16,7 @@ from kursplaner.adapters.gui._screen_shortcuts import ScreenShortcutsMixin
 from kursplaner.adapters.gui._screen_toolbar import ScreenToolbarMixin
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.overview_columns import OVERVIEW_COLUMNS
 from kursplaner.adapters.gui.search_overlay_view import SearchOverlayView
 from kursplaner.adapters.gui.toolbar_viewmodel import (
     TOOLBAR_ACTIONS,
@@ -179,11 +180,10 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         self._layout_toolbar_slots()
         detail_toolbar.bind("<Configure>", self._on_toolbar_configure)
 
-        overview_columns = ("name", "stufe", "next_topic", "next_unit", "remaining_hours", "next_lzk", "next_ub")
         tree_frame = widgets.Frame(left)
         tree_frame.pack(fill="both", expand=True)
 
-        self.app.lesson_tree = widgets.Treeview(tree_frame, columns=overview_columns, show="headings")
+        self.app.lesson_tree = widgets.Treeview(tree_frame, columns=OVERVIEW_COLUMNS, show="headings")
         self.app.lesson_tree.heading("name", text="Kurs")
         self.app.lesson_tree.heading("stufe", text="Stufe")
         self.app.lesson_tree.heading("next_topic", text="Nächstes Thema")
