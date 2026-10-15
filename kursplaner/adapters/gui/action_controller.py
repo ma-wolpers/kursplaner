@@ -9,7 +9,8 @@ ensure_bw_gui_on_path()
 from datetime import date
 from typing import Callable
 
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import EventResult
+from bw_gui.runtime import WidgetShortcutBinder, WindowShortcutBinder, ui, widgets
 from bw_gui.theming import (
     canvas_domain_fill,
     canvas_domain_outline,
@@ -23,6 +24,7 @@ from bw_gui.theming import (
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
+from kursplaner.adapters.gui.local_keys import LEFT, RIGHT, bind_keys
 from kursplaner.adapters.gui.expected_horizon_export_flow import ExpectedHorizonExportFlow
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
@@ -889,19 +891,23 @@ class MainWindowActionController:
                 return None
             tabs = list(notebook.tabs())
             if not tabs:
-                return "break"
+                return EventResult.HANDLED
             current = notebook.select()
             if current not in tabs:
                 notebook.select(tabs[0])
-                return "break"
+                return EventResult.HANDLED
             current_index = tabs.index(current)
             next_index = (current_index + direction) % len(tabs)
             notebook.select(tabs[next_index])
-            return "break"
+            return EventResult.HANDLED
 
-        bind_target = scope or notebook
-        bind_target.bind("<Left>", lambda _event: _move_tab(-1), add="+")
-        bind_target.bind("<Right>", lambda _event: _move_tab(1), add="+")
+        # Mit Dialog als Scope ein Fenster-Binder (Toplevel-Tag gehoert bw-gui), sonst am Notebook.
+        binder = WindowShortcutBinder(scope) if scope is not None else WidgetShortcutBinder(notebook)
+        bind_keys(
+            binder,
+            ((LEFT, "tab.previous", lambda _event: _move_tab(-1)), (RIGHT, "tab.next", lambda _event: _move_tab(1))),
+            prefix="notebook_arrows",
+        )
 
     def toggle_resume_or_mark_ub(self):
         """Führt kontextsensitiv Ausfall-Rücknahme oder UB-Markierung aus."""

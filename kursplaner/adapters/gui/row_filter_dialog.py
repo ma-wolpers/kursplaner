@@ -3,9 +3,11 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import EventResult
+from bw_gui.runtime import WidgetShortcutBinder, ui, widgets
 from bw_gui.widgets import Checkbox
 
+from kursplaner.adapters.gui.local_keys import DOWN, LEFT, RIGHT, SPACE, UP, bind_keys
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
 
@@ -127,23 +129,29 @@ class RowFilterDialog(ScrollablePopupWindow):
     def _register_nav_widget(self, widget: Checkbox, *, row: int, col: int) -> None:
         """Registriert eine Checkbox für Pfeiltasten-Navigation in beide Richtungen."""
         self._grid_widgets[(row, col)] = widget
-        widget.bind("<Up>", lambda event, r=row, c=col: self._move_focus(event, r, c, -1, 0), add="+")
-        widget.bind("<Down>", lambda event, r=row, c=col: self._move_focus(event, r, c, 1, 0), add="+")
-        widget.bind("<Left>", lambda event, r=row, c=col: self._move_focus(event, r, c, 0, -1), add="+")
-        widget.bind("<Right>", lambda event, r=row, c=col: self._move_focus(event, r, c, 0, 1), add="+")
-        widget.bind("<space>", lambda _event, w=widget: self._toggle_widget(w), add="+")
+        bind_keys(
+            WidgetShortcutBinder(widget),
+            (
+                (UP, "up", lambda event, r=row, c=col: self._move_focus(event, r, c, -1, 0)),
+                (DOWN, "down", lambda event, r=row, c=col: self._move_focus(event, r, c, 1, 0)),
+                (LEFT, "left", lambda event, r=row, c=col: self._move_focus(event, r, c, 0, -1)),
+                (RIGHT, "right", lambda event, r=row, c=col: self._move_focus(event, r, c, 0, 1)),
+                (SPACE, "toggle", lambda _event, w=widget: self._toggle_widget(w)),
+            ),
+            prefix="matrix",
+        )
 
     @staticmethod
-    def _toggle_widget(widget: Checkbox) -> str:
+    def _toggle_widget(widget: Checkbox) -> EventResult:
         """Schaltet den Zustand einer Checkbox um und stoppt Event-Weiterleitung."""
         widget.invoke()
-        return "break"
+        return EventResult.HANDLED
 
-    def _move_focus(self, _event, row: int, col: int, row_step: int, col_step: int) -> str:
+    def _move_focus(self, _event, row: int, col: int, row_step: int, col_step: int) -> EventResult:
         """Bewegt den Fokus zur nächsten registrierten Checkbox in der angegebenen Richtung."""
         rows = sorted({r for r, _c in self._grid_widgets})
         if row not in rows:
-            return "break"
+            return EventResult.HANDLED
         if row_step:
             pos = rows.index(row)
             next_pos = pos + row_step
@@ -157,7 +165,7 @@ class RowFilterDialog(ScrollablePopupWindow):
                 target = self._grid_widgets.get((row, next_col))
                 if target is not None:
                     target.focus_set()
-        return "break"
+        return EventResult.HANDLED
 
     def _focus_first_toggle(self) -> None:
         """Setzt den Fokus beim Öffnen auf die erste Checkbox."""

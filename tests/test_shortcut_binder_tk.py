@@ -110,3 +110,30 @@ def test_global_click_observer_skips_text_input(root, wired, intents, monkeypatc
         assert clicks == [canvas]
     finally:
         top.destroy()
+
+
+def test_timetable_dialog_undo_is_local_and_gone_after_close(root, wired, tmp_path):
+    """Bug 2: Strg+Z des Stundenplan-Dialogs hing per bind_all global und blieb nach dem Schliessen."""
+    from types import SimpleNamespace
+
+    from kursplaner.adapters.gui.timetable_change_dialog import TimetableChangeDialog
+    from kursplaner.core.domain.plan_table import PlanTableData
+
+    table = PlanTableData(
+        markdown_path=tmp_path / "plan.md", headers=["Datum"], rows=[], start_line=0, end_line=0,
+        source_lines=[], had_trailing_newline=True, metadata={},
+    )
+    dialog = TimetableChangeDialog(
+        root,
+        table=table,
+        day_columns=[],
+        calendar_dir=tmp_path,
+        timetable_change_uc=SimpleNamespace(),
+        on_accept=lambda *_a: None,
+    )
+    try:
+        assert press_key(dialog, "z", state=CONTROL) is True  # Fenster-Binder des Dialogs
+        assert str(root.tk.call("bind", "all", "<Control-Key-z>")) == ""
+        assert router_for(root).verify() == []
+    finally:
+        dialog.destroy()

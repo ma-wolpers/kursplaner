@@ -6,9 +6,10 @@ from collections.abc import Callable
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import WidgetShortcutBinder, ui, widgets
 from bw_gui.widgets import Checkbox
 
+from kursplaner.adapters.gui.local_keys import ENTER
 from kursplaner.adapters.gui.regex_entry_field import RegexEntryField
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter
 
@@ -41,7 +42,10 @@ class KompetenzGraphTextSearchPanel:
 
         self._field = RegexEntryField(self.frame, initial=initial_filter.text_query)
         self._field.pack(fill="x", pady=(0, 6))
-        self._field.bind("<Return>", lambda _event: self._trigger_search())
+        WidgetShortcutBinder(self._field.entry).bind(
+            ENTER, lambda _event: self._trigger_search(), binding_id="graph.search", intent="graph.search",
+            allow_when_text_input=True,
+        )
 
         self._kc_var = ui.BooleanVar(value=initial_filter.text_search_kc_verweis)
         self._titel_var = ui.BooleanVar(value=initial_filter.text_search_titel)

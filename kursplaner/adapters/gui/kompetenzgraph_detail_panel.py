@@ -3,7 +3,7 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import bind_click, ui, widgets
 
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_types import KcZuordnungEintrag
@@ -116,8 +116,8 @@ class KompetenzGraphDetailPanel:
         quote_label = widgets.Label(parent, text=quote_text, wraplength=300, justify="left", cursor="hand2")
         quote_label.pack(anchor="w", fill="x")
         if entry.kc_verweis.strip():
-            quote_label.bind(
-                "<Button-1>",
+            bind_click(
+                quote_label,
                 lambda _event, text=entry.kc_verweis, label=quote_label: self._copy_to_clipboard(text, label),
             )
 

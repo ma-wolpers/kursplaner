@@ -4,7 +4,10 @@ from typing import Callable
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import EventResult
+from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, ui, widgets
+
+from kursplaner.adapters.gui.local_keys import ENTER, SPACE, bind_keys
 
 
 class SelectionOverlayController:
@@ -45,10 +48,14 @@ class SelectionOverlayController:
         scroll.pack(side="right", fill="y")
         self.listbox.configure(yscrollcommand=scroll.set)
 
-        self.listbox.bind("<Return>", self._pick_current)
-        self.listbox.bind("<space>", self._pick_current)
-        self.listbox.bind("<Double-Button-1>", self._pick_current)
-        self.listbox.bind("<ButtonRelease-1>", self._pick_current)
+        bind_keys(
+            WidgetShortcutBinder(self.listbox),
+            ((ENTER, "pick.enter", self._pick_current), (SPACE, "pick.space", self._pick_current)),
+            prefix="selection_overlay",
+        )
+        # Maus: Doppelklick bzw. Loslassen (die native Listbox-Auswahl ist dann schon gesetzt).
+        bind_click(self.listbox, self._pick_current, count=2)
+        bind_drag(self.listbox, on_end=self._pick_current)
 
     @property
     def is_open(self) -> bool:
@@ -145,7 +152,7 @@ class SelectionOverlayController:
             current = getattr(current, "master", None)
         return False
 
-    def _pick_current(self, _event):
-        """Handle mouse/keyboard activation from the listbox."""
+    def _pick_current(self, _event) -> EventResult:
+        """Handle mouse/keyboard activation from the listbox (consumes the event)."""
         self.select_current()
-        return "break"
+        return EventResult.HANDLED

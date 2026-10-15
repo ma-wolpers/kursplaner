@@ -6,7 +6,7 @@ für den End-zu-End-Nachweis über die Sidebar-Tabs).
 
 Nutzt einen echten `tk.Toplevel` pro Test (Isolation von der session-weiten `tk_root`-Fixture,
 siehe `test_kompetenzgraph_canvas_recenter.py`) -- `widget.bind()`-Introspektion ist reines
-Tcl/Tk-Verhalten.
+Tcl/Tk-Verhalten (Bindtags).
 """
 
 from __future__ import annotations
@@ -16,12 +16,9 @@ import tkinter as tk
 from kursplaner.adapters.gui.kompetenzgraph_sidebar_scroll import KompetenzGraphSidebarScroll
 
 
-def _binding_count(widget: tk.Widget) -> int:
-    """Zählt die Anzahl gebundener `<MouseWheel>`-Handler -- Tk trennt mehrere über `add='+'`
-    angehäufte Bindungen durch Zeilenumbrüche im von `bind()` zurückgegebenen Tcl-Skript (bereits
-    eine einzelne Bindung endet auf einen Zeilenumbruch, daher werden nur nicht-leere Zeilen gezählt)."""
-    bound_script = widget.bind("<MouseWheel>")
-    return len([line for line in bound_script.split("\n") if line.strip()])
+def _binding_count(scroll: KompetenzGraphSidebarScroll, widget: tk.Widget) -> int:
+    """Zählt, wie oft *widget* in der Mausrad-Gruppe der Sidebar steckt (Bindtag der bw-gui-``PointerGroup``)."""
+    return list(widget.bindtags()).count(scroll._wheel_group.tag)
 
 
 def test_bind_mousewheel_to_content_binds_each_widget_exactly_once(tk_root):
@@ -34,8 +31,8 @@ def test_bind_mousewheel_to_content_binds_each_widget_exactly_once(tk_root):
     scroll.bind_mousewheel_to_content()
     scroll.bind_mousewheel_to_content()
 
-    assert _binding_count(scroll.inner) == 1
-    assert _binding_count(child) == 1
+    assert _binding_count(scroll, scroll.inner) == 1
+    assert _binding_count(scroll, child) == 1
 
 
 def test_repeated_bind_on_a_persistent_root_does_not_accumulate(tk_root):
@@ -57,8 +54,8 @@ def test_repeated_bind_on_a_persistent_root_does_not_accumulate(tk_root):
         content_widgets.append(new_content)
         scroll.bind_mousewheel_to_content(root=persistent_root)
 
-    assert _binding_count(persistent_root) == 1
-    assert _binding_count(content_widgets[-1]) == 1
+    assert _binding_count(scroll, persistent_root) == 1
+    assert _binding_count(scroll, content_widgets[-1]) == 1
 
 
 def test_newly_added_sibling_widget_still_gets_bound(tk_root):
@@ -73,4 +70,4 @@ def test_newly_added_sibling_widget_still_gets_bound(tk_root):
     late_child.pack()
     scroll.bind_mousewheel_to_content()
 
-    assert _binding_count(late_child) == 1
+    assert _binding_count(scroll, late_child) == 1

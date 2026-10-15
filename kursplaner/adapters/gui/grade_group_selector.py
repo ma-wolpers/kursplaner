@@ -5,7 +5,7 @@ from typing import Callable
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import bind_click, ui, widgets
 from bw_gui.widgets import Checkbox
 
 from kursplaner.core.domain.grade_groups import GRADE_GROUPS, expand_grade_selection
@@ -47,7 +47,7 @@ class GradeGroupSelector:
 
             toggle_label = widgets.Label(header, text=self._toggle_text(group.key), cursor="hand2")
             toggle_label.pack(side="left")
-            toggle_label.bind("<Button-1>", lambda _e, key=group.key: self._toggle_expand(key))
+            bind_click(toggle_label, lambda _e, key=group.key: self._toggle_expand(key))
             self._toggle_labels[group.key] = toggle_label
 
             group_var = ui.BooleanVar(value=False)

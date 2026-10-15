@@ -6,7 +6,8 @@ import re
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import widgets
+from bw_gui.contracts import EventResult, KeySpec
+from bw_gui.runtime import WindowShortcutBinder, widgets
 from bw_gui.theming import theme_canvas
 
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
@@ -88,7 +89,8 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._build_ui(load_result, load_body_usecase)
         self.apply_theme()
         theme_canvas(self.canvas, theme_key)
-        self.bind("<Control-Tab>", self._on_toggle_view_mode_shortcut)
+        WindowShortcutBinder(self).bind(KeySpec.parse("Ctrl+Tab (tolerate: Shift)"), self._on_toggle_view_mode_shortcut,
+                                        binding_id="graph.view_mode", intent="graph.view_mode", allow_when_text_input=True)
         self._refresh()
         self.canvas.focus_set()
 
@@ -141,10 +143,10 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._renderer = canvas_area.renderer
         self._zoom_pan = canvas_area.zoom_pan
 
-    def _on_toggle_view_mode_shortcut(self, _event) -> str:
+    def _on_toggle_view_mode_shortcut(self, _event) -> EventResult:
         """Strg+Tab: zyklisch zur nächsten Ansicht (`next_mode()`, mit Wraparound über alle `VIEW_MODES`)."""
         self._on_view_mode_selected(self._view_mode_toggle.next_mode())
-        return "break"
+        return EventResult.HANDLED
 
     def _on_view_mode_selected(self, mode_key: str) -> None:
         if mode_key == self._state.view_mode:
@@ -234,13 +236,13 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         recenter_on_selection(self.canvas, self._state.selected_id)
         self.canvas.focus_set()
 
-    def _on_enter_key(self, _event) -> str:
+    def _on_enter_key(self, _event) -> EventResult:
         """Enter: togglet den Fokus wie ein Doppelklick, zentriert die Ansicht danach auf den Knoten
         (das Layout wird beim Fokus-Toggle neu berechnet, der Knoten kann woanders landen)."""
         handle_double_click_or_enter(self._state)
         self._recompute_and_redraw()
         recenter_on_selection(self.canvas, self._state.selected_id)
-        return "break"
+        return EventResult.HANDLED
 
     def _on_arrow_direction(self, direction: tuple[float, float]) -> None:
         """Pfeiltaste: bewegt die Auswahl mittels `select_nearest_in_direction()`, zentriert bei Erfolg.

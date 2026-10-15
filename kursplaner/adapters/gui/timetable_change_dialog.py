@@ -10,10 +10,12 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import EventResult, KeySpec
+from bw_gui.runtime import WindowShortcutBinder, ui, widgets
 from bw_gui.theming import tinted_color
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
+from kursplaner.adapters.gui.local_keys import bind_keys
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.weekday_rhythm_picker import WeekdayRhythmPicker
 from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, WeekdayRhythm, parse_rhythm
@@ -89,7 +91,9 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._build_ui()
         self.apply_theme()
         self._configure_tree_tags()
-        self.bind_all("<Control-z>", self._on_undo)
+        # Strg+Z gilt nur in diesem Dialog (Fenster-Binder). Frueher bind_all: das blieb nach
+        # dem Schliessen registriert und lief weiter gegen den zerstoerten Dialog (Bug 2).
+        bind_keys(WindowShortcutBinder(self), ((KeySpec.parse("Ctrl+Z"), "undo", self._on_undo),), prefix="timetable_change")
 
     def _table_dates(self) -> list[date]:
         """Liefert alle gültigen Datumseinträge aus den Planzeilen."""
@@ -357,13 +361,13 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         """Speichert eine Kopie der aktuellen Draft-Slots für Strg+Z."""
         self._undo_stack.append(copy.deepcopy(self._draft_slots))
 
-    def _on_undo(self, _event=None) -> str:
-        """Stellt den letzten gespeicherten Zustand der Draft-Slots wieder her."""
+    def _on_undo(self, _event=None) -> EventResult:
+        """Strg+Z: stellt den letzten gespeicherten Zustand der Draft-Slots wieder her (verbraucht die Taste)."""
         if not self._undo_stack:
-            return "break"
+            return EventResult.HANDLED
         self._draft_slots = self._undo_stack.pop()
         self._refresh_right_tree()
-        return "break"
+        return EventResult.HANDLED
 
     # ── Slot actions ───────────────────────────────────────────────────────
 

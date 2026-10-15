@@ -11,6 +11,7 @@ from kursplaner.adapters.gui.kompetenzgraph_canvas_arrow_nav import KompetenzGra
 from kursplaner.adapters.gui.kompetenzgraph_canvas_render import KompetenzGraphCanvasRenderer
 from kursplaner.adapters.gui.kompetenzgraph_canvas_tooltip import KompetenzGraphCanvasTooltip
 from kursplaner.adapters.gui.kompetenzgraph_canvas_zoom_pan import KompetenzGraphCanvasZoomPan
+from kursplaner.adapters.gui.local_keys import ENTER
 
 
 class KompetenzGraphCanvasArea:
@@ -50,5 +51,4 @@ class KompetenzGraphCanvasArea:
         )
         self.zoom_pan = KompetenzGraphCanvasZoomPan(self.canvas)
         self._arrow_nav = KompetenzGraphCanvasArrowNav(self.canvas, on_direction=on_arrow_direction)
-        self.canvas.bind("<Return>", on_enter_key)
-        self.canvas.bind("<KP_Enter>", on_enter_key)
+        self._arrow_nav.keys.bind(ENTER, on_enter_key, binding_id="graph.enter", intent="graph.enter")

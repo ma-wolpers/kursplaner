@@ -3,7 +3,9 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.contracts import EventResult, KeyModifiers, KeySpec
+from bw_gui.contracts.pointer import Axis, wheel_axis
+from bw_gui.runtime import WidgetShortcutBinder, bind_wheel, ui
 
 from kursplaner.adapters.gui.kompetenzgraph_canvas_render import LABEL_TAG
 
@@ -43,35 +45,41 @@ class KompetenzGraphCanvasZoomPan:
         self._bind()
 
     def _bind(self) -> None:
-        for sequence in ("<Control-plus>", "<Control-equal>", "<Control-KP_Add>"):
-            self.canvas.bind(sequence, self._zoom_in)
-        for sequence in ("<Control-minus>", "<Control-KP_Subtract>"):
-            self.canvas.bind(sequence, self._zoom_out)
-        self.canvas.bind("<Control-MouseWheel>", self._on_ctrl_mousewheel)
-        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
-        self.canvas.bind("<Shift-MouseWheel>", self._on_shift_mousewheel)
+        """Strg++/Strg+= bzw. Strg+- zoomen (auch Ziffernblock), das Mausrad zoomt (Strg) oder scrollt."""
+        _k = KeySpec.parse
+        keys = WidgetShortcutBinder(self.canvas)
+        keys.bind([_k("Ctrl++"), _k("Ctrl+=")], self._zoom_in, binding_id="graph.zoom_in", intent="graph.zoom_in")
+        keys.bind(_k("Ctrl+-"), self._zoom_out, binding_id="graph.zoom_out", intent="graph.zoom_out")
+        self.keys = keys
+        bind_wheel(self.canvas, self._on_mousewheel)
 
-    def _zoom_in(self, _event=None) -> str:
+    def _zoom_in(self, _event=None) -> EventResult:
         self._apply_zoom(_ZOOM_STEP, anchor=self._viewport_center())
-        return "break"
+        return EventResult.HANDLED
 
-    def _zoom_out(self, _event=None) -> str:
+    def _zoom_out(self, _event=None) -> EventResult:
         self._apply_zoom(1.0 / _ZOOM_STEP, anchor=self._viewport_center())
-        return "break"
+        return EventResult.HANDLED
 
-    def _on_ctrl_mousewheel(self, event) -> str:
-        factor = _ZOOM_STEP if event.delta > 0 else 1.0 / _ZOOM_STEP
-        anchor = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
-        self._apply_zoom(factor, anchor=anchor)
-        return "break"
+    def _on_mousewheel(self, event) -> EventResult:
+        """Mausrad (``WheelEvent``): Strg zoomt um den Mauszeiger, Shift scrollt horizontal, sonst vertikal.
 
-    def _on_mousewheel(self, event) -> str:
-        self.canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
-        return "break"
-
-    def _on_shift_mousewheel(self, event) -> str:
-        self.canvas.xview_scroll(-1 if event.delta > 0 else 1, "units")
-        return "break"
+        Ganze Rasten (``whole_steps``); Rad hoch mit Strg vergroessert.
+        """
+        steps = event.whole_steps
+        if steps == 0:
+            return EventResult.HANDLED
+        if isinstance(event.modifiers, KeyModifiers) and event.modifiers.control:
+            anchor = (self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+            factor = 1.0 / _ZOOM_STEP if steps > 0 else _ZOOM_STEP
+            for _ in range(abs(steps)):
+                self._apply_zoom(factor, anchor=anchor)
+            return EventResult.HANDLED
+        if wheel_axis(event) is Axis.HORIZONTAL:
+            self.canvas.xview_scroll(steps, "units")
+        else:
+            self.canvas.yview_scroll(steps, "units")
+        return EventResult.HANDLED
 
     def _viewport_center(self) -> tuple[float, float]:
         return (

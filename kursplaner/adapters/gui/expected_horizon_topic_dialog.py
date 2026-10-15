@@ -16,9 +16,11 @@ from dataclasses import dataclass
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import EventResult
+from bw_gui.runtime import WidgetShortcutBinder, ui, widgets
 from bw_gui.widgets import Checkbox
 
+from kursplaner.adapters.gui.local_keys import DOWN, SPACE, UP, bind_keys
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.core.domain.expected_horizon_pdf_layout import (
     DEFAULT_FONT_SIZE,
@@ -50,7 +52,7 @@ def _parse_font_size(text: str) -> float | None:
     return value if MIN_FONT_SIZE <= value <= MAX_FONT_SIZE else None
 
 
-def _option_label(option: ExpectedHorizonTopicOption) -> str:
+def _option_label(option: ExpectedHorizonTopicOption) -> EventResult:
     """Anzeigetext einer Option: Thema, Zeitraum und Anzahl der Stunden."""
     unit_text = "Stunde" if option.unit_count == 1 else "Stunden"
     if option.first_date == option.last_date:
@@ -60,7 +62,7 @@ def _option_label(option: ExpectedHorizonTopicOption) -> str:
     return f"{option.oberthema}   ({span}, {option.unit_count} {unit_text})"
 
 
-def _cutoff_text(options: ExpectedHorizonTopicOptions) -> str:
+def _cutoff_text(options: ExpectedHorizonTopicOptions) -> EventResult:
     day = f"{options.cutoff.day:%d.%m.%Y}"
     return f"bis einschließlich {day}" if options.cutoff.includes_day else f"vor dem {day}"
 
@@ -198,19 +200,25 @@ class ExpectedHorizonTopicDialog(ScrollablePopupWindow):
 
     def _register_nav(self, toggle: Checkbox, index: int) -> None:
         """Pfeiltasten bewegen den Fokus in der Liste, Leertaste schaltet um."""
-        toggle.bind("<Up>", lambda _e, i=index: self._focus_toggle(i - 1), add="+")
-        toggle.bind("<Down>", lambda _e, i=index: self._focus_toggle(i + 1), add="+")
-        toggle.bind("<space>", lambda _e, t=toggle: self._invoke(t), add="+")
+        bind_keys(
+            WidgetShortcutBinder(toggle),
+            (
+                (UP, "up", lambda _e, i=index: self._focus_toggle(i - 1)),
+                (DOWN, "down", lambda _e, i=index: self._focus_toggle(i + 1)),
+                (SPACE, "toggle", lambda _e, t=toggle: self._invoke(t)),
+            ),
+            prefix="horizon_topics",
+        )
 
-    def _focus_toggle(self, index: int) -> str:
+    def _focus_toggle(self, index: int) -> EventResult:
         if 0 <= index < len(self._toggles):
             self._toggles[index].focus_set()
-        return "break"
+        return EventResult.HANDLED
 
     @staticmethod
-    def _invoke(toggle: Checkbox) -> str:
+    def _invoke(toggle: Checkbox) -> EventResult:
         toggle.invoke()
-        return "break"
+        return EventResult.HANDLED
 
     def _focus_first_toggle(self) -> None:
         if self._toggles and self._toggles[0].winfo_exists():
