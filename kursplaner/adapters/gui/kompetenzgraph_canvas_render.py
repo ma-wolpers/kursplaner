@@ -5,7 +5,7 @@ from collections.abc import Callable, Mapping
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import bind_canvas_item, ui
 from bw_gui.theming import (
     canvas_domain_fill,
     canvas_domain_outline,
@@ -178,9 +178,16 @@ class KompetenzGraphCanvasRenderer:
         )
         canvas_text_fill(self.canvas, text_id, token="fg_muted" if is_context else "fg_primary")
 
-        self.canvas.tag_bind(tag, "<Button-1>", lambda _event, nid=node_id: self._on_node_click(nid))
-        if self._on_node_double_click is not None:
-            self.canvas.tag_bind(tag, "<Double-Button-1>", lambda _event, nid=node_id: self._on_node_double_click(nid))
+        bind_canvas_item(
+            self.canvas,
+            tag,
+            on_click=lambda _event, nid=node_id: self._on_node_click(nid),
+            on_double_click=(
+                (lambda _event, nid=node_id: self._on_node_double_click(nid))
+                if self._on_node_double_click is not None
+                else None
+            ),
+        )
         if self._tooltip is not None:
             self._tooltip.bind_node(tag, node.title)
 
@@ -221,7 +228,7 @@ class KompetenzGraphCanvasRenderer:
         )
         canvas_text_fill(self.canvas, text_id, token="fg_primary")
 
-        self.canvas.tag_bind(tag, "<Button-1>", lambda _event, bid=bereich_id: self._on_node_click(bid))
+        bind_canvas_item(self.canvas, tag, on_click=lambda _event, bid=bereich_id: self._on_node_click(bid))
         if self._tooltip is not None:
             self._tooltip.bind_node(tag, f"{bereich.title} ({bereich.kuerzel})" if bereich.kuerzel else bereich.title)
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import bind_canvas_item, ui
 from bw_gui.theming import canvas_fill, canvas_outline_color, canvas_text_fill
 
 _TOOLTIP_PADDING = 6.0
@@ -27,8 +27,12 @@ class KompetenzGraphCanvasTooltip:
 
     def bind_node(self, tag: str, text: str) -> None:
         """Registriert Hover-Bindings für ein Canvas-Tag; `text` ist der vollständige, anzuzeigende Text."""
-        self.canvas.tag_bind(tag, "<Enter>", lambda event, shown_text=text: self._show(event, shown_text))
-        self.canvas.tag_bind(tag, "<Leave>", lambda _event: self.hide())
+        bind_canvas_item(
+            self.canvas,
+            tag,
+            on_enter=lambda event, shown_text=text: self._show(event, shown_text),
+            on_leave=lambda _event: self.hide(),
+        )
 
     def hide(self) -> None:
         """Entfernt ein evtl. aktuell sichtbares Tooltip-Overlay."""

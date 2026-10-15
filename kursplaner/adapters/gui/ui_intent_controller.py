@@ -5,7 +5,7 @@ import time
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import treeview_selection, ui, widgets
 from bw_gui.contracts import EventResult
 from bw_gui.contracts.pointer import ClickEvent, DragEvent
 
@@ -380,7 +380,7 @@ class MainWindowUiIntentController:
             if not clicked_item:
                 return EventResult.HANDLED
             self.app.lesson_tree.focus(clicked_item)
-            self.app.lesson_tree.selection_set(clicked_item)
+            treeview_selection.set(self.app.lesson_tree, [clicked_item])
         self.app.overview_controller.load_selected_table(event)
         return EventResult.HANDLED
 
@@ -398,7 +398,7 @@ class MainWindowUiIntentController:
         if current == item:
             return None
         self.app.lesson_tree.focus(item)
-        self.app.lesson_tree.selection_set(item)
+        treeview_selection.set(self.app.lesson_tree, [item])
         return None
 
     def intent_toggle_row_expand(self, field_key: str):
@@ -695,7 +695,7 @@ class MainWindowUiIntentController:
             return None
         target = items[-1] if to_end else items[0]
         self.app.lesson_tree.focus(target)
-        self.app.lesson_tree.selection_set(target)
+        treeview_selection.set(self.app.lesson_tree, [target])
         self.app.lesson_tree.see(target)
         return EventResult.HANDLED
 

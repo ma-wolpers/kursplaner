@@ -144,3 +144,21 @@ def test_filter_field_keeps_selection_after_down_and_refilters_after_typing(host
         assert dialog.overlay_controller.items == ["Inhalt Gamma"]
     finally:
         dialog.destroy()
+
+
+def test_focus_into_field_opens_overlay_and_focus_elsewhere_closes_it(kompetenzen):
+    """on_focus_change: Fokus ins Feld öffnet das Overlay, Fokus auf ein anderes Dialog-Widget schließt es."""
+    text = kompetenzen.kompetenzen_field.text
+    other = widgets.Button(kompetenzen.content, text="anders")
+    other.pack()
+    text.focus_force()  # echter Fokus, sonst holt ihn der Modal-Fokus-Helfer (after_idle) zurück
+    kompetenzen.update()
+    kompetenzen.overlay_controller.close()
+    text.event_generate("<FocusIn>")
+    assert kompetenzen.overlay_controller.active_field == "kompetenzen"
+    kompetenzen.overlay_controller.overlay.deiconify()
+    kompetenzen.update()
+    other.focus_force()
+    other.event_generate("<FocusIn>")  # within=True am Dialog sieht den Fokuswechsel des Nachfahren
+    kompetenzen.update()
+    assert not kompetenzen.overlay_controller.is_open

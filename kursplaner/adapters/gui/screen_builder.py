@@ -5,7 +5,17 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
 from bw_gui.contracts import KeySpec
-from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, bind_wheel, on_key, ui, widgets
+from bw_gui.runtime import (
+    WidgetShortcutBinder,
+    bind_click,
+    bind_drag,
+    bind_hover,
+    bind_wheel,
+    on_key,
+    on_resize,
+    ui,
+    widgets,
+)
 from bw_gui.widgets import Switch
 
 from bw_libs.ui_contract.keybinding import KeybindingRegistry
@@ -167,7 +177,7 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
                     self.app.action_help_tooltips[spec.key] = tooltip
 
         self._layout_toolbar_slots()
-        detail_toolbar.bind("<Configure>", self._on_toolbar_configure)
+        on_resize(detail_toolbar, self._on_toolbar_configure)
 
         tree_frame = widgets.Frame(left)
         tree_frame.pack(fill="both", expand=True)
@@ -203,7 +213,7 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         # <Double-1>/<ButtonRelease-1>; beim Loslassen ist die native Auswahl schon gesetzt).
         bind_click(tree, self._on_tree_confirm_selection, count=2)
         bind_drag(tree, on_end=self._on_tree_confirm_selection)
-        tree.bind("<Motion>", self._on_tree_hover_select)
+        bind_hover(tree, on_motion=self._on_tree_hover_select)
         on_key(tree, self._on_tree_keyboard_navigation)
 
         header = widgets.Frame(right)
@@ -320,12 +330,10 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         self.app.grid_inner = widgets.Frame(self.app.grid_canvas)
         self.app.grid_window = self.app.grid_canvas.create_window((0, 0), window=self.app.grid_inner, anchor="nw")
 
-        self.app.header_inner.bind("<Configure>", self.app._on_grid_inner_configure)
-        self.app.fixed_inner.bind("<Configure>", self.app._on_grid_inner_configure)
-        self.app.grid_inner.bind("<Configure>", self.app._on_grid_inner_configure)
-        self.app.header_canvas.bind("<Configure>", self.app._on_canvas_configure)
-        self.app.fixed_canvas.bind("<Configure>", self.app._on_canvas_configure)
-        self.app.grid_canvas.bind("<Configure>", self.app._on_canvas_configure)
+        for inner in (self.app.header_inner, self.app.fixed_inner, self.app.grid_inner):
+            on_resize(inner, self.app._on_grid_inner_configure)
+        for canvas in (self.app.header_canvas, self.app.fixed_canvas, self.app.grid_canvas):
+            on_resize(canvas, self.app._on_canvas_configure)
         for canvas in (self.app.header_canvas, self.app.fixed_canvas, self.app.grid_canvas):
             bind_wheel(canvas, self.app._on_grid_mousewheel)
 

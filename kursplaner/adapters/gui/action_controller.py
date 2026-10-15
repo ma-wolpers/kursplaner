@@ -10,7 +10,15 @@ from datetime import date
 from typing import Callable
 
 from bw_gui.contracts import EventResult
-from bw_gui.runtime import WidgetShortcutBinder, WindowShortcutBinder, ui, widgets
+from bw_gui.runtime import (
+    WidgetShortcutBinder,
+    WindowShortcutBinder,
+    listbox_selection,
+    on_listbox_select,
+    treeview_selection,
+    ui,
+    widgets,
+)
 from bw_gui.theming import (
     canvas_domain_fill,
     canvas_domain_outline,
@@ -451,7 +459,7 @@ class MainWindowActionController:
 
         for path in shadow_files:
             listbox.insert(ui.END, path.name)
-        listbox.selection_set(0)
+        listbox_selection.set(listbox, [0])
         listbox.activate(0)
 
         status_var = ui.StringVar(value="")
@@ -476,7 +484,7 @@ class MainWindowActionController:
             preview.insert("1.0", text)
             preview.configure(state="disabled")
 
-        listbox.bind("<<ListboxSelect>>", lambda _event: _refresh_preview())
+        on_listbox_select(listbox, lambda _change: _refresh_preview())
         _refresh_preview()
 
         def _set_as_clipboard_lesson():
@@ -1339,7 +1347,7 @@ class MainWindowActionController:
         self.app.refresh_overview()
         if selected_iid and self.app.lesson_tree.exists(selected_iid):
             self.app.lesson_tree.focus(selected_iid)
-            self.app.lesson_tree.selection_set(selected_iid)
+            treeview_selection.set(self.app.lesson_tree, [selected_iid])
             self.app._load_selected_table()
         self.update_action_controls()
 

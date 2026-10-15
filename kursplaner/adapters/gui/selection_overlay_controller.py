@@ -5,7 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
-from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, ui, widgets
+from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, listbox_selection, ui, widgets
 from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
 
 from kursplaner.adapters.gui.local_keys import ENTER, SPACE, bind_keys
@@ -89,8 +89,7 @@ class SelectionOverlayController:
         for item in self.items:
             self.listbox.insert(ui.END, item)
         if self.items:
-            self.listbox.selection_clear(0, ui.END)
-            self.listbox.selection_set(0)
+            listbox_selection.set(self.listbox, [0])
             self.listbox.activate(0)
             self.listbox.see(0)
 
@@ -117,8 +116,7 @@ class SelectionOverlayController:
         current = self.listbox.curselection()
         idx = current[0] if current else 0
         idx = max(0, min(size - 1, idx + delta))
-        self.listbox.selection_clear(0, ui.END)
-        self.listbox.selection_set(idx)
+        listbox_selection.set(self.listbox, [idx])
         self.listbox.activate(idx)
         self.listbox.see(idx)
 

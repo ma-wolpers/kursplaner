@@ -8,7 +8,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import treeview_selection, ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.adapters.gui.overview_columns import overview_row_values
@@ -329,7 +329,7 @@ class MainWindowOverviewController:
 
         selected = self.app.lesson_tree.focus()
         if selected and self.app.lesson_tree.exists(selected):
-            self.app.lesson_tree.selection_set(selected)
+            treeview_selection.set(self.app.lesson_tree, [selected])
             self.app.lesson_tree.see(selected)
             return
 
@@ -338,14 +338,14 @@ class MainWindowOverviewController:
             first = selection[0]
             if self.app.lesson_tree.exists(first):
                 self.app.lesson_tree.focus(first)
-                self.app.lesson_tree.selection_set(first)
+                treeview_selection.set(self.app.lesson_tree, [first])
                 self.app.lesson_tree.see(first)
                 return
 
         if prefer_first:
             first = items[0]
             self.app.lesson_tree.focus(first)
-            self.app.lesson_tree.selection_set(first)
+            treeview_selection.set(self.app.lesson_tree, [first])
             self.app.lesson_tree.see(first)
 
     def _show_loading_dialog(self, text: str):

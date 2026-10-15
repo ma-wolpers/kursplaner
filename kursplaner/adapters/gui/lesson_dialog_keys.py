@@ -40,6 +40,7 @@ from bw_gui.runtime import (  # noqa: E402
     WidgetShortcutBinder,
     WindowShortcutBinder,
     bind_click,
+    on_focus_change,
     on_global_click,
     on_key,
 )
@@ -111,8 +112,7 @@ class LessonDialogKeysMixin:
         def _open(_event: Any = None) -> None:
             self.overlay_controller.open(field_name, text)
 
-        # Fokus-Lifecycle bleibt bis zum Widget-Events-Contract (on_focus_change) roh.
-        text.bind("<FocusIn>", _open)
+        on_focus_change(text, on_gained=_open)
         bind_click(text, _open)
         bind_keys(
             self._field_keys(text),
@@ -153,7 +153,8 @@ class LessonDialogKeysMixin:
         """
         bind_keys(self._window_keys(), ((CTRL_ENTER, "accept", self._on_ctrl_enter_accept),), prefix=f"{_PREFIX}.window")
         self._overlay_click_subscription = on_global_click(self, self._on_global_click, owner=self)
-        self.bind("<FocusIn>", self._on_global_focus_change, add="+")
+        # within=True: wie frueher am Toplevel-Tag -- jeder Fokuswechsel im Dialog zaehlt.
+        on_focus_change(self, on_gained=self._on_global_focus_change, within=True)
 
     # -- Handler ------------------------------------------------------------------------
 

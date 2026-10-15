@@ -5,7 +5,7 @@ from collections.abc import Callable
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import combobox_selection, on_combobox_select, ui, widgets
 from bw_gui.widgets import Switch
 
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
@@ -111,7 +111,7 @@ class KompetenzGraphFilterPanel:
         var = ui.StringVar(value=initial_value if initial_value is not None else _ALLE)
         combo = widgets.Combobox(self.frame, textvariable=var, values=[_ALLE, *options], state="readonly")
         combo.pack(anchor="w", fill="x", pady=(0, 6))
-        combo.bind("<<ComboboxSelected>>", lambda _event: self._emit_change())
+        on_combobox_select(combo, lambda _change: self._emit_change())
         return var
 
     def _build_bereich_combobox(
@@ -139,9 +139,9 @@ class KompetenzGraphFilterPanel:
 
         widgets.Label(self.frame, text=label).pack(anchor="w")
         combo = widgets.Combobox(self.frame, values=display_values, state="readonly")
-        combo.current(ids.index(initial_value) if initial_value in ids else 0)
+        combobox_selection.set_index(combo, ids.index(initial_value) if initial_value in ids else 0)
         combo.pack(anchor="w", fill="x", pady=(0, 6))
-        combo.bind("<<ComboboxSelected>>", lambda _event: self._emit_change())
+        on_combobox_select(combo, lambda _change: self._emit_change())
         return combo, ids
 
     @staticmethod

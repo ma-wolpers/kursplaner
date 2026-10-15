@@ -7,7 +7,7 @@ from pathlib import Path
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import on_treeview_select, treeview_selection, ui, widgets
 
 from kursplaner.adapters.gui.conflict_decision_dialog import ask_conflict_decision
 from kursplaner.adapters.gui.dialog_services import messagebox
@@ -150,7 +150,7 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
         self._entry_tree.configure(yscrollcommand=vsb.set)
         self._entry_tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
-        self._entry_tree.bind("<<TreeviewSelect>>", self._on_entry_selected)
+        on_treeview_select(self._entry_tree, self._on_entry_selected)
         self._tooltips.append(HoverTooltip(self._entry_tree, SCHOOL_WIDE_CANCELLATION_HELP["entry_list"]))
 
     def _build_form(self, parent) -> None:
@@ -255,8 +255,8 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
 
     def _on_new(self) -> None:
         self._selected_entry_id = None
-        for item in self._entry_tree.selection():
-            self._entry_tree.selection_remove(item)
+        # notify=True: der Auswahl-Handler lief nach programmatischen Aenderungen schon frueher mit (1:1).
+        treeview_selection.clear(self._entry_tree, notify=True)
         self._reason_var.set("")
         self._von_var.set(date.today().strftime("%d.%m.%Y"))
         self._bis_var.set("")
@@ -367,7 +367,7 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
         self._run_diagnostics()
         self._selected_entry_id = selected_entry_id
         if selected_entry_id is not None:
-            self._entry_tree.selection_set(selected_entry_id)
+            treeview_selection.set(self._entry_tree, [selected_entry_id], notify=True)
         self._refresh_preview()
 
         if bulk_result.aborted:

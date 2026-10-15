@@ -11,7 +11,7 @@ from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, KeySpec
-from bw_gui.runtime import WindowShortcutBinder, ui, widgets
+from bw_gui.runtime import WindowShortcutBinder, treeview_selection, ui, widgets
 from bw_gui.theming import tinted_color
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
@@ -344,7 +344,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         children = self._right_tree.get_children()
         if sel_idx is not None and sel_idx < len(children):
             item = children[sel_idx]
-            self._right_tree.selection_set(item)
+            treeview_selection.set(self._right_tree, [item])
             self._right_tree.see(item)
 
     @staticmethod
@@ -466,7 +466,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         new_sel_idx = partner_idx
         children = self._right_tree.get_children()
         if 0 <= new_sel_idx < len(children):
-            self._right_tree.selection_set(children[new_sel_idx])
+            treeview_selection.set(self._right_tree, [children[new_sel_idx]])
             self._right_tree.see(children[new_sel_idx])
 
     def _find_stattfindend_neighbor(self, idx: int, direction: int) -> int | None:

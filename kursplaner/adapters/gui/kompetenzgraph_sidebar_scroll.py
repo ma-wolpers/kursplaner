@@ -4,7 +4,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
-from bw_gui.runtime import PointerGroup, ui, widgets
+from bw_gui.runtime import PointerGroup, on_resize, ui, widgets
 
 
 class KompetenzGraphSidebarScroll:
@@ -42,8 +42,8 @@ class KompetenzGraphSidebarScroll:
         self.inner = widgets.Frame(self._canvas)
         self._inner_window = self._canvas.create_window((0, 0), window=self.inner, anchor="nw")
 
-        self.inner.bind("<Configure>", self._on_inner_configure)
-        self._canvas.bind("<Configure>", self._on_canvas_configure)
+        on_resize(self.inner, self._on_inner_configure)
+        on_resize(self._canvas, self._on_canvas_configure)
         self._wheel_group = PointerGroup(self._canvas, "kompetenzgraph-sidebar")
         self._wheel_group.on_wheel(self._on_mousewheel)
         self._wheel_group.add(self._canvas)
