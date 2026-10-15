@@ -15,6 +15,7 @@ from guardrail_config import (  # noqa: E402
     SHARED_PRIMITIVE_CLASS_NAMES,
 )
 from guardrail_support import (  # noqa: E402
+    _class_by_name,
     _contains_direct_tkinter_import,
     _forbid_substring,
     _iter_future_gui_entry_candidates,
@@ -83,10 +84,14 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
     main_window = _read("kursplaner/adapters/gui/main_window.py")
     for snippet in (
         "from bw_gui.menu import section_spec",
-        "class KursplanerApp(BwBaseWindow)",
         "def build_menu(self)",
     ):
         _require_substring(main_window, snippet, "kursplaner/adapters/gui/main_window.py", errors)
+    # KursplanerApp erbt von BwBaseWindow (Delegations-Mixins duerfen davor stehen; 300-Zeilen-Regel).
+    app_class = _class_by_name(ast.parse(main_window), "KursplanerApp")
+    base_names = {base.id for base in app_class.bases if isinstance(base, ast.Name)} if app_class else set()
+    if "BwBaseWindow" not in base_names:
+        errors.append("kursplaner/adapters/gui/main_window.py: class KursplanerApp must derive from BwBaseWindow")
 
     hover_tooltip = _read("kursplaner/adapters/gui/hover_tooltip.py")
     _require_substring(

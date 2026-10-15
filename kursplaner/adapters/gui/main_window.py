@@ -37,21 +37,15 @@ from kursplaner.adapters.gui.window_identity import (
     bring_window_to_front,
     configure_windows_process_identity,
 )
-from kursplaner.core.config.ui_preferences_store import (
-    load_column_visibility_settings,
-    load_course_overview_highlight_days,
-    load_row_filter_settings,
-    load_theme_key,
-    save_column_visibility_settings,
-    save_row_filter_settings,
-    save_theme_key,
-)
+from kursplaner.core.config.ui_preferences_store import load_column_visibility_settings, load_course_overview_highlight_days, load_row_filter_settings, load_theme_key, save_theme_key
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
+from kursplaner.adapters.gui.main_window_plan_delegation import KursplanerPlanDelegationMixin  # noqa: E402
+from kursplaner.adapters.gui.main_window_row_mode import KursplanerRowModeMixin  # noqa: E402
 
 
-class KursplanerApp(BwBaseWindow):
+class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBaseWindow):
     """Hauptfenster-Adapter der Anwendung.
 
     Verantwortlich für UI-Zustand und Delegation an spezialisierte Controller;
@@ -334,10 +328,6 @@ class KursplanerApp(BwBaseWindow):
         """Commitet aktive Zellbearbeitung bei globalem Klick außerhalb des Editors."""
         return self.ui_intent_controller.intent_global_click_commit_cell(event)
 
-    def _should_handle_global_clipboard_shortcut(self, event, operation: str) -> bool:
-        """Prüft, ob ein globaler Zwischenablage-Shortcut vom Grid behandelt werden soll."""
-        return self.ui_intent_controller.should_handle_global_clipboard_shortcut(event, operation)
-
     @staticmethod
     def _widget_has_text_selection(widget) -> bool:
         """Prüft widget-agnostisch, ob aktuell eine Textauswahl aktiv ist."""
@@ -348,63 +338,6 @@ class KursplanerApp(BwBaseWindow):
         save_theme_key(normalize_theme_key(self.theme_var.get()))
         self._apply_theme()
         self._apply_grid_theme()
-
-    def _open_column_visibility_settings(self):
-        """Öffnet den Dialog zum Ein-/Ausblenden von Spaltenarten."""
-        self.action_controller.open_column_visibility_settings()
-
-    def _refresh_row_mode_button_styles(self):
-        """Aktualisiert die Beschriftung der Modusbuttons gemäß aktivem Modus."""
-        for mode_key, button in self.row_mode_buttons.items():
-            base_label = self.row_mode_labels.get(mode_key, mode_key.title())
-            label = f"● {base_label}" if mode_key == self.active_row_mode else base_label
-            button.configure(text=label)
-
-    def _set_row_mode(self, mode_key: str, *, manual: bool = True):
-        """Setzt den aktiven Zeilen-Anzeigemodus und rendert bei Änderung neu."""
-        normalized = self.row_display_mode_usecase.normalize_mode(mode_key)
-        if manual:
-            self.auto_row_mode_var.set(False)
-
-        changed = normalized != self.active_row_mode
-        self.active_row_mode = normalized
-        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(
-            self.active_row_mode, self.row_filter_settings
-        )
-        self._refresh_row_mode_button_styles()
-        if changed:
-            self._rebuild_grid()
-
-    def _on_toggle_auto_row_mode(self):
-        """Reagiert auf Umschalten des Auto-Modus für Zeilenansichten."""
-        if bool(self.auto_row_mode_var.get()):
-            self._update_row_mode_from_selection()
-
-    def _set_column_visibility_settings(self, settings):
-        """Setzt globale Sichtbarkeits-/Marker-Einstellungen und rendert neu."""
-        self.column_visibility_settings = settings
-        save_column_visibility_settings(settings)
-        self._collect_day_columns()
-        self._update_row_mode_from_selection()
-        self._rebuild_grid()
-
-    def _set_row_filter_settings(self, settings: RowFilterSettings) -> None:
-        """Setzt den Zeilenfilter, persistiert ihn und rendert das Grid neu."""
-        save_row_filter_settings(settings)
-        self.row_filter_settings = settings
-        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode, settings)
-        self._rebuild_grid()
-
-    def _update_row_mode_from_selection(self):
-        """Leitet den Zeilenmodus automatisch aus der selektierten Spaltenart ab."""
-        if not bool(self.auto_row_mode_var.get()):
-            return
-        mode = self.row_display_mode_usecase.mode_for_selection(
-            selected_day_indices=set(self.selected_day_indices),
-            day_columns=list(self.day_columns),
-            fallback_mode=self.active_row_mode,
-        )
-        self._set_row_mode(mode, manual=False)
 
     def _apply_theme(self):
         """Wendet das aktuelle Theme auf das Hauptfenster an."""
@@ -437,231 +370,6 @@ class KursplanerApp(BwBaseWindow):
     def open_new_course_window(self):
         """Öffnet den Dialog zur Erstellung eines neuen Kurses."""
         self.action_controller.open_new_course_window()
-
-    def _clear_plan_table(self, title: str):
-        """Setzt die rechte Planansicht auf einen leeren Ausgangszustand."""
-        self.action_controller.clear_plan_table(title)
-
-    def _undo_history(self):
-        """Delegiert Undo an den Action-Controller."""
-        self.action_controller.undo_history()
-
-    def _redo_history(self):
-        """Delegiert Redo an den Action-Controller."""
-        self.action_controller.redo_history()
-
-    def _on_grid_inner_configure(self, _event=None):
-        """Synchronisiert Scrollregion/Layout nach Änderungen im Grid-Container."""
-        return self.grid_renderer._on_grid_inner_configure(_event)
-
-    def _on_canvas_configure(self, event):
-        """Reagiert auf Größenänderungen des Canvas für responsive Grid-Breite."""
-        return self.grid_renderer._on_canvas_configure(event)
-
-    def _on_vertical_scroll(self, *args):
-        """Delegiert vertikales Scrollen an beide Grid-Bereiche synchron."""
-        return self.viewport_sync.yview(*args)
-
-    def _on_horizontal_scroll(self, *args):
-        """Delegiert horizontales Scrollen an Header- und Body-Canvas synchron."""
-        return self.grid_renderer._on_horizontal_scroll(*args)
-
-    def _load_selected_table(self, _event=None):
-        """High-level Entry: lädt die aktuell selektierte Planung in die Detailansicht."""
-        self.overview_controller.load_selected_table(_event)
-
-    def _close_detail_view(self):
-        """Schließt die Einheitenansicht und zeigt wieder nur die Kursliste."""
-        self.overview_controller.close_detail_view()
-
-    def _show_course_overview(self):
-        """Zeigt die Kursliste als alleinige Hauptansicht."""
-        self.screen_builder.show_course_overview()
-
-    def _show_course_detail(self):
-        """Zeigt die Einheitenansicht als alleinige Hauptansicht."""
-        self.screen_builder.show_course_detail()
-
-    def _collect_day_columns(self, changed_row_indices: set[int] | None = None) -> None:
-        """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle.
-
-        Args:
-            changed_row_indices: Siehe `OverviewController.collect_day_columns()`.
-        """
-        self.overview_controller.collect_day_columns(changed_row_indices)
-
-    def _field_value(self, day: DayColumn, field_key: str) -> str:
-        """Liefert den darzustellenden Zellwert für ein Feld aus `day_columns`."""
-        return self.lesson_context_controller.field_value(day, field_key)
-
-    def _estimate_visual_lines(self, text: str) -> int:
-        """Schätzt benötigte Anzeigezeilen für Text anhand UI-Regeln."""
-        return self.lesson_context_controller.estimate_visual_lines(text)
-
-    @staticmethod
-    def _keyword_match(text: str, keywords: list[str]) -> bool:
-        """Prüft case-insensitiv, ob eines der Keywords im Text enthalten ist."""
-        return MainWindowLessonContextController.keyword_match(text, keywords)
-
-    @staticmethod
-    def _contains_markdown_link(text: str) -> bool:
-        """Erkennt Obsidian-Linksyntax `[[...]]` in einem Text."""
-        return MainWindowLessonContextController.contains_markdown_link(text)
-
-    def _parse_halfyear_token(self) -> str:
-        """Liest Halbjahres-Token aus aktueller Planmetadatenlage."""
-        return self.lesson_context_controller.parse_halfyear_token()
-
-    def _is_lzk_row(self, row_index: int) -> bool:
-        """Prüft, ob die gegebene Tabellenzeile als LZK klassifiziert ist."""
-        return self.lesson_context_controller.is_lzk_row(row_index)
-
-    def _next_lzk_number(self) -> int:
-        """Bestimmt die nächste freie LZK-Nummer im aktuellen Plan."""
-        return self.lesson_context_controller.next_lzk_number()
-
-    def _replace_plan_link(self, row_index: int, new_stem: str):
-        """Ersetzt den Linktext in einer Planzeile durch einen neuen Dateistamm."""
-        self.lesson_context_controller.replace_plan_link(row_index, new_stem)
-
-    def _rename_linked_file_for_row(self, row_index: int, desired_stem: str) -> pathlib.Path | None:
-        """Benennt die verlinkte Stunden-Datei einer Zeile auf den Zielstamm um."""
-        return self.lesson_context_controller.rename_linked_file_for_row(row_index, desired_stem)
-
-    def _toggle_column_selection(self, day_index: int):
-        """Schaltet die Selektion einer Spalte und stößt Header-Update an."""
-        self.selection_controller.toggle_column_selection(day_index)
-
-    def _update_selected_column_label(self):
-        """Aktualisiert das UI-Label für aktuell selektierte Grid-Spalten."""
-        self.selection_controller.update_selected_column_label()
-
-    def _refresh_header_styles(self):
-        """Aktualisiert Header-Styling anhand Selektion und Theme-Zustand."""
-        self.selection_controller.refresh_header_styles()
-
-    def _selected_indices_sorted(self) -> list[int]:
-        """Liefert selektierte Spaltenindizes in stabil sortierter Reihenfolge."""
-        return self.selection_controller.selected_indices_sorted()
-
-    def _collect_selected_or_warn(self) -> list[int]:
-        """Liefert selektierte Spalten oder zeigt Hinweis bei leerer Auswahl."""
-        return self.selection_controller.collect_selected_or_warn()
-
-    def _get_single_selected_or_warn(self) -> int | None:
-        """Liefert genau eine ausgewählte Spalte oder zeigt Warnhinweis."""
-        return self.selection_controller.get_single_selected_or_warn()
-
-    def _set_single_column_selection(self, day_index: int, *, ensure_visible: bool = False):
-        """Setzt genau eine selektierte Spalte und optional den horizontalen Fokus darauf."""
-        self.selection_controller.set_single_column_selection(day_index, ensure_visible=ensure_visible)
-
-    def _move_selected_column_focus(self, direction: int) -> bool:
-        """Verschiebt die Spaltenselektion per Tastatur zur nächsten stattfindenden Einheit."""
-        return self.selection_controller.move_selection_to_adjacent_occurring(direction)
-
-    def _create_text_cell(
-        self,
-        parent: ui.Widget,
-        text: str,
-        editable: bool,
-        canceled: bool,
-        unresolved_link: bool,
-        height_lines: int,
-        *,
-        is_lzk: bool = False,
-        lzk_masked: bool = False,
-    ) -> ui.Text:
-        """Erzeugt ein Text-Widget für eine Grid-Zelle mit passendem Rendering."""
-        return self.grid_renderer._create_text_cell(
-            parent,
-            text,
-            editable,
-            canceled,
-            unresolved_link,
-            height_lines,
-            is_lzk=is_lzk,
-            lzk_masked=lzk_masked,
-        )
-
-    def _rebuild_grid(self):
-        """High-frequency Entry: rendert das komplette Plan-Grid neu."""
-        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
-        return self.grid_renderer._rebuild_grid()
-
-    def _refresh_grid_content(self):
-        """Aktualisiert Header/Zellen ohne kompletten Widget-Neuaufbau."""
-        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
-        return self.grid_renderer.refresh_grid_content()
-
-    def _update_grid_column(self, day_index: int):
-        """Aktualisiert Header und alle Zellen einer bestehenden Spalte."""
-        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
-        return self.grid_renderer.update_column(day_index)
-
-    def _update_grid_cell(self, field_key: str, day_index: int):
-        """Aktualisiert den Inhalt/Stil einer einzelnen existierenden Zelle."""
-        return self.grid_renderer.update_cell(field_key, day_index)
-
-    def _update_grid_header(self, day_index: int):
-        """Aktualisiert nur den Header einer bestehenden Spalte."""
-        self.grid_renderer.set_next_unit_index(self.overview_controller._next_lesson_column_index())
-        return self.grid_renderer.update_header(day_index)
-
-    def _update_grid_row_style(self, field_key: str):
-        """Aktualisiert Label und Stil einer bestehenden Feldzeile."""
-        return self.grid_renderer.update_row_style(field_key)
-
-    def _apply_grid_theme(self):
-        """Wendet Themefarben/-stile auf alle Grid-Komponenten an."""
-        return self.grid_renderer._apply_grid_theme()
-
-    def _ensure_link_for_day(self, day_index: int, preferred_topic: str = "") -> pathlib.Path | None:
-        """Stellt sicher, dass für eine Spalte eine Stunden-Datei verlinkt ist."""
-        return self.editor_controller.ensure_link_for_day(day_index, preferred_topic=preferred_topic)
-
-    def _save_cell(self, field_key: str, day_index: int):
-        """High-frequency Entry: persistiert Änderungen einer einzelnen Grid-Zelle."""
-        self.editor_controller.save_cell(field_key, day_index)
-
-    def _apply_value(self, field_key: str, day_index: int, value: str):
-        """Übernimmt einen Zellenwert fachkonform in Tabelle/YAML und Persistenz."""
-        self.editor_controller.apply_value(field_key, day_index, value)
-
-    def _update_selected_lesson_metrics(self):
-        """Aktualisiert die Übersichtsmetriken der aktuell selektierten Unterrichtszeile."""
-        selected = self.lesson_tree.focus()
-        if not selected or self.current_table is None:
-            return
-
-        (
-            next_theme,
-            remaining_hours,
-            next_lzk,
-            next_ub,
-            next_unit,
-            _days_until_next_unit,
-            _has_upcoming_unit,
-            _has_any_dated_unit,
-        ) = self._plan_overview_query.summarize_plan(self.current_table)
-        # Schreibzugriff über Spalten-IDs statt Positionsindizes, damit neue oder
-        # umsortierte Übersichtsspalten (z. B. "stufe") keine Werte verschieben.
-        updates = {
-            "next_topic": next_theme,
-            "next_unit": next_unit,
-            "remaining_hours": str(remaining_hours),
-            "next_lzk": next_lzk,
-            "next_ub": next_ub,
-        }
-        available_columns = set(self.lesson_tree["columns"])
-        for column_id, value in updates.items():
-            if column_id in available_columns:
-                self.lesson_tree.set(selected, column_id, value)
-
-    def _on_grid_mousewheel(self, event):
-        """Delegiert Scroll-/Zoom-Interaktion des Grids an den Renderer."""
-        return self.grid_renderer._on_grid_mousewheel(event)
-
 
 def main():
     """Startet die GUI-Anwendung nach interaktivem Pfad-Bootstrap."""

@@ -6,7 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
-from bw_gui.contracts import UNKNOWN_MODIFIERS, EventResult, modifiers_from_event
+from bw_gui.contracts import EventResult
 from bw_gui.contracts.pointer import ClickEvent, DragEvent
 
 # Backward-compatible module aliases for existing tests and call sites.
@@ -897,34 +897,6 @@ class MainWindowUiIntentController:
         if set_grid_focus:
             self.app.grid_canvas.focus_set()
         return True
-
-    def should_handle_global_clipboard_shortcut(self, event, operation: str) -> bool:
-        if operation not in {"cut", "copy", "paste"}:
-            return False
-
-        # Alt gehalten -> kein globales Clipboard-Kuerzel. Modifier-Semantik aus dem
-        # bw-gui-Contract: frueher galt state & 0x0008 als Alt, unter Windows ist das
-        # aber das NumLock-Bit (Strg+C/X/V griffen bei NumLock nicht). Unbekannter
-        # Zustand -> nicht behandeln (fail-closed).
-        if event is not None:
-            modifiers = modifiers_from_event(event)
-            if modifiers is UNKNOWN_MODIFIERS or modifiers.alt:
-                return False
-
-        event_widget = self._resolve_event_widget(event)
-        if self._is_editable_widget(event_widget):
-            return False
-
-        widget = self.app.focus_get()
-        if self._is_editable_widget(widget):
-            return False
-
-        level = self.app.ui_state.selection_level
-        if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
-            return operation in {"copy", "paste"}
-        if level == self.app.ui_state.SELECTION_LEVEL_CELL:
-            return operation in {"cut", "copy", "paste"}
-        return False
 
     @staticmethod
     def _resolve_event_widget(event):
