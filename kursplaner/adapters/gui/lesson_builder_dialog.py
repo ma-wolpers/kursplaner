@@ -2,11 +2,13 @@ from dataclasses import dataclass
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.contracts import EventResult
 from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.lesson_dialog_keys import LessonDialogKeysMixin
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.selection_overlay_controller import SelectionOverlayController
 from kursplaner.adapters.gui.wrapped_text_field import WrappedTextField
@@ -31,7 +33,7 @@ class LessonKompetenzenSelectionResult:
     kompetenzen_refs: list[str]
 
 
-class LessonBuilderDialog(ScrollablePopupWindow):
+class LessonBuilderDialog(LessonDialogKeysMixin, ScrollablePopupWindow):
     """Dialog zur strukturierten Erfassung von Einheitsmetadaten und Referenzen."""
 
     def __init__(
@@ -93,9 +95,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             on_pick=self._on_overlay_pick,
             is_heading=self._is_heading,
         )
-        self._bind_global_overlay_close()
-        self.bind("<Control-Return>", self._on_ctrl_enter_accept)
-        self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
+        self._install_dialog_keys()
         self._apply_theme()
 
         self.topic_field.set(topic_initial)
@@ -258,56 +258,10 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             font=font,
         ).pack(anchor="w")
 
-    def _bind_overlay_field(self, field_widget: WrappedTextField, field_name: str, enable_filter_refresh: bool = False):
-        text = field_widget.text
-        text.bind("<FocusIn>", lambda _e: self.overlay_controller.open(field_name, text))
-        text.bind("<Button-1>", lambda _e: self.overlay_controller.open(field_name, text))
-        text.bind("<Down>", self._overlay_move_down)
-        text.bind("<Up>", self._overlay_move_up)
-        text.bind("<Return>", self._overlay_select_from_field)
-        text.bind("<Control-Return>", self._on_ctrl_enter_accept)
-        text.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
-        if enable_filter_refresh:
-            text.bind("<KeyRelease>", lambda _e: self._refresh_open_overlay(field_name))
-
-    def _on_ctrl_enter_accept(self, _event=None):
+    def _on_ctrl_enter_accept(self, _event=None) -> EventResult:
+        """Strg+Enter: übernimmt den Dialog; das Overlay bleibt offen, falls die Prüfung scheitert."""
         self._accept()
-        return "break"
-
-    def _bind_tab_navigation(self, fields: list[WrappedTextField]):
-        self._tab_order = [field.text for field in fields]
-        self.bind("<Tab>", self._on_tab_next, add="+")
-        self.bind("<Shift-Tab>", self._on_tab_prev, add="+")
-        self.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
-        for text in self._tab_order:
-            text.bind("<Tab>", self._on_tab_next, add="+")
-            text.bind("<Shift-Tab>", self._on_tab_prev, add="+")
-            text.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
-
-    def _on_tab_next(self, event):
-        return self._move_tab_focus(getattr(event, "widget", None), +1)
-
-    def _on_tab_prev(self, event):
-        return self._move_tab_focus(getattr(event, "widget", None), -1)
-
-    def _move_tab_focus(self, current_widget, direction: int):
-        if not getattr(self, "_tab_order", None):
-            return "break"
-        try:
-            current_index = self._tab_order.index(current_widget)
-        except ValueError:
-            target_index = 0 if direction > 0 else len(self._tab_order) - 1
-            self._tab_order[target_index].focus_set()
-            return "break"
-        target_index = current_index + direction
-        if 0 <= target_index < len(self._tab_order):
-            self._tab_order[target_index].focus_set()
-        return "break"
-
-    def _bind_global_overlay_close(self):
-        """Schließt Overlay bei Klick/Fokuswechsel außerhalb relevanter Widgets."""
-        self.bind("<Button-1>", self._on_global_click, add="+")
-        self.bind("<FocusIn>", self._on_global_focus_change, add="+")
+        return EventResult.HANDLED
 
     @staticmethod
     def _is_heading(item: str) -> bool:
@@ -317,24 +271,6 @@ class LessonBuilderDialog(ScrollablePopupWindow):
     def _split_multi_values(text: str) -> list[str]:
         parts = [part.strip() for part in str(text).split(" | ")]
         return [part for part in parts if part]
-
-    def _on_global_click(self, event):
-        if not self.overlay_controller.is_open:
-            return None
-        widget = getattr(event, "widget", None)
-        if self.overlay_controller.should_keep_open_for_widget(widget):
-            return None
-        self.overlay_controller.close()
-        return None
-
-    def _on_global_focus_change(self, _event):
-        if not self.overlay_controller.is_open:
-            return None
-        focused = self.focus_get()
-        if self.overlay_controller.should_keep_open_for_widget(focused):
-            return None
-        self.overlay_controller.close()
-        return None
 
     def _options_for_field(self, field: str) -> list[str]:
         if field == "kompetenzen":
@@ -357,11 +293,8 @@ class LessonBuilderDialog(ScrollablePopupWindow):
             return filtered or ["# Keine Treffer"]
         return []
 
-    def _refresh_open_overlay(self, expected_field: str):
-        if self.overlay_controller.active_field == expected_field:
-            self.overlay_controller.refresh()
-
-    def _overlay_move_down(self, _event):
+    def _overlay_move_down(self, _event) -> EventResult:
+        """↓: öffnet ein ausgeblendetes Overlay des aktiven Felds wieder und bewegt die Auswahl."""
         if (
             not self.overlay_controller.is_open
             and self.overlay_controller.active_field
@@ -369,17 +302,7 @@ class LessonBuilderDialog(ScrollablePopupWindow):
         ):
             self.overlay_controller.open(self.overlay_controller.active_field, self.overlay_controller.active_anchor)
         self.overlay_controller.move(+1)
-        return "break"
-
-    def _overlay_move_up(self, _event):
-        self.overlay_controller.move(-1)
-        return "break"
-
-    def _overlay_select_from_field(self, _event):
-        if self.overlay_controller.is_open:
-            self.overlay_controller.select_current()
-            return "break"
-        return None
+        return EventResult.HANDLED
 
     def _on_overlay_pick(self, field: str, value: str):
         if field == "kompetenzen":
@@ -533,7 +456,7 @@ def _activate_modal_focus(dialog: ScrollablePopupWindow, field_widget) -> None:
         return
 
 
-class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
+class LessonKompetenzenSelectionDialog(LessonDialogKeysMixin, ScrollablePopupWindow):
     """Kompakter Dialog für die Auswahl von Kompetenzen."""
 
     def __init__(
@@ -580,16 +503,12 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
         )
         self._bind_overlay_field(self.kompetenzen_field, "kompetenzen")
         self._bind_tab_navigation([self.kompetenzen_field])
-        self.bind("<Control-Return>", self._on_ctrl_enter_accept)
-        self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
+        self._install_dialog_keys()
 
         widgets.Label(basics, text=self.kompetenzen_hint, wraplength=680, justify="left").grid(
             row=2, column=1, sticky="w", padx=(0, 10), pady=(0, 10)
         )
         basics.columnconfigure(1, weight=1)
-
-        self.bind("<Button-1>", self._on_global_click, add="+")
-        self.bind("<FocusIn>", self._on_global_focus_change, add="+")
 
         self._tooltips = [
             HoverTooltip(kompetenzen_label, LESSON_BUILDER_HELP["kompetenzen"]),
@@ -607,46 +526,6 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
         parts = [part.strip() for part in str(text).split(" | ")]
         return [part for part in parts if part]
 
-    def _bind_overlay_field(self, field_widget: WrappedTextField, field_name: str):
-        text = field_widget.text
-        text.bind("<FocusIn>", lambda _e: self.overlay_controller.open(field_name, text))
-        text.bind("<Button-1>", lambda _e: self.overlay_controller.open(field_name, text))
-        text.bind("<Down>", self._overlay_move_down)
-        text.bind("<Up>", self._overlay_move_up)
-        text.bind("<Return>", self._overlay_select_from_field)
-        text.bind("<Control-Return>", self._on_ctrl_enter_accept)
-        text.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
-
-    def _bind_tab_navigation(self, fields: list[WrappedTextField]):
-        self._tab_order = [field.text for field in fields]
-        self.bind("<Tab>", self._on_tab_next, add="+")
-        self.bind("<Shift-Tab>", self._on_tab_prev, add="+")
-        self.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
-        for text in self._tab_order:
-            text.bind("<Tab>", self._on_tab_next, add="+")
-            text.bind("<Shift-Tab>", self._on_tab_prev, add="+")
-            text.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
-
-    def _on_tab_next(self, event):
-        return self._move_tab_focus(getattr(event, "widget", None), +1)
-
-    def _on_tab_prev(self, event):
-        return self._move_tab_focus(getattr(event, "widget", None), -1)
-
-    def _move_tab_focus(self, current_widget, direction: int):
-        if not getattr(self, "_tab_order", None):
-            return "break"
-        try:
-            current_index = self._tab_order.index(current_widget)
-        except ValueError:
-            target_index = 0 if direction > 0 else len(self._tab_order) - 1
-            self._tab_order[target_index].focus_set()
-            return "break"
-        target_index = current_index + direction
-        if 0 <= target_index < len(self._tab_order):
-            self._tab_order[target_index].focus_set()
-        return "break"
-
     def _options_for_field(self, field: str) -> list[str]:
         if field == "kompetenzen":
             return self.kompetenzen_options or ["# Keine Kompetenzen verfügbar"]
@@ -662,43 +541,6 @@ class LessonKompetenzenSelectionDialog(ScrollablePopupWindow):
             else:
                 values.append(value)
             self.kompetenzen_field.set(" | ".join(values))
-
-    def _on_ctrl_enter_accept(self, _event=None):
-        self.overlay_controller.close()
-        self._accept()
-        return "break"
-
-    def _overlay_move_down(self, _event):
-        self.overlay_controller.move(+1)
-        return "break"
-
-    def _overlay_move_up(self, _event):
-        self.overlay_controller.move(-1)
-        return "break"
-
-    def _overlay_select_from_field(self, _event):
-        if self.overlay_controller.is_open:
-            self.overlay_controller.select_current()
-            return "break"
-        return None
-
-    def _on_global_click(self, event):
-        if not self.overlay_controller.is_open:
-            return None
-        widget = getattr(event, "widget", None)
-        if self.overlay_controller.should_keep_open_for_widget(widget):
-            return None
-        self.overlay_controller.close()
-        return None
-
-    def _on_global_focus_change(self, _event):
-        if not self.overlay_controller.is_open:
-            return None
-        focused = self.focus_get()
-        if self.overlay_controller.should_keep_open_for_widget(focused):
-            return None
-        self.overlay_controller.close()
-        return None
 
     def _accept(self):
         self.result = LessonKompetenzenSelectionResult(
@@ -730,7 +572,7 @@ def ask_lesson_kompetenzen_selection(
     return dialog.result
 
 
-class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
+class LessonStundenzielSelectionDialog(LessonDialogKeysMixin, ScrollablePopupWindow):
     """Kompakter Dialog für die Auswahl des Stundenziels."""
 
     def __init__(
@@ -777,16 +619,12 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
         )
         self._bind_overlay_field(self.stundenziel_field, "stundenziel")
         self._bind_tab_navigation([self.stundenziel_field])
-        self.bind("<Control-Return>", self._on_ctrl_enter_accept)
-        self.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
+        self._install_dialog_keys()
 
         widgets.Label(basics, text=self.stundenziel_hint, wraplength=640, justify="left").grid(
             row=2, column=1, sticky="w", padx=(0, 10), pady=(0, 10)
         )
         basics.columnconfigure(1, weight=1)
-
-        self.bind("<Button-1>", self._on_global_click, add="+")
-        self.bind("<FocusIn>", self._on_global_focus_change, add="+")
 
         self._tooltips = [
             HoverTooltip(stundenziel_label, LESSON_BUILDER_HELP["stundenziel"]),
@@ -798,46 +636,6 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
         widgets.Button(buttons, text="Übernehmen", command=self._accept).pack(side="left")
         widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
         self.apply_theme()
-
-    def _bind_overlay_field(self, field_widget: WrappedTextField, field_name: str):
-        text = field_widget.text
-        text.bind("<FocusIn>", lambda _e: self.overlay_controller.open(field_name, text))
-        text.bind("<Button-1>", lambda _e: self.overlay_controller.open(field_name, text))
-        text.bind("<Down>", self._overlay_move_down)
-        text.bind("<Up>", self._overlay_move_up)
-        text.bind("<Return>", self._overlay_select_from_field)
-        text.bind("<Control-Return>", self._on_ctrl_enter_accept)
-        text.bind("<Control-KP_Enter>", self._on_ctrl_enter_accept)
-
-    def _bind_tab_navigation(self, fields: list[WrappedTextField]):
-        self._tab_order = [field.text for field in fields]
-        self.bind("<Tab>", self._on_tab_next, add="+")
-        self.bind("<Shift-Tab>", self._on_tab_prev, add="+")
-        self.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
-        for text in self._tab_order:
-            text.bind("<Tab>", self._on_tab_next, add="+")
-            text.bind("<Shift-Tab>", self._on_tab_prev, add="+")
-            text.bind("<ISO_Left_Tab>", self._on_tab_prev, add="+")
-
-    def _on_tab_next(self, event):
-        return self._move_tab_focus(getattr(event, "widget", None), +1)
-
-    def _on_tab_prev(self, event):
-        return self._move_tab_focus(getattr(event, "widget", None), -1)
-
-    def _move_tab_focus(self, current_widget, direction: int):
-        if not getattr(self, "_tab_order", None):
-            return "break"
-        try:
-            current_index = self._tab_order.index(current_widget)
-        except ValueError:
-            target_index = 0 if direction > 0 else len(self._tab_order) - 1
-            self._tab_order[target_index].focus_set()
-            return "break"
-        target_index = current_index + direction
-        if 0 <= target_index < len(self._tab_order):
-            self._tab_order[target_index].focus_set()
-        return "break"
 
     def _options_for_field(self, field: str) -> list[str]:
         if field == "stundenziel":
@@ -852,43 +650,6 @@ class LessonStundenzielSelectionDialog(ScrollablePopupWindow):
             self.stundenziel_field.set("")
         else:
             self.stundenziel_field.set(value)
-
-    def _overlay_move_down(self, _event):
-        self.overlay_controller.move(+1)
-        return "break"
-
-    def _overlay_move_up(self, _event):
-        self.overlay_controller.move(-1)
-        return "break"
-
-    def _overlay_select_from_field(self, _event):
-        if self.overlay_controller.is_open:
-            self.overlay_controller.select_current()
-            return "break"
-        return None
-
-    def _on_global_click(self, event):
-        if not self.overlay_controller.is_open:
-            return None
-        widget = getattr(event, "widget", None)
-        if self.overlay_controller.should_keep_open_for_widget(widget):
-            return None
-        self.overlay_controller.close()
-        return None
-
-    def _on_global_focus_change(self, _event):
-        if not self.overlay_controller.is_open:
-            return None
-        focused = self.focus_get()
-        if self.overlay_controller.should_keep_open_for_widget(focused):
-            return None
-        self.overlay_controller.close()
-        return None
-
-    def _on_ctrl_enter_accept(self, _event=None):
-        self.overlay_controller.close()
-        self._accept()
-        return "break"
 
     def _accept(self):
         self.result = self.stundenziel_field.get()

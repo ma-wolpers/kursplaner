@@ -1,5 +1,10 @@
 from types import SimpleNamespace
 
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.contracts import EventResult  # noqa: E402
+
 from kursplaner.adapters.gui.lesson_builder_dialog import LessonBuilderDialog
 
 
@@ -18,7 +23,7 @@ def test_move_tab_focus_recovers_when_focus_not_in_tab_order():
 
     result = LessonBuilderDialog._move_tab_focus(fake_dialog, current_widget=object(), direction=+1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert first.calls == 1
     assert second.calls == 0
 
@@ -30,6 +35,6 @@ def test_move_tab_focus_wraps_to_last_on_reverse_from_outside():
 
     result = LessonBuilderDialog._move_tab_focus(fake_dialog, current_widget=object(), direction=-1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert first.calls == 0
     assert second.calls == 1

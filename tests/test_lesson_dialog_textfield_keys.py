@@ -1,5 +1,10 @@
 from types import SimpleNamespace
 
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.contracts import EventResult  # noqa: E402
+
 from kursplaner.adapters.gui.lesson_builder_dialog import (
     LessonBuilderDialog,
     LessonKompetenzenSelectionDialog,
@@ -34,7 +39,7 @@ def test_lesson_builder_tab_focus_moves_forward_without_wrap():
 
     result = LessonBuilderDialog._move_tab_focus(dialog, first, +1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert second.focus_calls == 1
 
 
@@ -46,7 +51,7 @@ def test_lesson_builder_tab_focus_stops_at_last_field():
 
     result = LessonBuilderDialog._move_tab_focus(dialog, second, +1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert first.focus_calls == 0
     assert second.focus_calls == 0
 
@@ -58,7 +63,7 @@ def test_kompetenzen_dialog_tab_focus_single_field_no_wrap():
 
     result = LessonKompetenzenSelectionDialog._move_tab_focus(dialog, only, +1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert only.focus_calls == 0
 
 
@@ -69,7 +74,7 @@ def test_stundenziel_dialog_tab_focus_single_field_no_wrap():
 
     result = LessonStundenzielSelectionDialog._move_tab_focus(dialog, only, -1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert only.focus_calls == 0
 
 
