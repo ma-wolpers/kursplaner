@@ -133,7 +133,6 @@ class ScreenKeyHandlersMixin:
         """Meldet Esc-Shortcut als Intent an den Orchestrator."""
         if self._has_active_popup():
             ScrollablePopupWindow.close_active_popup()
-            self._sync_popup_sessions_from_windows()
             return EventResult.HANDLED
         return self._emit_intent(UiIntent.SHORTCUT_ESCAPE, event=_event)
 

@@ -266,7 +266,6 @@ class MainWindowActionController:
             theme_key=self.app.theme_var.get(),
         )
         self.app.kompetenzgraph_dialog = dialog
-        self.app.screen_builder._track_popup_window(dialog, policy_id="dialog.non_blocking")
 
     def open_row_filter_settings(self) -> None:
         """Öffnet den Dialog zum Ein-/Ausblenden von Zeilenfeldern."""

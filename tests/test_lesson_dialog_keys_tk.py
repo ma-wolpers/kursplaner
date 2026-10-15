@@ -14,7 +14,6 @@ from __future__ import annotations
 import tkinter
 
 import pytest
-
 from bw_gui.runtime import create_root, ui, widgets
 from bw_gui.runtime.key_router import router_for
 from bw_gui.testing.keys import press_key

@@ -1,6 +1,11 @@
 import ast
+import importlib
 
-from tools.ci import check_ai_guardrails as guardrails
+from tools.ci import check_ai_guardrails  # noqa: F401  (nimmt tools/ci in sys.path auf)
+
+# Der Undo-Check liegt seit der Aufteilung in guardrail_checks.py; erst nach dem Import oben
+# auffindbar, daher per importlib (eine Import-Sortierung darf die Reihenfolge nicht drehen).
+guardrails = importlib.import_module("guardrail_checks")
 
 
 def _module(code: str) -> ast.Module:

@@ -351,7 +351,7 @@ class MainWindowOverviewController:
     def _show_loading_dialog(self, text: str):
         """Zeigt einen kleinen, nicht-blockierenden Ladehinweis mit laufender Progressbar."""
         dialog = ui.Toplevel(self.app)
-        self.app.screen_builder._track_popup_window(dialog, policy_id="dialog.non_blocking")
+        self.app.screen_builder._register_non_modal_window(dialog)
         dialog.title("Lade Kurs")
         dialog.transient(self.app)
         dialog.resizable(False, False)

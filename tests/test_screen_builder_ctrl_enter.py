@@ -26,6 +26,7 @@ def test_ctrl_enter_emits_column_intent_in_column_mode(monkeypatch):
     ui_state = SimpleNamespace(selection_level="column", SELECTION_LEVEL_COLUMN="column")
     app = SimpleNamespace(_handle_ui_intent=sink, ui_state=ui_state)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
 
     monkeypatch.setattr(
         "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",
@@ -45,6 +46,7 @@ def test_ctrl_enter_emits_edit_intent_outside_column_mode(monkeypatch):
     ui_state = SimpleNamespace(selection_level="cell", SELECTION_LEVEL_COLUMN="column")
     app = SimpleNamespace(_handle_ui_intent=sink, ui_state=ui_state)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
 
     monkeypatch.setattr(
         "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",

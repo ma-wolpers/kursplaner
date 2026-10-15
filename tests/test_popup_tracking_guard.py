@@ -17,8 +17,8 @@ def _is_self_app(node: ast.expr) -> bool:
 def _is_toplevel_of_self_app_call(node: ast.AST) -> bool:
     """Return True for an AST node representing a ``ui.Toplevel(self.app, ...)`` call.
 
-    Such a call creates a window parented directly to the main app window, which is
-    exactly the shape ``ScreenBuilder._sync_popup_sessions_from_windows`` scans for.
+    Such a call creates a raw window parented directly to the main app window; unlike
+    ``ScrollablePopupWindow`` it does not register itself in the bw-gui overlay stack.
     """
     return (
         isinstance(node, ast.Call)
@@ -29,20 +29,29 @@ def _is_toplevel_of_self_app_call(node: ast.AST) -> bool:
     )
 
 
-def _is_track_popup_window_call(node: ast.AST) -> bool:
-    """Return True for an AST node representing any ``<expr>._track_popup_window(...)`` call."""
-    return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "_track_popup_window"
+_REGISTRATION_CALLS = {"_register_non_modal_window", "register_overlay"}
+
+
+def _is_overlay_registration_call(node: ast.AST) -> bool:
+    """Return True for ``<expr>._register_non_modal_window(...)`` or a ``register_overlay(...)`` call."""
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+    return name in _REGISTRATION_CALLS
 
 
 def _untracked_toplevel_functions(source: str, filename: str) -> list[str]:
     """Return "filename:lineno" for functions that build a raw main-window Toplevel
-    (``ui.Toplevel(self.app)``) without also registering it via ``_track_popup_window``.
+    (``ui.Toplevel(self.app)``) without registering it in the overlay stack
+    (``_register_non_modal_window`` or ``register_overlay``).
 
-    Any such window is a direct child of the main app window, so it gets picked up by
-    ``ScreenBuilder._sync_popup_sessions_from_windows`` and auto-classified as a
-    blocking "dialog.modal" popup the moment it becomes visible -- but nothing knows how
-    to close it, so every Escape press is silently swallowed while it's open. This is
-    exactly what happened with the course-loading dialog (see overview_controller.py).
+    The overlay stack is the only source the shortcut gating reads
+    (``ScreenBuilder._shortcut_dialog_open``). An unregistered window is invisible to it:
+    the gating treats it as "nothing open", and the test diagnostic
+    ``unregistered_visible_toplevels`` reports it. (Under the former toplevel scan an
+    untracked window was auto-classified as blocking and swallowed Escape -- the
+    course-loading dialog bug this guard was written for.)
     """
 
     tree = ast.parse(source, filename=filename)
@@ -59,7 +68,7 @@ def _untracked_toplevel_functions(source: str, filename: str) -> list[str]:
                 has_untracked_toplevel = True
                 if first_offending_lineno is None:
                     first_offending_lineno = child.lineno
-            if _is_track_popup_window_call(child):
+            if _is_overlay_registration_call(child):
                 has_tracking_call = True
         if has_untracked_toplevel and not has_tracking_call:
             violations.append(f"{filename}:{first_offending_lineno} ({node.name})")
@@ -68,10 +77,10 @@ def _untracked_toplevel_functions(source: str, filename: str) -> list[str]:
 
 
 def test_every_main_window_toplevel_is_tracked_as_a_popup():
-    """Guard against reintroducing the Escape-swallowing bug for any future dialog.
+    """Every raw main-window toplevel declares its overlay category.
 
     Scans every module in kursplaner/adapters/gui for functions that create a raw
-    ``ui.Toplevel(self.app)`` without a matching ``_track_popup_window(...)`` call.
+    ``ui.Toplevel(self.app)`` without registering it in the overlay stack.
     """
     violations: list[str] = []
     for path in sorted(GUI_ADAPTERS_DIR.glob("*.py")):
@@ -79,8 +88,7 @@ def test_every_main_window_toplevel_is_tracked_as_a_popup():
         violations.extend(_untracked_toplevel_functions(source, path.name))
 
     assert violations == [], (
-        "Found ui.Toplevel(self.app) window(s) created without a matching "
-        "_track_popup_window(...) call in the same function. Untracked main-window "
-        "popups are silently misclassified as blocking and can never be closed, which "
-        "makes Escape stop working while they're open: " + ", ".join(violations)
+        "Found ui.Toplevel(self.app) window(s) created without registering them in the "
+        "overlay stack (_register_non_modal_window / register_overlay) in the same "
+        "function; the shortcut gating cannot see them: " + ", ".join(violations)
     )

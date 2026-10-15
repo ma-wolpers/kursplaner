@@ -9,7 +9,6 @@ from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, bind_whe
 from bw_gui.widgets import Switch
 
 from bw_libs.ui_contract.keybinding import KeybindingRegistry
-from bw_libs.ui_contract.popup import POPUP_KIND_MODAL, POPUP_KIND_NON_MODAL, PopupPolicy, PopupPolicyRegistry
 from kursplaner.adapters.gui._screen_key_handlers import ScreenKeyHandlersMixin
 from kursplaner.adapters.gui._screen_menus import ScreenMenusMixin
 from kursplaner.adapters.gui._screen_shortcut_debug import ScreenShortcutDebugMixin
@@ -39,17 +38,6 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         self.app = app
         self._last_toolbar_wrap_width = -1
         self._runtime_shortcuts = KeybindingRegistry()
-        self._popup_registry = PopupPolicyRegistry()
-        self._popup_registry.register_policy(PopupPolicy(policy_id="dialog.modal", kind=POPUP_KIND_MODAL))
-        self._popup_registry.register_policy(
-            PopupPolicy(
-                policy_id="dialog.non_blocking",
-                kind=POPUP_KIND_NON_MODAL,
-                trap_focus=False,
-                affects_mode=False,
-            )
-        )
-        self._tracked_popup_ids: set[str] = set()
         self.app.shortcut_debug_offline = False
         self.app.shortcut_runtime_debug_window = None
         self.app.shortcut_runtime_debug_table = None

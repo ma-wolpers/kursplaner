@@ -25,14 +25,14 @@ class _FakeWidget:
 
 
 class _FakeToplevel:
-    """Stand-in for ui.Toplevel matching the interface _track_popup_window needs."""
+    """Stand-in for ui.Toplevel matching the interface the loading dialog needs."""
 
     def __init__(self, *_args, **_kwargs):
         """Accept any Toplevel constructor arguments and start out "existing"."""
         self._exists = True
 
     def __str__(self):
-        """Return a fixed Tk widget-path-like id, matching how _track_popup_window keys popups."""
+        """Return a fixed Tk widget-path-like id."""
         return ".fake-loading-dialog"
 
     def title(self, *_args, **_kwargs):
@@ -68,16 +68,14 @@ class _FakeToplevel:
         self._exists = False
 
 
-def test_loading_dialog_is_tracked_as_non_blocking(monkeypatch):
-    """Assert _show_loading_dialog registers its window via _track_popup_window.
+def test_loading_dialog_is_registered_as_non_modal(monkeypatch):
+    """Assert _show_loading_dialog registers its window as a non-modal overlay.
 
-    _sync_popup_sessions_from_windows normally discovers untracked Toplevel windows by
-    scanning a real Tk winfo_children() tree and auto-classifies them as blocking
-    ("dialog.modal"). That discovery path can't be faithfully simulated without a real
-    Tk interpreter, so this test instead asserts the fix directly: the loading dialog
-    must register itself immediately, before the generic scan ever gets a chance to
-    mis-classify it (this is exactly what made Escape presses get swallowed while a
-    course was loading, since the un-classified window could not be closed either).
+    The loading hint must never block the main window's shortcuts or swallow Escape
+    (the original bug, from the time a toplevel scan auto-classified unknown windows as
+    blocking). It registers in the bw-gui overlay stack as ``NON_MODAL_POPUP`` through
+    ``ScreenBuilder._register_non_modal_window``; the real gating is covered with a Tk
+    interpreter in ``test_overlay_gating_tk.py``.
     """
     monkeypatch.setattr("kursplaner.adapters.gui.overview_controller.ui.Toplevel", _FakeToplevel)
     monkeypatch.setattr("kursplaner.adapters.gui.overview_controller.widgets.Frame", _FakeWidget)
@@ -87,16 +85,12 @@ def test_loading_dialog_is_tracked_as_non_blocking(monkeypatch):
     screen_builder_app = SimpleNamespace(bind_all=lambda *args, **kwargs: None)
     screen_builder = ScreenBuilder(screen_builder_app)
     tracked_calls = []
-    screen_builder._track_popup_window = lambda window, *, policy_id="dialog.modal": tracked_calls.append(
-        (window, policy_id)
-    )
+    screen_builder._register_non_modal_window = tracked_calls.append
     app = SimpleNamespace(screen_builder=screen_builder, update_idletasks=lambda: None)
 
     close_loading = MainWindowOverviewController._show_loading_dialog(SimpleNamespace(app=app), "Kursplan wird geladen …")
 
     assert len(tracked_calls) == 1
-    window, policy_id = tracked_calls[0]
-    assert isinstance(window, _FakeToplevel)
-    assert policy_id == "dialog.non_blocking"
+    assert isinstance(tracked_calls[0], _FakeToplevel)
 
     close_loading()

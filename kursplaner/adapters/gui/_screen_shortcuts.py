@@ -1,10 +1,17 @@
-"""Shortcut table, binder setup, runtime context and popup tracking of the main window (ScreenBuilder mixin).
+"""Shortcut table, binder setup, runtime context and popup gating of the main window (ScreenBuilder mixin).
 
 Shortcuts go through one bw-gui ``ApplicationShortcutBinder`` (``all`` router, where
 the former ``bind_all`` sat): keys are ``KeySpec``s, handlers return ``EventResult``,
 gating (mode, dialog, text input, offline) is the binder's. Modifiers are exact --
 the former ``bind_all`` sequences also fired with extra held modifiers (Tk's
 minimum-set matching); named keys tolerate Shift where no own Shift variant exists.
+
+Popup gating reads the bw-gui overlay stack (``OVERLAY_STACK_CONTRACT.md``) with the
+preset ``blocking(include_menus=True)``: modal popups and menu popups block the
+guide shortcuts, non-modal tool windows (Kompetenznetz, loading hint, shortcut debug
+window) do not. This reproduces the former scan, which counted every visible direct
+child toplevel of the main window (menu popups included) unless it had been tracked
+as non-blocking.
 """
 
 from __future__ import annotations
@@ -15,7 +22,8 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, KeySpec  # noqa: E402
-from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, on_global_click, ui  # noqa: E402
+from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, on_global_click  # noqa: E402
+from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, register_overlay  # noqa: E402
 
 from bw_libs.ui_contract.keybinding import (  # noqa: E402
     UI_MODE_DIALOG,
@@ -48,7 +56,7 @@ class ShortcutRow(NamedTuple):
 
 
 class ScreenShortcutsMixin:
-    """Shortcut table, binder setup, runtime context and popup tracking of the main window (ScreenBuilder mixin)."""
+    """Shortcut table, binder setup, runtime context and popup gating of the main window (ScreenBuilder mixin)."""
 
     def _shortcut_rows(self) -> tuple[ShortcutRow, ...]:
         """The fixed main-window shortcuts (the guide entries from ``shortcut_guide.json`` come on top).
@@ -118,9 +126,8 @@ class ScreenShortcutsMixin:
         self._refresh_intent_help_tooltips()
 
     def _shortcut_dialog_open(self) -> bool:
-        """Synchronisiert Popup-Sitzungen und meldet, ob ein modus-blockierendes Popup offen ist."""
-        self._sync_popup_sessions_from_windows()
-        return self._popup_registry.has_mode_blocking_popup()
+        """Meldet, ob ein modales Popup oder ein Menue-Popup offen ist (Overlay-Stack-Preset)."""
+        return blocking(self.app, include_menus=True)()
 
     def _build_runtime_context(self) -> KeybindingRuntimeContext:
         """Gating-Kontext für die Diagnose (dieselben Quellen wie der Binder)."""
@@ -168,50 +175,19 @@ class ScreenShortcutsMixin:
         reachable = sum(1 for result in results if result.reachable)
         return f"LaufKern intents {reachable}/{len(results)} erreichbar"
 
-    def _track_popup_window(self, window: ui.Toplevel, *, policy_id: str = "dialog.modal") -> None:
-        """Register a popup immediately in the popup policy registry."""
+    def _register_non_modal_window(self, window) -> None:
+        """Meldet ein eigenes, nicht blockierendes Werkzeugfenster im bw-gui-Overlay-Stack an.
 
-        popup_id = str(window)
-        if popup_id in self._tracked_popup_ids:
-            return
-        self._popup_registry.open_popup(popup_id=popup_id, title=str(window.title() or ""), policy_id=policy_id)
-        self._tracked_popup_ids.add(popup_id)
-
-    def _sync_popup_sessions_from_windows(self) -> None:
-        """Synchronize tracked popup sessions with currently visible toplevel windows."""
-
-        winfo_children = getattr(self.app, "winfo_children", None)
-        if not callable(winfo_children):
-            return
-
-        visible_popup_ids: set[str] = set()
-        for child in winfo_children():
-            if not isinstance(child, ui.Toplevel):
-                continue
-            try:
-                if not int(child.winfo_exists()):
-                    continue
-                if str(child.state()).lower() == "withdrawn":
-                    continue
-            except Exception:
-                continue
-
-            popup_id = str(child)
-            visible_popup_ids.add(popup_id)
-            if popup_id in self._tracked_popup_ids:
-                continue
-            self._popup_registry.open_popup(popup_id=popup_id, title=str(child.title() or ""), policy_id="dialog.modal")
-            self._tracked_popup_ids.add(popup_id)
-
-        stale_ids = self._tracked_popup_ids - visible_popup_ids
-        for popup_id in tuple(stale_ids):
-            self._popup_registry.close_popup(popup_id)
-            self._tracked_popup_ids.discard(popup_id)
+        Fuer rohe ``Toplevel``-Fenster am Hauptfenster (Ladehinweis, Shortcut-Debug);
+        ``ScrollablePopupWindow``-Dialoge melden sich selbst an (``overlay_category``).
+        Die Anmeldung endet mit dem ``<Destroy>`` des Fensters.
+        """
+        register_overlay(window, OverlayCategory.NON_MODAL_POPUP, toplevel=window)
 
     def _has_active_popup(self) -> bool:
-        """Return whether any modal popup is currently active."""
+        """Return whether a blocking overlay or any ``ScrollablePopupWindow`` is open.
 
-        self._sync_popup_sessions_from_windows()
-        if self._popup_registry.has_mode_blocking_popup():
-            return True
-        return ScrollablePopupWindow.has_active_popup()
+        Stricter than the binder's ``dialog_open``: the handlers also stand still while a
+        non-modal popup such as the Kompetenznetz is open (unchanged from the former scan).
+        """
+        return self._shortcut_dialog_open() or ScrollablePopupWindow.has_active_popup()

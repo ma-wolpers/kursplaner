@@ -17,6 +17,7 @@ def test_escape_is_blocked_when_popup_is_active(monkeypatch):
     sink = _IntentSink()
     app = SimpleNamespace(_handle_ui_intent=sink)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
     closed = {"value": False}
 
     monkeypatch.setattr(
@@ -39,6 +40,7 @@ def test_escape_delegates_to_intent_when_no_popup_is_active(monkeypatch):
     sink = _IntentSink()
     app = SimpleNamespace(_handle_ui_intent=sink)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
 
     monkeypatch.setattr(
         "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",

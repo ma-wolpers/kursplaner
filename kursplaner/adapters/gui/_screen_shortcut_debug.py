@@ -46,7 +46,7 @@ class ScreenShortcutDebugMixin:
         window.title("Shortcut Runtime Debug")
         window.geometry("980x520")
         window.minsize(820, 420)
-        self._track_popup_window(window, policy_id="dialog.non_blocking")
+        self._register_non_modal_window(window)
 
         self.app.shortcut_runtime_debug_context_var = ui.StringVar(master=window, value="")
         self.app.shortcut_runtime_debug_summary_var = ui.StringVar(master=window, value="")
@@ -107,9 +107,7 @@ class ScreenShortcutDebugMixin:
 
         window = getattr(self.app, "shortcut_runtime_debug_window", None)
         if window is not None and int(window.winfo_exists()):
-            self._popup_registry.close_popup(str(window))
-            self._tracked_popup_ids.discard(str(window))
-            window.destroy()
+            window.destroy()  # beendet auch die Overlay-Anmeldung
         self.app.shortcut_runtime_debug_window = None
         self.app.shortcut_runtime_debug_table = None
         self.app.shortcut_runtime_debug_context_var = None

@@ -8,6 +8,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, KeySpec
 from bw_gui.runtime import WindowShortcutBinder, widgets
+from bw_gui.runtime.overlay_stack import OverlayCategory
 from bw_gui.theming import theme_canvas
 
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
@@ -76,6 +77,8 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             minsize=(900, 560),
             theme_key=theme_key,
             scrollable=False,
+            # Werkzeugfenster neben dem bedienbaren Hauptfenster: sperrt dessen Kuerzel nicht.
+            overlay_category=OverlayCategory.NON_MODAL_POPUP,
         )
         self._snapshot = load_result.snapshot
         self._compute_view_usecase = compute_view_usecase

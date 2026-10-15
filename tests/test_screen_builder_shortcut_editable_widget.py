@@ -30,6 +30,7 @@ def test_toolbar_shortcut_is_ignored_in_editable_widget(monkeypatch):
     sink = _IntentSink()
     app = SimpleNamespace(_handle_ui_intent=sink)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
 
     monkeypatch.setattr(builder, "_is_editable_widget", lambda _widget: True)
 
@@ -46,6 +47,7 @@ def test_non_toolbar_shortcut_still_delegates_in_editable_widget(monkeypatch):
     sink = _IntentSink()
     app = SimpleNamespace(_handle_ui_intent=sink)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
 
     monkeypatch.setattr(builder, "_is_editable_widget", lambda _widget: True)
 
@@ -65,6 +67,7 @@ def test_shortcut_handler_blocks_when_popup_is_active(monkeypatch):
     sink = _IntentSink()
     app = SimpleNamespace(_handle_ui_intent=sink)
     builder = ScreenBuilder(app)
+    builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
 
     monkeypatch.setattr(
         "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",

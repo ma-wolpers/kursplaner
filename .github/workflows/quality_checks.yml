@@ -28,6 +28,11 @@ jobs:
         run: |
           ruff check \
             tools/ci/check_ai_guardrails.py \
+            tools/ci/guardrail_config.py \
+            tools/ci/guardrail_support.py \
+            tools/ci/guardrail_process.py \
+            tools/ci/guardrail_checks.py \
+            tools/ci/guardrail_gui_checks.py \
             kursplaner/core/ports/repositories.py \
             kursplaner/core/usecases/rebuild_lesson_index_usecase.py \
             kursplaner/core/usecases/invalidate_lesson_index_usecase.py \

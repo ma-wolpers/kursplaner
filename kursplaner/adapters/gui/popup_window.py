@@ -5,6 +5,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow as SharedScrollablePopupWindow
 from bw_gui.runtime import ui
+from bw_gui.runtime.overlay_stack import OverlayCategory
 
 
 from kursplaner.adapters.gui.dialog_services import messagebox
@@ -23,11 +24,14 @@ class ScrollablePopupWindow(SharedScrollablePopupWindow):
         minsize: tuple[int, int],
         theme_key: str | None = None,
         scrollable: bool = True,
+        overlay_category: OverlayCategory = OverlayCategory.MODAL_DIALOG,
     ):
         """See `bw_gui.dialogs.ScrollablePopupWindow.__init__` for the `scrollable` semantics --
         `False` is for popups that already manage their own internal scrolling (e.g. a canvas-based
         graph plus a separately scrollable sidebar), where a second window-wide scroll layer would
-        only produce competing mousewheel captures."""
+        only produce competing mousewheel captures. `overlay_category` (default modal) is how the popup
+        registers in the bw-gui overlay stack; non-blocking tool windows pass `NON_MODAL_POPUP` and then do
+        not gate the main window's shortcuts (`ScreenBuilder._shortcut_dialog_open`)."""
         super().__init__(
             master,
             title=title,
@@ -35,6 +39,7 @@ class ScrollablePopupWindow(SharedScrollablePopupWindow):
             minsize=minsize,
             theme_key=theme_key,
             scrollable=scrollable,
+            overlay_category=overlay_category,
             apply_window_theme=apply_window_theme,
             configure_ttk_theme=configure_ttk_theme,
             request_close_confirmation=self._confirm_close_if_needed,

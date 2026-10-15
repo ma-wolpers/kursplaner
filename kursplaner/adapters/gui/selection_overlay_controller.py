@@ -6,6 +6,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, ui, widgets
+from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay
 
 from kursplaner.adapters.gui.local_keys import ENTER, SPACE, bind_keys
 
@@ -35,6 +36,8 @@ class SelectionOverlayController:
         self.items: list[str] = []
 
         self.overlay = ui.Toplevel(owner)
+        # Haengt im Dialog und sperrt nie Kuerzel (vorher zaehlte kein Scan es mit).
+        register_overlay(self.overlay, OverlayCategory.TRANSIENT, toplevel=self.overlay)
         self.overlay.withdraw()
         self.overlay.overrideredirect(True)
         self.overlay.transient(owner)
