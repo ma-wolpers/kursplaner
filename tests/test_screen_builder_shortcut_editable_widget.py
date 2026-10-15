@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
+from bw_gui.contracts import KeySpec
+
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
+from bw_gui.contracts.events import EventResult
 
 
 class _IntentSink:
@@ -14,7 +17,7 @@ class _IntentSink:
 
 def _entry(intent: str, *, from_shortcut: bool = True, payload: dict | None = None):
     return SimpleNamespace(
-        key_sequence="<Control-Left>",
+        key=KeySpec.parse("Ctrl+Left"),
         display_shortcut="Strg+Links",
         action_label="Dummy",
         intent=intent,
@@ -71,5 +74,5 @@ def test_shortcut_handler_blocks_when_popup_is_active(monkeypatch):
     handler = builder._build_shortcut_handler(_entry("detail.open_column_visibility_settings"))
     result = handler(SimpleNamespace(widget=object()))
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert sink.calls == []

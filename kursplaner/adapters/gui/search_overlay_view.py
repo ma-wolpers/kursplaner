@@ -3,7 +3,8 @@ from __future__ import annotations
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import widgets
+from bw_gui.contracts import EventResult, KeySpec
+from bw_gui.runtime import WidgetShortcutBinder, widgets
 
 from kursplaner.adapters.gui.regex_entry_field import RegexEntryField
 from kursplaner.adapters.gui.ui_intents import UiIntent
@@ -32,8 +33,11 @@ class SearchOverlayView:
         self._status_label = widgets.Label(self.frame, text="")
         self._field = RegexEntryField(self.frame, on_change=self._on_text_changed)
         self._field.pack(side="left", fill="x", expand=True)
-        self._field.bind("<Return>", self._on_return)
-        self._field.bind("<Shift-Return>", self._on_shift_return)
+        keys = WidgetShortcutBinder(self._field.entry)
+        keys.bind(KeySpec.parse("Enter"), self._on_return, binding_id="search.next", intent=UiIntent.GRID_ENTER,
+                  allow_when_text_input=True)
+        keys.bind(KeySpec.parse("Shift+Enter"), self._on_shift_return, binding_id="search.previous",
+                  intent=UiIntent.SHORTCUT_FIND_PREVIOUS, allow_when_text_input=True)
         self._status_label.pack(side="left", padx=(8, 0))
 
     def show(self) -> None:
@@ -51,15 +55,15 @@ class SearchOverlayView:
         self.app.search_controller.update_query(text, pattern)
         self._refresh_status()
 
-    def _on_return(self, _event) -> str:
+    def _on_return(self, _event) -> EventResult:
         self.app._handle_ui_intent(UiIntent.GRID_ENTER)
         self._refresh_status()
-        return "break"
+        return EventResult.HANDLED
 
-    def _on_shift_return(self, _event) -> str:
+    def _on_shift_return(self, _event) -> EventResult:
         self.app._handle_ui_intent(UiIntent.SHORTCUT_FIND_PREVIOUS)
         self._refresh_status()
-        return "break"
+        return EventResult.HANDLED
 
     def _refresh_status(self) -> None:
         state = self.app.search_state

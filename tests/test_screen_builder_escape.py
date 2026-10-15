@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
+from bw_gui.contracts.events import EventResult
 
 
 class _IntentSink:
@@ -29,7 +30,7 @@ def test_escape_is_blocked_when_popup_is_active(monkeypatch):
 
     result = builder._on_escape(object())
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert closed["value"] is True
     assert sink.calls == []
 

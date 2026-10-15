@@ -6,6 +6,7 @@ from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from tests.day_column_factory import make_day_column
+from bw_gui.contracts.events import EventResult
 
 
 class _Var:
@@ -564,7 +565,7 @@ def test_intent_grid_enter_focuses_freshly_materialized_cell_after_navigation():
     result = intent_controller.intent_grid_enter()
 
     widget = app.cell_widgets[("Stundenthema", 0)]
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert widget.focus_set_calls == 1
 
 

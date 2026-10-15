@@ -5,6 +5,7 @@ from typing import Callable
 from bw_gui.runtime import ui
 from bw_gui.theming import theme_label_token
 
+from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.core.domain.day_column import DayColumn
 
@@ -54,7 +55,7 @@ class SequenceFieldGridRenderer:
     Klasse bekommt sie nur als Callback injiziert.
     """
 
-    def __init__(self, app, create_text_cell: CreateTextCell) -> None:
+    def __init__(self, app, create_text_cell: CreateTextCell, pointer_groups: GridPointerGroups | None = None) -> None:
         """Initialisiert den Renderer mit App-Kontext und Zellerzeugungs-Callback.
 
         Args:
@@ -62,7 +63,10 @@ class SequenceFieldGridRenderer:
                 Grid-Container-Widgets, `sequence_field_widgets`).
             create_text_cell: Gebundene `GridRenderer._create_text_cell`-Methode,
                 mit der einzelne Zellen im einheitlichen Grid-Stil erzeugt werden.
+            pointer_groups: Die Pointer-Gruppen des Grids (Klick auf Sequenzfeld-Zellen);
+                ohne Angabe eigene Gruppen.
         """
+        self._pointer_groups = pointer_groups if pointer_groups is not None else GridPointerGroups(app)
         self.app = app
         self._create_text_cell = create_text_cell
 
@@ -218,12 +222,7 @@ class SequenceFieldGridRenderer:
         eine Sequenzfeld-Zelle mehrere Tages-Spalten gleichzeitig repräsentiert
         und daher nicht über `(field_key, day_index)` identifizierbar ist.
         """
-        cell.bind(
-            "<Button-1>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_SEQUENCE_FIELD_CLICK, sequence_field_key=fk, sequence_row_index=ri
-            ),
-        )
+        self._pointer_groups.sequence_cell(cell, field_key=field_key, row_index=first_row_index)
         cell.bind(
             "<FocusIn>",
             lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(

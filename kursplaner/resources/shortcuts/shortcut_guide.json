@@ -1,6 +1,6 @@
 [
   {
-    "key_sequence": "<Control-n>",
+    "key": "Ctrl+N",
     "display_shortcut": "Strg+N",
     "action_label": "Neue Einheit",
     "intent": "toolbar.new",
@@ -8,7 +8,7 @@
     "didactic_hint": "N ist der Startbuchstabe von Neu und in vielen Programmen ein Standard."
   },
   {
-    "key_sequence": "<Control-r>",
+    "key": "Ctrl+R",
     "display_shortcut": "Strg+R",
     "action_label": "Übersicht neu laden",
     "intent": "toolbar.refresh",
@@ -16,7 +16,7 @@
     "didactic_hint": "R hilft als Merkanker für Auffrischen oder Neu laden."
   },
   {
-    "key_sequence": "<Control-p>",
+    "key": "Ctrl+P",
     "display_shortcut": "Strg+P",
     "action_label": "Exportieren als...",
     "intent": "toolbar.export_as",
@@ -25,7 +25,7 @@
     "didactic_hint": "P passt als Merkanker für Drucken/Export und bleibt ohne Shift-Kombination."
   },
   {
-    "key_sequence": "<Control-z>",
+    "key": "Ctrl+Z",
     "display_shortcut": "Strg+Z",
     "action_label": "Rückgängig (Plan)",
     "intent": "toolbar.undo",
@@ -33,7 +33,7 @@
     "didactic_hint": "Gilt für Planaktionen; in Textfeldern bleibt das lokale Text-Undo aktiv."
   },
   {
-    "key_sequence": "<Control-y>",
+    "key": "Ctrl+Y",
     "display_shortcut": "Strg+Y",
     "action_label": "Wiederholen (Plan)",
     "intent": "toolbar.redo",
@@ -41,7 +41,7 @@
     "didactic_hint": "Gilt für Planaktionen; in Textfeldern bleibt das lokale Text-Redo aktiv."
   },
   {
-    "key_sequence": "<Control-e>",
+    "key": "Ctrl+E",
     "display_shortcut": "Strg+E",
     "action_label": "Bis Ferien erweitern",
     "intent": "toolbar.extend_to_vacation",
@@ -50,7 +50,7 @@
     "didactic_hint": "E markiert den Schritt, den Plan über den aktuellen Stand hinaus zu verlängern."
   },
   {
-    "key_sequence": "<Control-Shift-e>",
+    "key": "Ctrl+Shift+E",
     "display_shortcut": "Strg+Shift+E",
     "action_label": "Ehemalige Kurse ein/ausblenden",
     "intent": "course.toggle_show_former",
@@ -59,7 +59,7 @@
     "didactic_hint": "Schaltet in der Kursübersicht die Anzeige ehemaliger Kurse um."
   },
   {
-    "key_sequence": "<Control-u>",
+    "key": "Ctrl+U",
     "display_shortcut": "Strg+U",
     "action_label": "Als Unterricht markieren",
     "intent": "toolbar.plan",
@@ -68,7 +68,7 @@
     "didactic_hint": "U passt direkt zum Modus Unterricht und ist daher leicht abrufbar."
   },
   {
-    "key_sequence": "<Control-q>",
+    "key": "Ctrl+Q",
     "display_shortcut": "Strg+Q",
     "action_label": "Als Ausfall markieren",
     "intent": "toolbar.ausfall",
@@ -77,7 +77,7 @@
     "didactic_hint": "Q kann als gedanklicher Bruch im regulären Verlauf erinnert werden."
   },
   {
-    "key_sequence": "<Control-o>",
+    "key": "Ctrl+O",
     "display_shortcut": "Strg+O",
     "action_label": "Als Hospitation markieren",
     "intent": "toolbar.hospitation",
@@ -86,7 +86,7 @@
     "didactic_hint": "Der markante Buchstabe O in Hospitation dient als schnelle Eselsbrücke."
   },
   {
-    "key_sequence": "<Control-k>",
+    "key": "Ctrl+K",
     "display_shortcut": "Strg+K",
     "action_label": "Als LZK markieren / LZK-KH exportieren",
     "intent": "toolbar.lzk",
@@ -95,7 +95,7 @@
     "didactic_hint": "K steht für den Kernbegriff Kontrolle in Leistungskontrolle."
   },
   {
-    "key_sequence": "<Control-g>",
+    "key": "Ctrl+G",
     "display_shortcut": "Strg+G",
     "action_label": "Markdown verknüpfen",
     "intent": "toolbar.find",
@@ -104,7 +104,7 @@
     "didactic_hint": "G erinnert an Gehe-zu-Aktionen und passt zum Suchen/Verknüpfen."
   },
   {
-    "key_sequence": "<Control-j>",
+    "key": "Ctrl+J",
     "display_shortcut": "Strg+J",
     "action_label": "Einheit umbenennen",
     "intent": "toolbar.rename",
@@ -113,7 +113,7 @@
     "didactic_hint": "J dient als kollisionsfreier Merkanker für Umbenennen und bleibt eine reine Strg-Kombination."
   },
   {
-    "key_sequence": "<Control-Shift-U>",
+    "key": "Ctrl+Shift+U",
     "display_shortcut": "Strg+Shift+U",
     "action_label": "UB-Übersicht anzeigen",
     "intent": "detail.show_ub_achievements",
@@ -121,7 +121,7 @@
     "didactic_hint": "Das zusätzliche Shift trennt die Übersicht von der reinen Unterrichtsmarkierung."
   },
   {
-    "key_sequence": "<Control-Delete>",
+    "key": "Ctrl+Delete",
     "display_shortcut": "Strg+Entf",
     "action_label": "Einheit leeren (Spaltenauswahl)",
     "intent": "toolbar.clear",
@@ -130,7 +130,7 @@
     "didactic_hint": "Wirkt nur im Spaltenauswahlmodus und nicht in Textfeldern."
   },
   {
-    "key_sequence": "<Control-b>",
+    "key": "Ctrl+B",
     "display_shortcut": "Strg+B",
     "action_label": "Kontextaktion: UB markieren / Ausfall zurücknehmen",
     "intent": "detail.toggle_resume_or_ub",
@@ -139,7 +139,7 @@
     "didactic_hint": "B ruft die passende Kontextaktion auf: bei Ausfall zurück, sonst UB markieren."
   },
   {
-    "key_sequence": "<Control-Left>",
+    "key": "Ctrl+Left",
     "display_shortcut": "Strg+Links",
     "action_label": "Spalte nach links verschieben",
     "intent": "toolbar.move_columns",
@@ -151,7 +151,7 @@
     "didactic_hint": "Die Pfeilrichtung entspricht exakt der Verschieberichtung."
   },
   {
-    "key_sequence": "<Control-Right>",
+    "key": "Ctrl+Right",
     "display_shortcut": "Strg+Rechts",
     "action_label": "Spalte nach rechts verschieben",
     "intent": "toolbar.move_columns",
@@ -163,7 +163,7 @@
     "didactic_hint": "Die Pfeilrichtung entspricht exakt der Verschieberichtung."
   },
   {
-    "key_sequence": "<Control-c>",
+    "key": "Ctrl+C",
     "display_shortcut": "Strg+C",
     "action_label": "Kopieren (Spalte/Zelle)",
     "intent": "shortcut.copy",
@@ -171,7 +171,7 @@
     "didactic_hint": "Wirkt in der Spaltenauswahl auf die ganze Einheit und in der Zellauswahl auf die ganze Zelle; in Textfeldern bleibt normales Kopieren aktiv."
   },
   {
-    "key_sequence": "<Control-x>",
+    "key": "Ctrl+X",
     "display_shortcut": "Strg+X",
     "action_label": "Ausschneiden (Zellauswahl)",
     "intent": "shortcut.cut",
@@ -179,7 +179,7 @@
     "didactic_hint": "Wirkt nur in der Zellauswahl: kopiert die ganze Zelle in die Zwischenablage und leert sie danach; in Textfeldern bleibt normales Ausschneiden aktiv."
   },
   {
-    "key_sequence": "<Control-v>",
+    "key": "Ctrl+V",
     "display_shortcut": "Strg+V",
     "action_label": "Einfügen (Spalte/Zelle)",
     "intent": "shortcut.paste",
@@ -187,7 +187,7 @@
     "didactic_hint": "Wirkt in der Spaltenauswahl auf die ganze Einheit und in der Zellauswahl als komplettes Ersetzen der markierten Zelle; in Textfeldern bleibt normales Einfügen aktiv."
   },
   {
-    "key_sequence": "<Control-Down>",
+    "key": "Ctrl+Down",
     "display_shortcut": "Strg+Runter",
     "action_label": "Aktuelle Zeile aufklappen (Zellauswahl)",
     "intent": "shortcut.expand_selected_row",
@@ -195,7 +195,7 @@
     "didactic_hint": "Wirkt nur im Zellenmarkiermodus auf die aktuell markierte Zeile; in Textfeldern bleibt das lokale Verhalten aktiv."
   },
   {
-    "key_sequence": "<Control-Up>",
+    "key": "Ctrl+Up",
     "display_shortcut": "Strg+Hoch",
     "action_label": "Aktuelle Zeile zuklappen (Zellauswahl)",
     "intent": "shortcut.collapse_selected_row",
@@ -203,7 +203,7 @@
     "didactic_hint": "Wirkt nur im Zellenmarkiermodus auf die aktuell markierte Zeile; in Textfeldern bleibt das lokale Verhalten aktiv."
   },
   {
-    "key_sequence": "<Control-h>",
+    "key": "Ctrl+H",
     "display_shortcut": "Strg+H",
     "action_label": "Shortcut-Übersicht öffnen",
     "intent": "detail.show_shortcut_overview",
@@ -211,7 +211,7 @@
     "didactic_hint": "H macht die Übersicht als Hilfefunktion leicht merkbar."
   },
   {
-    "key_sequence": "<Control-l>",
+    "key": "Ctrl+L",
     "display_shortcut": "Strg+L",
     "action_label": "Spaltenarten anzeigen/verstecken",
     "intent": "detail.open_column_visibility_settings",
@@ -219,7 +219,7 @@
     "didactic_hint": "L passt als Merkanker für die Layout-Ansicht der Spaltenarten."
   },
   {
-    "key_sequence": "<Control-Shift-S>",
+    "key": "Ctrl+Shift+S",
     "display_shortcut": "Strg+Shift+S",
     "action_label": "Sequenzfelder ein-/ausblenden",
     "intent": "detail.toggle_sequence_fields_visible",
@@ -227,7 +227,7 @@
     "didactic_hint": "Shift hebt den Sequenz-Toggle von anderen Kürzeln ab und bleibt kollisionsfrei."
   },
   {
-    "key_sequence": "<Control-Shift-K>",
+    "key": "Ctrl+Shift+K",
     "display_shortcut": "Strg+Shift+K",
     "action_label": "Kompetenznetz anzeigen",
     "intent": "detail.show_kompetenzgraph",

@@ -6,7 +6,8 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
-from bw_gui.contracts import UNKNOWN_MODIFIERS, modifiers_from_event
+from bw_gui.contracts import UNKNOWN_MODIFIERS, EventResult, modifiers_from_event
+from bw_gui.contracts.pointer import ClickEvent, DragEvent
 
 # Backward-compatible module aliases for existing tests and call sites.
 tk = ui
@@ -46,7 +47,7 @@ class MainWindowUiIntentController:
             return None
 
         if ScrollablePopupWindow.has_active_popup() and intent != UiIntent.SHORTCUT_ESCAPE:
-            return "break"
+            return EventResult.HANDLED
         if self._should_block_toolbar_shortcut(intent, payload):
             return None
 
@@ -63,19 +64,19 @@ class MainWindowUiIntentController:
             if self._is_editable_widget(self._resolve_event_widget(payload.get("event"))):
                 return None
             self.app.action_controller.undo_history()
-            return "break"
+            return EventResult.HANDLED
         if intent == UiIntent.TOOLBAR_REDO:
             if self._is_editable_widget(self._resolve_event_widget(payload.get("event"))):
                 return None
             self.app.action_controller.redo_history()
-            return "break"
+            return EventResult.HANDLED
         if intent == UiIntent.EDIT_UNDO_TO_RECENT_INDEX:
             if self._is_editable_widget(self._resolve_event_widget(payload.get("event"))):
                 return None
             recent_index = self.app._to_int(payload.get("recent_index", -1), -1)
             if recent_index >= 0:
                 self.app.action_controller.undo_history_to_recent_index(recent_index)
-            return "break"
+            return EventResult.HANDLED
         if intent == UiIntent.TOOLBAR_PLAN:
             self.app.lesson_conversion_controller.convert_selected_to_unterricht()
             return None
@@ -143,10 +144,10 @@ class MainWindowUiIntentController:
             return self.intent_course_hover_select(payload.get("event"))
         if intent == UiIntent.COURSE_TOGGLE_SHOW_FORMER:
             self.app.overview_controller.toggle_show_former_courses()
-            return "break"
+            return EventResult.HANDLED
         if intent == UiIntent.COURSE_OPEN_SCHOOL_WIDE_CANCELLATIONS:
             self.app.action_controller.open_school_wide_cancellations()
-            return "break"
+            return EventResult.HANDLED
         if intent == UiIntent.COURSE_KEYBOARD_NAVIGATION:
             self.app._tree_hover_suspend_until = time.monotonic() + 0.6
             return None
@@ -173,7 +174,7 @@ class MainWindowUiIntentController:
                 if self.app.editor_controller.handle_editor_focus_in(field_key, day_index):
                     self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_CELL)
                     self.app._refresh_grid_content()
-                    return "break"
+                    return EventResult.HANDLED
                 self.app.ui_state.set_active_editor(field_key, day_index)
             return None
         if intent == UiIntent.GRID_EDITOR_FOCUS_OUT:
@@ -369,22 +370,19 @@ class MainWindowUiIntentController:
         return True
 
     def intent_course_confirm_selection(self, event):
-        if event is not None:
-            event_type = getattr(event, "type", None)
-            is_mouse_event = event_type in (ui.EventType.ButtonPress, ui.EventType.ButtonRelease)
-            if is_mouse_event:
-                try:
-                    mouse_button = int(getattr(event, "num", 0))
-                except (TypeError, ValueError):
-                    mouse_button = 0
-                if mouse_button == 1:
-                    clicked_item = self.app.lesson_tree.identify_row(int(getattr(event, "y", -1)))
-                    if not clicked_item:
-                        return "break"
-                    self.app.lesson_tree.focus(clicked_item)
-                    self.app.lesson_tree.selection_set(clicked_item)
+        """Laedt den angeklickten bzw. per Tastatur bestaetigten Kurs in die Detailansicht.
+
+        Mausereignisse sind bw-gui-``ClickEvent`` (Doppelklick) bzw. ``DragEvent``
+        (Loslassen der primaeren Maustaste); fuer sie bestimmt die Klickposition die Zeile.
+        """
+        if isinstance(event, (ClickEvent, DragEvent)):
+            clicked_item = self.app.lesson_tree.identify_row(int(event.y))
+            if not clicked_item:
+                return EventResult.HANDLED
+            self.app.lesson_tree.focus(clicked_item)
+            self.app.lesson_tree.selection_set(clicked_item)
         self.app.overview_controller.load_selected_table(event)
-        return "break"
+        return EventResult.HANDLED
 
     def intent_course_hover_select(self, event):
         if bool(getattr(self.app, "is_detail_view", False)):
@@ -433,7 +431,7 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
             moved = self.intent_grid_nav_horizontal(-1)
-            return "break" if moved else None
+            return EventResult.HANDLED if moved else None
         if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_EDIT:
             return None
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
@@ -441,14 +439,14 @@ class MainWindowUiIntentController:
         if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent_occurring(-1)
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
     def intent_detail_right(self):
         if not bool(getattr(self.app, "is_detail_view", False)):
             return None
         if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_CELL:
             moved = self.intent_grid_nav_horizontal(1)
-            return "break" if moved else None
+            return EventResult.HANDLED if moved else None
         if self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_EDIT:
             return None
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
@@ -456,7 +454,7 @@ class MainWindowUiIntentController:
         if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent_occurring(1)
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
     def intent_detail_left_all(self):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -464,7 +462,7 @@ class MainWindowUiIntentController:
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent(-1)
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
     def intent_detail_right_all(self):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -472,7 +470,7 @@ class MainWindowUiIntentController:
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
             return None
         moved = self.app.selection_controller.move_selection_to_adjacent(1)
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
     def intent_select_unit_by_offset(self, offset: int):
         """Wählt die Einheit relativ zur "nächsten Einheit" (0-9); nur im Spaltenauswahl-Modus aktiv."""
@@ -481,20 +479,20 @@ class MainWindowUiIntentController:
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_COLUMN:
             return None
         selected = self.app.selection_controller.select_unit_at_offset_from_next(offset)
-        return "break" if selected else None
+        return EventResult.HANDLED if selected else None
 
     def intent_search_open(self):
         """Öffnet die Strg+F-Einheitensuche; nur innerhalb einer geöffneten Kurs-Detailansicht sinnvoll."""
         if not bool(getattr(self.app, "is_detail_view", False)):
             return None
         self.app.search_controller.open_search()
-        return "break"
+        return EventResult.HANDLED
 
     def intent_escape(self):
         """Delegiert an `SelectionLayerStack.on_escape()` -- der Popup-Vorrang bleibt davor bestehen."""
         if ScrollablePopupWindow.has_active_popup():
             if ScrollablePopupWindow.close_active_popup():
-                return "break"
+                return EventResult.HANDLED
             return None
         return self._selection_layer_stack.on_escape()
 
@@ -504,8 +502,8 @@ class MainWindowUiIntentController:
         if self.app.ui_state.selection_level != self.app.ui_state.SELECTION_LEVEL_EDIT:
             return None
         if not self._leave_edit_mode_to_cell(set_grid_focus=True):
-            return "break"
-        return "break"
+            return EventResult.HANDLED
+        return EventResult.HANDLED
 
     def intent_commit_column(self):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -526,16 +524,16 @@ class MainWindowUiIntentController:
         day = day_columns[selected_index]
         if day.is_cancel():
             self.app.lesson_conversion_controller.convert_selected_to_ausfall(from_column_shortcut=True)
-            return "break"
+            return EventResult.HANDLED
         if day.is_hospitation():
             self.app.lesson_conversion_controller.convert_selected_to_hospitation(from_column_shortcut=True)
-            return "break"
+            return EventResult.HANDLED
         if day.is_lzk():
             self.app.lesson_conversion_controller.convert_selected_to_lzk(from_column_shortcut=True)
-            return "break"
+            return EventResult.HANDLED
 
         self.app.lesson_conversion_controller.convert_selected_to_unterricht(from_column_shortcut=True)
-        return "break"
+        return EventResult.HANDLED
 
     def intent_grid_enter(self):
         """Delegiert an `SelectionLayerStack.on_enter()` -- einzige Stelle, die Enter-Verhalten entscheidet."""
@@ -562,7 +560,7 @@ class MainWindowUiIntentController:
 
         if active is not None:
             if not self._leave_edit_mode_to_cell(set_grid_focus=True):
-                return "break"
+                return EventResult.HANDLED
 
         selected = self.app.ui_state.selected_cell
         if (
@@ -577,7 +575,7 @@ class MainWindowUiIntentController:
         if not moved:
             return None
         self.app.grid_canvas.focus_set()
-        return "break"
+        return EventResult.HANDLED
 
     def intent_grid_date_cell_click(self, day_index: int):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -586,10 +584,10 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.active_editor is not None:
             if not self._leave_edit_mode_to_cell(set_grid_focus=True):
-                return "break"
+                return EventResult.HANDLED
         self.app.selection_controller.set_single_column_selection(day_index, ensure_visible=True)
         self.app.grid_canvas.focus_set()
-        return "break"
+        return EventResult.HANDLED
 
     def intent_grid_column_click(self, day_index: int):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -598,7 +596,7 @@ class MainWindowUiIntentController:
             return None
         if self.app.ui_state.active_editor is not None:
             if not self._leave_edit_mode_to_cell(set_grid_focus=True):
-                return "break"
+                return EventResult.HANDLED
 
         selected = self.app.selection_controller.selected_indices_sorted()
         is_same_selected_column = (
@@ -611,7 +609,7 @@ class MainWindowUiIntentController:
 
         self.app.selection_controller.set_single_column_selection(day_index, ensure_visible=True)
         self.app.grid_canvas.focus_set()
-        return "break"
+        return EventResult.HANDLED
 
     def intent_grid_nav_vertical(self, direction: int):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -621,7 +619,7 @@ class MainWindowUiIntentController:
         if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selected_cell_vertical(direction)
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
     def intent_grid_nav_horizontal(self, direction: int):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -631,7 +629,7 @@ class MainWindowUiIntentController:
         if isinstance(self.app.focus_get(), ui.Text):
             return None
         moved = self.app.selection_controller.move_selected_cell_horizontal(direction)
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
     def intent_grid_delete_cell(self, event=None):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -654,7 +652,7 @@ class MainWindowUiIntentController:
             return None
         if str(field_key).strip().lower() == "inhalt":
             self.app.action_controller.clear_selected_lesson_content()
-            return "break"
+            return EventResult.HANDLED
         return self._set_selected_cell_value("")
 
     def intent_grid_home(self, event=None):
@@ -667,10 +665,10 @@ class MainWindowUiIntentController:
         level = self.app.ui_state.selection_level
         if level == self.app.ui_state.SELECTION_LEVEL_CELL:
             moved = self.app.selection_controller.move_selected_cell_to_edge(to_end=False)
-            return "break" if moved else None
+            return EventResult.HANDLED if moved else None
         if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
             moved = self.app.selection_controller.set_edge_column_selection(to_end=False, ensure_visible=True)
-            return "break" if moved else None
+            return EventResult.HANDLED if moved else None
         return None
 
     def intent_grid_end(self, event=None):
@@ -683,10 +681,10 @@ class MainWindowUiIntentController:
         level = self.app.ui_state.selection_level
         if level == self.app.ui_state.SELECTION_LEVEL_CELL:
             moved = self.app.selection_controller.move_selected_cell_to_edge(to_end=True)
-            return "break" if moved else None
+            return EventResult.HANDLED if moved else None
         if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
             moved = self.app.selection_controller.set_edge_column_selection(to_end=True, ensure_visible=True)
-            return "break" if moved else None
+            return EventResult.HANDLED if moved else None
         return None
 
     def intent_course_edge(self, *, to_end: bool):
@@ -699,7 +697,7 @@ class MainWindowUiIntentController:
         self.app.lesson_tree.focus(target)
         self.app.lesson_tree.selection_set(target)
         self.app.lesson_tree.see(target)
-        return "break"
+        return EventResult.HANDLED
 
     def intent_clipboard_shortcut(self, event, *, operation: str):
         if not bool(getattr(self.app, "is_detail_view", False)):
@@ -717,13 +715,13 @@ class MainWindowUiIntentController:
         if level == self.app.ui_state.SELECTION_LEVEL_COLUMN:
             if operation == "copy":
                 self.app.action_controller.copy_selected_lesson()
-                return "break"
+                return EventResult.HANDLED
             if operation == "cut":
                 self.app.action_controller.cut_selected_lesson()
-                return "break"
+                return EventResult.HANDLED
             if operation == "paste":
                 self.app.action_controller.paste_copied_lesson()
-                return "break"
+                return EventResult.HANDLED
             return None
 
         if level == self.app.ui_state.SELECTION_LEVEL_CELL:
@@ -732,7 +730,7 @@ class MainWindowUiIntentController:
             if operation == "paste":
                 return self._paste_clipboard_into_selected_cell()
             if operation == "cut":
-                if self._copy_selected_cell_to_clipboard() != "break":
+                if self._copy_selected_cell_to_clipboard() is not EventResult.HANDLED:
                     return None
                 return self._set_selected_cell_value("")
 
@@ -757,7 +755,7 @@ class MainWindowUiIntentController:
             self.app.clipboard_append(value)
         except ui.TclError:
             return None
-        return "break"
+        return EventResult.HANDLED
 
     def _paste_clipboard_into_selected_cell(self):
         clipboard_text = self._get_clipboard_text()
@@ -785,11 +783,11 @@ class MainWindowUiIntentController:
         current = bool(self.app.row_expanded.get(field_key, False))
         target = bool(expanded)
         if current == target:
-            return "break"
+            return EventResult.HANDLED
 
         self.app.row_expanded[field_key] = target
         self._apply_row_layout_change()
-        return "break"
+        return EventResult.HANDLED
 
     def _apply_row_layout_change(self) -> None:
         """Wendet Zeilenlayout-Aenderungen atomar an (Rebuild + Sichtbarkeitssync)."""
@@ -850,7 +848,7 @@ class MainWindowUiIntentController:
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
         self.app.selection_controller.set_selected_cell(field_key, day_index, ensure_visible=True)
-        return "break"
+        return EventResult.HANDLED
 
     def intent_global_click_commit_cell(self, event):
         """Committet eine aktive Zellbearbeitung, wenn irgendwo anders hin geklickt wird.

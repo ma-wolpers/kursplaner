@@ -4,12 +4,21 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+
+ensure_bw_gui_on_path()
+from bw_gui.contracts import KeySpec  # noqa: E402
+
 
 @dataclass(frozen=True)
 class ShortcutGuideEntry:
-    """Beschreibt einen Shortcut inkl. Intent und Merkhilfen fuer die GUI."""
+    """Beschreibt einen Shortcut inkl. Intent und Merkhilfen fuer die GUI.
 
-    key_sequence: str
+    ``key`` ist die Taste als bw-gui-``KeySpec`` (in der JSON kanonische Notation,
+    z. B. ``"Ctrl+Shift+E"``); ``display_shortcut`` bleibt der deutsche Anzeigetext.
+    """
+
+    key: KeySpec
     display_shortcut: str
     action_label: str
     intent: str
@@ -38,7 +47,7 @@ def load_shortcut_guide_entries() -> tuple[ShortcutGuideEntry, ...]:
 
     entries: list[ShortcutGuideEntry] = []
     required_fields = (
-        "key_sequence",
+        "key",
         "display_shortcut",
         "action_label",
         "intent",
@@ -61,7 +70,7 @@ def load_shortcut_guide_entries() -> tuple[ShortcutGuideEntry, ...]:
 
         entries.append(
             ShortcutGuideEntry(
-                key_sequence=str(item["key_sequence"]),
+                key=_parse_key(item["key"], index),
                 display_shortcut=str(item["display_shortcut"]),
                 action_label=str(item["action_label"]),
                 intent=str(item["intent"]),
@@ -73,3 +82,11 @@ def load_shortcut_guide_entries() -> tuple[ShortcutGuideEntry, ...]:
         )
 
     return tuple(entries)
+
+
+def _parse_key(raw: object, index: int) -> KeySpec:
+    """Parst das ``key``-Feld (``KeySpec``-Notation); Tk-Syntax oder Tippfehler -> ``ValueError``."""
+    try:
+        return KeySpec.parse(str(raw))
+    except ValueError as error:
+        raise ValueError(f"Shortcut-Guide-Eintrag {index}: ungültige Taste {raw!r} ({error})") from error

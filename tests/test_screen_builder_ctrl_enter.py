@@ -1,6 +1,12 @@
 from types import SimpleNamespace
 
-from bw_libs.ui_contract.keybinding import UI_MODE_EDITOR, UI_MODE_PREVIEW, KeybindingRuntimeContext
+from bw_libs.ui_contract.keybinding import (
+    UI_MODE_EDITOR,
+    UI_MODE_PREVIEW,
+    KeyBindingDefinition,
+    KeybindingRegistry,
+    KeybindingRuntimeContext,
+)
 
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from kursplaner.adapters.gui.ui_intents import UiIntent
@@ -62,19 +68,24 @@ def test_ctrl_enter_binding_is_active_while_editing_a_cell():
     mode check before allow_when_text_input was ever consulted, and the commit-edit
     handler was never reached.
     """
-    app = SimpleNamespace(bind_all=lambda *args, **kwargs: None)
-    builder = ScreenBuilder(app)
-
-    builder._bind_shortcuts()
-
-    definitions = [d for d in builder._runtime_shortcuts.all() if d.binding_id == "grid.commit.ctrl-enter"]
-    assert len(definitions) == 1
-    definition = definitions[0]
+    builder = ScreenBuilder(SimpleNamespace())
+    rows = [row for row in builder._shortcut_rows() if row.binding_id == "grid.commit.ctrl-enter"]
+    assert len(rows) == 1
+    row = rows[0]
+    definition = KeyBindingDefinition(
+        binding_id=row.binding_id,
+        keys=row.keys,
+        intent=row.intent,
+        modes=row.modes,
+        allow_when_text_input=row.allow_when_text_input,
+    )
+    registry = KeybindingRegistry()
+    registry.register(definition)
 
     editor_context = KeybindingRuntimeContext(active_mode=UI_MODE_EDITOR, text_input_focused=True)
-    can_execute, reason = builder._runtime_shortcuts.evaluate_runtime(definition, editor_context)
+    can_execute, reason = registry.evaluate_runtime(definition, editor_context)
     assert can_execute is True, reason
 
     preview_context = KeybindingRuntimeContext(active_mode=UI_MODE_PREVIEW, text_input_focused=False)
-    can_execute, reason = builder._runtime_shortcuts.evaluate_runtime(definition, preview_context)
+    can_execute, reason = registry.evaluate_runtime(definition, preview_context)
     assert can_execute is True, reason

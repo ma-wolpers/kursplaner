@@ -10,6 +10,7 @@ from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentContr
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from tests.day_column_factory import make_day_column
+from bw_gui.contracts.events import EventResult
 
 
 class _FakeCellWidget:
@@ -105,7 +106,7 @@ def test_course_layer_enter_confirms_selection():
 
     result = controller.intent_grid_enter()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.overview_controller.load_selected_table_calls == [None]
 
 
@@ -126,7 +127,7 @@ def test_course_layer_escape_refocuses_grid_when_focus_is_text_widget(tk_root):
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.grid_canvas.focus_set_calls == 1
 
 
@@ -136,7 +137,7 @@ def test_column_layer_enter_focuses_first_editable_cell():
 
     result = controller.intent_grid_enter()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
 
 
 def test_column_layer_enter_is_noop_when_nothing_editable():
@@ -155,7 +156,7 @@ def test_column_layer_escape_closes_detail_view():
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.overview_controller.close_detail_view_calls == 1
 
 
@@ -168,7 +169,7 @@ def test_edge_case_detail_view_true_with_course_level_falls_back_to_column_escap
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.overview_controller.close_detail_view_calls == 1
 
 
@@ -181,7 +182,7 @@ def test_cell_layer_enter_focuses_widget():
 
     result = controller.intent_grid_enter()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert widget.focus_set_calls == 1
 
 
@@ -192,7 +193,7 @@ def test_cell_layer_escape_clears_cell_and_returns_to_column():
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.selection_controller.clear_selected_cell_calls == 1
     assert app.ui_state.selection_level == MainWindowUiState.SELECTION_LEVEL_COLUMN
     assert app.grid_canvas.focus_set_calls == 1
@@ -215,7 +216,7 @@ def test_edit_layer_escape_leaves_edit_mode():
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert calls == [{"set_grid_focus": True}]
 
 
@@ -231,7 +232,7 @@ def test_search_layer_enter_calls_find_next_and_wins_over_column_level():
 
     result = controller.intent_grid_enter()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.selection_controller.single_column_selection_calls == [(0, True)]
 
 
@@ -248,7 +249,7 @@ def test_search_layer_find_previous_dispatches_through_handle_intent():
 
     result = controller.handle_intent(UiIntent.SHORTCUT_FIND_PREVIOUS)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.selection_controller.single_column_selection_calls[-1] == (1, True)
 
 
@@ -259,7 +260,7 @@ def test_search_layer_escape_closes_search_without_touching_selection():
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.search_state.is_active is False
     assert app.search_overlay_view.hide_calls == 1
     assert app.selection_controller.clear_selected_cell_calls == 0
@@ -275,7 +276,7 @@ def test_escape_falls_back_to_column_after_search_closes():
     controller.intent_escape()  # 1. Escape: schliesst nur die Suche
     result = controller.intent_escape()  # 2. Escape: greift wieder die unveraenderte Basis-Hierarchie
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.overview_controller.close_detail_view_calls == 1
 
 
@@ -298,5 +299,5 @@ def test_escape_popup_takes_priority_over_active_search(monkeypatch):
 
     result = controller.intent_escape()
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.search_state.is_active is True  # Suche wurde NICHT angefasst -- Popup gewann

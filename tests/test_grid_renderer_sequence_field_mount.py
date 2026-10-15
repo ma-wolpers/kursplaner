@@ -28,6 +28,7 @@ from kursplaner.adapters.gui.sequence_field_grid_renderer import SequenceFieldGr
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 from tests.day_column_factory import make_day_column
+from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 
 ensure_bw_gui_on_path()
 
@@ -74,6 +75,7 @@ def _renderer(
     day_grid_columns: dict[int, int] | None = None,
 ) -> GridRenderer:
     renderer = object.__new__(GridRenderer)
+    renderer._pointer_groups = GridPointerGroups(None)
     renderer._sequence_field_renderer = SequenceFieldGridRenderer(None, lambda *a, **kw: None)
     day_columns = [make_day_column(row_index=i) for i in range(_DAY_COUNT)]
     app = SimpleNamespace(
@@ -268,6 +270,7 @@ def _real_renderer_for_sequence_remount(
     tk_root, *, domain_value: str, pending_text: str | None, mounted_range: tuple[int, int]
 ):
     renderer = object.__new__(GridRenderer)
+    renderer._pointer_groups = GridPointerGroups(None)
     grid_inner = tk.Frame(tk_root)
     # 10 Tage, Sequenz spannt nur 0..2 -- laesst Raum fuer ein Mount-Fenster
     # (z.B. (8,9)), das komplett ausserhalb des Laufs liegt (fuer den
@@ -369,6 +372,7 @@ def _real_renderer_for_multi_view_scenario(tk_root):
     20 Tage insgesamt, 1:1 Tag->Grid-Spalte.
     """
     renderer = object.__new__(GridRenderer)
+    renderer._pointer_groups = GridPointerGroups(None)
     grid_inner = tk.Frame(tk_root)
     view_a = _view(member_row_indices=tuple(range(2, 10)), sequenzziel="A-Ziel", leitkompetenzen=("A-Kompetenz",))
     view_b = _view(member_row_indices=(11, 12, 13), sequenzziel="B-Ziel", leitkompetenzen=("B-Kompetenz",))

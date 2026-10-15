@@ -1,3 +1,5 @@
+from bw_gui.contracts import KeySpec, Mod
+
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 
@@ -8,7 +10,7 @@ def test_toolbar_shortcuts_avoid_shift_modifier():
     violating = [
         entry.display_shortcut
         for entry in entries
-        if entry.intent.startswith("toolbar.") and "Shift" in entry.key_sequence
+        if entry.intent.startswith("toolbar.") and (Mod.SHIFT in entry.key.modifiers or (entry.key.character or "").isupper())
     ]
 
     assert violating == []
@@ -20,7 +22,7 @@ def test_export_shortcut_is_ctrl_p():
 
     assert len(export_entries) == 1
     export_entry = export_entries[0]
-    assert export_entry.key_sequence == "<Control-p>"
+    assert export_entry.key == KeySpec.parse("Ctrl+P")
     assert export_entry.display_shortcut == "Strg+P"
 
 
@@ -30,7 +32,7 @@ def test_column_visibility_shortcut_is_ctrl_l():
 
     assert len(visibility_entries) == 1
     visibility_entry = visibility_entries[0]
-    assert visibility_entry.key_sequence == "<Control-l>"
+    assert visibility_entry.key == KeySpec.parse("Ctrl+L")
     assert visibility_entry.display_shortcut == "Strg+L"
 
 
@@ -75,5 +77,5 @@ def test_lzk_and_lzk_expected_horizon_share_ctrl_k_shortcut():
 
     assert len(lzk_entries) == 1
     entry = lzk_entries[0]
-    assert entry.key_sequence == "<Control-k>"
+    assert entry.key == KeySpec.parse("Ctrl+K")
     assert entry.display_shortcut == "Strg+K"

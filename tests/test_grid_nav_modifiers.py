@@ -1,4 +1,9 @@
-"""Regressionstest: Grid-Pfeilnavigation wertet Modifier über den bw-gui-Contract aus."""
+"""Regressionstest: Grid-Pfeilnavigation feuert nur ohne Strg (exakte Modifier im bw-gui-Contract).
+
+Früher prüfte ``_control_or_unknown_modifiers`` im Handler, ob Strg gehalten wurde oder
+der Zustand unbekannt war. Mit ``KeySpec``-Matching erreicht Strg+Pfeil bzw. ein
+unbekannter Zustand die Definition gar nicht erst; NumLock spielt keine Rolle.
+"""
 
 from __future__ import annotations
 
@@ -6,21 +11,20 @@ from types import SimpleNamespace
 
 import pytest
 
-import bw_gui.contracts.key_modifiers as key_modifiers
+from bw_gui.contracts import TkBackend
+from bw_gui.contracts.key_event import RawKey, classify_key
+from bw_gui.contracts.key_spec import matches
+
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 
-NUMLOCK, CONTROL = 0x0008, 0x0004
-
-
-@pytest.fixture(autouse=True)
-def _win32_backend(monkeypatch):
-    """Live gemessene win32-Werte; Backend fixiert, damit der Test überall gleich prüft."""
-    monkeypatch.setattr(key_modifiers.sys, "platform", "win32")
+SHIFT, NUMLOCK, CONTROL = 0x0001, 0x0008, 0x0004
 
 
 @pytest.mark.parametrize(
-    ("state", "blocked"),
-    [(0, False), (NUMLOCK, False), (CONTROL, True), (CONTROL | NUMLOCK, True), ("??", True)],
+    ("state", "fires"),
+    [(0, True), (NUMLOCK, True), (SHIFT, True), (CONTROL, False), (CONTROL | NUMLOCK, False), ("??", False)],
 )
-def test_ctrl_or_unknown_state_blocks_grid_navigation(state, blocked):
-    assert ScreenBuilder._control_or_unknown_modifiers(SimpleNamespace(state=state)) is blocked
+def test_grid_nav_up_matches_only_without_ctrl(state, fires):
+    rows = {row.binding_id: row for row in ScreenBuilder(SimpleNamespace())._shortcut_rows()}
+    identity = classify_key(RawKey("Up", "", state), TkBackend.WIN32)[1]
+    assert matches(rows["grid.nav.up"].keys, identity) is fires

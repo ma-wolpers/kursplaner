@@ -5,15 +5,16 @@ from typing import Protocol
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
+from bw_gui.contracts import EventResult  # noqa: E402
 from bw_gui.runtime import ui
 
 
 class SelectionLayer(Protocol):
     """Eine der fünf Auswahlebenen (COURSE/COLUMN/CELL/EDIT/SEARCH), aus Sicht von Enter/Escape."""
 
-    def on_enter(self) -> str | None: ...
-    def on_escape(self) -> str | None: ...
-    def on_find_previous(self) -> str | None: ...
+    def on_enter(self) -> EventResult | None: ...
+    def on_escape(self) -> EventResult | None: ...
+    def on_find_previous(self) -> EventResult | None: ...
 
 
 class _CourseLayer:
@@ -22,17 +23,17 @@ class _CourseLayer:
     def __init__(self, controller):
         self._controller = controller
 
-    def on_enter(self) -> str | None:
+    def on_enter(self) -> EventResult | None:
         return self._controller.intent_course_confirm_selection(None)
 
-    def on_escape(self) -> str | None:
+    def on_escape(self) -> EventResult | None:
         app = self._controller.app
         if isinstance(app.focus_get(), ui.Text):
             app.grid_canvas.focus_set()
-            return "break"
+            return EventResult.HANDLED
         return None
 
-    def on_find_previous(self) -> str | None:
+    def on_find_previous(self) -> EventResult | None:
         return None
 
 
@@ -42,15 +43,15 @@ class _ColumnLayer:
     def __init__(self, controller):
         self._controller = controller
 
-    def on_enter(self) -> str | None:
+    def on_enter(self) -> EventResult | None:
         moved = self._controller.app.selection_controller.select_first_editable_in_selected_column()
-        return "break" if moved else None
+        return EventResult.HANDLED if moved else None
 
-    def on_escape(self) -> str | None:
+    def on_escape(self) -> EventResult | None:
         self._controller.app.overview_controller.close_detail_view()
-        return "break"
+        return EventResult.HANDLED
 
-    def on_find_previous(self) -> str | None:
+    def on_find_previous(self) -> EventResult | None:
         return None
 
 
@@ -60,7 +61,7 @@ class _CellLayer:
     def __init__(self, controller):
         self._controller = controller
 
-    def on_enter(self) -> str | None:
+    def on_enter(self) -> EventResult | None:
         app = self._controller.app
         selected_cell = app.ui_state.selected_cell
         if selected_cell is None:
@@ -71,16 +72,16 @@ class _CellLayer:
         widget.focus_set()
         widget.mark_set("insert", "end-1c")
         widget.see("insert")
-        return "break"
+        return EventResult.HANDLED
 
-    def on_escape(self) -> str | None:
+    def on_escape(self) -> EventResult | None:
         app = self._controller.app
         app.selection_controller.clear_selected_cell()
         app.ui_state.set_selection_level(app.ui_state.SELECTION_LEVEL_COLUMN)
         app.grid_canvas.focus_set()
-        return "break"
+        return EventResult.HANDLED
 
-    def on_find_previous(self) -> str | None:
+    def on_find_previous(self) -> EventResult | None:
         return None
 
 
@@ -90,14 +91,14 @@ class _EditLayer:
     def __init__(self, controller):
         self._controller = controller
 
-    def on_enter(self) -> str | None:
+    def on_enter(self) -> EventResult | None:
         return None
 
-    def on_escape(self) -> str | None:
+    def on_escape(self) -> EventResult | None:
         self._controller._leave_edit_mode_to_cell(set_grid_focus=True)
-        return "break"
+        return EventResult.HANDLED
 
-    def on_find_previous(self) -> str | None:
+    def on_find_previous(self) -> EventResult | None:
         return None
 
 
@@ -107,17 +108,17 @@ class _SearchLayer:
     def __init__(self, controller):
         self._controller = controller
 
-    def on_enter(self) -> str | None:
+    def on_enter(self) -> EventResult | None:
         self._controller.app.search_controller.find_next()
-        return "break"
+        return EventResult.HANDLED
 
-    def on_escape(self) -> str | None:
+    def on_escape(self) -> EventResult | None:
         self._controller.app.search_controller.close_search()
-        return "break"
+        return EventResult.HANDLED
 
-    def on_find_previous(self) -> str | None:
+    def on_find_previous(self) -> EventResult | None:
         self._controller.app.search_controller.find_previous()
-        return "break"
+        return EventResult.HANDLED
 
 
 class SelectionLayerStack:
@@ -163,11 +164,11 @@ class SelectionLayerStack:
             return self._cell
         return self._column
 
-    def on_enter(self) -> str | None:
+    def on_enter(self) -> EventResult | None:
         return self.top().on_enter()
 
-    def on_escape(self) -> str | None:
+    def on_escape(self) -> EventResult | None:
         return self.top().on_escape()
 
-    def on_find_previous(self) -> str | None:
+    def on_find_previous(self) -> EventResult | None:
         return self.top().on_find_previous()

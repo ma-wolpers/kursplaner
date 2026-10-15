@@ -34,6 +34,7 @@ from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from tests.day_column_factory import make_day_column
+from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 
 ensure_bw_gui_on_path()
 
@@ -67,6 +68,7 @@ def _renderer(
     row_labels: dict | None = None,
 ) -> GridRenderer:
     renderer = object.__new__(GridRenderer)
+    renderer._pointer_groups = GridPointerGroups(None)
     ui_state = MainWindowUiState()
     if active_editor is not None:
         ui_state.set_active_editor(*active_editor)
@@ -265,6 +267,7 @@ def test_already_mounted_cell_inside_window_is_just_regridded_not_recreated():
 
 def _real_renderer_for_remount(tk_root, *, field_value: str, pending_text: str | None) -> tuple[GridRenderer, dict]:
     renderer = object.__new__(GridRenderer)
+    renderer._pointer_groups = GridPointerGroups(None)
     renderer._field_help_tooltips = []
     renderer._row_layout_cache = {}
     grid_inner = tk.Frame(tk_root)

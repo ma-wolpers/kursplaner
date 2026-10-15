@@ -5,7 +5,8 @@ from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
-from bw_gui.contracts import NO_MODIFIERS, UNKNOWN_MODIFIERS, modifiers_from_event
+from bw_gui.contracts import EventResult, KeyModifiers
+from bw_gui.contracts.pointer import Axis, wheel_axis
 from datetime import datetime
 
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
@@ -20,6 +21,7 @@ from bw_gui.theming import (
     theme_widget_border,
 )
 
+from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.sequence_field_grid_renderer import (
     SEQUENCE_FIELD_ROW_ORDER,
@@ -45,7 +47,8 @@ class GridRenderer:
         self._marker_kinds_by_widget: dict[int, tuple[str, ...]] = {}
         self._marker_column_width = 12
         self._row_layout_cache: dict[str, tuple[int, bool, bool, str]] = {}
-        self._sequence_field_renderer = SequenceFieldGridRenderer(app, self._create_text_cell)
+        self._pointer_groups = GridPointerGroups(app)
+        self._sequence_field_renderer = SequenceFieldGridRenderer(app, self._create_text_cell, self._pointer_groups)
         self._zoom_rebuild_after_id: str | None = None
         self._next_unit_index: int | None = None
 
@@ -667,7 +670,7 @@ class GridRenderer:
             theme_text(widget, bg_token="bg_panel", fg_token="fg_muted")
             widget.configure(state="disabled")
 
-        widget.bind("<MouseWheel>", self.app._on_grid_mousewheel)
+        self._pointer_groups.wheel(widget)
         self._apply_cell_selection_style(widget, field_key="", day_index=-1)
         return widget
 
@@ -722,15 +725,8 @@ class GridRenderer:
         if help_text:
             self._field_help_tooltips.append(HoverTooltip(cell, help_text))
 
+        self._pointer_groups.cell(cell, field_key=field_key, day_index=day_index, editable=editable)
         if editable:
-            cell.bind(
-                "<Button-1>",
-                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                    UiIntent.GRID_CELL_CLICK,
-                    field_key=fk,
-                    day_index=di,
-                ),
-            )
             cell.bind(
                 "<FocusIn>",
                 lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
@@ -755,14 +751,6 @@ class GridRenderer:
                     day_index=di,
                 ),
                 add="+",
-            )
-        else:
-            cell.bind(
-                "<Button-1>",
-                lambda _event, di=day_index: self.app._handle_ui_intent(
-                    UiIntent.GRID_DATE_CELL_CLICK,
-                    day_index=di,
-                ),
             )
 
         self.app.cell_widgets[(field_key, day_index)] = cell
@@ -877,10 +865,7 @@ class GridRenderer:
             self._apply_header_color(header, col_type)
             self._apply_ub_border(header, day_index)
             header.grid(row=0, column=grid_col, sticky="nsew")
-            header.bind(
-                "<Button-1>",
-                lambda _e, di=day_index: self.app._handle_ui_intent(UiIntent.GRID_COLUMN_CLICK, day_index=di),
-            )
+            self._pointer_groups.header(header, day_index=day_index)
             self.app.header_labels[day_index] = header
 
         row_idx = 0
@@ -905,11 +890,7 @@ class GridRenderer:
             )
             theme_label_token(field_label, bg_token="panel_strong")
             field_label.grid(row=row_idx, column=0, sticky="nsew")
-            if collapsible:
-                field_label.bind(
-                    "<Button-1>",
-                    lambda _e, fk=field_key: self.app._handle_ui_intent(UiIntent.GRID_TOGGLE_ROW_EXPAND, field_key=fk),
-                )
+            self._pointer_groups.row_label(field_label, field_key=field_key, collapsible=collapsible)
             self.app.row_labels[field_key] = field_label
             help_text = self._field_help_text(field_key)
             if help_text:
@@ -1013,13 +994,7 @@ class GridRenderer:
         row_height, collapsible, _expanded, label_text = self._row_layout(field_key)
         label.configure(text=label_text, cursor="hand2" if collapsible else "")
         theme_label_token(label, bg_token="panel_strong")
-        if collapsible:
-            label.bind(
-                "<Button-1>",
-                lambda _e, fk=field_key: self.app._handle_ui_intent(UiIntent.GRID_TOGGLE_ROW_EXPAND, field_key=fk),
-            )
-        else:
-            label.unbind("<Button-1>")
+        self._pointer_groups.row_label(label, field_key=field_key, collapsible=collapsible)
 
         self.app.fixed_inner.grid_rowconfigure(row_idx, minsize=0)
         self.app.grid_inner.grid_rowconfigure(row_idx, minsize=0)
@@ -1177,30 +1152,28 @@ class GridRenderer:
         self.app.viewport_sync_h.xview(*args)
 
     def _on_grid_mousewheel(self, event):
-        """Behandelt Scroll- und Zoom-Interaktion im Grid (Ctrl+Wheel = Spaltenbreite)."""
-        # Modifier-Semantik aus dem bw-gui-Contract (kein eigenes event.state-Bitraten).
-        # Unbekannter Zustand -> normales Scrollen (beim Mausrad der harmlose Fall).
-        modifiers = modifiers_from_event(event)
-        if modifiers is UNKNOWN_MODIFIERS:
-            modifiers = NO_MODIFIERS
-        ctrl_pressed = modifiers.control
-        shift_pressed = modifiers.shift
+        """Mausrad über dem Grid (``WheelEvent``): Strg ändert die Spaltenbreite, Shift scrollt horizontal.
 
-        if ctrl_pressed:
-            step = 20 if event.delta > 0 else -20
+        Arbeitet in ganzen Rasten (``whole_steps``; kleine Touchpad-Deltas sammeln sich).
+        Rad hoch mit Strg verbreitert die Spalten um 20 px je Raste. Unbekannter
+        Modifierzustand scrollt normal (beim Mausrad der harmlose Fall).
+        """
+        steps = event.whole_steps
+        if steps == 0:
+            return EventResult.HANDLED
+        modifiers = event.modifiers if isinstance(event.modifiers, KeyModifiers) else None
+        if modifiers is not None and modifiers.control:
             self.app.day_column_width = max(
                 self.app.min_day_column_width,
-                min(self.app.max_day_column_width, self.app.day_column_width + step),
+                min(self.app.max_day_column_width, self.app.day_column_width - 20 * steps),
             )
             self._schedule_zoom_rebuild()
-            return "break"
-
-        units = -1 if event.delta > 0 else 1
-        if shift_pressed:
-            self._on_horizontal_scroll("scroll", units, "units")
+            return EventResult.HANDLED
+        if wheel_axis(event) is Axis.HORIZONTAL:
+            self._on_horizontal_scroll("scroll", steps, "units")
         else:
-            self.app.viewport_sync.yview_scroll(units, "units")
-        return "break"
+            self.app.viewport_sync.yview_scroll(steps, "units")
+        return EventResult.HANDLED
 
     def _schedule_zoom_rebuild(self, delay_ms: int = 120) -> None:
         """Plant einen verzögerten vollen Grid-Rebuild nach Zoom-Änderung (Debounce).

@@ -4,7 +4,8 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
 from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
-from bw_gui.runtime import ui, widgets
+from bw_gui.contracts import KeySpec
+from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, bind_wheel, on_key, ui, widgets
 from bw_gui.widgets import Switch
 
 from bw_libs.ui_contract.keybinding import KeybindingRegistry
@@ -206,13 +207,16 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         tree_scroll.pack(side="right", fill="y")
         self._add_help(self.app.lesson_tree, MAIN_WINDOW_HELP["lesson_tree"])
 
-        self.app.lesson_tree.bind("<Return>", self._on_tree_enter)
-        self.app.lesson_tree.bind("<KP_Enter>", self._on_tree_enter)
-        self.app.lesson_tree.bind("<Double-1>", self._on_tree_confirm_selection)
-        self.app.lesson_tree.bind("<ButtonRelease-1>", self._on_tree_confirm_selection)
-        self.app.lesson_tree.bind("<Motion>", self._on_tree_hover_select)
-        self.app.lesson_tree.bind("<Up>", self._on_tree_keyboard_navigation, add="+")
-        self.app.lesson_tree.bind("<Down>", self._on_tree_keyboard_navigation, add="+")
+        tree = self.app.lesson_tree
+        WidgetShortcutBinder(tree).bind(
+            KeySpec.parse("Enter (tolerate: Shift)"), self._on_tree_enter, binding_id="course.enter", intent=UiIntent.GRID_ENTER
+        )
+        # Maus: Doppelklick und Loslassen der linken Taste bestaetigen den Kurs (wie frueher
+        # <Double-1>/<ButtonRelease-1>; beim Loslassen ist die native Auswahl schon gesetzt).
+        bind_click(tree, self._on_tree_confirm_selection, count=2)
+        bind_drag(tree, on_end=self._on_tree_confirm_selection)
+        tree.bind("<Motion>", self._on_tree_hover_select)
+        on_key(tree, self._on_tree_keyboard_navigation)
 
         header = widgets.Frame(right)
         header.pack(fill="x", pady=(0, 6))
@@ -334,9 +338,8 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         self.app.header_canvas.bind("<Configure>", self.app._on_canvas_configure)
         self.app.fixed_canvas.bind("<Configure>", self.app._on_canvas_configure)
         self.app.grid_canvas.bind("<Configure>", self.app._on_canvas_configure)
-        self.app.header_canvas.bind("<MouseWheel>", self.app._on_grid_mousewheel)
-        self.app.fixed_canvas.bind("<MouseWheel>", self.app._on_grid_mousewheel)
-        self.app.grid_canvas.bind("<MouseWheel>", self.app._on_grid_mousewheel)
+        for canvas in (self.app.header_canvas, self.app.fixed_canvas, self.app.grid_canvas):
+            bind_wheel(canvas, self.app._on_grid_mousewheel)
 
         self.refresh_course_overview_toolbar()
         self.show_course_overview()

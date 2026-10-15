@@ -6,6 +6,7 @@ from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from tests.day_column_factory import make_day_column
+from bw_gui.contracts.events import EventResult
 
 
 class _ActionControllerSpy:
@@ -323,7 +324,7 @@ def test_grid_enter_from_column_selection_selects_first_editable_cell():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.GRID_ENTER)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert selection_controller.select_first_calls == 1
 
 
@@ -347,7 +348,7 @@ def test_escape_from_cell_selection_returns_to_column_mode_without_closing_detai
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_ESCAPE)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert selection_controller.clear_calls == 1
     assert app.ui_state.selection_level == app.ui_state.SELECTION_LEVEL_COLUMN
     assert overview_controller.close_calls == 0
@@ -377,7 +378,7 @@ def test_escape_from_edit_mode_keeps_editor_active_when_save_fails():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_ESCAPE)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert editor_controller.save_calls == [("Stundenthema", 0)]
     assert app.ui_state.active_editor is not None
     assert app.ui_state.selection_level == app.ui_state.SELECTION_LEVEL_EDIT
@@ -399,7 +400,7 @@ def test_alt_left_navigation_in_column_mode_uses_non_skip_path():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_DETAIL_LEFT_ALL)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert selection_controller.move_adjacent_calls == [-1]
 
 
@@ -428,7 +429,7 @@ def test_grid_delete_cell_clears_selected_editable_cell():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.GRID_DELETE_CELL)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert editor_controller.apply_calls == [("Stundenthema", 0, "")]
 
 
@@ -457,7 +458,7 @@ def test_grid_delete_cell_routes_content_delete_to_action_controller():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.GRID_DELETE_CELL)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert action_controller.calls == ["clear_selected_lesson_content"]
     assert editor_controller.apply_calls == []
 
@@ -486,7 +487,7 @@ def test_grid_cell_click_marks_cell_without_entering_edit_on_first_click():
         day_index=0,
     )
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert selection_controller.set_selected_cell_calls == [("Stundenthema", 0, True)]
     assert selection_controller.select_first_calls == 0
 
@@ -519,7 +520,7 @@ def test_grid_cell_click_on_selected_cell_starts_edit_like_enter():
         day_index=0,
     )
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert cell_widget.focus_calls == 1
 
 
@@ -542,7 +543,7 @@ def test_grid_date_cell_click_switches_to_column_selection():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.GRID_DATE_CELL_CLICK, day_index=1)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert selection_controller.set_single_column_calls == [(1, True)]
 
 
@@ -565,7 +566,7 @@ def test_grid_column_click_on_selected_column_uses_enter_behavior():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.GRID_COLUMN_CLICK, day_index=0)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert selection_controller.select_first_calls == 1
     assert selection_controller.set_single_column_calls == []
 
@@ -624,7 +625,7 @@ def test_ctrl_enter_commits_edit_mode_like_escape():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_EDIT)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert editor_controller.save_calls == [("Stundenthema", 0)]
     assert app.ui_state.active_editor is None
     assert app.ui_state.selection_level == app.ui_state.SELECTION_LEVEL_CELL
@@ -650,7 +651,7 @@ def test_ctrl_enter_column_shortcut_routes_to_unterricht_for_regular_column():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.lesson_conversion_controller.calls == ["convert_selected_to_unterricht"]
 
 
@@ -664,7 +665,7 @@ def test_ctrl_enter_column_shortcut_routes_to_ausfall_for_cancel_column():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.lesson_conversion_controller.calls == ["convert_selected_to_ausfall"]
 
 
@@ -682,7 +683,7 @@ def test_ctrl_enter_column_shortcut_routes_to_hospitation(tmp_path):
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.lesson_conversion_controller.calls == ["convert_selected_to_hospitation"]
 
 
@@ -700,7 +701,7 @@ def test_ctrl_enter_column_shortcut_routes_to_lzk(tmp_path):
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COMMIT_COLUMN)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.lesson_conversion_controller.calls == ["convert_selected_to_lzk"]
 
 
@@ -749,7 +750,7 @@ def test_edit_undo_to_recent_index_routes_to_action_controller():
         recent_index=2,
     )
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert "undo_history_to_recent_index:2" in app.action_controller.calls
 
 
@@ -805,7 +806,7 @@ def test_shortcut_copy_works_in_column_selection_mode():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COPY, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.action_controller.calls == ["copy_selected_lesson"]
 
 
@@ -818,7 +819,7 @@ def test_shortcut_cut_works_in_column_selection_mode():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_CUT, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.action_controller.calls == ["cut_selected_lesson"]
 
 
@@ -840,7 +841,7 @@ def test_shortcut_copy_in_cell_selection_copies_selected_cell_content():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COPY, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert copied_values == ["Alpha\nBeta"]
     assert app.action_controller.calls == []
 
@@ -871,7 +872,7 @@ def test_shortcut_paste_in_cell_selection_replaces_full_cell_content():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_PASTE, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert editor_controller.apply_calls == [("Stundenthema", 0, "Neu\nKomplett")]
 
 
@@ -900,7 +901,7 @@ def test_toolbar_paste_in_cell_selection_replaces_full_cell_content():
 
     result = KursplanerApp._handle_ui_intent(app, UiIntent.TOOLBAR_PASTE)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert editor_controller.apply_calls == [("Stundenthema", 0, "Neu\nAus Toolbar")]
 
 
@@ -962,7 +963,7 @@ def test_shortcut_cut_in_cell_selection_copies_and_clears_selected_cell():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_CUT, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert copied_values == ["Vorher"]
     assert editor_controller.apply_calls == [("Stundenthema", 0, "")]
 
@@ -976,7 +977,7 @@ def test_shortcut_cut_routes_in_column_selection_mode():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_CUT, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.action_controller.calls == ["cut_selected_lesson"]
 
 
@@ -1085,7 +1086,7 @@ def test_ctrl_down_expands_selected_row_in_cell_mode():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_EXPAND_SELECTED_ROW, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.row_expanded["Stundenthema"] is True
     assert rebuild_calls["count"] == 1
 
@@ -1111,7 +1112,7 @@ def test_ctrl_up_collapses_selected_row_in_cell_mode():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_COLLAPSE_SELECTED_ROW, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert app.row_expanded["Stundenthema"] is False
     assert rebuild_calls["count"] == 1
 
@@ -1164,7 +1165,7 @@ def test_ctrl_down_expand_rebuild_pipeline_ensures_selected_cell_visible():
     event = SimpleNamespace(widget=object(), state=0)
     result = KursplanerApp._handle_ui_intent(app, UiIntent.SHORTCUT_EXPAND_SELECTED_ROW, event=event)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert rebuild_calls["count"] == 1
     assert selection_controller.ensure_column_calls == [0]
     assert selection_controller.ensure_row_calls == [("Stundenthema", 0)]

@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
+from bw_gui.contracts.events import EventResult
 
 
 def _make_controller(*, is_detail_view: bool, selection_level: str, selected_offset_result: bool = True):
@@ -31,7 +32,7 @@ def test_select_unit_by_offset_fires_in_column_selection_mode():
 
     result = controller.intent_select_unit_by_offset(2)
 
-    assert result == "break"
+    assert result is EventResult.HANDLED
     assert calls == [2]
 
 
