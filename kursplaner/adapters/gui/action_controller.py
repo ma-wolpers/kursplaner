@@ -14,6 +14,7 @@ from bw_gui.runtime import (
     WidgetShortcutBinder,
     WindowShortcutBinder,
     listbox_selection,
+    on_destroy,
     on_listbox_select,
     treeview_selection,
     ui,
@@ -2018,11 +2019,11 @@ class MainWindowActionController:
         )
         dialog.apply_theme()
         dialog.grab_set()
-        dialog.bind(
-            "<Destroy>",
-            lambda _e: self.app.overview_controller.refresh_overview()
+        # on_destroy: einmal beim Schliessen (das fruehere Toplevel-Binding lief fuer jedes Kind-Widget).
+        on_destroy(
+            dialog,
+            lambda _dialog: self.app.overview_controller.refresh_overview()
             if self.app.current_table is None
             else self._refresh_after_write(),
-            add="+",
         )
 

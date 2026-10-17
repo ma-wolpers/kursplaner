@@ -69,6 +69,7 @@ The format is based on Keep a Changelog.
   - Tests: `tests/test_timetable_change_usecase.py` (15 Tests), `tests/test_apply_timetable_change_usecase.py` (7 Tests).
 
 ### Changed
+- Für Mitentwickelnde: Ein Architektur-Test verhindert rohe Tk-Ereignisbindungen und Auswahl-Mutationen in der App. Reine Wartung, Verhalten unverändert.
 - Für Mitentwickelnde: Fenster-, Fokus-, Auswahl- und Canvas-Ereignisse laufen über die bw-gui-Widget-Events-API statt über rohe Tk-Bindings. Reine Wartung, Verhalten unverändert.
 - Für Mitentwickelnde: Die Kürzelsperre bei offenen Popups läuft über den bw-gui-Overlay-Stack (statt über einen eigenen Fenster-Scan), `tools/ci/check_ai_guardrails.py` ist in Einstieg plus `guardrail_config/support/process/checks/gui_checks.py` aufgeteilt, und das Hauptfenster delegiert Plantabelle/Raster sowie Zeilenmodus über eigene Mixins. Reine Wartung, Verhalten unverändert.
 - **Tastenkürzel in den Dialogen „Einheit planen“, „Kompetenzen wählen“ und „Stundenziel wählen“** gelten genau für die angegebene Kombination: Strg+↑/↓ bewegt den Cursor im Textfeld, statt die Vorschlagsliste zu steuern, und Strg+Tab springt wie in anderen Textfeldern zum nächsten Bedienelement. Umschalt+↑/↓ und Umschalt+Enter wirken weiter wie bisher; Strg+Enter (auch auf dem Ziffernblock) übernimmt den Dialog.

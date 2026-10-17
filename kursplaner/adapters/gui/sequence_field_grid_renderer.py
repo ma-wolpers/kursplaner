@@ -6,7 +6,6 @@ from bw_gui.runtime import ui
 from bw_gui.theming import theme_label_token
 
 from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
-from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.core.domain.day_column import DayColumn
 
 CreateTextCell = Callable[..., ui.Text]
@@ -223,22 +222,4 @@ class SequenceFieldGridRenderer:
         und daher nicht über `(field_key, day_index)` identifizierbar ist.
         """
         self._pointer_groups.sequence_cell(cell, field_key=field_key, row_index=first_row_index)
-        cell.bind(
-            "<FocusIn>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_SEQUENCE_FIELD_FOCUS_IN, sequence_field_key=fk, sequence_row_index=ri
-            ),
-        )
-        cell.bind(
-            "<FocusOut>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_COMMIT_SEQUENCE_FIELD, sequence_field_key=fk, sequence_row_index=ri
-            ),
-        )
-        cell.bind(
-            "<FocusOut>",
-            lambda _e, fk=field_key, ri=first_row_index: self.app._handle_ui_intent(
-                UiIntent.GRID_SEQUENCE_FIELD_FOCUS_OUT, sequence_field_key=fk, sequence_row_index=ri
-            ),
-            add="+",
-        )
+        self._pointer_groups.focus_sequence_cell(cell, field_key=field_key, row_index=first_row_index)

@@ -4,7 +4,7 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import ui
+from bw_gui.runtime import on_resize, ui
 from bw_gui.contracts import EventResult, KeyModifiers
 from bw_gui.contracts.pointer import Axis, wheel_axis
 from datetime import datetime
@@ -28,7 +28,6 @@ from kursplaner.adapters.gui.sequence_field_grid_renderer import (
     SequenceFieldGridRenderer,
     compute_row_index_to_grid_col,
 )
-from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 
 
@@ -727,31 +726,7 @@ class GridRenderer:
 
         self._pointer_groups.cell(cell, field_key=field_key, day_index=day_index, editable=editable)
         if editable:
-            cell.bind(
-                "<FocusIn>",
-                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                    UiIntent.GRID_EDITOR_FOCUS_IN,
-                    field_key=fk,
-                    day_index=di,
-                ),
-            )
-            cell.bind(
-                "<FocusOut>",
-                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                    UiIntent.GRID_COMMIT_CELL,
-                    field_key=fk,
-                    day_index=di,
-                ),
-            )
-            cell.bind(
-                "<FocusOut>",
-                lambda _event, fk=field_key, di=day_index: self.app._handle_ui_intent(
-                    UiIntent.GRID_EDITOR_FOCUS_OUT,
-                    field_key=fk,
-                    day_index=di,
-                ),
-                add="+",
-            )
+            self._pointer_groups.focus_cell(cell, field_key=field_key, day_index=day_index)
 
         self.app.cell_widgets[(field_key, day_index)] = cell
         return cell
@@ -837,10 +812,7 @@ class GridRenderer:
                     borderwidth=0,
                 )
                 marker.grid(row=0, column=grid_col, sticky="nsew")
-                marker.bind(
-                    "<Configure>",
-                    lambda _event, widget=marker, mk=kinds_tuple: self._draw_marker_canvas(widget, mk),
-                )
+                on_resize(marker, lambda _event, widget=marker, mk=kinds_tuple: self._draw_marker_canvas(widget, mk))
                 self._marker_kinds_by_widget[int(marker.winfo_id())] = kinds_tuple
                 self._draw_marker_canvas(marker, kinds_tuple)
                 self._marker_widgets.append(marker)
