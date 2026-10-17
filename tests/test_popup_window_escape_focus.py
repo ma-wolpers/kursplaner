@@ -7,7 +7,7 @@ class _FakePopup:
 
     def _request_close(self):
         self.request_close_calls += 1
-        return "break"
+        return None
 
 
 class _FakePopupWindowRef:
@@ -24,7 +24,7 @@ def test_escape_always_closes_regardless_of_focus():
 
     result = ScrollablePopupWindow._handle_escape_request(popup)
 
-    assert result == "break"
+    assert result is None
     assert popup.request_close_calls == 1
 
 
