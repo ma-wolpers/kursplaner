@@ -34,6 +34,9 @@ The format is based on Keep a Changelog.
   - **Speicherort konfigurierbar**: Die Ausfall-Daten liegen jetzt standardmäßig außerhalb des Programmordners (`~/.kursplaner/`) und lassen sich in den Einstellungen auf einen beliebigen Ort umstellen (z. B. einen synchronisierten Ordner); bestehende Einträge werden beim Wechsel automatisch mitgenommen.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
+### Changed
+- **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel.
+
 ### Fixed
 - **Pfeiltasten in den Feldern „Inhalte“ und „Methodik“ (Dialog „Einheit planen“) wirkten nicht**: Die Auswahl in der Vorschlagsliste sprang nach dem Loslassen von ↓ sofort wieder auf den ersten Eintrag. ↑/↓ bewegen die Auswahl jetzt wie in den übrigen Feldern; Enter übernimmt den markierten Eintrag.
 - **Strg+Z im Fenster „Stundenplanänderung“ blieb nach dem Schließen aktiv** und lief ins Leere, statt wieder die normale Rückgängig-Funktion zu bedienen; es gilt jetzt nur noch, solange das Fenster offen ist.
