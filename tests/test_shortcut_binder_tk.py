@@ -87,6 +87,12 @@ def test_ctrl_shift_e_works_without_capslock_and_ctrl_alt_is_not_ctrl(root, inte
     assert intents == [UiIntent.COURSE_TOGGLE_SHOW_FORMER]
 
 
+def test_ctrl_comma_opens_the_settings(root, intents):
+    """Strg+, oeffnet die Einstellungen (wie in Blattwerk und Kartograph)."""
+    press_key(root, "comma", char=",", state=CONTROL)
+    assert intents == [UiIntent.OPEN_SETTINGS]
+
+
 def test_popup_blocks_guide_shortcuts(root, wired, intents, monkeypatch):
     builder, _recorded = wired
     monkeypatch.setattr(builder, "_has_active_popup", lambda: True)

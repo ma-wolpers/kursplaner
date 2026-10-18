@@ -67,8 +67,7 @@ SHORTCUT_COVERAGE_SOFT_CHECKS = (
             "kursplaner/resources/shortcuts/shortcut_guide.json",
         ),
         "shortcut_markers": (
-            "<Control-comma>",
-            "<Control-,>",
+            '"key": "Ctrl+,"',
             "Strg+,",
         ),
     },

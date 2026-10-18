@@ -16,6 +16,14 @@
     "didactic_hint": "R hilft als Merkanker für Auffrischen oder Neu laden."
   },
   {
+    "key": "Ctrl+,",
+    "display_shortcut": "Strg+,",
+    "action_label": "Einstellungen",
+    "intent": "app.open_settings",
+    "mnemonic": ", = Einstellungen",
+    "didactic_hint": "Strg+, öffnet in vielen Programmen die Einstellungen, auch in Blattwerk und Kartograph."
+  },
+  {
     "key": "Ctrl+P",
     "display_shortcut": "Strg+P",
     "action_label": "Exportieren als...",

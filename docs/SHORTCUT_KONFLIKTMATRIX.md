@@ -3,7 +3,7 @@
 Stand: 2026-03-31
 
 Quelle der aktuellen Belegung:
-- `kursplaner/adapters/gui/screen_builder.py` (`_bind_shortcuts`)
+- `kursplaner/resources/shortcuts/shortcut_guide.json` (Guide-Kuerzel) und `kursplaner/adapters/gui/_screen_shortcuts.py` (`_bind_shortcuts`)
 - `kursplaner/adapters/gui/help_catalog.py` (`MAIN_WINDOW_HELP`)
 
 ## Aktuelle Bewertung
@@ -12,6 +12,7 @@ Quelle der aktuellen Belegung:
 |---|---|---|---|---|---|---|
 | Neu | Strg+N | N = Neu | Standardanker aus vielen Programmen. | Neu | niedrig | gut |
 | Refresh | Strg+R | R = Reload | R stuetzt Neu-laden als Auffrischung. | Reload/Run/Replace je nach App | mittel | ok, aber merkbar |
+| Einstellungen | Strg+, | , = Einstellungen | Gleiche Belegung wie in Blattwerk und Kartograph (2026-10-18). | Einstellungen (VS Code, Browser, macOS Strg/Cmd+,) | niedrig | gut |
 | Undo | Strg+Z | Z = Zurueck | Klare Rueckwaerts-Assoziation. | Undo | niedrig | Standard |
 | Redo | Strg+Y | Y = Wiederherstellen | Standard-Ergaenzung zu Strg+Z. | Redo | niedrig | Standard |
 | Unterricht markieren | Strg+U | U = Unterricht | Direkter Buchstabenbezug zur Funktion. | Unterstreichen (manche Editoren) | niedrig | gut |
