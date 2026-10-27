@@ -1,4 +1,4 @@
-﻿# Kurs-Manager (Code/kursplaner)
+﻿# Kursplaner (Code/kursplaner)
 
 ## Überblick
 
@@ -12,7 +12,7 @@ py -3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-Der Kurs-Manager hat zwei Hauptbereiche:
+Der Kursplaner hat zwei Hauptbereiche:
 
 1. **Manager-Hauptfenster**: Übersicht aller Kurspläne
 2. **Neu-Fenster**: Neuen Kurs direkt anlegen

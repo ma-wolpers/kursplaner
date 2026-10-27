@@ -17,5 +17,5 @@ APP_INFO = AppInfo(
     name="Kursplaner",
     version="0.1.2",
     appdata_folder="kursplaner",
-    window_title="Kurs-Manager",
+    window_title="Kursplaner",
 )
