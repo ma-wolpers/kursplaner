@@ -106,11 +106,22 @@ class MainWindowEditorController:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
             return True
 
-        self.app._collect_day_columns({day_index})
+        self._refresh_after_cell_write(day_index)
+        return True
+
+    def _refresh_after_cell_write(self, day_index: int) -> None:
+        """Liest die bearbeitete Zeile neu ein und aktualisiert ihre Spalte.
+
+        ``day_index`` ist die Position unter den *sichtbaren* Spalten, das Neulesen
+        braucht die Tabellenzeile: Bei ausgeblendeten Zeilen unterscheiden sich beide.
+
+        Args:
+            day_index: Position in ``app.day_columns``.
+        """
+        self.app._collect_day_columns({self.app.day_columns[day_index].row_index})
         self.app._update_grid_column(day_index)
         self.app._update_selected_lesson_metrics()
         self.app.action_controller.update_action_controls()
-        return True
 
     def ensure_link_for_day(self, day_index: int, preferred_topic: str = "") -> pathlib.Path | None:
         """Stellt sicher, dass die Zielzeile auf eine Stunden-Datei verlinkt ist."""
@@ -169,10 +180,7 @@ class MainWindowEditorController:
         # mit dem Domain-Wert ueberein, ein pending_cell_text-Eintrag ist
         # damit obsolet.
         self.app.pending_cell_text.pop((field_key, day_index), None)
-        self.app._collect_day_columns({day_index})
-        self.app._update_grid_column(day_index)
-        self.app._update_selected_lesson_metrics()
-        self.app.action_controller.update_action_controls()
+        self._refresh_after_cell_write(day_index)
         return True
 
     def apply_value(self, field_key: str, day_index: int, value: str):

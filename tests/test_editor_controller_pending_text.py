@@ -24,9 +24,11 @@ class _CellWidgetStub:
         return self._text
 
 
-def _controller(*, widget_text: str, domain_value: str, pending_cell_text: dict, apply_raises: bool = False):
+def _controller(
+    *, widget_text: str, domain_value: str, pending_cell_text: dict, apply_raises: bool = False, row_index: int = 0
+):
     controller = object.__new__(MainWindowEditorController)
-    day = make_day_column(row_index=0)
+    day = make_day_column(row_index=row_index)
     controller.app = SimpleNamespace(
         _is_rebuilding_grid=False,
         current_table=object(),
@@ -42,6 +44,7 @@ def _controller(*, widget_text: str, domain_value: str, pending_cell_text: dict,
         action_controller=SimpleNamespace(update_action_controls=lambda: None),
     )
     if apply_raises:
+
         def _raise(_field_key, _day_index, _value):
             raise RuntimeError("boom")
 
@@ -114,3 +117,18 @@ def test_commit_for_unrelated_cell_does_not_touch_other_pending_entries():
     controller.save_cell("Stundenthema", 0)
 
     assert controller.app.pending_cell_text == {("Oberthema", 5): "unabhaengiger Eintrag"}
+
+
+def test_commit_reloads_the_table_row_not_the_position_among_visible_columns():
+    """Ausgeblendete Zeilen verschieben die Position: Spalte 0 kann Tabellenzeile 5 sein.
+
+    Früher wurde die Position als Zeilenindex übergeben -- gespeichert wurde richtig,
+    neu gelesen aber eine fremde Zeile, und die Zelle zeigte wieder den alten Wert.
+    """
+    controller = _controller(widget_text="Neuer Wert", domain_value="Alter Wert", pending_cell_text={}, row_index=5)
+    reloaded = []
+    controller.app._collect_day_columns = reloaded.append
+
+    controller.save_cell("Stundenthema", 0)
+
+    assert reloaded == [{5}]

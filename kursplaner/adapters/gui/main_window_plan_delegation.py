@@ -65,7 +65,8 @@ class KursplanerPlanDelegationMixin:
         """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle.
 
         Args:
-            changed_row_indices: Siehe `OverviewController.collect_day_columns()`.
+            changed_row_indices: Tabellenzeilen (``DayColumn.row_index``, nicht die Position
+                in ``day_columns``), siehe `OverviewController.collect_day_columns()`.
         """
         self.overview_controller.collect_day_columns(changed_row_indices)
 
