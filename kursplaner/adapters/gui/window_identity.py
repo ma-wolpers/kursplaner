@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
-ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 
 APP_USER_MODEL_ID = "7thCloud.Kursplaner.2026.03"

@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from kursplaner.core.domain.day_column import DayColumn
-
-ensure_bw_gui_on_path()
-from bw_gui.runtime import on_resize, ui
-from bw_gui.contracts import EventResult, KeyModifiers
-from bw_gui.contracts.pointer import Axis, wheel_axis
 from datetime import datetime
 
-from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
+from bw_gui.contracts import EventResult, KeyModifiers
+from bw_gui.contracts.pointer import Axis, wheel_axis
+from bw_gui.runtime import on_resize, ui
 from bw_gui.theming import (
     canvas_fill,
     canvas_tinted_fill,
@@ -22,6 +17,7 @@ from bw_gui.theming import (
 )
 
 from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
+from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.sequence_field_grid_renderer import (
     SEQUENCE_FIELD_ROW_ORDER,
@@ -29,6 +25,7 @@ from kursplaner.adapters.gui.sequence_field_grid_renderer import (
     compute_row_index_to_grid_col,
 )
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
+from kursplaner.core.domain.day_column import DayColumn
 
 
 class GridRenderer:
@@ -460,9 +457,7 @@ class GridRenderer:
                 )
                 self.app.sequence_field_widgets[widget_key] = cell
 
-    def _evict_sequence_field_to_cold(
-        self, field_key: str, first_row_index: int, cell, domain_value: str
-    ) -> None:
+    def _evict_sequence_field_to_cold(self, field_key: str, first_row_index: int, cell, domain_value: str) -> None:
         """Entfernt eine einzelne Sequenzfeld-Spannzelle vollständig (COLD).
 
         Spiegelt `_evict_cell_to_cold()` für den Sequenzfeld-Fall -- reines
@@ -555,9 +550,7 @@ class GridRenderer:
         if selected is None:
             return
         selected_day = (
-            self.app.day_columns[selected.day_index]
-            if selected.day_index < len(self.app.day_columns)
-            else None
+            self.app.day_columns[selected.day_index] if selected.day_index < len(self.app.day_columns) else None
         )
         if selected_day is not None and self._field_is_visible_for_day(selected.field_key, selected_day):
             return
@@ -1176,4 +1169,3 @@ class GridRenderer:
         """Führt den geplanten Zoom-Rebuild aus und löscht die Pending-ID."""
         self._zoom_rebuild_after_id = None
         self._rebuild_grid()
-

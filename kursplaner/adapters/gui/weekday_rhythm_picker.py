@@ -3,14 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Checkbox
 
-ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets  # noqa: E402
-from bw_gui.widgets import Checkbox  # noqa: E402
-
-from kursplaner.core.config.settings import WEEKDAY_SHORT_OPTIONS  # noqa: E402
-from kursplaner.core.domain.course_rhythm import WeekdayRhythm, current_segment  # noqa: E402
+from kursplaner.core.config.settings import WEEKDAY_SHORT_OPTIONS
+from kursplaner.core.domain.course_rhythm import WeekdayRhythm, current_segment
 
 MODE_EVERY_WEEK = "jede Woche"
 MODE_EVEN = "gKW"

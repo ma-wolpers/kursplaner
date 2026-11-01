@@ -7,6 +7,8 @@ import ast
 from guardrail_config import (  # noqa: E402
     FUTURE_GUI_ENTRY_BASELINES,
     FUTURE_GUI_REQUIRED_SHARED_SNIPPETS,
+    FUTURE_GUI_SEARCH_ROOTS,
+    GUI_BOOTSTRAP_PATH,
     GUI_MIGRATION_BACKLOG_PATH,
     LAUFKERN_FALLBACK_SCAN_ROOTS,
     LEGACY_UI_BASECLASS_ALLOWLIST,
@@ -106,6 +108,15 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
         "kursplaner/adapters/gui/hover_tooltip.py",
         errors,
     )
+
+
+def _check_gui_bootstrap_single_source(errors: list[str]) -> None:
+    """Erzwingt genau eine Bootstrap-Stelle: Das GUI-Paket setzt den bw-gui-Pfad, seine Module nie."""
+
+    _require_substring(_read(GUI_BOOTSTRAP_PATH), "ensure_bw_gui_on_path()", GUI_BOOTSTRAP_PATH, errors)
+    for rel_path in _iter_python_files_under(FUTURE_GUI_SEARCH_ROOTS):
+        if rel_path != GUI_BOOTSTRAP_PATH:
+            _forbid_substring(_read(rel_path), "ensure_bw_gui_on_path", rel_path, errors)
 
 
 def _check_future_gui_entry_contracts(errors: list[str]) -> None:

@@ -4,13 +4,10 @@ Split out of screen_builder.py (file-size rule); method bodies unchanged."""
 
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from bw_gui.runtime import ui, widgets
+from bw_gui.widgets import Switch
 
-ensure_bw_gui_on_path()
-from bw_gui.runtime import ui, widgets  # noqa: E402
-from bw_gui.widgets import Switch  # noqa: E402
-
-from bw_libs.ui_contract.keybinding import (  # noqa: E402
+from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
     UI_MODE_GLOBAL,

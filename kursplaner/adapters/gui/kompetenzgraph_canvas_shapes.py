@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 
 
-def create_rounded_rectangle(canvas: ui.Canvas, x0: float, y0: float, x1: float, y1: float, *, radius: float = 12.0, **kwargs) -> int:
+def create_rounded_rectangle(
+    canvas: ui.Canvas, x0: float, y0: float, x1: float, y1: float, *, radius: float = 12.0, **kwargs
+) -> int:
     """Zeichnet ein abgerundetes Rechteck auf `canvas` -- tkinter.Canvas kennt keine native Rundungs-Option.
 
     Standard-Technik: ein Zwölf-Punkte-Polygon entlang der vier Ecken,
@@ -32,18 +31,30 @@ def create_rounded_rectangle(canvas: ui.Canvas, x0: float, y0: float, x1: float,
     effective_radius = max(0.0, min(radius, width / 2.0, height / 2.0))
     r = effective_radius
     points = [
-        x0 + r, y0,
-        x1 - r, y0,
-        x1, y0,
-        x1, y0 + r,
-        x1, y1 - r,
-        x1, y1,
-        x1 - r, y1,
-        x0 + r, y1,
-        x0, y1,
-        x0, y1 - r,
-        x0, y0 + r,
-        x0, y0,
+        x0 + r,
+        y0,
+        x1 - r,
+        y0,
+        x1,
+        y0,
+        x1,
+        y0 + r,
+        x1,
+        y1 - r,
+        x1,
+        y1,
+        x1 - r,
+        y1,
+        x0 + r,
+        y1,
+        x0,
+        y1,
+        x0,
+        y1 - r,
+        x0,
+        y0 + r,
+        x0,
+        y0,
     ]
     return canvas.create_polygon(points, smooth=True, **kwargs)
 

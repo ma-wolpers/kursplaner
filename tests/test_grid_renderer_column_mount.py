@@ -29,14 +29,11 @@ from __future__ import annotations
 import tkinter as tk
 from types import SimpleNamespace
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from tests.day_column_factory import make_day_column
-from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
-
-ensure_bw_gui_on_path()
 
 
 class _CellSlotStub:

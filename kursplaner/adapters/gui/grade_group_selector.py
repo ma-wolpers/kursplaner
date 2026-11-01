@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from typing import Callable
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import bind_click, ui, widgets
 from bw_gui.widgets import Checkbox
 
@@ -113,7 +110,9 @@ class GradeGroupSelector:
         """Liefert die aktuell ausgewaehlten Jahrgangsstufen als flache Menge."""
         fully_selected = frozenset(key for key, var in self._group_vars.items() if var.get())
         individually = frozenset(grade for grade, var in self._grade_vars.items() if var.get())
-        return expand_grade_selection(fully_selected_group_keys=fully_selected, individually_selected_grades=individually)
+        return expand_grade_selection(
+            fully_selected_group_keys=fully_selected, individually_selected_grades=individually
+        )
 
     def set_selected_grades(self, grades: frozenset[int]) -> None:
         """Setzt die Auswahl (z. B. beim Laden eines bestehenden Eintrags zum Bearbeiten)."""

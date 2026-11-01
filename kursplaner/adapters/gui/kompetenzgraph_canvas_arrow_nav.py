@@ -3,9 +3,6 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, Key, KeySpec, Mod
 from bw_gui.runtime import WidgetShortcutBinder, ui
 
@@ -49,8 +46,12 @@ class KompetenzGraphCanvasArrowNav:
         self._held_keys: dict[Key, float] = {}
         keys = WidgetShortcutBinder(canvas)
         for key in _KEY_TO_VECTOR:
-            keys.bind(KeySpec(key, (), (Mod.SHIFT,)), self._on_key_press, binding_id=f"graph.arrow.{key.value}",
-                      intent="graph.arrow")
+            keys.bind(
+                KeySpec(key, (), (Mod.SHIFT,)),
+                self._on_key_press,
+                binding_id=f"graph.arrow.{key.value}",
+                intent="graph.arrow",
+            )
         self.keys = keys
 
     def _on_key_press(self, event) -> EventResult:

@@ -6,7 +6,11 @@ from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFieldIssu
 from kursplaner.core.domain.kompetenzgraph_kc_zuordnung_mapping import parse_kc_zuordnung_list
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_types import STATUS_ENTWURF, STATUS_VALUES, SourceRef
-from kursplaner.core.domain.markdown_sections import derive_first_heading_title, extract_section, find_heading_line_index
+from kursplaner.core.domain.markdown_sections import (
+    derive_first_heading_title,
+    extract_section,
+    find_heading_line_index,
+)
 from kursplaner.core.domain.wiki_links import extract_wiki_link_target
 
 

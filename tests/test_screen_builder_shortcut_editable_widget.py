@@ -1,9 +1,9 @@
 from types import SimpleNamespace
 
 from bw_gui.contracts import KeySpec
+from bw_gui.contracts.events import EventResult
 
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
-from bw_gui.contracts.events import EventResult
 
 
 class _IntentSink:

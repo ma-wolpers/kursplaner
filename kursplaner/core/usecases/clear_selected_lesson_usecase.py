@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
-from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonFileRepository, LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
@@ -88,7 +88,9 @@ class ClearSelectedLessonUseCase:
             overview_markdown = build_ub_overview_markdown(self.ub_repo, active_workspace_root)
             overview_path = self.ub_repo.save_ub_overview(active_workspace_root, overview_markdown)
 
-        shadow_link = lesson_path if isinstance(lesson_path, Path) and lesson_path.exists() and lesson_path.is_file() else None
+        shadow_link = (
+            lesson_path if isinstance(lesson_path, Path) and lesson_path.exists() and lesson_path.is_file() else None
+        )
         return ClearSelectedLessonResult(
             shadow_link=shadow_link,
             lesson_path=lesson_path,

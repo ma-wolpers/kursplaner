@@ -1,8 +1,5 @@
 from typing import TYPE_CHECKING, Callable
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 
 from kursplaner.adapters.gui.dialog_services import messagebox
@@ -125,7 +122,9 @@ class NewCourseWindow(ScrollablePopupWindow):
         self._tooltips.append(HoverTooltip(horizon_spin, NEW_COURSE_HELP["vacation_horizon"]))
 
         widgets.Label(basics, text="Beispiele: 26-1 oder 2026-02-20").grid(row=5, column=1, sticky="w", pady=(0, 4))
-        widgets.Label(basics, textvariable=self.preview_var).grid(row=6, column=0, columnspan=2, sticky="w", pady=(4, 2))
+        widgets.Label(basics, textvariable=self.preview_var).grid(
+            row=6, column=0, columnspan=2, sticky="w", pady=(4, 2)
+        )
         widgets.Label(basics, textvariable=self.vacation_preview_var).grid(
             row=7, column=0, columnspan=2, sticky="w", pady=(0, 2)
         )

@@ -4,10 +4,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-from bw_gui.contracts import KeySpec  # noqa: E402
+from bw_gui.contracts import KeySpec
 
 
 @dataclass(frozen=True)

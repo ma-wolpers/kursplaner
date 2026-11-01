@@ -18,25 +18,22 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from bw_gui.contracts import EventResult, KeySpec
+from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, on_global_click
+from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, register_overlay
 
-ensure_bw_gui_on_path()
-from bw_gui.contracts import EventResult, KeySpec  # noqa: E402
-from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, on_global_click  # noqa: E402
-from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, register_overlay  # noqa: E402
-
-from bw_libs.ui_contract.keybinding import (  # noqa: E402
+from bw_libs.ui_contract.keybinding import (
     UI_MODE_DIALOG,
     UI_MODE_EDITOR,
     UI_MODE_GLOBAL,
     UI_MODE_PREVIEW,
     KeybindingRuntimeContext,
 )
-from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability  # noqa: E402
-from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest  # noqa: E402
-from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow  # noqa: E402
-from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries  # noqa: E402
-from kursplaner.adapters.gui.ui_intents import UiIntent  # noqa: E402
+from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability
+from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
+from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
+from kursplaner.adapters.gui.ui_intents import UiIntent
 
 _k = KeySpec.parse
 _P = (UI_MODE_PREVIEW,)
@@ -68,36 +65,93 @@ class ScreenShortcutsMixin:
         """
         rename = lambda _e: self._emit_intent(UiIntent.TOOLBAR_RENAME, from_shortcut=True)  # noqa: E731
         rows = [
-            ShortcutRow(_k("F2 (tolerate: Shift)"), rename, "global.rename", UiIntent.TOOLBAR_RENAME, (UI_MODE_GLOBAL, UI_MODE_PREVIEW)),
+            ShortcutRow(
+                _k("F2 (tolerate: Shift)"),
+                rename,
+                "global.rename",
+                UiIntent.TOOLBAR_RENAME,
+                (UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+            ),
             ShortcutRow(_k("Enter"), self._on_grid_enter, "grid.enter", UiIntent.GRID_ENTER, _P),
             ShortcutRow(_k("Up (tolerate: Shift)"), self._on_grid_nav_up, "grid.nav.up", UiIntent.GRID_NAV_UP, _P),
-            ShortcutRow(_k("Down (tolerate: Shift)"), self._on_grid_nav_down, "grid.nav.down", UiIntent.GRID_NAV_DOWN, _P),
+            ShortcutRow(
+                _k("Down (tolerate: Shift)"), self._on_grid_nav_down, "grid.nav.down", UiIntent.GRID_NAV_DOWN, _P
+            ),
             ShortcutRow(_k("Left"), self._on_detail_left, "detail.left", UiIntent.SHORTCUT_DETAIL_LEFT, _P),
             ShortcutRow(_k("Right"), self._on_detail_right, "detail.right", UiIntent.SHORTCUT_DETAIL_RIGHT, _P),
-            ShortcutRow(_k("Alt+Left (tolerate: Shift)"), self._on_detail_left_all, "detail.left.all",
-                        UiIntent.SHORTCUT_DETAIL_LEFT_ALL, _P),
-            ShortcutRow(_k("Alt+Right (tolerate: Shift)"), self._on_detail_right_all, "detail.right.all",
-                        UiIntent.SHORTCUT_DETAIL_RIGHT_ALL, _P),
+            ShortcutRow(
+                _k("Alt+Left (tolerate: Shift)"),
+                self._on_detail_left_all,
+                "detail.left.all",
+                UiIntent.SHORTCUT_DETAIL_LEFT_ALL,
+                _P,
+            ),
+            ShortcutRow(
+                _k("Alt+Right (tolerate: Shift)"),
+                self._on_detail_right_all,
+                "detail.right.all",
+                UiIntent.SHORTCUT_DETAIL_RIGHT_ALL,
+                _P,
+            ),
             ShortcutRow(_k("Home (tolerate: Shift)"), self._on_home, "grid.home", UiIntent.GRID_HOME, _P),
             ShortcutRow(_k("End (tolerate: Shift)"), self._on_end, "grid.end", UiIntent.GRID_END, _P),
-            ShortcutRow([_k("Delete (tolerate: Shift)"), _k("Backspace (tolerate: Shift)")], self._on_grid_delete,
-                        "grid.delete", UiIntent.GRID_DELETE_CELL, _P),
-            ShortcutRow(_k("Ctrl+Enter (tolerate: Shift)"), self._on_ctrl_enter, "grid.commit.ctrl-enter",
-                        UiIntent.SHORTCUT_COMMIT_EDIT, _PE, True),
-            ShortcutRow(_k("Shift+Enter"), self._on_find_previous, "search.find-previous",
-                        UiIntent.SHORTCUT_FIND_PREVIOUS, _PE, True),
+            ShortcutRow(
+                [_k("Delete (tolerate: Shift)"), _k("Backspace (tolerate: Shift)")],
+                self._on_grid_delete,
+                "grid.delete",
+                UiIntent.GRID_DELETE_CELL,
+                _P,
+            ),
+            ShortcutRow(
+                _k("Ctrl+Enter (tolerate: Shift)"),
+                self._on_ctrl_enter,
+                "grid.commit.ctrl-enter",
+                UiIntent.SHORTCUT_COMMIT_EDIT,
+                _PE,
+                True,
+            ),
+            ShortcutRow(
+                _k("Shift+Enter"),
+                self._on_find_previous,
+                "search.find-previous",
+                UiIntent.SHORTCUT_FIND_PREVIOUS,
+                _PE,
+                True,
+            ),
             ShortcutRow(_k("Ctrl+F"), self._on_search_open, "search.open", UiIntent.SEARCH_OPEN, _P),
-            ShortcutRow(_k("Escape (tolerate: Shift)"), self._on_escape, "global.escape", intent=UiIntent.SHORTCUT_ESCAPE,
-                        modes=_ALL, allow_when_text_input=True),
-            ShortcutRow(_k("Ctrl+Shift+D"), lambda _e: self._open_shortcut_runtime_debug_dialog(), "global.runtime-debug",
-                        "debug.shortcut.runtime", _ALL, True),
-            ShortcutRow(_k("Ctrl+Shift+O"), lambda _e: self._toggle_shortcut_runtime_offline(), "global.runtime-offline",
-                        "debug.shortcut.offline", _ALL, True),
+            ShortcutRow(
+                _k("Escape (tolerate: Shift)"),
+                self._on_escape,
+                "global.escape",
+                intent=UiIntent.SHORTCUT_ESCAPE,
+                modes=_ALL,
+                allow_when_text_input=True,
+            ),
+            ShortcutRow(
+                _k("Ctrl+Shift+D"),
+                lambda _e: self._open_shortcut_runtime_debug_dialog(),
+                "global.runtime-debug",
+                "debug.shortcut.runtime",
+                _ALL,
+                True,
+            ),
+            ShortcutRow(
+                _k("Ctrl+Shift+O"),
+                lambda _e: self._toggle_shortcut_runtime_offline(),
+                "global.runtime-offline",
+                "debug.shortcut.offline",
+                _ALL,
+                True,
+            ),
         ]
         rows += [
-            ShortcutRow(KeySpec.char(str(digit)),
-                        lambda _e, offset=digit: self._emit_intent(UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET, offset=offset),
-                        f"detail.select-unit-offset.{digit}", UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET, _P)
+            ShortcutRow(
+                KeySpec.char(str(digit)),
+                lambda _e, offset=digit: self._emit_intent(UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET, offset=offset),
+                f"detail.select-unit-offset.{digit}",
+                UiIntent.SHORTCUT_SELECT_UNIT_BY_OFFSET,
+                _P,
+            )
             for digit in range(10)
         ]
         return tuple(rows)
@@ -109,14 +163,27 @@ class ScreenShortcutsMixin:
             registry=self._runtime_shortcuts,
             dialog_open=self._shortcut_dialog_open,
             offline=lambda: bool(getattr(self.app, "shortcut_debug_offline", False)),
-            mode_provider=lambda: UI_MODE_PREVIEW if bool(getattr(self.app, "is_detail_view", False)) else UI_MODE_GLOBAL,
+            mode_provider=lambda: (
+                UI_MODE_PREVIEW if bool(getattr(self.app, "is_detail_view", False)) else UI_MODE_GLOBAL
+            ),
         )
         for index, entry in enumerate(load_shortcut_guide_entries()):
-            binder.bind(entry.key, self._build_shortcut_handler(entry), binding_id=f"guide.{entry.intent}.{index}",
-                        intent=entry.intent, modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW))
+            binder.bind(
+                entry.key,
+                self._build_shortcut_handler(entry),
+                binding_id=f"guide.{entry.intent}.{index}",
+                intent=entry.intent,
+                modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+            )
         for row in self._shortcut_rows():
-            binder.bind(row.keys, row.handler, binding_id=row.binding_id, intent=row.intent, modes=row.modes,
-                        allow_when_text_input=row.allow_when_text_input)
+            binder.bind(
+                row.keys,
+                row.handler,
+                binding_id=row.binding_id,
+                intent=row.intent,
+                modes=row.modes,
+                allow_when_text_input=row.allow_when_text_input,
+            )
         self._shortcut_binder = binder
         # Globaler Klick: Beobachter am all-Router (frueher bind_all("<Button-1>")); nie bei Texteingabe.
         on_global_click(

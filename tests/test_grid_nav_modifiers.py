@@ -10,7 +10,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-
 from bw_gui.contracts import TkBackend
 from bw_gui.contracts.key_event import RawKey, classify_key
 from bw_gui.contracts.key_spec import matches

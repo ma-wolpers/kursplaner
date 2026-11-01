@@ -4,9 +4,6 @@ Split out of screen_builder.py (file-size rule); method bodies unchanged."""
 
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.theming import theme_canvas
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_SEPARATOR_SLOTS, TOOLBAR_SLOT_MIN_WIDTH

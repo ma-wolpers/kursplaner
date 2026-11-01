@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from datetime import time
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.dialogs import (
     SettingsDialogSpec,
     SettingsFieldSpec,
@@ -314,7 +311,11 @@ def open_settings_dialog(
     active_lesson_builder_settings = lesson_builder_field_settings or LessonBuilderFieldSettings()
     active_course_overview_highlight_days = max(0, min(60, int(course_overview_highlight_days)))
     active_school_wide_cancellations_path = str(school_wide_cancellations_path or "")
-    active_next_unit_mode = next_unit_mode if next_unit_mode in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST) else NEXT_UNIT_MODE_STARTZEIT
+    active_next_unit_mode = (
+        next_unit_mode
+        if next_unit_mode in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST)
+        else NEXT_UNIT_MODE_STARTZEIT
+    )
     active_next_unit_cutoff_time = next_unit_cutoff_time or time(hour=15, minute=0)
     active_section: str | None = None
     effective_theme_key = str(theme_key or "slate_indigo")
@@ -376,7 +377,10 @@ def open_settings_dialog(
             active_section = "paths"
             continue
 
-        if on_school_wide_cancellations_path_saved and proposed_school_wide_cancellations_path != active_school_wide_cancellations_path:
+        if (
+            on_school_wide_cancellations_path_saved
+            and proposed_school_wide_cancellations_path != active_school_wide_cancellations_path
+        ):
             try:
                 on_school_wide_cancellations_path_saved(proposed_school_wide_cancellations_path)
             except RuntimeError as exc:
@@ -404,4 +408,3 @@ def open_settings_dialog(
         if on_next_unit_cutoff_time_saved:
             on_next_unit_cutoff_time_saved(proposed_next_unit_cutoff_time)
         return
-

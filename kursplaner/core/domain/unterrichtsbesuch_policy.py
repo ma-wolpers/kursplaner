@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, time
 
-
 UB_KIND_PAEDAGOGIK = "Pädagogik"
 UB_KIND_FACH = "Fach"
 

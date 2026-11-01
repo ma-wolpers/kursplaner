@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, KeySpec
 from bw_gui.runtime import WidgetShortcutBinder, widgets
 
@@ -34,10 +31,20 @@ class SearchOverlayView:
         self._field = RegexEntryField(self.frame, on_change=self._on_text_changed)
         self._field.pack(side="left", fill="x", expand=True)
         keys = WidgetShortcutBinder(self._field.entry)
-        keys.bind(KeySpec.parse("Enter"), self._on_return, binding_id="search.next", intent=UiIntent.GRID_ENTER,
-                  allow_when_text_input=True)
-        keys.bind(KeySpec.parse("Shift+Enter"), self._on_shift_return, binding_id="search.previous",
-                  intent=UiIntent.SHORTCUT_FIND_PREVIOUS, allow_when_text_input=True)
+        keys.bind(
+            KeySpec.parse("Enter"),
+            self._on_return,
+            binding_id="search.next",
+            intent=UiIntent.GRID_ENTER,
+            allow_when_text_input=True,
+        )
+        keys.bind(
+            KeySpec.parse("Shift+Enter"),
+            self._on_shift_return,
+            binding_id="search.previous",
+            intent=UiIntent.SHORTCUT_FIND_PREVIOUS,
+            allow_when_text_input=True,
+        )
         self._status_label.pack(side="left", padx=(8, 0))
 
     def show(self) -> None:

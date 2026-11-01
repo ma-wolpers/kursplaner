@@ -1,12 +1,13 @@
 from types import SimpleNamespace
 
+from bw_gui.contracts.events import EventResult
+
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from tests.day_column_factory import make_day_column
-from bw_gui.contracts.events import EventResult
 
 
 class _Var:

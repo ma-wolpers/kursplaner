@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from typing import Callable
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import WidgetShortcutBinder, bind_click, bind_drag, listbox_selection, ui, widgets
 from bw_gui.runtime.overlay_stack import OverlayCategory, register_overlay

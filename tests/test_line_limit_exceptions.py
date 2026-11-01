@@ -9,11 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-
-from bw_gui.testing.line_limits import LINE_LIMIT, count_executable_lines, parse_exceptions  # noqa: E402
+from bw_gui.testing.line_limits import LINE_LIMIT, count_executable_lines, parse_exceptions
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

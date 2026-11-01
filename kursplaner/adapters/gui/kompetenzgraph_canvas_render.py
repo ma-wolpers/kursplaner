@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import bind_canvas_item, ui
 from bw_gui.theming import (
     canvas_domain_fill,

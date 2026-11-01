@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.dialogs import ScrollablePopupWindow as SharedScrollablePopupWindow
 from bw_gui.runtime import ui
 from bw_gui.runtime.overlay_stack import OverlayCategory
-
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.ui_theme import apply_window_theme, configure_ttk_theme
@@ -85,4 +81,3 @@ class ScrollablePopupWindow(SharedScrollablePopupWindow):
                 self.grab_set()
         except ui.TclError:
             return
-

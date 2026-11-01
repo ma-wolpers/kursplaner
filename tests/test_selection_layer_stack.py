@@ -1,6 +1,7 @@
 import re
 from types import SimpleNamespace
 
+from bw_gui.contracts.events import EventResult
 from bw_gui.runtime import ui
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
@@ -10,7 +11,6 @@ from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentContr
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from tests.day_column_factory import make_day_column
-from bw_gui.contracts.events import EventResult
 
 
 class _FakeCellWidget:
@@ -240,7 +240,10 @@ def test_search_layer_find_previous_dispatches_through_handle_intent():
     app = _make_app(
         is_detail_view=True,
         selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN,
-        day_columns=[make_day_column(row_index=0, inhalt="Vektoren"), make_day_column(row_index=1, inhalt="Vektorfeld")],
+        day_columns=[
+            make_day_column(row_index=0, inhalt="Vektoren"),
+            make_day_column(row_index=1, inhalt="Vektorfeld"),
+        ],
     )
     app.search_state.is_active = True
     app.search_controller.update_query("Vektor", re.compile("Vektor"))

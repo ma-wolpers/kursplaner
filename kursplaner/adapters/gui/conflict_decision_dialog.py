@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import widgets
 
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
@@ -45,9 +42,9 @@ class ConflictDecisionDialog(ScrollablePopupWindow):
         widgets.Button(
             button_row, text="Nochmal versuchen", command=lambda: self._choose(ConflictResolution.RETRY)
         ).pack(side="left")
-        widgets.Button(
-            button_row, text="Überspringen", command=lambda: self._choose(ConflictResolution.SKIP)
-        ).pack(side="left", padx=(8, 0))
+        widgets.Button(button_row, text="Überspringen", command=lambda: self._choose(ConflictResolution.SKIP)).pack(
+            side="left", padx=(8, 0)
+        )
         if context.kind is ConflictKind.WARNING:
             widgets.Button(
                 button_row, text="Trotzdem durchführen", command=lambda: self._choose(ConflictResolution.PROCEED)

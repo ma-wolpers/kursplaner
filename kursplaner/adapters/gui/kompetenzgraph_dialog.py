@@ -3,9 +3,6 @@ from __future__ import annotations
 import dataclasses
 import re
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, KeySpec
 from bw_gui.runtime import WindowShortcutBinder, widgets
 from bw_gui.runtime.overlay_stack import OverlayCategory
@@ -92,8 +89,13 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._build_ui(load_result, load_body_usecase)
         self.apply_theme()
         theme_canvas(self.canvas, theme_key)
-        WindowShortcutBinder(self).bind(KeySpec.parse("Ctrl+Tab (tolerate: Shift)"), self._on_toggle_view_mode_shortcut,
-                                        binding_id="graph.view_mode", intent="graph.view_mode", allow_when_text_input=True)
+        WindowShortcutBinder(self).bind(
+            KeySpec.parse("Ctrl+Tab (tolerate: Shift)"),
+            self._on_toggle_view_mode_shortcut,
+            binding_id="graph.view_mode",
+            intent="graph.view_mode",
+            allow_when_text_input=True,
+        )
         self._refresh()
         self.canvas.focus_set()
 

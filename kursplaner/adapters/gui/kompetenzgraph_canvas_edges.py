@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 from bw_gui.theming import canvas_fill, canvas_outline_color, canvas_text_fill
 
@@ -33,7 +30,11 @@ class KompetenzGraphEdgeRenderer:
     """
 
     def __init__(
-        self, canvas: ui.Canvas, *, competency_half_extent: tuple[float, float], bereich_half_extent: tuple[float, float]
+        self,
+        canvas: ui.Canvas,
+        *,
+        competency_half_extent: tuple[float, float],
+        bereich_half_extent: tuple[float, float],
     ):
         """Args: die halbe Breite/Höhe von Kompetenz-Knoten bzw. Bereichs-Hubs (für die Andockpunkt-Geometrie)."""
         self.canvas = canvas
@@ -220,7 +221,15 @@ class KompetenzGraphEdgeRenderer:
         self._draw_edge_anchor(end.x, end.y, start.x, start.y, *end_half_extent, token=token)
 
     def _draw_edge_anchor(
-        self, center_x: float, center_y: float, toward_x: float, toward_y: float, half_width: float, half_height: float, *, token: str
+        self,
+        center_x: float,
+        center_y: float,
+        toward_x: float,
+        toward_y: float,
+        half_width: float,
+        half_height: float,
+        *,
+        token: str,
     ) -> None:
         anchor_x, anchor_y = ray_rectangle_intersection(center_x, center_y, toward_x, toward_y, half_width, half_height)
         dot_id = self.canvas.create_oval(

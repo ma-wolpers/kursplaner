@@ -22,15 +22,12 @@ import tkinter as tk
 from pathlib import Path
 from types import SimpleNamespace
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.sequence_field_grid_renderer import SequenceFieldGridRenderer
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 from tests.day_column_factory import make_day_column
-from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
-
-ensure_bw_gui_on_path()
 
 _DAY_COUNT = 10
 

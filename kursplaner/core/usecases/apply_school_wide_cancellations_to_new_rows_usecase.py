@@ -5,7 +5,11 @@ from datetime import date
 from pathlib import Path
 from typing import Callable
 
-from kursplaner.core.domain.content_markers import build_ausfall_marker, resolve_row_cancel_state, resolve_row_ferien_state
+from kursplaner.core.domain.content_markers import (
+    build_ausfall_marker,
+    resolve_row_cancel_state,
+    resolve_row_ferien_state,
+)
 from kursplaner.core.domain.plan_table import parse_plan_row_date
 from kursplaner.core.domain.school_wide_cancellation import (
     CourseApplicationLedger,

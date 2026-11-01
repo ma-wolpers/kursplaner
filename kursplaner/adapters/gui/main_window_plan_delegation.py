@@ -6,12 +6,10 @@ from __future__ import annotations
 
 import pathlib
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from bw_gui.runtime import ui
+
 from kursplaner.adapters.gui.lesson_context_controller import MainWindowLessonContextController
 from kursplaner.core.domain.day_column import DayColumn
-
-ensure_bw_gui_on_path()
-from bw_gui.runtime import ui  # noqa: E402
 
 
 class KursplanerPlanDelegationMixin:

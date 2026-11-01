@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-from bw_gui.contracts import EventResult  # noqa: E402
+from bw_gui.contracts import EventResult
 from bw_gui.runtime import ui
 
 

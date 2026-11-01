@@ -9,8 +9,8 @@ from kursplaner.adapters.gui.expected_horizon_topic_dialog import (
     ExpectedHorizonTopicDialog,
     _option_label,
 )
-from kursplaner.core.domain.expected_horizon_pdf_layout import DEFAULT_FONT_SIZE, ExpectedHorizonPdfLayout
 from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
+from kursplaner.core.domain.expected_horizon_pdf_layout import DEFAULT_FONT_SIZE, ExpectedHorizonPdfLayout
 from kursplaner.core.usecases.expected_horizon_topic_query_usecase import (
     ExpectedHorizonTopicOption,
     ExpectedHorizonTopicOptions,

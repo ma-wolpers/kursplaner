@@ -7,7 +7,6 @@ from bw_libs.ui_contract.keybinding import (
     KeybindingRegistry,
     KeybindingRuntimeContext,
 )
-
 from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from kursplaner.adapters.gui.ui_intents import UiIntent
 

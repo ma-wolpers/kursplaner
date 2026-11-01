@@ -1,9 +1,6 @@
 from types import SimpleNamespace
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-from bw_gui.contracts import EventResult  # noqa: E402
+from bw_gui.contracts import EventResult
 
 from kursplaner.adapters.gui.lesson_builder_dialog import (
     LessonBuilderDialog,

@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
+from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_EINHEIT,
     build_ub_stem,
 )
 from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
-from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase

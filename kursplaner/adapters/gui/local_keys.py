@@ -16,10 +16,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-from bw_gui.contracts import KeySpec  # noqa: E402
+from bw_gui.contracts import KeySpec
 
 ENTER = KeySpec.parse("Enter (tolerate: Shift)")
 ESCAPE = KeySpec.parse("Escape (tolerate: Shift)")

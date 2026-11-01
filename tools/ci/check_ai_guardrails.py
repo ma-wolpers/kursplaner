@@ -8,6 +8,7 @@ und importieren sich gegenseitig als Top-Level-Module; dieses Skript nimmt seine
 in ``sys.path`` auf, damit das auch beim Paketimport (``from tools.ci import
 check_ai_guardrails`` in Tests) funktioniert.
 """
+
 from __future__ import annotations
 
 import sys
@@ -24,6 +25,7 @@ from guardrail_checks import (  # noqa: E402
 )
 from guardrail_gui_checks import (  # noqa: E402
     _check_future_gui_entry_contracts,
+    _check_gui_bootstrap_single_source,
     _check_gui_migration_backlog,
     _check_laufkern_fallback_sunset,
     _check_repo_wide_gui_contracts,
@@ -79,6 +81,7 @@ def main() -> int:
     _check_shared_ui_contract_hardening(errors)
     _check_laufkern_fallback_sunset(errors)
     _check_ui_contract_bridge_decommission(errors)
+    _check_gui_bootstrap_single_source(errors)
     _check_future_gui_entry_contracts(errors)
     _check_repo_wide_gui_contracts(errors)
     _check_gui_migration_backlog(errors)

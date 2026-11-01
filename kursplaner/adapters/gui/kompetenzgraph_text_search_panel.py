@@ -3,9 +3,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import WidgetShortcutBinder, ui, widgets
 from bw_gui.widgets import Checkbox
 
@@ -43,7 +40,10 @@ class KompetenzGraphTextSearchPanel:
         self._field = RegexEntryField(self.frame, initial=initial_filter.text_query)
         self._field.pack(fill="x", pady=(0, 6))
         WidgetShortcutBinder(self._field.entry).bind(
-            ENTER, lambda _event: self._trigger_search(), binding_id="graph.search", intent="graph.search",
+            ENTER,
+            lambda _event: self._trigger_search(),
+            binding_id="graph.search",
+            intent="graph.search",
             allow_when_text_input=True,
         )
 

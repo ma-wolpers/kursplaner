@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from dataclasses import dataclass
 
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import WidgetShortcutBinder, ui, widgets
 from bw_gui.widgets import Checkbox
-
-from dataclasses import dataclass
 
 from kursplaner.adapters.gui.local_keys import DOWN, LEFT, RIGHT, SPACE, UP, bind_keys
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
@@ -66,7 +63,9 @@ class ColumnVisibilityDialog(ScrollablePopupWindow):
         grid = widgets.Frame(frame)
         grid.pack(fill="x", expand=False)
         widgets.Label(grid, text="Spaltenart", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w")
-        widgets.Label(grid, text="Verstecken", font=("Segoe UI", 9, "bold")).grid(row=0, column=1, sticky="w", padx=(20, 0))
+        widgets.Label(grid, text="Verstecken", font=("Segoe UI", 9, "bold")).grid(
+            row=0, column=1, sticky="w", padx=(20, 0)
+        )
         widgets.Label(grid, text="Marker anzeigen", font=("Segoe UI", 9, "bold")).grid(
             row=0, column=2, sticky="w", padx=(20, 0)
         )
@@ -167,4 +166,3 @@ def ask_column_visibility(
     if dialog.result is None:
         return None
     return dialog.result.settings
-

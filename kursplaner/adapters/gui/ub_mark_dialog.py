@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
-ensure_bw_gui_on_path()
 from bw_gui.runtime import ui, widgets
 from bw_gui.widgets import Checkbox
 

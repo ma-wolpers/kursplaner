@@ -32,11 +32,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-from bw_gui.contracts import EventResult, Key, KeySpec  # noqa: E402
-from bw_gui.runtime import (  # noqa: E402
+from bw_gui.contracts import EventResult, Key, KeySpec
+from bw_gui.runtime import (
     WidgetShortcutBinder,
     WindowShortcutBinder,
     bind_click,
@@ -45,7 +42,7 @@ from bw_gui.runtime import (  # noqa: E402
     on_key,
 )
 
-from kursplaner.adapters.gui.local_keys import CTRL_ENTER, DOWN, ENTER, UP, bind_keys  # noqa: E402
+from kursplaner.adapters.gui.local_keys import CTRL_ENTER, DOWN, ENTER, UP, bind_keys
 
 TAB = KeySpec.parse("Tab")
 SHIFT_TAB = KeySpec.parse("Shift+Tab")
@@ -151,7 +148,9 @@ class LessonDialogKeysMixin:
         Der Klick-Beobachter (``on_global_click``) endet mit dem Dialog (``owner``) und
         wertet wie das frühere Toplevel-Binding nur Klicks in diesem Dialogfenster aus.
         """
-        bind_keys(self._window_keys(), ((CTRL_ENTER, "accept", self._on_ctrl_enter_accept),), prefix=f"{_PREFIX}.window")
+        bind_keys(
+            self._window_keys(), ((CTRL_ENTER, "accept", self._on_ctrl_enter_accept),), prefix=f"{_PREFIX}.window"
+        )
         self._overlay_click_subscription = on_global_click(self, self._on_global_click, owner=self)
         # within=True: wie frueher am Toplevel-Tag -- jeder Fokuswechsel im Dialog zaehlt.
         on_focus_change(self, on_gained=self._on_global_focus_change, within=True)

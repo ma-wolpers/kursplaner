@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import combobox_selection, on_combobox_select, ui, widgets
 from bw_gui.widgets import Switch
 

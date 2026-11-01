@@ -1,7 +1,8 @@
 from types import SimpleNamespace
 
-from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from bw_gui.contracts.events import EventResult
+
+from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 
 
 class _IntentSink:

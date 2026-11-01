@@ -4,9 +4,6 @@ import re
 from datetime import date, datetime
 from pathlib import Path
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import on_treeview_select, treeview_selection, ui, widgets
 
 from kursplaner.adapters.gui.conflict_decision_dialog import ask_conflict_decision
@@ -22,7 +19,6 @@ from kursplaner.core.usecases.bulk_cancellation_coordinator import BulkOperation
 from kursplaner.core.usecases.school_wide_cancellation_diagnostics_usecase import (
     SchoolWideCancellationDiagnosticsUseCase,
 )
-
 
 _DAY_MONTH_RE = re.compile(r"^(\d{1,2})\.(\d{1,2})\.?$")
 
@@ -347,7 +343,9 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
                 reason=reason,
                 decide=self._decide,
             )
-        self._after_mutation(mutation.bulk_result, selected_entry_id=mutation.entry.entry_id if mutation.entry else None)
+        self._after_mutation(
+            mutation.bulk_result, selected_entry_id=mutation.entry.entry_id if mutation.entry else None
+        )
 
     def _on_delete(self) -> None:
         if self._selected_entry_id is None:

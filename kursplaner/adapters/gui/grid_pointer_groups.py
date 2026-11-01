@@ -30,12 +30,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from bw_gui.runtime import PointerGroup
 
-ensure_bw_gui_on_path()
-from bw_gui.runtime import PointerGroup  # noqa: E402
-
-from kursplaner.adapters.gui.ui_intents import UiIntent  # noqa: E402
+from kursplaner.adapters.gui.ui_intents import UiIntent
 
 _CLICK_GROUPS = ("cell", "date_cell", "header", "row_label", "sequence_cell")
 

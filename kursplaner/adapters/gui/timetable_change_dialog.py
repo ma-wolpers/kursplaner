@@ -6,10 +6,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from kursplaner.core.domain.day_column import DayColumn
-
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult, KeySpec
 from bw_gui.runtime import WindowShortcutBinder, treeview_selection, ui, widgets
 from bw_gui.theming import tinted_color
@@ -19,6 +15,7 @@ from kursplaner.adapters.gui.local_keys import bind_keys
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.weekday_rhythm_picker import WeekdayRhythmPicker
 from kursplaner.core.domain.course_rhythm import RHYTHM_YAML_KEY, WeekdayRhythm, parse_rhythm
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_row_placement import plan_gap_placement
 from kursplaner.core.domain.plan_table import PlanTableData, extract_plan_oberthema, parse_plan_row_date
 from kursplaner.core.domain.validators import ValidationError, normalize_day_rhythm
@@ -93,7 +90,9 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         self._configure_tree_tags()
         # Strg+Z gilt nur in diesem Dialog (Fenster-Binder). Frueher bind_all: das blieb nach
         # dem Schliessen registriert und lief weiter gegen den zerstoerten Dialog (Bug 2).
-        bind_keys(WindowShortcutBinder(self), ((KeySpec.parse("Ctrl+Z"), "undo", self._on_undo),), prefix="timetable_change")
+        bind_keys(
+            WindowShortcutBinder(self), ((KeySpec.parse("Ctrl+Z"), "undo", self._on_undo),), prefix="timetable_change"
+        )
 
     def _table_dates(self) -> list[date]:
         """Liefert alle gültigen Datumseinträge aus den Planzeilen."""
@@ -125,16 +124,12 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         widgets.Label(hf, text="Von:").grid(row=0, column=0, sticky="w", padx=(0, 4))
         self._von_var = ui.StringVar(value=default_from.strftime("%d.%m.%Y"))
         widgets.Entry(hf, textvariable=self._von_var, width=12).grid(row=0, column=1, sticky="w")
-        widgets.Button(hf, text="Kursbeginn", command=self._set_von_kursbeginn).grid(
-            row=0, column=2, padx=(4, 16)
-        )
+        widgets.Button(hf, text="Kursbeginn", command=self._set_von_kursbeginn).grid(row=0, column=2, padx=(4, 16))
 
         widgets.Label(hf, text="Bis:").grid(row=0, column=3, sticky="w", padx=(0, 4))
         self._bis_var = ui.StringVar(value=default_to.strftime("%d.%m.%Y"))
         widgets.Entry(hf, textvariable=self._bis_var, width=12).grid(row=0, column=4, sticky="w")
-        widgets.Button(hf, text="Kursende", command=self._set_bis_kursende).grid(
-            row=0, column=5, padx=(4, 16)
-        )
+        widgets.Button(hf, text="Kursende", command=self._set_bis_kursende).grid(row=0, column=5, padx=(4, 16))
 
         rhythm_frame = widgets.Frame(hf)
         rhythm_frame.grid(row=0, column=6, sticky="w")
@@ -143,9 +138,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         existing_rhythm = parse_rhythm(self._table.metadata.get(RHYTHM_YAML_KEY, []))
         self._rhythm_picker.set_from_rhythm(existing_rhythm, on=today)
 
-        widgets.Button(hf, text="Berechnen", command=self._on_berechnen).grid(
-            row=0, column=7, padx=(8, 0)
-        )
+        widgets.Button(hf, text="Berechnen", command=self._on_berechnen).grid(row=0, column=7, padx=(8, 0))
 
     def _build_split(self, parent) -> None:
         """Erstellt den PanedWindow mit linkem und rechtem Treeview."""
@@ -162,9 +155,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
 
     def _make_tree(self, parent, title: str) -> widgets.Treeview:
         """Erstellt einen beschrifteten Treeview mit Scrollleiste."""
-        widgets.Label(parent, text=title, font=("Segoe UI", 9, "bold")).pack(
-            anchor="w", padx=4, pady=(4, 2)
-        )
+        widgets.Label(parent, text=title, font=("Segoe UI", 9, "bold")).pack(anchor="w", padx=4, pady=(4, 2))
         frame = widgets.Frame(parent)
         frame.pack(fill="both", expand=True)
 
@@ -188,9 +179,7 @@ class TimetableChangeDialog(ScrollablePopupWindow):
         ff = widgets.Frame(parent)
         ff.pack(fill="x", pady=(6, 0))
 
-        widgets.Button(ff, text="Ausfall / Stattfinden", command=self._on_toggle_ausfall).pack(
-            side="left", padx=(0, 4)
-        )
+        widgets.Button(ff, text="Ausfall / Stattfinden", command=self._on_toggle_ausfall).pack(side="left", padx=(0, 4))
         widgets.Button(ff, text="↑", command=lambda: self._on_swap(-1)).pack(side="left", padx=(0, 2))
         widgets.Button(ff, text="↓", command=lambda: self._on_swap(1)).pack(side="left", padx=(0, 8))
         widgets.Button(ff, text="Entfernen", command=self._on_remove).pack(side="left")
@@ -333,8 +322,8 @@ class TimetableChangeDialog(ScrollablePopupWindow):
                     inhalt_text = strip_wiki_link(slot.content)
                 elif slot.oberthema_cell:
                     oberthema_text = extract_plan_oberthema(slot.oberthema_cell, self._group_name)
-                    inhalt_text = f"Oberthema: {oberthema_text}" if oberthema_text else strip_wiki_link(
-                        slot.oberthema_cell
+                    inhalt_text = (
+                        f"Oberthema: {oberthema_text}" if oberthema_text else strip_wiki_link(slot.oberthema_cell)
                     )
                 else:
                     inhalt_text = ""

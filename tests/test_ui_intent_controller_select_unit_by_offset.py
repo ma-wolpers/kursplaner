@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from bw_gui.contracts.events import EventResult
+
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
-from bw_gui.contracts.events import EventResult
 
 
 def _make_controller(*, is_detail_view: bool, selection_level: str, selected_offset_result: bool = True):
@@ -26,9 +27,7 @@ def _make_controller(*, is_detail_view: bool, selection_level: str, selected_off
 
 
 def test_select_unit_by_offset_fires_in_column_selection_mode():
-    controller, calls = _make_controller(
-        is_detail_view=True, selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN
-    )
+    controller, calls = _make_controller(is_detail_view=True, selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
 
     result = controller.intent_select_unit_by_offset(2)
 
@@ -55,9 +54,7 @@ def test_select_unit_by_offset_is_noop_during_active_text_edit():
 
 
 def test_select_unit_by_offset_is_noop_outside_detail_view():
-    controller, calls = _make_controller(
-        is_detail_view=False, selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN
-    )
+    controller, calls = _make_controller(is_detail_view=False, selection_level=MainWindowUiState.SELECTION_LEVEL_COLUMN)
 
     result = controller.intent_select_unit_by_offset(0)
 

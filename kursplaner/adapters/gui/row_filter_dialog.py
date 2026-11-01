@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import WidgetShortcutBinder, ui, widgets
 from bw_gui.widgets import Checkbox
@@ -79,9 +76,7 @@ class RowFilterDialog(ScrollablePopupWindow):
         grid.pack(fill="x", expand=False)
         grid.columnconfigure(0, weight=1)
 
-        widgets.Label(grid, text="Zeilenfeld", font=("Segoe UI", 9, "bold")).grid(
-            row=0, column=0, sticky="w"
-        )
+        widgets.Label(grid, text="Zeilenfeld", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w")
         for col_index, mode_key in enumerate(self._mode_order):
             widgets.Label(grid, text=_MODE_COLUMN_HEADERS[mode_key], font=("Segoe UI", 9, "bold")).grid(
                 row=0, column=col_index + 1, sticky="w", padx=(16, 0)
@@ -122,9 +117,7 @@ class RowFilterDialog(ScrollablePopupWindow):
         button_row = widgets.Frame(frame)
         button_row.pack(fill="x")
         widgets.Button(button_row, text="Übernehmen", command=self._accept).pack(side="right")
-        widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(
-            side="right", padx=(0, 8)
-        )
+        widgets.Button(button_row, text="Abbrechen", command=self.destroy).pack(side="right", padx=(0, 8))
 
     def _register_nav_widget(self, widget: Checkbox, *, row: int, col: int) -> None:
         """Registriert eine Checkbox für Pfeiltasten-Navigation in beide Richtungen."""
@@ -181,11 +174,7 @@ class RowFilterDialog(ScrollablePopupWindow):
         fields = {field_key for field_key, _mode_key in self._vars}
         overrides: dict[str, frozenset[str]] = {}
         for field_key in fields:
-            selected = frozenset(
-                mode_key
-                for mode_key in self._mode_order
-                if self._vars[(field_key, mode_key)].get()
-            )
+            selected = frozenset(mode_key for mode_key in self._mode_order if self._vars[(field_key, mode_key)].get())
             if selected != self._use_case.default_modes_for_field(field_key):
                 overrides[field_key] = selected
         self.result = RowFilterSettings(field_mode_overrides=overrides)

@@ -1,15 +1,11 @@
 import pathlib
-
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from kursplaner.core.domain.day_column import DayColumn
-
-ensure_bw_gui_on_path()
-from bw_gui.runtime import BwBaseWindow, ui  # noqa: F401,E402
-from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker  # noqa: F401,E402
-from bw_gui.menu import section_spec  # noqa: E402
-from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker  # noqa: F401,E402
-from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker  # noqa: F401,E402
 from datetime import date
+
+from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker  # noqa: F401
+from bw_gui.menu import section_spec
+from bw_gui.runtime import BwBaseWindow, ui  # noqa: F401
+from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker  # noqa: F401
+from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker  # noqa: F401
 
 from bw_libs.ui_contract.laufkern import aggregate_completion, emit_tracking_artifact
 from kursplaner.adapters.bootstrap.wiring import AppDependencies, build_gui_dependencies
@@ -20,6 +16,8 @@ from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.grid_viewport_sync import GridViewportSync, HorizontalViewportSync
 from kursplaner.adapters.gui.lesson_context_controller import MainWindowLessonContextController
 from kursplaner.adapters.gui.lesson_conversion_controller import MainWindowLessonConversionController
+from kursplaner.adapters.gui.main_window_plan_delegation import KursplanerPlanDelegationMixin
+from kursplaner.adapters.gui.main_window_row_mode import KursplanerRowModeMixin
 from kursplaner.adapters.gui.overview_controller import MainWindowOverviewController
 from kursplaner.adapters.gui.path_bootstrap import ensure_paths_interactive
 from kursplaner.adapters.gui.path_settings_controller import MainWindowPathSettingsController
@@ -37,12 +35,17 @@ from kursplaner.adapters.gui.window_identity import (
     bring_window_to_front,
     configure_windows_process_identity,
 )
-from kursplaner.core.config.ui_preferences_store import load_column_visibility_settings, load_course_overview_highlight_days, load_row_filter_settings, load_theme_key, save_theme_key
+from kursplaner.core.config.ui_preferences_store import (
+    load_column_visibility_settings,
+    load_course_overview_highlight_days,
+    load_row_filter_settings,
+    load_theme_key,
+    save_theme_key,
+)
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
-from kursplaner.adapters.gui.main_window_plan_delegation import KursplanerPlanDelegationMixin  # noqa: E402
-from kursplaner.adapters.gui.main_window_row_mode import KursplanerRowModeMixin  # noqa: E402
 
 
 class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBaseWindow):
@@ -130,9 +133,7 @@ class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBas
         }
         self.column_visibility_settings = load_column_visibility_settings()
         self.row_filter_settings: RowFilterSettings = load_row_filter_settings()
-        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(
-            self.active_row_mode, self.row_filter_settings
-        )
+        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode, self.row_filter_settings)
         self.course_overview_highlight_days = load_course_overview_highlight_days()
         self.show_former_courses = False
         self.raw_day_columns: list[DayColumn] = []
@@ -371,6 +372,7 @@ class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBas
         """Öffnet den Dialog zur Erstellung eines neuen Kurses."""
         self.action_controller.open_new_course_window()
 
+
 def main():
     """Startet die GUI-Anwendung nach interaktivem Pfad-Bootstrap."""
     configure_windows_process_identity()
@@ -430,4 +432,3 @@ def main():
 
     app.after(320, _run_daily_course_log_export)
     app.run()
-

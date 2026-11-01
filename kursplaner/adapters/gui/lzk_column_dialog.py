@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import WindowShortcutBinder, ui, widgets
 
@@ -56,7 +54,9 @@ class LzkColumnDialog(ScrollablePopupWindow):
         widgets.Button(buttons, text="Abbrechen", command=self.destroy).pack(side="right")
 
         # Strg+Enter (auch Ziffernblock) uebernimmt -- im ganzen Dialog, auch im Titelfeld.
-        bind_keys(WindowShortcutBinder(self), ((CTRL_ENTER, "accept", self._on_ctrl_enter_accept),), prefix="lzk_column")
+        bind_keys(
+            WindowShortcutBinder(self), ((CTRL_ENTER, "accept", self._on_ctrl_enter_accept),), prefix="lzk_column"
+        )
 
         self.apply_theme()
 

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import bind_canvas_item, ui
 from bw_gui.theming import canvas_fill, canvas_outline_color, canvas_text_fill
 

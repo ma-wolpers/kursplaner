@@ -1,7 +1,5 @@
 from dataclasses import dataclass
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
-ensure_bw_gui_on_path()
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import ui, widgets
 
@@ -677,4 +675,3 @@ def ask_lesson_stundenziel_selection(
     _activate_modal_focus(dialog, dialog.stundenziel_field.text)
     dialog.wait_window()
     return dialog.result
-

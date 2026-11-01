@@ -76,49 +76,49 @@ SHORTCUT_COVERAGE_SOFT_CHECKS = (
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("TOOLBAR_NEW", "toolbar.new"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"toolbar.new\"",),
+        "shortcut_markers": ('"intent": "toolbar.new"',),
     },
     {
         "label": "toolbar-export-as",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("TOOLBAR_EXPORT_AS", "toolbar.export_as"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"toolbar.export_as\"",),
+        "shortcut_markers": ('"intent": "toolbar.export_as"',),
     },
     {
         "label": "toolbar-undo",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("TOOLBAR_UNDO", "toolbar.undo"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"toolbar.undo\"",),
+        "shortcut_markers": ('"intent": "toolbar.undo"',),
     },
     {
         "label": "toolbar-redo",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("TOOLBAR_REDO", "toolbar.redo"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"toolbar.redo\"",),
+        "shortcut_markers": ('"intent": "toolbar.redo"',),
     },
     {
         "label": "shortcut-copy",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("SHORTCUT_COPY", "shortcut.copy"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"shortcut.copy\"",),
+        "shortcut_markers": ('"intent": "shortcut.copy"',),
     },
     {
         "label": "shortcut-cut",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("SHORTCUT_CUT", "shortcut.cut"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"shortcut.cut\"",),
+        "shortcut_markers": ('"intent": "shortcut.cut"',),
     },
     {
         "label": "shortcut-paste",
         "intent_paths": ("kursplaner/adapters/gui/ui_intents.py",),
         "intent_markers": ("SHORTCUT_PASTE", "shortcut.paste"),
         "shortcut_paths": ("kursplaner/resources/shortcuts/shortcut_guide.json",),
-        "shortcut_markers": ("\"intent\": \"shortcut.paste\"",),
+        "shortcut_markers": ('"intent": "shortcut.paste"',),
     },
     {
         "label": "shortcut-escape",
@@ -174,9 +174,7 @@ DOCSTRING_REQUIRED_PATHS = {
 }
 
 
-FUTURE_GUI_SEARCH_ROOTS = (
-    "kursplaner/adapters/gui",
-)
+FUTURE_GUI_SEARCH_ROOTS = ("kursplaner/adapters/gui",)
 
 
 FUTURE_GUI_ENTRY_FILE_NAMES = {
@@ -190,8 +188,10 @@ FUTURE_GUI_ENTRY_FILE_NAMES = {
 FUTURE_GUI_ENTRY_BASELINES: set[str] = set()
 
 
+GUI_BOOTSTRAP_PATH = "kursplaner/adapters/gui/__init__.py"
+
+
 FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
-    "ensure_bw_gui_on_path()",
     "from bw_gui.runtime import",
     "from bw_gui.menu import",
     "open_tabbed_settings_dialog",

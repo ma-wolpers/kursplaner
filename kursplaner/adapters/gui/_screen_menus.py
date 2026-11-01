@@ -4,9 +4,6 @@ Split out of screen_builder.py (file-size rule); method bodies unchanged."""
 
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
 from bw_gui.menu import MenuItem as SharedMenuItem
 from bw_gui.runtime import ui
 from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
@@ -41,7 +38,9 @@ class ScreenMenusMixin:
 
     def _menu_items_file(self):
         return (
-            SharedMenuItem(type="command", label="Neu (Strg+N)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW)),
+            SharedMenuItem(
+                type="command", label="Neu (Strg+N)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW)
+            ),
             SharedMenuItem(
                 type="command",
                 label="Lesson-Index neu aufbauen",
@@ -53,21 +52,47 @@ class ScreenMenusMixin:
 
     def _menu_items_edit(self):
         return (
-            SharedMenuItem(type="command", label="Undo (Strg+Z)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO)),
-            SharedMenuItem(type="command", label="Redo (Strg+Y)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO)),
+            SharedMenuItem(
+                type="command", label="Undo (Strg+Z)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO)
+            ),
+            SharedMenuItem(
+                type="command", label="Redo (Strg+Y)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO)
+            ),
             SharedMenuItem(type="submenu", label="Letzte Änderungen", items=self._recent_changes_menu_items()),
         )
 
     def _menu_items_action(self):
         return (
-            SharedMenuItem(type="command", label="Einheit kopieren (Strg+C)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_COPY)),
-            SharedMenuItem(type="command", label="Einheit einfügen (Strg+V)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_PASTE)),
-            SharedMenuItem(type="command", label="Exportieren als... (Strg+P)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_EXPORT_AS)),
-            SharedMenuItem(type="command", label="Markdown finden…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_FIND)),
+            SharedMenuItem(
+                type="command",
+                label="Einheit kopieren (Strg+C)",
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_COPY),
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Einheit einfügen (Strg+V)",
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_PASTE),
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Exportieren als... (Strg+P)",
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_EXPORT_AS),
+            ),
+            SharedMenuItem(
+                type="command", label="Markdown finden…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_FIND)
+            ),
             SharedMenuItem(type="separator"),
-            SharedMenuItem(type="command", label="Einheit leeren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR)),
-            SharedMenuItem(type="command", label="Einheit umbenennen…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME)),
-            SharedMenuItem(type="command", label="Schatteneinheiten anzeigen…", command=lambda: self._emit_intent(UiIntent.SHOW_SHADOW_LESSONS)),
+            SharedMenuItem(
+                type="command", label="Einheit leeren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR)
+            ),
+            SharedMenuItem(
+                type="command", label="Einheit umbenennen…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME)
+            ),
+            SharedMenuItem(
+                type="command",
+                label="Schatteneinheiten anzeigen…",
+                command=lambda: self._emit_intent(UiIntent.SHOW_SHADOW_LESSONS),
+            ),
             SharedMenuItem(
                 type="command",
                 label="Kontextaktion: UB markieren / Ausfall zurücknehmen (Strg+B)",
@@ -92,7 +117,9 @@ class ScreenMenusMixin:
                 type="switch",
                 label="Lange Zeilen aufgeklappt",
                 checked=bool(self.app.expand_long_rows_var.get()),
-                on_toggle=lambda on: self._set_var_and_emit(self.app.expand_long_rows_var, on, UiIntent.TOGGLE_EXPAND_MODE),
+                on_toggle=lambda on: self._set_var_and_emit(
+                    self.app.expand_long_rows_var, on, UiIntent.TOGGLE_EXPAND_MODE
+                ),
             ),
             SharedMenuItem(
                 type="command",

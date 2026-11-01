@@ -2,32 +2,29 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from kursplaner.core.domain.day_column import DayColumn
-
-ensure_bw_gui_on_path()
 from bw_gui.runtime import ui
 from bw_gui.theming import icon_button, recolor_photo, recolor_photo_token, retain_icon_override
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
+from kursplaner.core.domain.day_column import DayColumn
 
 # Maps ttk style name → bw_gui color_tint seed for icon recoloring.
 # None means no tint: icon pixels are recolored to fg_primary (the neutral
 # foreground) rather than to the contrast foreground of a tinted background.
 _STYLE_TINT: dict[str, str | None] = {
-    "Action.Primary.TButton":     "accent",
-    "Action.Unterricht.TButton":  "accent",
-    "Action.Ausfall.TButton":     "warning",
+    "Action.Primary.TButton": "accent",
+    "Action.Unterricht.TButton": "accent",
+    "Action.Ausfall.TButton": "warning",
     "Action.Hospitation.TButton": HOSPITATION_SEED,
-    "Action.Lzk.TButton":         "success",
+    "Action.Lzk.TButton": "success",
 }
 
 # Style assigned to alternate (state-swap) icons so they receive the same
 # tint as the button they replace.
 _ALTERNATE_ICON_STYLE: dict[str, str] = {
     "mark_ub_remove": "Action.Unterricht.TButton",
-    "resume":         "Action.Ausfall.TButton",
+    "resume": "Action.Ausfall.TButton",
 }
 
 
@@ -64,26 +61,26 @@ class ToolbarIconStyler:
         counterparts depending on column domain state.
         """
         return {
-            "new":                "tb_new.png",
-            "refresh":            "tb_refresh.png",
-            "export_as":          "tb_export.png",
-            "undo":               "tb_undo.png",
-            "redo":               "tb_redo.png",
-            "plan":               "tb_unterricht.png",
+            "new": "tb_new.png",
+            "refresh": "tb_refresh.png",
+            "export_as": "tb_export.png",
+            "undo": "tb_undo.png",
+            "redo": "tb_redo.png",
+            "plan": "tb_unterricht.png",
             "extend_to_vacation": "tb_extend.png",
-            "ausfall":            "tb_ausfall.png",
-            "hospitation":        "tb_hospitation.png",
-            "lzk":                "tb_lzk.png",
-            "mark_ub":            "tb_bu.png",
-            "mark_ub_remove":     "tb_no_ub.png",
-            "copy":               "tb_copy.png",
-            "paste":              "tb_paste.png",
-            "find":               "tb_find.png",
-            "clear":              "tb_clear.png",
-            "rename":             "tb_rename.png",
-            "resume":             "tb_resume.png",
-            "move_left":          "tb_move_left.png",
-            "move_right":         "tb_move_right.png",
+            "ausfall": "tb_ausfall.png",
+            "hospitation": "tb_hospitation.png",
+            "lzk": "tb_lzk.png",
+            "mark_ub": "tb_bu.png",
+            "mark_ub_remove": "tb_no_ub.png",
+            "copy": "tb_copy.png",
+            "paste": "tb_paste.png",
+            "find": "tb_find.png",
+            "clear": "tb_clear.png",
+            "rename": "tb_rename.png",
+            "resume": "tb_resume.png",
+            "move_left": "tb_move_left.png",
+            "move_right": "tb_move_right.png",
         }
 
     def _ensure_base_icons(self) -> None:
