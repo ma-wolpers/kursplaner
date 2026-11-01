@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import partial
 
 from bw_gui.contracts import KeySpec
-from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker  # noqa: F401
 from bw_gui.runtime import (
     WidgetShortcutBinder,
     bind_click,

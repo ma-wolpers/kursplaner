@@ -1,11 +1,8 @@
 import pathlib
 from datetime import date
 
-from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker  # noqa: F401
 from bw_gui.menu import section_spec
 from bw_gui.runtime import BwBaseWindow, ui  # noqa: F401
-from bw_gui.shortcuts import compose_hover_text as _compose_hover_text_contract_marker  # noqa: F401
-from bw_gui.widgets import HoverTooltip as _SharedHoverTooltipContractMarker  # noqa: F401
 
 from bw_libs.ui_contract.laufkern import aggregate_completion, emit_tracking_artifact
 from kursplaner.adapters.bootstrap.wiring import AppDependencies, build_gui_dependencies

@@ -194,9 +194,14 @@ GUI_BOOTSTRAP_PATH = "kursplaner/adapters/gui/__init__.py"
 FUTURE_GUI_REQUIRED_SHARED_SNIPPETS = (
     "from bw_gui.runtime import",
     "from bw_gui.menu import",
-    "open_tabbed_settings_dialog",
+)
+
+
+# Muss irgendwo im GUI-Paket wirklich benutzt werden, nicht in jeder Einstiegsdatei.
+GUI_REQUIRED_SHARED_API_USES = (
+    "open_tabbed_settings_dialog(",
     "compose_hover_text",
-    "HoverTooltip",
+    "HoverTooltip(",
 )
 
 

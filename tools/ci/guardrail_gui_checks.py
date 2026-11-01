@@ -10,6 +10,7 @@ from guardrail_config import (  # noqa: E402
     FUTURE_GUI_SEARCH_ROOTS,
     GUI_BOOTSTRAP_PATH,
     GUI_MIGRATION_BACKLOG_PATH,
+    GUI_REQUIRED_SHARED_API_USES,
     LAUFKERN_FALLBACK_SCAN_ROOTS,
     LEGACY_UI_BASECLASS_ALLOWLIST,
     SCREEN_BUILDER_PATH,
@@ -117,6 +118,14 @@ def _check_gui_bootstrap_single_source(errors: list[str]) -> None:
     for rel_path in _iter_python_files_under(FUTURE_GUI_SEARCH_ROOTS):
         if rel_path != GUI_BOOTSTRAP_PATH:
             _forbid_substring(_read(rel_path), "ensure_bw_gui_on_path", rel_path, errors)
+
+
+def _check_shared_gui_api_in_use(errors: list[str]) -> None:
+    """Erzwingt, dass das GUI-Paket die gemeinsamen bw-gui-Bausteine tatsächlich benutzt."""
+
+    package_text = "\n".join(_read(rel_path) for rel_path in _iter_python_files_under(FUTURE_GUI_SEARCH_ROOTS))
+    for snippet in GUI_REQUIRED_SHARED_API_USES:
+        _require_substring(package_text, snippet, FUTURE_GUI_SEARCH_ROOTS[0], errors)
 
 
 def _check_future_gui_entry_contracts(errors: list[str]) -> None:

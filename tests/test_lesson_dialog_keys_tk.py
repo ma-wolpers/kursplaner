@@ -16,6 +16,7 @@ from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.key_router import router_for
 from bw_gui.testing.keys import press_key
 
+from kursplaner.adapters.gui import lesson_dialog_keys
 from kursplaner.adapters.gui.lesson_builder_dialog import LessonBuilderDialog, LessonKompetenzenSelectionDialog
 
 SHIFT, CONTROL = 0x0001, 0x0004
@@ -129,19 +130,36 @@ def test_filter_field_keeps_selection_after_down_and_refilters_after_typing(host
         dialog.destroy()
 
 
-def test_focus_into_field_opens_overlay_and_focus_elsewhere_closes_it(kompetenzen):
-    """on_focus_change: Fokus ins Feld öffnet das Overlay, Fokus auf ein anderes Dialog-Widget schließt es."""
-    text = kompetenzen.kompetenzen_field.text
-    other = widgets.Button(kompetenzen.content, text="anders")
-    other.pack()
-    text.focus_force()  # echter Fokus, sonst holt ihn der Modal-Fokus-Helfer (after_idle) zurück
-    kompetenzen.update()
-    kompetenzen.overlay_controller.close()
-    text.event_generate("<FocusIn>")
-    assert kompetenzen.overlay_controller.active_field == "kompetenzen"
-    kompetenzen.overlay_controller.overlay.deiconify()
-    kompetenzen.update()
-    other.focus_force()
-    other.event_generate("<FocusIn>")  # within=True am Dialog sieht den Fokuswechsel des Nachfahren
-    kompetenzen.update()
-    assert not kompetenzen.overlay_controller.is_open
+def test_focus_into_field_opens_overlay_and_focus_elsewhere_closes_it(host, monkeypatch):
+    """on_focus_change: Fokus ins Feld öffnet das Overlay, Fokus auf ein anderes Dialog-Widget schließt es.
+
+    Ruft die registrierten Rückrufe direkt auf. Ein erzeugtes ``<FocusIn>`` stellt Tk nur zu,
+    solange das Fenster den echten OS-Fokus hat, und den gibt ``background_windows`` während
+    der Tests an das Fenster des Entwicklers zurück: Der frühere Test scheiterte dann zufällig.
+    """
+    gained = {}
+    real_on_focus_change = lesson_dialog_keys.on_focus_change
+
+    def _capture(widget, *, on_gained=None, **kwargs):
+        gained[str(widget)] = on_gained
+        return real_on_focus_change(widget, on_gained=on_gained, **kwargs)
+
+    monkeypatch.setattr(lesson_dialog_keys, "on_focus_change", _capture)
+    dialog = LessonKompetenzenSelectionDialog(host, date_label="01.01.", kompetenzen_options=list(OPTIONS))
+    try:
+        other = widgets.Button(dialog.content, text="anders")
+        other.pack()
+        dialog.update()
+        controller = dialog.overlay_controller
+        controller.close()
+
+        gained[str(dialog.kompetenzen_field.text)](None)
+        assert controller.active_field == "kompetenzen"
+
+        controller.overlay.deiconify()
+        dialog.update()
+        monkeypatch.setattr(dialog, "focus_get", lambda: other)
+        gained[str(dialog)](None)
+        assert not controller.is_open
+    finally:
+        dialog.destroy()

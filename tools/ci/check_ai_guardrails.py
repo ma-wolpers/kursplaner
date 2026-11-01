@@ -30,6 +30,7 @@ from guardrail_gui_checks import (  # noqa: E402
     _check_laufkern_fallback_sunset,
     _check_repo_wide_gui_contracts,
     _check_runtime_shortcut_integration,
+    _check_shared_gui_api_in_use,
     _check_shared_ui_contract_hardening,
     _check_ui_contract_bridge_decommission,
 )
@@ -82,6 +83,7 @@ def main() -> int:
     _check_laufkern_fallback_sunset(errors)
     _check_ui_contract_bridge_decommission(errors)
     _check_gui_bootstrap_single_source(errors)
+    _check_shared_gui_api_in_use(errors)
     _check_future_gui_entry_contracts(errors)
     _check_repo_wide_gui_contracts(errors)
     _check_gui_migration_backlog(errors)
