@@ -10,7 +10,7 @@
   {
     "key": "Ctrl+R",
     "display_shortcut": "Strg+R",
-    "action_label": "Übersicht neu laden",
+    "action_label": "Übersicht und Kursplan neu laden",
     "intent": "toolbar.refresh",
     "mnemonic": "R = Reload",
     "didactic_hint": "R hilft als Merkanker für Auffrischen oder Neu laden."

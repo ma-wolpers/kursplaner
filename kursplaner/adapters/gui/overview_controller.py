@@ -8,18 +8,19 @@ from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 from kursplaner.core.domain.day_column import DayColumn
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import treeview_selection, ui, widgets
+from bw_gui.runtime import treeview_selection, ui, widgets  # noqa: E402
 
-from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
-from kursplaner.adapters.gui.overview_columns import overview_row_values
-from kursplaner.core.config.ui_preferences_store import (
+from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog  # noqa: E402
+from kursplaner.adapters.gui.overview_columns import overview_row_values  # noqa: E402
+from kursplaner.adapters.gui.plan_view_state import PlanViewState, capture_plan_view, restore_plan_view  # noqa: E402
+from kursplaner.core.config.ui_preferences_store import (  # noqa: E402
     NEXT_UNIT_MODE_FEST,
     load_next_unit_cutoff_time,
     load_next_unit_mode,
 )
-from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming
-from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError
-from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict
+from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming  # noqa: E402
+from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError  # noqa: E402
+from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict  # noqa: E402
 
 
 class MainWindowOverviewController:
@@ -232,9 +233,7 @@ class MainWindowOverviewController:
         verschoben (`skip_paths`).
         """
         current_table = getattr(self.app, "current_table", None)
-        skip_paths = (
-            frozenset({current_table.markdown_path.resolve()}) if current_table is not None else frozenset()
-        )
+        skip_paths = frozenset({current_table.markdown_path.resolve()}) if current_table is not None else frozenset()
         result = self.archive_former_courses_usecase.execute(unterricht_dir, skip_paths=skip_paths)
         if result.errors:
             messagebox.showwarning(
@@ -245,7 +244,48 @@ class MainWindowOverviewController:
             )
 
     def refresh_overview(self):
-        """Lädt die Unterrichtsübersicht neu und rendert die linke Baumansicht.
+        """Lädt die Unterrichtsübersicht neu und zeigt sie als Hauptansicht.
+
+        Für Programmstart, Kurs anlegen, Pfadänderung und Undo/Redo. Das manuelle
+        Neuladen läuft über `reload_keeping_view()`.
+        """
+        self._reload_course_list()
+        self._show_reloaded_overview()
+
+    def reload_keeping_view(self):
+        """Manuelles Neuladen (Strg+R, Toolbar): Der Nutzer bleibt, wo er war.
+
+        Bei offenem Plan werden Kursliste und Plan von der Platte gelesen; Auswahl und
+        Scrollposition bleiben, die Übersicht erscheint auch nicht kurz dazwischen. Ist
+        der Kurs nicht mehr in der Liste (gelöscht, ausgeblendet, anderer Pfad), geht es
+        zur Übersicht. Dort bleibt der gewählte Kurs gewählt.
+        """
+        selected_iid = self.app.lesson_tree.focus()
+        view = capture_plan_view(self.app)
+        self._reload_course_list()
+        if view is not None and self.app.lesson_tree.exists(view.course_iid):
+            self._focus_course(view.course_iid)
+            self._reset_selection()
+            self.load_selected_table(restore=view)
+            return
+        self._show_reloaded_overview(preferred_iid=selected_iid)
+
+    def _show_reloaded_overview(self, *, preferred_iid: str = ""):
+        """Zeigt die frisch geladene Kursliste.
+
+        Der bevorzugte Kurs wird vor dem Ansichtswechsel fokussiert: `show_course_overview`
+        wählt über `ensure_course_selected` nur dann den ersten Kurs, wenn keiner fokussiert ist.
+
+        Args:
+            preferred_iid: Bevorzugter Kurs, falls es ihn noch gibt; sonst der erste.
+        """
+        self.clear_plan_table("Bitte links einen Kurs auswählen.")
+        if preferred_iid and self.app.lesson_tree.exists(preferred_iid):
+            self._focus_course(preferred_iid)
+        self.app._show_course_overview()
+
+    def _reload_course_list(self):
+        """Liest die Kurse neu ein und rendert die Baumansicht, ohne die Ansicht zu wechseln.
 
         Führt vor dem eigentlichen Rendering den Kurs-Lifecycle-Sync aus
         (`sync_course_storage_lifecycle`) — alle Aufrufstellen dieser Methode
@@ -317,9 +357,11 @@ class MainWindowOverviewController:
                 parent=self.app,
             )
 
-        self.clear_plan_table("Bitte links einen Kurs auswählen.")
-        self.app._show_course_overview()
-        self.ensure_course_selected(prefer_first=True)
+    def _focus_course(self, iid: str) -> None:
+        """Setzt Fokus und Auswahl der Kursliste auf einen Eintrag und holt ihn ins Bild."""
+        self.app.lesson_tree.focus(iid)
+        treeview_selection.set(self.app.lesson_tree, [iid])
+        self.app.lesson_tree.see(iid)
 
     def ensure_course_selected(self, *, prefer_first: bool = False):
         """Stellt eine gültige Kursselektion sicher, damit Tastaturnavigation sofort greift."""
@@ -329,24 +371,18 @@ class MainWindowOverviewController:
 
         selected = self.app.lesson_tree.focus()
         if selected and self.app.lesson_tree.exists(selected):
-            treeview_selection.set(self.app.lesson_tree, [selected])
-            self.app.lesson_tree.see(selected)
+            self._focus_course(selected)
             return
 
         selection = self.app.lesson_tree.selection()
         if selection:
             first = selection[0]
             if self.app.lesson_tree.exists(first):
-                self.app.lesson_tree.focus(first)
-                treeview_selection.set(self.app.lesson_tree, [first])
-                self.app.lesson_tree.see(first)
+                self._focus_course(first)
                 return
 
         if prefer_first:
-            first = items[0]
-            self.app.lesson_tree.focus(first)
-            treeview_selection.set(self.app.lesson_tree, [first])
-            self.app.lesson_tree.see(first)
+            self._focus_course(items[0])
 
     def _show_loading_dialog(self, text: str):
         """Zeigt einen kleinen, nicht-blockierenden Ladehinweis mit laufender Progressbar."""
@@ -387,16 +423,26 @@ class MainWindowOverviewController:
         self.app.day_columns = []
         self.app.topic_sequence_plans = []
         self.app.day_column_x_positions = {}
-        self.app.selected_day_indices = set()
-        self.app.ui_state.clear_selected_cell()
-        self.app.ui_state.clear_active_editor()
-        self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COURSE)
+        self._reset_selection()
         if bool(self.app.auto_row_mode_var.get()):
             self.app._set_row_mode(self.app.row_display_mode_usecase.MODE_UNTERRICHT, manual=False)
         self.app._rebuild_grid()
 
-    def load_selected_table(self, _event=None):
-        """Lädt die aktuell selektierte Plan-Datei in die rechte Detailansicht."""
+    def _reset_selection(self) -> None:
+        """Hebt Spalten-, Zellen- und Editorauswahl auf; aktiv bleibt nur noch der Kurs."""
+        self.app.selected_day_indices = set()
+        self.app.ui_state.clear_selected_cell()
+        self.app.ui_state.clear_active_editor()
+        self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COURSE)
+
+    def load_selected_table(self, _event=None, *, restore: PlanViewState | None = None):
+        """Lädt die aktuell selektierte Plan-Datei in die rechte Detailansicht.
+
+        Args:
+            _event: Auslösendes Tk-Ereignis (ungenutzt).
+            restore: Sicht, die wiederhergestellt wird. Ohne sie wird die nächste
+                Unterrichtseinheit gewählt und angesteuert.
+        """
         selected = self.app.lesson_tree.focus()
         if not selected:
             return
@@ -440,7 +486,7 @@ class MainWindowOverviewController:
             self.app._show_course_detail()
         except MissingLessonYamlFrontmatterError as exc:
             if self._prompt_and_repair_missing_frontmatter(exc):
-                self.load_selected_table(_event)
+                self.load_selected_table(_event, restore=restore)
                 return
             self.clear_plan_table(f"Tabelle konnte nicht geladen werden: {exc}")
             self.app._show_course_overview()
@@ -456,6 +502,9 @@ class MainWindowOverviewController:
         self.app._rebuild_grid()
         if oberthema_problems:
             self._show_oberthema_problems(oberthema_problems)
+        if restore is not None:
+            restore_plan_view(self.app, restore)
+            return
         try:
             next_index = self._next_lesson_column_index()
             if next_index is not None:
@@ -483,10 +532,7 @@ class MainWindowOverviewController:
 
     def close_detail_view(self):
         """Wechselt zurück zur reinen Kursübersicht ohne den Kursfokus zu verlieren."""
-        self.app.selected_day_indices = set()
-        self.app.ui_state.clear_selected_cell()
-        self.app.ui_state.clear_active_editor()
-        self.app.ui_state.set_selection_level(self.app.ui_state.SELECTION_LEVEL_COURSE)
+        self._reset_selection()
         self.app._update_selected_column_label()
         self.app._show_course_overview()
         self.app.action_controller.update_action_controls()

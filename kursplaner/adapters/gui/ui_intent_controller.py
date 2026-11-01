@@ -5,18 +5,18 @@ import time
 from bw_libs.shared_gui_core import ensure_bw_gui_on_path
 
 ensure_bw_gui_on_path()
-from bw_gui.runtime import treeview_selection, ui, widgets
-from bw_gui.contracts import EventResult
-from bw_gui.contracts.pointer import ClickEvent, DragEvent
+from bw_gui.contracts import EventResult  # noqa: E402
+from bw_gui.contracts.pointer import ClickEvent, DragEvent  # noqa: E402
+from bw_gui.runtime import treeview_selection, ui, widgets  # noqa: E402
 
 # Backward-compatible module aliases for existing tests and call sites.
 tk = ui
 ttk = widgets
 
-from bw_libs.ui_contract.hsm import build_ui_hsm_contract
-from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
-from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack
-from kursplaner.adapters.gui.ui_intents import UiIntent
+from bw_libs.ui_contract.hsm import build_ui_hsm_contract  # noqa: E402
+from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow  # noqa: E402
+from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack  # noqa: E402
+from kursplaner.adapters.gui.ui_intents import UiIntent  # noqa: E402
 
 
 def _known_ui_intents() -> tuple[str, ...]:
@@ -55,7 +55,10 @@ class MainWindowUiIntentController:
             self.app.action_controller.open_new_course_window()
             return None
         if intent == UiIntent.TOOLBAR_REFRESH:
-            self.app.action_controller.refresh_overview()
+            # Erst den offenen Editor speichern: Das Neuladen ersetzt seine Zelle. Scheitert
+            # das Speichern, bleibt der getippte Text stehen und es wird nicht neu geladen.
+            if self._leave_edit_mode_to_cell(set_grid_focus=True):
+                self.app.overview_controller.reload_keeping_view()
             return None
         if intent == UiIntent.TOOLBAR_EXPORT_AS:
             self.app.action_controller.export_selected_topic_as_pdf_action()
@@ -924,4 +927,3 @@ class MainWindowUiIntentController:
         except ui.TclError:
             return False
         return False
-

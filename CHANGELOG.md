@@ -39,6 +39,7 @@ The format is based on Keep a Changelog.
 - **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel. Das Mausrad über der Scrollbar eines scrollbaren Bereichs (z. B. im Einstellungsdialog) scrollt jetzt genau dreimal so weit wie über dem Inhalt (bisher unbeabsichtigt fünfmal).
 
 ### Fixed
+- Neu laden (Strg+R, ⟳): Der geöffnete Kursplan bleibt offen, gewählte Spalte oder Zelle und Scrollposition bleiben erhalten; bisher ging es immer zurück zur Kursübersicht. In der Übersicht bleibt der gewählte Kurs gewählt. Ein gerade bearbeitetes Feld wird vorher gespeichert.
 - Plan-Tabelle: Eine bearbeitete Zelle zeigte nach dem Bestätigen wieder den alten Wert, wenn links davon Zeilen ausgeblendet waren. Gespeichert war der neue Wert schon immer; er erschien aber erst nach „Kursplan neu laden“.
 - **Pfeiltasten in den Feldern „Inhalte“ und „Methodik“ (Dialog „Einheit planen“) wirkten nicht**: Die Auswahl in der Vorschlagsliste sprang nach dem Loslassen von ↓ sofort wieder auf den ersten Eintrag. ↑/↓ bewegen die Auswahl jetzt wie in den übrigen Feldern; Enter übernimmt den markierten Eintrag.
 - **Strg+Z im Fenster „Stundenplanänderung“ blieb nach dem Schließen aktiv** und lief ins Leere, statt wieder die normale Rückgängig-Funktion zu bedienen; es gilt jetzt nur noch, solange das Fenster offen ist.

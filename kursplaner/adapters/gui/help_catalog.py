@@ -58,7 +58,7 @@ MAIN_WINDOW_HELP: dict[str, str] = {
         "werden automatisch verschoben und als Ausfall markiert."
     ),
     "new": "Legt einen neuen Kurs an. - Strg+N (immer)",
-    "refresh": "Lädt Kursübersicht/Status neu. - Strg+R (immer)",
+    "refresh": "Lädt Kursübersicht und geöffneten Kursplan neu; Auswahl und Position bleiben. - Strg+R (immer)",
     "column_visibility": "Blendet Spaltenarten aus oder zeigt sie als dünne Marker an. - Strg+L",
     "export_as": "Exportiert die aktuelle Sequenz als Sequenzplan oder einen Kompetenzhorizont (PDF/Markdown); beim Kompetenzhorizont werden vorher die Oberthemen bis einschliesslich der gewaehlten Stunde abgefragt, beim PDF zusaetzlich eine leere Aufgaben-Spalte und die Schriftgroesse. - Strg+P",
     "undo": "Macht die letzte Plan-Änderung rückgängig. - Strg+Z (im Plan, nicht im Textfeld)",
