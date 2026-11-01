@@ -61,9 +61,7 @@ def _check_main_window_intent_delegation(errors: list[str]) -> None:
             break
 
     if not has_delegation_call:
-        errors.append(
-            "main_window.py: _handle_ui_intent must delegate to controller.handle_intent(intent, **payload)"
-        )
+        errors.append("main_window.py: _handle_ui_intent must delegate to controller.handle_intent(intent, **payload)")
 
 
 def _check_lesson_index_observability(errors: list[str]) -> None:

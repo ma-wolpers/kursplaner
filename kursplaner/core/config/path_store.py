@@ -147,6 +147,7 @@ DEFAULT_PATH_VALUES = {
     KOMPETENZ_MANIFEST_PATH_KEY: normalize_path_value(str(DEFAULT_KOMPETENZ_MANIFEST_PATH)),
 }
 
+
 @dataclass(frozen=True)
 class ManagedPaths:
     """Beschreibt Konfigurationsdaten für Managed Paths.

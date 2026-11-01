@@ -25,7 +25,10 @@ def _build_toggle(tk_root, *, initial_mode: str = MODE_OBER_TEIL, **kwargs) -> K
     """
     toplevel = tk.Toplevel(tk_root)
     return KompetenzGraphViewModeToggle(
-        toplevel, initial_mode=initial_mode, on_mode_selected=kwargs.pop("on_mode_selected", lambda _mode: None), **kwargs
+        toplevel,
+        initial_mode=initial_mode,
+        on_mode_selected=kwargs.pop("on_mode_selected", lambda _mode: None),
+        **kwargs,
     )
 
 

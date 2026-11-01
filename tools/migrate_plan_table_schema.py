@@ -317,7 +317,11 @@ def main() -> None:
         if args.dry_run:
             print("(--check zusammen mit --dry-run prüft die UNVERÄNDERTEN Dateien - wenig aussagekräftig.)")
         failures = _run_check(plan_paths)
-        print(f"--check abgeschlossen: {failures} Datei(en) nicht ladbar." if failures else "--check: alle Dateien ladbar.")
+        print(
+            f"--check abgeschlossen: {failures} Datei(en) nicht ladbar."
+            if failures
+            else "--check: alle Dateien ladbar."
+        )
         if failures:
             sys.exit(1)
 

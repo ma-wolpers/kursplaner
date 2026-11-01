@@ -270,7 +270,9 @@ class MainWindowSelectionController:
         probe = selected_cell.day_index + direction
         while 0 <= probe < len(self.app.day_columns):
             day = self.app.day_columns[probe]
-            if self.app.row_display_mode_usecase.is_editable(selected_cell.field_key, day, self.app.row_filter_settings):
+            if self.app.row_display_mode_usecase.is_editable(
+                selected_cell.field_key, day, self.app.row_filter_settings
+            ):
                 return self.set_selected_cell(selected_cell.field_key, probe, ensure_visible=True)
             probe += direction
         return False

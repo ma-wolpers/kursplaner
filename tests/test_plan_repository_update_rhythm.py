@@ -78,7 +78,7 @@ def test_update_plan_rhythm_preserves_fields_after_rhythmus(tmp_path):
 
     text = plan_file.read_text(encoding="utf-8")
     assert '  - "Mi 08:00 2"' in text
-    assert 'Kompetenzen:' in text
+    assert "Kompetenzen:" in text
     assert '  - "Modellieren"' in text
     assert "| 10-03-26 | [[Einheit]] |  |" in text
 
@@ -86,7 +86,7 @@ def test_update_plan_rhythm_preserves_fields_after_rhythmus(tmp_path):
 def test_update_plan_rhythm_raises_without_rhythmus_field(tmp_path):
     plan_file = tmp_path / "unmigrated.md"
     plan_file.write_text(
-        "---\nLerngruppe: \"[[gr3]]\"\n---\n\n| Datum | Inhalt | Thema/Ausfall |\n",
+        '---\nLerngruppe: "[[gr3]]"\n---\n\n| Datum | Inhalt | Thema/Ausfall |\n',
         encoding="utf-8",
     )
 

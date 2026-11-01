@@ -27,7 +27,9 @@ def test_sek1_sek2_boundary():
 
 
 def test_expand_grade_selection_with_full_group():
-    result = expand_grade_selection(fully_selected_group_keys=frozenset({"sek2"}), individually_selected_grades=frozenset())
+    result = expand_grade_selection(
+        fully_selected_group_keys=frozenset({"sek2"}), individually_selected_grades=frozenset()
+    )
     assert result == frozenset({11, 12, 13})
 
 

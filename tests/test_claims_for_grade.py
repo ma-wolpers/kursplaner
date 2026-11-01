@@ -40,9 +40,7 @@ def test_earlier_entry_in_list_order_wins_on_overlap():
     older = _entry("older", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
     newer = _entry("newer", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
 
-    result = claims_for_grade(
-        [older, newer], grade_level=7, date_from=date(2026, 1, 6), date_to=date(2026, 1, 6)
-    )
+    result = claims_for_grade([older, newer], grade_level=7, date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
     assert result[date(2026, 1, 6)].entry_id == "older"
 
     result_reversed = claims_for_grade(

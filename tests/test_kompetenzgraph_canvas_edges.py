@@ -45,7 +45,9 @@ def test_prozessbereich_edges_hidden_by_default(tk_root):
         [node], [make_bereich("I-Primary"), make_bereich("P-Eins"), make_bereich("P-Zwei")]
     )
     view = _build_view(primary_ids=frozenset({"A"}), visible_bereich_ids=frozenset({"I-Primary", "P-Eins", "P-Zwei"}))
-    layout = _build_layout({"A": (0.0, 0.0), "I-Primary": (0.0, -200.0), "P-Eins": (100.0, -200.0), "P-Zwei": (200.0, -200.0)})
+    layout = _build_layout(
+        {"A": (0.0, 0.0), "I-Primary": (0.0, -200.0), "P-Eins": (100.0, -200.0), "P-Zwei": (200.0, -200.0)}
+    )
     canvas = _make_canvas(tk_root)
     renderer = KompetenzGraphEdgeRenderer(
         canvas, competency_half_extent=_COMPETENCY_HALF_EXTENT, bereich_half_extent=_BEREICH_HALF_EXTENT

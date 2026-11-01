@@ -14,12 +14,7 @@ def _write_plan(tmp_path: Path, table_rows: str) -> Path:
     course_dir = tmp_path / "Testkurs"
     course_dir.mkdir()
     plan_path = course_dir / "Testkurs.md"
-    body = (
-        FRONTMATTER
-        + "\n| Datum | Stunden | Inhalt | Thema/Ausfall |\n"
-        + "| --- | --- | --- | --- |\n"
-        + table_rows
-    )
+    body = FRONTMATTER + "\n| Datum | Stunden | Inhalt | Thema/Ausfall |\n" + "| --- | --- | --- | --- |\n" + table_rows
     plan_path.write_text(body, encoding="utf-8")
     return plan_path
 

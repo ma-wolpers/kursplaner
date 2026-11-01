@@ -26,13 +26,7 @@ def test_reflection_with_embedded_sub_heading_stays_part_of_reflection_migration
     """Semantik-Regressionstest (Konsolidierung auf markdown_sections.py): eine
     Unterueberschrift (Ebene != 2) innerhalb der Reflexion bleibt Teil des Reflexionstexts,
     der Abschnitt endet weiterhin erst an der naechsten Ebene-2-Ueberschrift."""
-    body = (
-        "# Reflexion\n\n"
-        "Einleitung.\n\n"
-        "### Teilaspekt\n\n"
-        "Mehr Text.\n\n"
-        "## Professionalisierungsschritte\n- eins"
-    )
+    body = "# Reflexion\n\nEinleitung.\n\n### Teilaspekt\n\nMehr Text.\n\n## Professionalisierungsschritte\n- eins"
 
     reflection = parse_reflection(body)
 

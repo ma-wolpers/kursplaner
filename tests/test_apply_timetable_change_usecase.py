@@ -160,9 +160,7 @@ def test_dropped_contents_detected():
     ]
     uc, repo = _make_uc()
     draft = [_slot(date(2026, 1, 6), content="[[abc123]]")]
-    result = uc.execute(
-        _table(rows), date_from=date(2026, 1, 6), date_to=date(2026, 1, 7), draft_slots=draft
-    )
+    result = uc.execute(_table(rows), date_from=date(2026, 1, 6), date_to=date(2026, 1, 7), draft_slots=draft)
     assert "[[def456]]" in result.dropped_contents
 
 

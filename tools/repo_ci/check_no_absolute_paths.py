@@ -53,11 +53,7 @@ def _paths_from_git_stdout(stdout: str | None) -> set[str]:
     """Normalize and split path output from git commands."""
     if not stdout:
         return set()
-    return {
-        line.strip().replace("\\", "/")
-        for line in stdout.splitlines()
-        if line.strip()
-    }
+    return {line.strip().replace("\\", "/") for line in stdout.splitlines() if line.strip()}
 
 
 def _staged_files() -> set[str]:
@@ -139,11 +135,7 @@ def _looks_like_absolute_path(text: str) -> bool:
     if stripped.startswith(("http://", "https://", "data:", "mailto:")):
         return False
 
-    return bool(
-        _WINDOWS_ABSOLUTE_RE.match(stripped)
-        or _UNC_RE.match(stripped)
-        or _POSIX_ABSOLUTE_RE.match(stripped)
-    )
+    return bool(_WINDOWS_ABSOLUTE_RE.match(stripped) or _UNC_RE.match(stripped) or _POSIX_ABSOLUTE_RE.match(stripped))
 
 
 def _validate_file(rel_path: str) -> list[str]:

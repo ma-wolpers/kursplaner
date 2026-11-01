@@ -463,9 +463,9 @@ class MainWindowLessonConversionController:
                 allow_sections_save=should_open_builder,
                 allow_plan_save=True,
             ),
-            extra_after_from_result=lambda item: [item.lesson_path]
-            if isinstance(getattr(item, "lesson_path", None), pathlib.Path)
-            else [],
+            extra_after_from_result=lambda item: (
+                [item.lesson_path] if isinstance(getattr(item, "lesson_path", None), pathlib.Path) else []
+            ),
         )
 
         if not write_result.proceed:
@@ -547,9 +547,9 @@ class MainWindowLessonConversionController:
                     allow_delete=allow_delete,
                 )
             ),
-            extra_after_from_result=lambda item: [item.link]
-            if isinstance(getattr(item, "link", None), pathlib.Path)
-            else [],
+            extra_after_from_result=lambda item: (
+                [item.link] if isinstance(getattr(item, "link", None), pathlib.Path) else []
+            ),
         )
 
         if not result.proceed:
@@ -600,9 +600,9 @@ class MainWindowLessonConversionController:
                 allow_yaml_save=True,
                 allow_plan_save=True,
             ),
-            extra_after_from_result=lambda item: [item.lesson_path]
-            if isinstance(getattr(item, "lesson_path", None), pathlib.Path)
-            else [],
+            extra_after_from_result=lambda item: (
+                [item.lesson_path] if isinstance(getattr(item, "lesson_path", None), pathlib.Path) else []
+            ),
         )
         if not result.proceed:
             messagebox.showerror(

@@ -153,11 +153,11 @@ def resolve_target(
         row_index = candidates[target.position_in_date]
     else:
         dateless_indices = _dateless_row_indices(headers, rows)
-        matches = [
-            i for i in dateless_indices if extract_row_reference(headers, rows[i]) == expected_reference
-        ]
+        matches = [i for i in dateless_indices if extract_row_reference(headers, rows[i]) == expected_reference]
         if not matches:
-            return TargetResolution(ResolutionStatus.ERROR, None, "Keine datumslose Zeile mit passender Referenz gefunden.")
+            return TargetResolution(
+                ResolutionStatus.ERROR, None, "Keine datumslose Zeile mit passender Referenz gefunden."
+            )
         if len(matches) > 1:
             return TargetResolution(
                 ResolutionStatus.ERROR, None, "Mehrdeutig: mehrere datumslose Zeilen mit passender Referenz gefunden."
@@ -179,7 +179,9 @@ def resolve_move(headers: list[str], rows: list[list[str]], move: UnitMove) -> M
     """Loest einen kompletten `UnitMove` (Quelle + Ziel) gegen die aktuelle Tabelle auf."""
     source_res = resolve_source(headers, rows, move.source)
     if source_res.status == ResolutionStatus.ERROR:
-        return MoveResolution(ResolutionStatus.ERROR, source_res, TargetResolution(ResolutionStatus.ERROR, None), source_res.detail)
+        return MoveResolution(
+            ResolutionStatus.ERROR, source_res, TargetResolution(ResolutionStatus.ERROR, None), source_res.detail
+        )
 
     target_res = resolve_target(headers, rows, move.target, move.reference)
     if target_res.status == ResolutionStatus.ERROR:

@@ -77,9 +77,7 @@ def _check_changelog_updated(staged: set[str], errors: list[str]) -> None:
     ) or any(path in CHANGELOG_CODEV_RELEVANT_PATHS for path in normalized)
 
     if requires_changelog:
-        errors.append(
-            "CHANGELOG.md missing update: user- or co-developer-relevant changes require a changelog entry"
-        )
+        errors.append("CHANGELOG.md missing update: user- or co-developer-relevant changes require a changelog entry")
 
 
 def _collect_process_guidance_warnings() -> list[str]:
@@ -93,9 +91,7 @@ def _collect_process_guidance_warnings() -> list[str]:
 
     for label, needle in PROCESS_GUIDANCE_RULES.items():
         if not any(needle in text for text in sources.values()):
-            warnings.append(
-                f"process-guidance ({label}) not found in governance docs/templates"
-            )
+            warnings.append(f"process-guidance ({label}) not found in governance docs/templates")
     return warnings
 
 

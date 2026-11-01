@@ -20,9 +20,7 @@ CreateTextCell = Callable[..., ui.Text]
 SEQUENCE_FIELD_ROW_ORDER = ("Sequenzziel", "Leitkompetenzen")
 
 
-def compute_row_index_to_grid_col(
-    day_columns: list, day_grid_columns: dict[int, int]
-) -> dict[int, int]:
+def compute_row_index_to_grid_col(day_columns: list, day_grid_columns: dict[int, int]) -> dict[int, int]:
     """Bildet `DayColumn.row_index` auf die tatsächliche Tk-Grid-Spalte ab.
 
     Gemeinsam von `render()` (während des vollen Rebuilds, `day_grid_columns`

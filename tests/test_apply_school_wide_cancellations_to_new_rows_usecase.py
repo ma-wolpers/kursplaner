@@ -81,7 +81,9 @@ def _make_uc(rows: list[list[str]], entries: list[SchoolWideCancellationEntry], 
 
 
 def test_rows_without_claim_are_untouched():
-    entries = [_entry("a", reason="Wandertag", grades=frozenset({11}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))]
+    entries = [
+        _entry("a", reason="Wandertag", grades=frozenset({11}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
+    ]
     uc, repo, store = _make_uc([["06-01-26", "", ""]], entries)
 
     uc.execute(markdown_path=_PATH, grade_level=7, date_from=date(2026, 1, 1), date_to=date(2026, 1, 10))
@@ -91,7 +93,9 @@ def test_rows_without_claim_are_untouched():
 
 
 def test_claimed_row_is_marked_and_creates_target_none_move():
-    entries = [_entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))]
+    entries = [
+        _entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
+    ]
     uc, repo, store = _make_uc([["06-01-26", "", ""]], entries)
 
     uc.execute(markdown_path=_PATH, grade_level=7, date_from=date(2026, 1, 1), date_to=date(2026, 1, 10))
@@ -106,7 +110,9 @@ def test_claimed_row_is_marked_and_creates_target_none_move():
 
 
 def test_already_ferien_marked_row_is_not_overwritten():
-    entries = [_entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))]
+    entries = [
+        _entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
+    ]
     uc, repo, store = _make_uc([["06-01-26", "", "X Winterferien X"]], entries)
 
     uc.execute(markdown_path=_PATH, grade_level=7, date_from=date(2026, 1, 1), date_to=date(2026, 1, 10))
@@ -116,7 +122,9 @@ def test_already_ferien_marked_row_is_not_overwritten():
 
 
 def test_row_with_existing_content_is_not_overwritten():
-    entries = [_entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))]
+    entries = [
+        _entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
+    ]
     uc, repo, store = _make_uc([["06-01-26", "[[abc]]", ""]], entries)
 
     uc.execute(markdown_path=_PATH, grade_level=7, date_from=date(2026, 1, 1), date_to=date(2026, 1, 10))
@@ -151,7 +159,9 @@ def test_extends_existing_ledger_instead_of_overwriting():
 
 def test_store_is_saved_before_plan_table_so_a_later_failure_is_diagnosable():
     """Store zuerst, Plantabelle danach - schlaegt Letzteres fehl, referenziert der Store bereits den Move."""
-    entries = [_entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))]
+    entries = [
+        _entry("a", reason="Wandertag", grades=frozenset({7}), date_from=date(2026, 1, 6), date_to=date(2026, 1, 6))
+    ]
     uc, repo, store = _make_uc([["06-01-26", "", ""]], entries, raise_on_save=True)
 
     with pytest.raises(OSError):

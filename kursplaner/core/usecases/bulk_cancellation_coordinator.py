@@ -146,9 +146,7 @@ class BulkCancellationCoordinator:
                 continue
             return CourseOperationResult(operation.markdown_path, operation.kind, CourseOperationOutcome.SKIPPED)
 
-    def _run_apply(
-        self, operation: PlannedOperation, *, undo_stack: list[PlannedOperation]
-    ) -> CourseOperationResult:
+    def _run_apply(self, operation: PlannedOperation, *, undo_stack: list[PlannedOperation]) -> CourseOperationResult:
         ledger = self._apply_uc.execute(
             markdown_path=operation.markdown_path,
             date_from=operation.date_from,

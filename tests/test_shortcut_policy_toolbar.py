@@ -10,7 +10,8 @@ def test_toolbar_shortcuts_avoid_shift_modifier():
     violating = [
         entry.display_shortcut
         for entry in entries
-        if entry.intent.startswith("toolbar.") and (Mod.SHIFT in entry.key.modifiers or (entry.key.character or "").isupper())
+        if entry.intent.startswith("toolbar.")
+        and (Mod.SHIFT in entry.key.modifiers or (entry.key.character or "").isupper())
     ]
 
     assert violating == []

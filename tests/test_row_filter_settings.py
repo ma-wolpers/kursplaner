@@ -10,9 +10,7 @@ def test_default_row_filter_settings_uses_standard_mode_membership():
     use_case = RowDisplayModeUseCase()
     settings = RowFilterSettings()
 
-    assert use_case.effective_modes_for_field("Oberthema", settings) == use_case.default_modes_for_field(
-        "Oberthema"
-    )
+    assert use_case.effective_modes_for_field("Oberthema", settings) == use_case.default_modes_for_field("Oberthema")
     assert use_case.effective_modes_for_field("inhalt", settings) == use_case.default_modes_for_field("inhalt")
 
 
@@ -86,9 +84,7 @@ def test_load_row_filter_settings_returns_default_for_empty_payload(tmp_path, mo
 
 def test_load_row_filter_settings_migrates_legacy_hidden_fields_format(tmp_path, monkeypatch):
     target = tmp_path / "ui_preferences.json"
-    target.write_text(
-        json.dumps({"row_filter": {"hidden_fields": ["Oberthema", "Stundenziel"]}}), encoding="utf-8"
-    )
+    target.write_text(json.dumps({"row_filter": {"hidden_fields": ["Oberthema", "Stundenziel"]}}), encoding="utf-8")
     monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
 
     loaded = ui_preferences_store.load_row_filter_settings()
@@ -106,9 +102,7 @@ def test_save_row_filter_settings_preserves_existing_keys(tmp_path, monkeypatch)
     target.write_text(json.dumps({"theme": "dark"}), encoding="utf-8")
     monkeypatch.setattr(ui_preferences_store, "_preferences_file", lambda: target)
 
-    ui_preferences_store.save_row_filter_settings(
-        RowFilterSettings(field_mode_overrides={"Oberthema": frozenset()})
-    )
+    ui_preferences_store.save_row_filter_settings(RowFilterSettings(field_mode_overrides={"Oberthema": frozenset()}))
 
     payload = json.loads(target.read_text(encoding="utf-8"))
     assert payload["theme"] == "dark"

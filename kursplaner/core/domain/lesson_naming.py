@@ -73,10 +73,7 @@ def generate_random_lesson_stem(existing_stems: set[str]) -> str:
         candidate = "".join(random.choices(_RANDOM_STEM_ALPHABET, k=_RANDOM_STEM_LENGTH))
         if candidate not in existing_stems:
             return candidate
-    raise RuntimeError(
-        f"Kein freier Stem nach {_RANDOM_STEM_MAX_ATTEMPTS} Versuchen. "
-        "Zu viele Einheiten im Ordner?"
-    )
+    raise RuntimeError(f"Kein freier Stem nach {_RANDOM_STEM_MAX_ATTEMPTS} Versuchen. Zu viele Einheiten im Ordner?")
 
 
 def build_lesson_stem(group_name: str, date_mmdd: str, content_title: str) -> str:

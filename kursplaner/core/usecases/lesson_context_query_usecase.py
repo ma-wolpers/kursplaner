@@ -44,9 +44,7 @@ class LessonContextQueryUseCase:
         return hours_for_date(rhythm, row_date)
 
     @staticmethod
-    def resolve_cancel_state(
-        headers: list[str], row: list[str], lesson_yaml: dict[str, object] | None = None
-    ) -> bool:
+    def resolve_cancel_state(headers: list[str], row: list[str], lesson_yaml: dict[str, object] | None = None) -> bool:
         """Ermittelt den vollständigen Ausfall-Status inkl. YAML-Override.
 
         Einzige Wahrheit für "ist diese Zeile Ausfall" über die reine

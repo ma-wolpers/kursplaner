@@ -259,7 +259,9 @@ def test_node_without_primarer_bereich_id_is_bit_identical_to_no_cohesion_at_all
     edges = {"NOBEREICH": ("PARENT",)}
     bereich_of_node = {"OTHER": "X"}  # NOBEREICH bewusst nicht in der Map
 
-    with_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    with_dict = relax_horizontal_positions(
+        sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node
+    )
     without_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0)
 
     assert with_dict["NOBEREICH"] == without_dict["NOBEREICH"]
@@ -276,7 +278,9 @@ def test_sole_visible_bereich_member_falls_back_cleanly_to_pure_hierarchy_target
     edges = {"SOLO": ("FAR_PARENT",)}
     bereich_of_node = {"SOLO": "Z"}  # einziger Träger von "Z" im gesamten Aufruf
 
-    with_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    with_dict = relax_horizontal_positions(
+        sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node
+    )
     without_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0)
 
     assert with_dict["SOLO"] == without_dict["SOLO"]
@@ -294,7 +298,9 @@ def test_filtering_a_bereich_group_down_to_one_visible_member_falls_back_to_hier
     edges = {"LONE_SURVIVOR": ("PARENT",)}
     bereich_of_node = {"LONE_SURVIVOR": "X"}  # die früheren Peers sind schlicht nicht mehr in der Map
 
-    with_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    with_dict = relax_horizontal_positions(
+        sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node
+    )
     without_dict = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0)
 
     assert with_dict["LONE_SURVIVOR"] == without_dict["LONE_SURVIVOR"]
@@ -313,7 +319,9 @@ def test_bereich_group_members_end_up_measurably_closer_together():
     bereich_of_node = {"N1": "X", "N2": "X", "N3": "X"}
 
     without = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0)
-    with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node)
+    with_cohesion = relax_horizontal_positions(
+        sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node
+    )
 
     spread_without = max(without[n] for n in ("N1", "N2", "N3")) - min(without[n] for n in ("N1", "N2", "N3"))
     spread_with = max(with_cohesion[n] for n in ("N1", "N2", "N3")) - min(with_cohesion[n] for n in ("N1", "N2", "N3"))
@@ -336,7 +344,9 @@ def test_hierarchy_connected_and_hierarchy_free_group_members_now_shift_comparab
     edges = {"MAIN": ("STRONGPARENT",)}  # FARPEER hat keinen sichtbaren Hierarchie-Nachbarn
     bereich_of_node = {"MAIN": "X", "FARPEER": "X"}
 
-    with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=1, min_spacing=50.0, bereich_of_node=bereich_of_node)
+    with_cohesion = relax_horizontal_positions(
+        sorted_layers, edges, iterations=1, min_spacing=50.0, bereich_of_node=bereich_of_node
+    )
     without = relax_horizontal_positions(sorted_layers, edges, iterations=1, min_spacing=50.0)
 
     anchor_distance = without["FARPEER"] - without["MAIN"]  # 1050.0 -- der volle Anker-Abstand
@@ -372,7 +382,9 @@ def test_bereich_members_with_real_widely_separated_hierarchy_targets_still_clus
     bereich_of_node = {"A": "X", "B": "X", "C": "X", "D": "X"}
 
     without_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0)
-    with_cohesion = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node)
+    with_cohesion = relax_horizontal_positions(
+        sorted_layers, edges, iterations=6, min_spacing=10.0, bereich_of_node=bereich_of_node
+    )
 
     hierarchy_spread = max(without_cohesion[n] for n in "ABCD") - min(without_cohesion[n] for n in "ABCD")
     cohesion_spread = max(with_cohesion[n] for n in "ABCD") - min(with_cohesion[n] for n in "ABCD")
@@ -390,8 +402,12 @@ def test_more_iterations_of_bereich_cohesion_stabilize_instead_of_drifting_furth
     edges = {f"N{i}": (f"P{i}",) for i in range(1, 7)}
     bereich_of_node = {f"N{i}": "X" for i in range(1, 7)}  # alle sechs im selben Bereich
 
-    positions_six = relax_horizontal_positions(sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node)
-    positions_forty = relax_horizontal_positions(sorted_layers, edges, iterations=40, min_spacing=100.0, bereich_of_node=bereich_of_node)
+    positions_six = relax_horizontal_positions(
+        sorted_layers, edges, iterations=6, min_spacing=100.0, bereich_of_node=bereich_of_node
+    )
+    positions_forty = relax_horizontal_positions(
+        sorted_layers, edges, iterations=40, min_spacing=100.0, bereich_of_node=bereich_of_node
+    )
 
     assert positions_six == positions_forty
 

@@ -102,9 +102,7 @@ class RowDisplayModeUseCase:
         key = str(mode_key or "").strip().lower()
         return key if key in self._definitions else self.MODE_UNTERRICHT
 
-    def row_defs_for_mode(
-        self, mode_key: str | None, settings: "RowFilterSettings | None" = None
-    ) -> list[RowDef]:
+    def row_defs_for_mode(self, mode_key: str | None, settings: "RowFilterSettings | None" = None) -> list[RowDef]:
         """Liefert die Grid-Zeilendefinitionen für einen Anzeige-Modus.
 
         Berücksichtigt ``settings.field_mode_overrides``, falls übergeben — ein Feld
@@ -124,9 +122,7 @@ class RowDisplayModeUseCase:
             mode_def.key for mode_def in self.available_modes() if any(k == field_key for k, _ in mode_def.rows)
         )
 
-    def effective_modes_for_field(
-        self, field_key: str, settings: "RowFilterSettings | None"
-    ) -> frozenset[str]:
+    def effective_modes_for_field(self, field_key: str, settings: "RowFilterSettings | None") -> frozenset[str]:
         """Liefert die tatsächlich wirksamen Modi eines Feldes.
 
         Ein in ``settings.field_mode_overrides`` hinterlegter Eintrag ersetzt die

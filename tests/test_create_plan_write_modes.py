@@ -8,8 +8,7 @@ from kursplaner.infrastructure.repositories.plan_repository import FileSystemPla
 from kursplaner.infrastructure.repositories.plan_table_file_repository import load_last_plan_table
 
 _FRONTMATTER = (
-    '---\nLerngruppe: "[[GK blau-1]]"\nKursfach: "Mathematik"\nStufe: 11\n'
-    'Rhythmus:\n  - "Mo 08:00 2"\n---\n\n'
+    '---\nLerngruppe: "[[GK blau-1]]"\nKursfach: "Mathematik"\nStufe: 11\nRhythmus:\n  - "Mo 08:00 2"\n---\n\n'
 )
 
 

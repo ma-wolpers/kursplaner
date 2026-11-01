@@ -42,9 +42,7 @@ def _renderer_with_selection(
 
 
 def test_keeps_selection_when_field_still_visible_for_day():
-    renderer = _renderer_with_selection(
-        selected_field_key="Stundenthema", selected_day_index=0, field_is_visible=True
-    )
+    renderer = _renderer_with_selection(selected_field_key="Stundenthema", selected_day_index=0, field_is_visible=True)
 
     renderer._clear_selection_if_selected_cell_no_longer_visible()
 
@@ -53,9 +51,7 @@ def test_keeps_selection_when_field_still_visible_for_day():
 
 
 def test_clears_selection_and_downgrades_level_when_field_no_longer_visible():
-    renderer = _renderer_with_selection(
-        selected_field_key="Kompetenzen", selected_day_index=0, field_is_visible=False
-    )
+    renderer = _renderer_with_selection(selected_field_key="Kompetenzen", selected_day_index=0, field_is_visible=False)
 
     renderer._clear_selection_if_selected_cell_no_longer_visible()
 
@@ -80,9 +76,7 @@ def test_leaves_column_level_selection_untouched_when_field_no_longer_visible():
     aktiv war -- set_selected_cell() setzt das immer, dieser Test belegt
     explizit, dass eine bereits vorhandene Spaltenauswahl (Level COLUMN)
     nicht faelschlich auf COLUMN "downgegradet" wird, obwohl sie es schon ist."""
-    renderer = _renderer_with_selection(
-        selected_field_key="Kompetenzen", selected_day_index=0, field_is_visible=False
-    )
+    renderer = _renderer_with_selection(selected_field_key="Kompetenzen", selected_day_index=0, field_is_visible=False)
     renderer.app.ui_state.set_selection_level(MainWindowUiState.SELECTION_LEVEL_COLUMN)
 
     renderer._clear_selection_if_selected_cell_no_longer_visible()

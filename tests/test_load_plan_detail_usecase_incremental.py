@@ -50,7 +50,9 @@ def _build_table(plan_path: Path, links: list[str], metadata: dict | None = None
     )
 
 
-def _setup(tmp_path: Path, num_rows: int = 3) -> tuple[LoadPlanDetailUseCase, PlanTableData, FileSystemLessonRepository, Path]:
+def _setup(
+    tmp_path: Path, num_rows: int = 3
+) -> tuple[LoadPlanDetailUseCase, PlanTableData, FileSystemLessonRepository, Path]:
     plan_dir = tmp_path / "Mathe Kurs"
     plan_path = plan_dir / "Mathe Kurs.md"
     plan_path.parent.mkdir(parents=True, exist_ok=True)

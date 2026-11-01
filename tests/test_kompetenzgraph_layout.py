@@ -175,9 +175,7 @@ def test_prozessbereich_ids_never_influence_competency_positions():
     layout_without = compute_layered_layout(
         snapshot_without, MODE_OBER_TEIL, frozenset({"A"}), frozenset({"I-Primary"})
     )
-    layout_with = compute_layered_layout(
-        snapshot_with, MODE_OBER_TEIL, frozenset({"A"}), frozenset({"I-Primary"})
-    )
+    layout_with = compute_layered_layout(snapshot_with, MODE_OBER_TEIL, frozenset({"A"}), frozenset({"I-Primary"}))
 
     assert layout_without.positions["A"] == layout_with.positions["A"]
     assert layout_without.positions["I-Primary"] == layout_with.positions["I-Primary"]

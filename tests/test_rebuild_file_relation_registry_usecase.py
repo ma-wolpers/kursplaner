@@ -124,12 +124,5 @@ def test_rebuild_file_relation_registry_collects_plan_links_and_sequences(tmp_pa
     assert set(entry.lesson_paths) == {lesson_a.resolve(), lesson_b.resolve()}
     assert set(entry.sequence_paths) == {sequence_a.resolve(), sequence_b.resolve()}
 
-    expected_ub = (
-        workspace_root
-        / "7thVault"
-        / "Pädagogik"
-        / "00 Orga"
-        / "02 UBs"
-        / "UB 26-03-10 Funktionen.md"
-    )
+    expected_ub = workspace_root / "7thVault" / "Pädagogik" / "00 Orga" / "02 UBs" / "UB 26-03-10 Funktionen.md"
     assert entry.ub_paths == (expected_ub.resolve(),)

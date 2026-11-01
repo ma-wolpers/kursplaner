@@ -102,7 +102,9 @@ def _error_issue() -> RevertIssue:
 
 
 def _coordinator(apply_uc=None, revert_uc=None) -> BulkCancellationCoordinator:
-    return BulkCancellationCoordinator(apply_uc=apply_uc or _FakeApplyUseCase(), revert_uc=revert_uc or _FakeRevertUseCase())
+    return BulkCancellationCoordinator(
+        apply_uc=apply_uc or _FakeApplyUseCase(), revert_uc=revert_uc or _FakeRevertUseCase()
+    )
 
 
 def test_all_operations_succeed():

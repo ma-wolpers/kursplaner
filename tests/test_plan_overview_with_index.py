@@ -314,21 +314,13 @@ def test_plan_overview_next_lzk_uses_stundentyp_not_topic_keyword(tmp_path):
 
     lesson_regular = root / "FachX" / "Einheiten" / "stunde-regular.md"
     lesson_regular.write_text(
-        "---\n"
-        "Stundentyp: Unterricht\n"
-        "Dauer: 2\n"
-        "Stundenthema: Vorbereitung LZK in Partnerarbeit\n"
-        "---\n",
+        "---\nStundentyp: Unterricht\nDauer: 2\nStundenthema: Vorbereitung LZK in Partnerarbeit\n---\n",
         encoding="utf-8",
     )
 
     lesson_lzk = root / "FachX" / "Einheiten" / "stunde-lzk.md"
     lesson_lzk.write_text(
-        "---\n"
-        "Stundentyp: LZK\n"
-        "Dauer: 2\n"
-        "Stundenthema: Leistungskontrolle Kapitel 1\n"
-        "---\n",
+        "---\nStundentyp: LZK\nDauer: 2\nStundenthema: Leistungskontrolle Kapitel 1\n---\n",
         encoding="utf-8",
     )
 

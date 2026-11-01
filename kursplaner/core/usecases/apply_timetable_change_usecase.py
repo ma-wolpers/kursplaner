@@ -197,9 +197,7 @@ class ApplyTimetableChangeUseCase:
                 return True
         return False
 
-    def _collect_old_contents(
-        self, table: PlanTableData, date_from: date, date_to: date
-    ) -> list[str]:
+    def _collect_old_contents(self, table: PlanTableData, date_from: date, date_to: date) -> list[str]:
         """Sammelt Inhalt-Zellwerte der alten Planzeilen im Datumsbereich."""
         idx_inhalt = self._col_index(table.headers, "inhalt")
         if idx_inhalt is None:

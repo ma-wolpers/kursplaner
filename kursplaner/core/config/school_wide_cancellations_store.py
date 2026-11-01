@@ -228,7 +228,9 @@ def _deserialize_entry(raw: dict[str, object]) -> SchoolWideCancellationEntry | 
 
     grade_levels_raw = raw.get("grade_levels", [])
     grade_levels = (
-        frozenset(int(g) for g in grade_levels_raw if isinstance(g, (int, str)) and str(g).strip().lstrip("-").isdigit())
+        frozenset(
+            int(g) for g in grade_levels_raw if isinstance(g, (int, str)) and str(g).strip().lstrip("-").isdigit()
+        )
         if isinstance(grade_levels_raw, list)
         else frozenset()
     )

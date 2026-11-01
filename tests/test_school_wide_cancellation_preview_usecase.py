@@ -113,11 +113,7 @@ def test_detects_collision_with_other_active_entry():
         created_at="",
         course_ledgers={
             course_key_for_path(_PATH_7A): CourseApplicationLedger(
-                moves=(
-                    UnitMove(
-                        source=RowLocation(date="06-01-26", position_in_date=0), reference=None, target=None
-                    ),
-                )
+                moves=(UnitMove(source=RowLocation(date="06-01-26", position_in_date=0), reference=None, target=None),)
             )
         },
     )
@@ -143,11 +139,7 @@ def test_exclude_entry_id_ignores_own_claims():
         created_at="",
         course_ledgers={
             course_key_for_path(_PATH_7A): CourseApplicationLedger(
-                moves=(
-                    UnitMove(
-                        source=RowLocation(date="06-01-26", position_in_date=0), reference=None, target=None
-                    ),
-                )
+                moves=(UnitMove(source=RowLocation(date="06-01-26", position_in_date=0), reference=None, target=None),)
             )
         },
     )

@@ -5,14 +5,7 @@ from kursplaner.core.domain.markdown_sections import (
     find_heading_line_index,
 )
 
-_NESTED = (
-    "## Abschnitt\n"
-    "Text\n"
-    "### Unterabschnitt\n"
-    "mehr Text\n"
-    "## Naechster Abschnitt\n"
-    "weiter"
-)
+_NESTED = "## Abschnitt\nText\n### Unterabschnitt\nmehr Text\n## Naechster Abschnitt\nweiter"
 
 
 def test_derive_first_heading_title_returns_first_heading():

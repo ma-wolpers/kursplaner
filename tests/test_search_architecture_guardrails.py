@@ -62,9 +62,9 @@ def test_only_one_module_interprets_kompetenz_markdown_structure():
 def test_kompetenz_text_search_index_uses_load_body_usecase_exclusively():
     """`KompetenzTextSearchIndex` darf Bodies ausschließlich über `LoadKompetenzNodeBodyUseCase`
     lesen -- kein eigenes `path.read_text()`/`open()` für Kompetenz-Dateien."""
-    source = (
-        _REPO_ROOT / "kursplaner" / "core" / "usecases" / "kompetenzgraph_text_search_usecase.py"
-    ).read_text(encoding="utf-8")
+    source = (_REPO_ROOT / "kursplaner" / "core" / "usecases" / "kompetenzgraph_text_search_usecase.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "LoadKompetenzNodeBodyUseCase" in source
     assert ".read_text(" not in source

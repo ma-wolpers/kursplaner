@@ -6,15 +6,13 @@ from kursplaner.infrastructure.repositories.plan_table_file_repository import (
 )
 
 _FRONTMATTER = (
-    '---\nLerngruppe: "[[GK blau-1]]"\nKursfach: "Mathematik"\nStufe: 11\n'
-    'Rhythmus:\n  - "Di 08:00 2"\n---\n\n'
+    '---\nLerngruppe: "[[GK blau-1]]"\nKursfach: "Mathematik"\nStufe: 11\nRhythmus:\n  - "Di 08:00 2"\n---\n\n'
 )
 
 
 def _write_plan_file(path, preamble: str) -> None:
     path.write_text(
-        preamble
-        + "| Datum | Inhalt | Thema/Ausfall |\n"
+        preamble + "| Datum | Inhalt | Thema/Ausfall |\n"
         "| --- | --- | --- |\n"
         "| 10-03-26 | [[GK blau-1 0310 Einheit]] |  |\n",
         encoding="utf-8",

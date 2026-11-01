@@ -105,9 +105,7 @@ def extract_section(
     stop_mode/...) ohne einen real existierenden Aufrufer, der sie braucht.
     """
     lines = text.splitlines()
-    start_index = find_heading_line_index(
-        lines, heading_text, case_sensitive=case_sensitive, target_level=target_level
-    )
+    start_index = find_heading_line_index(lines, heading_text, case_sensitive=case_sensitive, target_level=target_level)
     if start_index == -1:
         return None
 

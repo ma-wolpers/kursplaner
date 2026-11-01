@@ -154,11 +154,7 @@ def _contains_direct_tkinter_import(module: ast.Module) -> bool:
                     return True
         if isinstance(node, ast.ImportFrom):
             module_name = node.module or ""
-            if (
-                module_name == "tkinter"
-                or module_name.startswith("tkinter.")
-                or module_name == "ttk"
-            ):
+            if module_name == "tkinter" or module_name.startswith("tkinter.") or module_name == "ttk":
                 return True
     return False
 

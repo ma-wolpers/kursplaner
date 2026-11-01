@@ -81,7 +81,9 @@ class SchoolWideCancellationRevertUseCase:
         idx_inhalt = _col_index(headers, "inhalt")
         idx_thema = _col_index(headers, "thema/ausfall")
         if idx_inhalt is None or idx_thema is None:
-            missing_columns_issue = SourceResolution(ResolutionStatus.ERROR, None, "Spalten 'Inhalt'/'Thema/Ausfall' fehlen.")
+            missing_columns_issue = SourceResolution(
+                ResolutionStatus.ERROR, None, "Spalten 'Inhalt'/'Thema/Ausfall' fehlen."
+            )
             return RevertOutcome(
                 reverted_move_count=0,
                 issues=tuple(

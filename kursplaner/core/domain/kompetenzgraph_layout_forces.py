@@ -110,7 +110,9 @@ def _pull_toward_neighbor_median(
     """
     targets: dict[str, float] = {}
     for node_id in node_ids:
-        neighbor_positions = [positions[neighbor] for neighbor in neighbor_map.get(node_id, ()) if neighbor in positions]
+        neighbor_positions = [
+            positions[neighbor] for neighbor in neighbor_map.get(node_id, ()) if neighbor in positions
+        ]
         targets[node_id] = _median(neighbor_positions) if neighbor_positions else positions[node_id]
     return targets
 
@@ -185,7 +187,9 @@ def _apply_bereich_cohesion(
     return blended
 
 
-def _resolve_min_spacing(node_ids: tuple[str, ...], target_x: Mapping[str, float], min_spacing: float) -> dict[str, float]:
+def _resolve_min_spacing(
+    node_ids: tuple[str, ...], target_x: Mapping[str, float], min_spacing: float
+) -> dict[str, float]:
     """Positioniert `node_ids` so nah wie möglich an `target_x`, unter Einhaltung von `min_spacing`.
 
     `node_ids` muss bereits nach `target_x` aufsteigend sortiert sein (siehe
@@ -407,7 +411,9 @@ def compute_bereich_centroid_positions(
     """
     centroid_by_id: dict[str, float] = {}
     for bereich_id in bereich_ids:
-        member_positions = [node_x_by_id[node_id] for node_id in classification_edges.get(bereich_id, ()) if node_id in node_x_by_id]
+        member_positions = [
+            node_x_by_id[node_id] for node_id in classification_edges.get(bereich_id, ()) if node_id in node_x_by_id
+        ]
         centroid_by_id[bereich_id] = _mean(member_positions) if member_positions else 0.0
 
     ordered_ids = tuple(sorted(bereich_ids, key=lambda bereich_id: (centroid_by_id[bereich_id], bereich_id)))

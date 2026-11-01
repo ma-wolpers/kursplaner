@@ -88,7 +88,9 @@ def test_loading_dialog_is_registered_as_non_modal(monkeypatch):
     screen_builder._register_non_modal_window = tracked_calls.append
     app = SimpleNamespace(screen_builder=screen_builder, update_idletasks=lambda: None)
 
-    close_loading = MainWindowOverviewController._show_loading_dialog(SimpleNamespace(app=app), "Kursplan wird geladen …")
+    close_loading = MainWindowOverviewController._show_loading_dialog(
+        SimpleNamespace(app=app), "Kursplan wird geladen …"
+    )
 
     assert len(tracked_calls) == 1
     assert isinstance(tracked_calls[0], _FakeToplevel)

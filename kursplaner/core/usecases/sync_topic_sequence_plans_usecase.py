@@ -157,9 +157,7 @@ class SyncTopicSequencePlansUseCase:
                 sequence_path = self._sequence_plan_repo.ensure_sequence_document(
                     table=table, sequence_name=run.oberthema
                 )
-                sequenzziel, leitkompetenzen = self._sequence_plan_repo.read_goal_and_focus_competencies(
-                    sequence_path
-                )
+                sequenzziel, leitkompetenzen = self._sequence_plan_repo.read_goal_and_focus_competencies(sequence_path)
 
             views.append(
                 TopicSequencePlanView(

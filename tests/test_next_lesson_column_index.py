@@ -113,8 +113,12 @@ def test_columns_without_parsable_date_are_skipped_but_count_for_fallback():
 
 def test_global_cutoff_mode_overrides_start_time(monkeypatch):
     """Aktivierter globaler Cutoff ersetzt die Startzeit-Pruefung vollstaendig."""
-    monkeypatch.setattr(overview_controller_module, "load_next_unit_mode", lambda: overview_controller_module.NEXT_UNIT_MODE_FEST)
-    monkeypatch.setattr(overview_controller_module, "load_next_unit_cutoff_time", lambda: datetime.min.time().replace(hour=15))
+    monkeypatch.setattr(
+        overview_controller_module, "load_next_unit_mode", lambda: overview_controller_module.NEXT_UNIT_MODE_FEST
+    )
+    monkeypatch.setattr(
+        overview_controller_module, "load_next_unit_cutoff_time", lambda: datetime.min.time().replace(hour=15)
+    )
 
     columns = [
         # Startzeit 08:00 waere im Standardmodus um 09:00 bereits vorbei,

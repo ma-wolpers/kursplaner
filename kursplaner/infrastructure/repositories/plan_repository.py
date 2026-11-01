@@ -103,11 +103,7 @@ class FileSystemPlanRepository:
 
         key = self._cache_key(base_dir)
         cached = self._plan_list_cache.get(key)
-        if (
-            cached is not None
-            and key not in self._dirty_cache_keys
-            and self._plan_list_cache_is_fresh(cached)
-        ):
+        if cached is not None and key not in self._dirty_cache_keys and self._plan_list_cache_is_fresh(cached):
             return list(cached.paths)
 
         roots = [base_dir]
@@ -215,9 +211,7 @@ class FileSystemPlanRepository:
             if not allowed:
                 raise RuntimeError("Schreibvorgang für Plan-Tabelle abgebrochen.")
 
-        normalized_rows = [
-            [day.strftime("%d-%m-%y"), "", str(note) if note else ""] for day, note in rows
-        ]
+        normalized_rows = [[day.strftime("%d-%m-%y"), "", str(note) if note else ""] for day, note in rows]
 
         try:
             table = load_last_plan_table(markdown_path)

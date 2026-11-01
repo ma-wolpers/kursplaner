@@ -201,7 +201,11 @@ class SchoolWideCancellationFlow:
             restore_result = self._coordinator.run(restore_operations, decide=decide)
             combined = BulkOperationResult(
                 aborted=True,
-                course_results=(*revert_result.course_results, *apply_result.course_results, *restore_result.course_results),
+                course_results=(
+                    *revert_result.course_results,
+                    *apply_result.course_results,
+                    *restore_result.course_results,
+                ),
             )
             return SchoolWideCancellationMutationResult(entry=None, bulk_result=combined)
 
@@ -213,7 +217,11 @@ class SchoolWideCancellationFlow:
         for result in combined.course_results:
             key = course_key_for_path(result.markdown_path)
             if result.kind is OperationKind.APPLY:
-                if result.outcome is CourseOperationOutcome.SUCCESS and result.ledger is not None and result.ledger.moves:
+                if (
+                    result.outcome is CourseOperationOutcome.SUCCESS
+                    and result.ledger is not None
+                    and result.ledger.moves
+                ):
                     course_ledgers[key] = result.ledger
             elif result.outcome is CourseOperationOutcome.SKIPPED:
                 # Revert uebersprungen: Kurs traegt weiterhin die alte Markierung, Ledger bleibt gueltig.
@@ -252,7 +260,9 @@ class SchoolWideCancellationFlow:
             return bulk_result
 
         remaining_ledgers = {
-            course_key_for_path(result.markdown_path): existing.course_ledgers[course_key_for_path(result.markdown_path)]
+            course_key_for_path(result.markdown_path): existing.course_ledgers[
+                course_key_for_path(result.markdown_path)
+            ]
             for result in bulk_result.course_results
             if result.outcome is CourseOperationOutcome.SKIPPED
         }

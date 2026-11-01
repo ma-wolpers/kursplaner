@@ -165,9 +165,7 @@ class LoadPlanDetailUseCase:
         row = table.rows[row_index]
         datum = row[idx_datum] if idx_datum < len(row) else ""
         inhalt = row[idx_inhalt] if idx_inhalt < len(row) else ""
-        thema_ausfall = (
-            row[idx_thema_ausfall] if idx_thema_ausfall is not None and idx_thema_ausfall < len(row) else ""
-        )
+        thema_ausfall = row[idx_thema_ausfall] if idx_thema_ausfall is not None and idx_thema_ausfall < len(row) else ""
 
         link = self.lesson_repo.resolve_row_link_path(table, row_index)
         link_target = extract_wiki_link_target(inhalt)

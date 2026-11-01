@@ -30,9 +30,7 @@ class KursplanerRowModeMixin:
 
         changed = normalized != self.active_row_mode
         self.active_row_mode = normalized
-        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(
-            self.active_row_mode, self.row_filter_settings
-        )
+        self.row_defs = self.row_display_mode_usecase.row_defs_for_mode(self.active_row_mode, self.row_filter_settings)
         self._refresh_row_mode_button_styles()
         if changed:
             self._rebuild_grid()

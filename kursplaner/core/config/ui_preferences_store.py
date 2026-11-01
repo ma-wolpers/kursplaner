@@ -153,7 +153,9 @@ def load_next_unit_mode(default: str = NEXT_UNIT_MODE_STARTZEIT) -> str:
 def save_next_unit_mode(value: str) -> None:
     """Persistiert den Modus für "nächste Einheit"."""
     payload = _load_payload()
-    payload[_NEXT_UNIT_MODE_KEY] = value if value in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST) else NEXT_UNIT_MODE_STARTZEIT
+    payload[_NEXT_UNIT_MODE_KEY] = (
+        value if value in (NEXT_UNIT_MODE_STARTZEIT, NEXT_UNIT_MODE_FEST) else NEXT_UNIT_MODE_STARTZEIT
+    )
     _save_payload(payload)
 
 
@@ -293,8 +295,6 @@ def save_row_filter_settings(settings: RowFilterSettings) -> None:
     """Persistiert die Zeilenfilter-Einstellungen."""
     payload = _load_payload()
     payload[_ROW_FILTER_KEY] = {
-        "field_mode_overrides": {
-            field_key: sorted(modes) for field_key, modes in settings.field_mode_overrides.items()
-        }
+        "field_mode_overrides": {field_key: sorted(modes) for field_key, modes in settings.field_mode_overrides.items()}
     }
     _save_payload(payload)

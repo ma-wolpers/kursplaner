@@ -112,9 +112,7 @@ def test_update_query_with_empty_text_clears_matches_and_is_not_invalid():
 
 
 def test_find_next_wraps_around_to_first_match():
-    app = _make_app(
-        day_columns=[make_day_column(inhalt="Vektoren"), make_day_column(inhalt="Vektorfeld")]
-    )
+    app = _make_app(day_columns=[make_day_column(inhalt="Vektoren"), make_day_column(inhalt="Vektorfeld")])
     app.search_controller.update_query("Vektor", re.compile("Vektor"))
 
     app.search_controller.find_next()
@@ -125,9 +123,7 @@ def test_find_next_wraps_around_to_first_match():
 
 
 def test_find_previous_wraps_around_to_last_match():
-    app = _make_app(
-        day_columns=[make_day_column(inhalt="Vektoren"), make_day_column(inhalt="Vektorfeld")]
-    )
+    app = _make_app(day_columns=[make_day_column(inhalt="Vektoren"), make_day_column(inhalt="Vektorfeld")])
     app.search_controller.update_query("Vektor", re.compile("Vektor"))
 
     app.search_controller.find_previous()
