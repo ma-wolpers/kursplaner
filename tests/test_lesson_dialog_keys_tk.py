@@ -11,10 +11,8 @@ Klick-Beobachters mit dem Dialog.
 
 from __future__ import annotations
 
-import tkinter
-
 import pytest
-from bw_gui.runtime import create_root, ui, widgets
+from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.key_router import router_for
 from bw_gui.testing.keys import press_key
 
@@ -22,21 +20,6 @@ from kursplaner.adapters.gui.lesson_builder_dialog import LessonBuilderDialog, L
 
 SHIFT, CONTROL = 0x0001, 0x0004
 OPTIONS = ["# Bereich", "Kompetenz A", "Kompetenz B", "Kompetenz C"]
-
-
-@pytest.fixture(scope="module")
-def root():
-    """Eigener Root mit Router (der Session-Root aus conftest hat keinen)."""
-    for attempt in range(3):
-        try:
-            instance = create_root()
-            break
-        except tkinter.TclError as exc:
-            if not any(m in str(exc) for m in ("usable", "tcl_findLibrary", "init.tcl")) or attempt == 2:
-                raise
-    instance.withdraw()
-    yield instance
-    instance.destroy()
 
 
 @pytest.fixture(scope="module")

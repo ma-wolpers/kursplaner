@@ -20,28 +20,27 @@ unchanged: it only sets a window's ``bg`` and is meant for raw Tk roots outside
 ``BwBaseWindow`` (popups, secondary top-levels).  Windows-chrome (dark/light
 title bar) is a ``BwBaseWindow`` internal concern per bw-gui's ownership
 principle ("bw-gui is the only entity that knows about colours") and must not
-be reimplemented here.  ``set_theme_intensity`` / ``get_theme_intensity`` are
-re-exported from bw_gui so any future settings adapter can import them from
-either location.
+be reimplemented here.
 """
 
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-
-ensure_bw_gui_on_path()
-
 from bw_gui.runtime import ui, widgets
 from bw_gui.theming import (
-    apply_window_theme,
+    apply_window_theme as apply_window_theme,
+)
+from bw_gui.theming import (
     configure_ttk_theme as _configure_base,
-    get_theme_intensity,
+)
+from bw_gui.theming import (
     normalize_theme_key as _normalize,
+)
+from bw_gui.theming import (
     register_theme,
-    set_theme_intensity,
     tinted_color,
     tinted_foreground,
 )
+
 # Deliberate private-path import: ui_theme is the single theming-configuration
 # layer allowed to read the raw theme dict (needed to derive domain token
 # values on every theme switch).  No other kursplaner module may do this.
@@ -139,6 +138,7 @@ pass it as ``mix_color`` — no colour math needed at the call site.
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
+
 def normalize_theme_key(theme_key: str | None = None) -> str:
     """Return *theme_key* if known, otherwise ``DEFAULT_THEME``.
 
@@ -185,18 +185,18 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     _configure_base(root, theme_key)  # sets bw_gui global; tinted_color calls below use it
 
     # ── Hospitation domain colours (purple seed, not a bw_gui token) ──────────
-    hospitation       = tinted_color(HOSPITATION_SEED, degree=0.70, base_token="bg_panel")
+    hospitation = tinted_color(HOSPITATION_SEED, degree=0.70, base_token="bg_panel")
     hospitation_hover = tinted_color(HOSPITATION_SEED, degree=0.82, base_token="bg_panel")
     fg_on_hospitation = tinted_foreground(HOSPITATION_SEED, degree=0.70, base_token="bg_panel")
 
     # ── View-mode toggle button backgrounds ───────────────────────────────────
-    view_unterricht_bg      = tinted_color("accent_soft",    degree=0.70, base_token="panel_strong")
-    view_unterricht_active  = tinted_color("accent",         degree=0.58, base_token="panel_strong")
-    view_lzk_bg             = tinted_color("success_soft",   degree=0.70, base_token="panel_strong")
-    view_lzk_active         = tinted_color("success",        degree=0.58, base_token="panel_strong")
-    view_ausfall_bg         = tinted_color("warning_soft",   degree=0.70, base_token="panel_strong")
-    view_ausfall_active     = tinted_color("warning",        degree=0.58, base_token="panel_strong")
-    view_hospitation_bg     = tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+    view_unterricht_bg = tinted_color("accent_soft", degree=0.70, base_token="panel_strong")
+    view_unterricht_active = tinted_color("accent", degree=0.58, base_token="panel_strong")
+    view_lzk_bg = tinted_color("success_soft", degree=0.70, base_token="panel_strong")
+    view_lzk_active = tinted_color("success", degree=0.58, base_token="panel_strong")
+    view_ausfall_bg = tinted_color("warning_soft", degree=0.70, base_token="panel_strong")
+    view_ausfall_active = tinted_color("warning", degree=0.58, base_token="panel_strong")
+    view_hospitation_bg = tinted_color(HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
     view_hospitation_active = tinted_color(HOSPITATION_SEED, degree=0.58, base_token="panel_strong")
 
     # Standard bw_gui tokens for borders, disabled states, and solid bg colours.
@@ -223,9 +223,15 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     style.configure("Toolbar.TLabelframe.Label", background=panel_bg, foreground=theme["fg_primary"])
 
     style.configure(
-        "TButton", background=theme["accent_soft"], foreground=theme["fg_primary"],
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=button_light, darkcolor=button_light,
+        "TButton",
+        background=theme["accent_soft"],
+        foreground=theme["fg_primary"],
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=button_light,
+        darkcolor=button_light,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
@@ -235,55 +241,82 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     )
 
     style.configure(
-        "Action.Primary.TButton", background=theme["accent"],
+        "Action.Primary.TButton",
+        background=theme["accent"],
         foreground=theme.get("fg_on_accent", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=theme["accent"], darkcolor=theme["accent"],
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=theme["accent"],
+        darkcolor=theme["accent"],
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Primary.TButton",
         background=[("disabled", disabled_bg), ("active", theme["accent_hover"]), ("pressed", theme["accent_hover"])],
-        foreground=[("disabled", disabled_fg),
-                    ("active", theme.get("fg_on_accent", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_accent", theme["fg_primary"]))],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_accent", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_accent", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.Unterricht.TButton", background=theme["accent"],
+        "Action.Unterricht.TButton",
+        background=theme["accent"],
         foreground=theme.get("fg_on_accent", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=theme["accent"], darkcolor=theme["accent"],
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=theme["accent"],
+        darkcolor=theme["accent"],
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Unterricht.TButton",
         background=[("disabled", disabled_bg), ("active", theme["accent_hover"]), ("pressed", theme["accent_hover"])],
-        foreground=[("disabled", disabled_fg),
-                    ("active", theme.get("fg_on_accent", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_accent", theme["fg_primary"]))],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_accent", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_accent", theme["fg_primary"])),
+        ],
     )
 
     lzk_bg = str(theme.get("success", theme.get("accent", theme["bg_surface"])))
     style.configure(
-        "Action.Lzk.TButton", background=lzk_bg,
+        "Action.Lzk.TButton",
+        background=lzk_bg,
         foreground=theme.get("fg_on_success", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=lzk_bg, darkcolor=lzk_bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=lzk_bg,
+        darkcolor=lzk_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Lzk.TButton",
         background=[("disabled", disabled_bg), ("active", lzk_bg), ("pressed", lzk_bg)],
-        foreground=[("disabled", disabled_fg),
-                    ("active", theme.get("fg_on_success", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_success", theme["fg_primary"]))],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_success", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_success", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.Hospitation.TButton", background=hospitation, foreground=fg_on_hospitation,
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=hospitation, darkcolor=hospitation,
+        "Action.Hospitation.TButton",
+        background=hospitation,
+        foreground=fg_on_hospitation,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=hospitation,
+        darkcolor=hospitation,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
@@ -294,84 +327,125 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
 
     ausfall_bg = str(theme.get("warning", theme.get("accent", theme["bg_surface"])))
     style.configure(
-        "Action.Ausfall.TButton", background=ausfall_bg,
+        "Action.Ausfall.TButton",
+        background=ausfall_bg,
         foreground=theme.get("fg_on_warning", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=ausfall_bg, darkcolor=ausfall_bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=ausfall_bg,
+        darkcolor=ausfall_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Ausfall.TButton",
         background=[("disabled", disabled_bg), ("active", ausfall_bg), ("pressed", ausfall_bg)],
-        foreground=[("disabled", disabled_fg),
-                    ("active", theme.get("fg_on_warning", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_warning", theme["fg_primary"]))],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_warning", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_warning", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.View.Unterricht.TButton", background=view_unterricht_bg,
+        "Action.View.Unterricht.TButton",
+        background=view_unterricht_bg,
         foreground=theme.get("accent_hover", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=view_unterricht_bg, darkcolor=view_unterricht_bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=view_unterricht_bg,
+        darkcolor=view_unterricht_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Unterricht.TButton",
-        background=[("disabled", disabled_bg), ("active", view_unterricht_active),
-                    ("pressed", view_unterricht_active)],
-        foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_accent", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_accent", theme["fg_primary"]))],
+        background=[("disabled", disabled_bg), ("active", view_unterricht_active), ("pressed", view_unterricht_active)],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_accent", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_accent", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.View.Lzk.TButton", background=view_lzk_bg,
+        "Action.View.Lzk.TButton",
+        background=view_lzk_bg,
         foreground=theme.get("success_hover", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=view_lzk_bg, darkcolor=view_lzk_bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=view_lzk_bg,
+        darkcolor=view_lzk_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Lzk.TButton",
-        background=[("disabled", disabled_bg), ("active", view_lzk_active),
-                    ("pressed", view_lzk_active)],
-        foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_success", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_success", theme["fg_primary"]))],
+        background=[("disabled", disabled_bg), ("active", view_lzk_active), ("pressed", view_lzk_active)],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_success", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_success", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.View.Ausfall.TButton", background=view_ausfall_bg,
+        "Action.View.Ausfall.TButton",
+        background=view_ausfall_bg,
         foreground=theme.get("warning_hover", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=view_ausfall_bg, darkcolor=view_ausfall_bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=view_ausfall_bg,
+        darkcolor=view_ausfall_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Ausfall.TButton",
-        background=[("disabled", disabled_bg), ("active", view_ausfall_active),
-                    ("pressed", view_ausfall_active)],
-        foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_warning", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_warning", theme["fg_primary"]))],
+        background=[("disabled", disabled_bg), ("active", view_ausfall_active), ("pressed", view_ausfall_active)],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_warning", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_warning", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.View.Hospitation.TButton", background=view_hospitation_bg,
+        "Action.View.Hospitation.TButton",
+        background=view_hospitation_bg,
         foreground=hospitation_hover,  # saturated purple label text on soft-tinted bg
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=view_hospitation_bg, darkcolor=view_hospitation_bg,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=view_hospitation_bg,
+        darkcolor=view_hospitation_bg,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.View.Hospitation.TButton",
-        background=[("disabled", disabled_bg), ("active", view_hospitation_active),
-                    ("pressed", view_hospitation_active)],
+        background=[
+            ("disabled", disabled_bg),
+            ("active", view_hospitation_active),
+            ("pressed", view_hospitation_active),
+        ],
         foreground=[("disabled", disabled_fg), ("active", fg_on_hospitation), ("pressed", fg_on_hospitation)],
     )
 
     style.configure(
-        "Action.Utility.TButton", background=theme.get("bg_surface", theme["accent_soft"]),
+        "Action.Utility.TButton",
+        background=theme.get("bg_surface", theme["accent_soft"]),
         foreground=theme["fg_primary"],
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=button_light, darkcolor=button_light,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=button_light,
+        darkcolor=button_light,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
@@ -381,10 +455,15 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     )
 
     style.configure(
-        "Action.Secondary.TButton", background=theme.get("bg_surface", theme["accent_soft"]),
+        "Action.Secondary.TButton",
+        background=theme.get("bg_surface", theme["accent_soft"]),
         foreground=theme["fg_primary"],
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=button_light, darkcolor=button_light,
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=button_light,
+        darkcolor=button_light,
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
@@ -394,46 +473,79 @@ def configure_ttk_theme(root: ui.Misc, theme_key: str | None = None) -> None:  #
     )
 
     style.configure(
-        "Action.Warn.TButton", background=theme["warning"],
+        "Action.Warn.TButton",
+        background=theme["warning"],
         foreground=theme.get("fg_on_warning", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=theme["warning"], darkcolor=theme["warning"],
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=theme["warning"],
+        darkcolor=theme["warning"],
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Warn.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["warning"]),
-                    ("pressed", theme.get("warning_hover", theme["warning"]))],
-        foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_warning", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_warning", theme["fg_primary"]))],
+        background=[
+            ("disabled", disabled_bg),
+            ("active", theme["warning"]),
+            ("pressed", theme.get("warning_hover", theme["warning"])),
+        ],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_warning", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_warning", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.Danger.TButton", background=theme["danger"],
+        "Action.Danger.TButton",
+        background=theme["danger"],
         foreground=theme.get("fg_on_danger", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=theme["danger"], darkcolor=theme["danger"],
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=theme["danger"],
+        darkcolor=theme["danger"],
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Danger.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["danger"]),
-                    ("pressed", theme.get("danger_hover", theme["danger"]))],
-        foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_danger", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_danger", theme["fg_primary"]))],
+        background=[
+            ("disabled", disabled_bg),
+            ("active", theme["danger"]),
+            ("pressed", theme.get("danger_hover", theme["danger"])),
+        ],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_danger", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_danger", theme["fg_primary"])),
+        ],
     )
 
     style.configure(
-        "Action.Success.TButton", background=theme["success"],
+        "Action.Success.TButton",
+        background=theme["success"],
         foreground=theme.get("fg_on_success", theme["fg_primary"]),
-        padding=(4, 2), borderwidth=1, relief="flat",
-        bordercolor=button_border, lightcolor=theme["success"], darkcolor=theme["success"],
+        padding=(4, 2),
+        borderwidth=1,
+        relief="flat",
+        bordercolor=button_border,
+        lightcolor=theme["success"],
+        darkcolor=theme["success"],
         focuscolor=theme.get("focus_ring", theme["accent"]),
     )
     style.map(
         "Action.Success.TButton",
-        background=[("disabled", disabled_bg), ("active", theme["success"]),
-                    ("pressed", theme.get("success_hover", theme["success"]))],
-        foreground=[("disabled", disabled_fg), ("active", theme.get("fg_on_success", theme["fg_primary"])),
-                    ("pressed", theme.get("fg_on_success", theme["fg_primary"]))],
+        background=[
+            ("disabled", disabled_bg),
+            ("active", theme["success"]),
+            ("pressed", theme.get("success_hover", theme["success"])),
+        ],
+        foreground=[
+            ("disabled", disabled_fg),
+            ("active", theme.get("fg_on_success", theme["fg_primary"])),
+            ("pressed", theme.get("fg_on_success", theme["fg_primary"])),
+        ],
     )

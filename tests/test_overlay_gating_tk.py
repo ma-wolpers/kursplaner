@@ -20,7 +20,7 @@ import tkinter
 import pytest
 from bw_gui.menu.custom_menu_bar import CustomMenuBar
 from bw_gui.menu.menu_types import MenuItem
-from bw_gui.runtime import create_root, ui, widgets
+from bw_gui.runtime import ui, widgets
 from bw_gui.runtime.overlay_stack import OverlayCategory, unregistered_visible_toplevels
 
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
@@ -42,19 +42,12 @@ def _former_scan_blocks(app, non_blocking_ids: set[str]) -> bool:
 
 
 @pytest.fixture(scope="module")
-def app():
+def app(root):
     """Sichtbarer Root als Hauptfenster (transiente Popups eines versteckten Masters blieben versteckt)."""
-    for attempt in range(3):
-        try:
-            instance = create_root()
-            break
-        except tkinter.TclError as exc:
-            if not any(m in str(exc) for m in ("usable", "tcl_findLibrary", "init.tcl")) or attempt == 2:
-                raise
-    instance.geometry("300x200+30+30")
-    instance.update()
-    yield instance
-    instance.destroy()
+    root.deiconify()
+    root.geometry("300x200+30+30")
+    root.update()
+    return root
 
 
 @pytest.fixture
@@ -73,7 +66,10 @@ def scene(app):
         def tool_window(self):
             """Wie der Kompetenznetz-Dialog: ScrollablePopupWindow, nicht blockierend."""
             popup = ScrollablePopupWindow(
-                app, title="Werkzeug", geometry="200x120", minsize=(100, 80),
+                app,
+                title="Werkzeug",
+                geometry="200x120",
+                minsize=(100, 80),
                 overlay_category=OverlayCategory.NON_MODAL_POPUP,
             )
             non_blocking.add(str(popup))

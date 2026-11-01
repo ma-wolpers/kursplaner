@@ -10,11 +10,8 @@ und der globale Klick-Beobachter (nie bei Texteingabe).
 
 from __future__ import annotations
 
-import tkinter
-
 import pytest
-
-from bw_gui.runtime import create_root, ui
+from bw_gui.runtime import ui
 from bw_gui.runtime.key_router import router_for
 from bw_gui.testing.keys import press_key
 
@@ -22,21 +19,6 @@ from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
 SHIFT, CONTROL, ALT = 0x0001, 0x0004, 0x20000
-
-
-@pytest.fixture(scope="module")
-def root():
-    """Eigener Root mit Router (der Session-Root aus conftest hat keinen)."""
-    for attempt in range(3):
-        try:
-            instance = create_root()
-            break
-        except tkinter.TclError as exc:
-            if not any(m in str(exc) for m in ("usable", "tcl_findLibrary", "init.tcl")) or attempt == 2:
-                raise
-    instance.withdraw()
-    yield instance
-    instance.destroy()
 
 
 @pytest.fixture(scope="module")
@@ -126,8 +108,14 @@ def test_timetable_dialog_undo_is_local_and_gone_after_close(root, wired, tmp_pa
     from kursplaner.core.domain.plan_table import PlanTableData
 
     table = PlanTableData(
-        markdown_path=tmp_path / "plan.md", headers=["Datum"], rows=[], start_line=0, end_line=0,
-        source_lines=[], had_trailing_newline=True, metadata={},
+        markdown_path=tmp_path / "plan.md",
+        headers=["Datum"],
+        rows=[],
+        start_line=0,
+        end_line=0,
+        source_lines=[],
+        had_trailing_newline=True,
+        metadata={},
     )
     dialog = TimetableChangeDialog(
         root,

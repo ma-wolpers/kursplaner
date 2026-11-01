@@ -1,11 +1,6 @@
 from __future__ import annotations
 
 import pathlib
-
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from kursplaner.core.domain.day_column import DayColumn
-
-ensure_bw_gui_on_path()
 from datetime import date
 from typing import Callable
 
@@ -16,7 +11,6 @@ from bw_gui.runtime import (
     listbox_selection,
     on_destroy,
     on_listbox_select,
-    treeview_selection,
     ui,
     widgets,
 )
@@ -33,12 +27,12 @@ from bw_gui.theming import (
 
 from kursplaner.adapters.gui.column_visibility_dialog import ask_column_visibility
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
-from kursplaner.adapters.gui.local_keys import LEFT, RIGHT, bind_keys
 from kursplaner.adapters.gui.expected_horizon_export_flow import ExpectedHorizonExportFlow
 from kursplaner.adapters.gui.export_selection_dialog import ask_export_selection
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP, SHADOW_LESSONS_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.kompetenzgraph_dialog import ask_kompetenz_graph
+from kursplaner.adapters.gui.local_keys import LEFT, RIGHT, bind_keys
 from kursplaner.adapters.gui.new_course_window import NewCourseWindow
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
@@ -60,6 +54,7 @@ from kursplaner.core.config.path_store import (
     infer_workspace_root_from_path,
     resolve_path_value,
 )
+from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_filter import build_initial_kompetenz_graph_filter
 from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
 from kursplaner.core.domain.lesson_files import list_lesson_files
@@ -653,21 +648,32 @@ class MainWindowActionController:
         center = 46
         radius = 34
         track_oval = canvas.create_oval(
-            center - radius, center - radius, center + radius, center + radius,
+            center - radius,
+            center - radius,
+            center + radius,
+            center + radius,
             width=8,
         )
         canvas_outline_color(canvas, track_oval, token="border")
 
         progress_arc = canvas.create_arc(
-            center - radius, center - radius, center + radius, center + radius,
-            start=90, extent=-extent, width=8, style="arc",
+            center - radius,
+            center - radius,
+            center + radius,
+            center + radius,
+            start=90,
+            extent=-extent,
+            width=8,
+            style="arc",
         )
         canvas_domain_outline(canvas, progress_arc, light_color=light_c, dark_color=dark_c)
 
         symbol_radius = 18
         center_oval = canvas.create_oval(
-            center - symbol_radius, center - symbol_radius,
-            center + symbol_radius, center + symbol_radius,
+            center - symbol_radius,
+            center - symbol_radius,
+            center + symbol_radius,
+            center + symbol_radius,
             width=1,
         )
         canvas_fill(canvas, center_oval, token="bg_surface")
@@ -687,7 +693,10 @@ class MainWindowActionController:
             canvas.create_image(center, center - 2, image=tinted_icon)
         else:
             symbol_text = canvas.create_text(
-                center, center - 2, text=symbol, font=("Segoe UI", 14, "bold"),
+                center,
+                center - 2,
+                text=symbol,
+                font=("Segoe UI", 14, "bold"),
             )
             if is_fulfilled:
                 canvas_domain_fill(canvas, symbol_text, light_color=light_c, dark_color=dark_c)
@@ -696,7 +705,10 @@ class MainWindowActionController:
 
         # Always show the numeric progress to keep the goal state glanceable.
         progress_text = canvas.create_text(
-            center, center + 22, text=f"{value}/{total}", font=("Segoe UI", 9, "bold"),
+            center,
+            center + 22,
+            text=f"{value}/{total}",
+            font=("Segoe UI", 9, "bold"),
         )
         if is_fulfilled:
             canvas_domain_fill(canvas, progress_text, light_color=light_c, dark_color=dark_c)
@@ -1344,12 +1356,8 @@ class MainWindowActionController:
         return bool(str(clipboard_value).strip())
 
     def _refresh_after_history_step(self) -> None:
-        selected_iid = self.app.lesson_tree.focus()
-        self.app.refresh_overview()
-        if selected_iid and self.app.lesson_tree.exists(selected_iid):
-            self.app.lesson_tree.focus(selected_iid)
-            treeview_selection.set(self.app.lesson_tree, [selected_iid])
-            self.app._load_selected_table()
+        """Zeigt den Stand nach Undo/Redo, ohne dass der Nutzer seinen Platz verliert."""
+        self.app.overview_controller.reload_keeping_view()
         self.update_action_controls()
 
     def undo_history(self):
@@ -1473,7 +1481,9 @@ class MainWindowActionController:
         output_path = pathlib.Path(selected_file).expanduser().resolve()
 
         export_uc = (
-            self._export_topic_units_pdf_uc if selection.output_format == "pdf" else self._export_topic_units_markdown_uc
+            self._export_topic_units_pdf_uc
+            if selection.output_format == "pdf"
+            else self._export_topic_units_markdown_uc
         )
         if export_uc is None:
             messagebox.showerror(
@@ -1549,7 +1559,9 @@ class MainWindowActionController:
         try:
             self._lesson_transfer_flow.validate_source(copied)
             content = self._lesson_transfer_flow.read_source_content(copied)
-            plan = self._lesson_transfer_flow.build_execution_plan(self.app.current_table, copied.stem, copied.suffix or ".md")
+            plan = self._lesson_transfer_flow.build_execution_plan(
+                self.app.current_table, copied.stem, copied.suffix or ".md"
+            )
         except Exception as exc:
             messagebox.showerror("Einfügen", str(exc), parent=self.app)
             return
@@ -1730,9 +1742,9 @@ class MainWindowActionController:
                 allow_plan_save=True,
             ),
             extra_after=[source, plan.target],
-            extra_after_from_result=lambda item: [item.linked_path]
-            if isinstance(getattr(item, "linked_path", None), pathlib.Path)
-            else [],
+            extra_after_from_result=lambda item: (
+                [item.linked_path] if isinstance(getattr(item, "linked_path", None), pathlib.Path) else []
+            ),
         )
         if not result.proceed:
             messagebox.showerror("Markdown finden", result.error_message or "Vorgang abgebrochen.", parent=self.app)
@@ -1862,9 +1874,9 @@ class MainWindowActionController:
                 preserve_alias=False,
             ),
             extra_after=[existing],
-            extra_after_from_result=lambda item: [item.target_path]
-            if isinstance(getattr(item, "target_path", None), pathlib.Path)
-            else [],
+            extra_after_from_result=lambda item: (
+                [item.target_path] if isinstance(getattr(item, "target_path", None), pathlib.Path) else []
+            ),
         )
 
         if not result.proceed:
@@ -1958,9 +1970,7 @@ class MainWindowActionController:
 
         calendar_raw = str(self.app.path_values.get(CALENDAR_DIR_KEY, "")).strip()
         if not calendar_raw:
-            messagebox.showerror(
-                "Stundenplanänderung", "Kein Kalenderordner konfiguriert.", parent=self.app
-            )
+            messagebox.showerror("Stundenplanänderung", "Kein Kalenderordner konfiguriert.", parent=self.app)
             return
 
         calendar_dir = resolve_path_value(calendar_raw)
@@ -1986,8 +1996,7 @@ class MainWindowActionController:
             if dropped:
                 messagebox.showinfo(
                     "Stundenplanänderung",
-                    f"Plan übernommen.\n\n{len(dropped)} Einheit(en) sind nicht mehr verlinkt "
-                    "(Schatteneinheiten).",
+                    f"Plan übernommen.\n\n{len(dropped)} Einheit(en) sind nicht mehr verlinkt (Schatteneinheiten).",
                     parent=self.app,
                 )
 
@@ -2022,8 +2031,9 @@ class MainWindowActionController:
         # on_destroy: einmal beim Schliessen (das fruehere Toplevel-Binding lief fuer jedes Kind-Widget).
         on_destroy(
             dialog,
-            lambda _dialog: self.app.overview_controller.refresh_overview()
-            if self.app.current_table is None
-            else self._refresh_after_write(),
+            lambda _dialog: (
+                self.app.overview_controller.refresh_overview()
+                if self.app.current_table is None
+                else self._refresh_after_write()
+            ),
         )
-

@@ -4,23 +4,20 @@ import pathlib
 import re
 from datetime import date, datetime
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
-from kursplaner.core.domain.day_column import DayColumn
+from bw_gui.runtime import treeview_selection, ui, widgets
 
-ensure_bw_gui_on_path()
-from bw_gui.runtime import treeview_selection, ui, widgets  # noqa: E402
-
-from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog  # noqa: E402
-from kursplaner.adapters.gui.overview_columns import overview_row_values  # noqa: E402
-from kursplaner.adapters.gui.plan_view_state import PlanViewState, capture_plan_view, restore_plan_view  # noqa: E402
-from kursplaner.core.config.ui_preferences_store import (  # noqa: E402
+from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
+from kursplaner.adapters.gui.overview_columns import overview_row_values
+from kursplaner.adapters.gui.plan_view_state import PlanViewState, capture_plan_view, restore_plan_view
+from kursplaner.core.config.ui_preferences_store import (
     NEXT_UNIT_MODE_FEST,
     load_next_unit_cutoff_time,
     load_next_unit_mode,
 )
-from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming  # noqa: E402
-from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError  # noqa: E402
-from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict  # noqa: E402
+from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming
+from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError
+from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict
 
 
 class MainWindowOverviewController:
@@ -246,14 +243,14 @@ class MainWindowOverviewController:
     def refresh_overview(self):
         """Lädt die Unterrichtsübersicht neu und zeigt sie als Hauptansicht.
 
-        Für Programmstart, Kurs anlegen, Pfadänderung und Undo/Redo. Das manuelle
-        Neuladen läuft über `reload_keeping_view()`.
+        Für Programmstart, Kurs anlegen und Pfadänderung. Neuladen und Undo/Redo laufen
+        über `reload_keeping_view()`.
         """
         self._reload_course_list()
         self._show_reloaded_overview()
 
     def reload_keeping_view(self):
-        """Manuelles Neuladen (Strg+R, Toolbar): Der Nutzer bleibt, wo er war.
+        """Neuladen (Strg+R, Toolbar) und Undo/Redo: Der Nutzer bleibt, wo er war.
 
         Bei offenem Plan werden Kursliste und Plan von der Platte gelesen; Auswahl und
         Scrollposition bleiben, die Übersicht erscheint auch nicht kurz dazwischen. Ist
@@ -264,7 +261,7 @@ class MainWindowOverviewController:
         view = capture_plan_view(self.app)
         self._reload_course_list()
         if view is not None and self.app.lesson_tree.exists(view.course_iid):
-            self._focus_course(view.course_iid)
+            self.focus_course(view.course_iid)
             self._reset_selection()
             self.load_selected_table(restore=view)
             return
@@ -281,7 +278,7 @@ class MainWindowOverviewController:
         """
         self.clear_plan_table("Bitte links einen Kurs auswählen.")
         if preferred_iid and self.app.lesson_tree.exists(preferred_iid):
-            self._focus_course(preferred_iid)
+            self.focus_course(preferred_iid)
         self.app._show_course_overview()
 
     def _reload_course_list(self):
@@ -357,7 +354,7 @@ class MainWindowOverviewController:
                 parent=self.app,
             )
 
-    def _focus_course(self, iid: str) -> None:
+    def focus_course(self, iid: str) -> None:
         """Setzt Fokus und Auswahl der Kursliste auf einen Eintrag und holt ihn ins Bild."""
         self.app.lesson_tree.focus(iid)
         treeview_selection.set(self.app.lesson_tree, [iid])
@@ -371,18 +368,18 @@ class MainWindowOverviewController:
 
         selected = self.app.lesson_tree.focus()
         if selected and self.app.lesson_tree.exists(selected):
-            self._focus_course(selected)
+            self.focus_course(selected)
             return
 
         selection = self.app.lesson_tree.selection()
         if selection:
             first = selection[0]
             if self.app.lesson_tree.exists(first):
-                self._focus_course(first)
+                self.focus_course(first)
                 return
 
         if prefer_first:
-            self._focus_course(items[0])
+            self.focus_course(items[0])
 
     def _show_loading_dialog(self, text: str):
         """Zeigt einen kleinen, nicht-blockierenden Ladehinweis mit laufender Progressbar."""
@@ -536,7 +533,6 @@ class MainWindowOverviewController:
         self.app._update_selected_column_label()
         self.app._show_course_overview()
         self.app.action_controller.update_action_controls()
-        self.ensure_course_selected(prefer_first=True)
 
     @staticmethod
     def _parse_day_date(raw_value: object) -> date | None:

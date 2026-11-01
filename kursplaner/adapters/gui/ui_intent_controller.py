@@ -2,21 +2,14 @@ from __future__ import annotations
 
 import time
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from bw_gui.contracts import EventResult
+from bw_gui.contracts.pointer import ClickEvent, DragEvent
+from bw_gui.runtime import ui, widgets
 
-ensure_bw_gui_on_path()
-from bw_gui.contracts import EventResult  # noqa: E402
-from bw_gui.contracts.pointer import ClickEvent, DragEvent  # noqa: E402
-from bw_gui.runtime import treeview_selection, ui, widgets  # noqa: E402
-
-# Backward-compatible module aliases for existing tests and call sites.
-tk = ui
-ttk = widgets
-
-from bw_libs.ui_contract.hsm import build_ui_hsm_contract  # noqa: E402
-from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow  # noqa: E402
-from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack  # noqa: E402
-from kursplaner.adapters.gui.ui_intents import UiIntent  # noqa: E402
+from bw_libs.ui_contract.hsm import build_ui_hsm_contract
+from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack
+from kursplaner.adapters.gui.ui_intents import UiIntent
 
 
 def _known_ui_intents() -> tuple[str, ...]:
@@ -382,8 +375,7 @@ class MainWindowUiIntentController:
             clicked_item = self.app.lesson_tree.identify_row(int(event.y))
             if not clicked_item:
                 return EventResult.HANDLED
-            self.app.lesson_tree.focus(clicked_item)
-            treeview_selection.set(self.app.lesson_tree, [clicked_item])
+            self.app.overview_controller.focus_course(clicked_item)
         self.app.overview_controller.load_selected_table(event)
         return EventResult.HANDLED
 
@@ -400,8 +392,7 @@ class MainWindowUiIntentController:
         current = self.app.lesson_tree.focus()
         if current == item:
             return None
-        self.app.lesson_tree.focus(item)
-        treeview_selection.set(self.app.lesson_tree, [item])
+        self.app.overview_controller.focus_course(item)
         return None
 
     def intent_toggle_row_expand(self, field_key: str):
@@ -697,9 +688,7 @@ class MainWindowUiIntentController:
         if not items:
             return None
         target = items[-1] if to_end else items[0]
-        self.app.lesson_tree.focus(target)
-        treeview_selection.set(self.app.lesson_tree, [target])
-        self.app.lesson_tree.see(target)
+        self.app.overview_controller.focus_course(target)
         return EventResult.HANDLED
 
     def intent_clipboard_shortcut(self, event, *, operation: str):

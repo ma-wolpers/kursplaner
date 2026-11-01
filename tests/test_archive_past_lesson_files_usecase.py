@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-import pytest
-
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
 from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository
@@ -21,11 +19,7 @@ def _make_table(plan_dir: Path, rows: list[list[str]]) -> PlanTableData:
     plan_dir.mkdir(parents=True, exist_ok=True)
     plan_md = plan_dir / f"{plan_dir.name}.md"
     plan_md.write_text(
-        "---\n"
-        'Lerngruppe: "[[li2]]"\n'
-        'Kursfach: "Informatik"\n'
-        "Stufe: 10\n"
-        "---\n",
+        '---\nLerngruppe: "[[li2]]"\nKursfach: "Informatik"\nStufe: 10\n---\n',
         encoding="utf-8",
     )
     return PlanTableData(
@@ -55,9 +49,11 @@ class TestArchivePastLessonFilesUseCase:
         plan_dir = tmp_path / "M li2 26-1"
         einheiten = plan_dir / "Einheiten"
         lesson = _make_lesson(einheiten, "ab12cd")
-        table = _make_table(plan_dir, [[_PAST, "2", f"[[ab12cd]]", ""]])
+        table = _make_table(plan_dir, [[_PAST, "2", "[[ab12cd]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(
+            table, reference_date=_TODAY
+        )
 
         assert moved == 1
         assert not lesson.exists()
@@ -70,7 +66,9 @@ class TestArchivePastLessonFilesUseCase:
         lesson = _make_lesson(einheiten, "zz99aa")
         table = _make_table(plan_dir, [[_FUTURE, "2", "[[zz99aa]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(
+            table, reference_date=_TODAY
+        )
 
         assert moved == 0
         assert lesson.exists()
@@ -84,7 +82,9 @@ class TestArchivePastLessonFilesUseCase:
         lesson = _make_lesson(einheiten, "tt0day")
         table = _make_table(plan_dir, [[today_str, "2", "[[tt0day]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(
+            table, reference_date=_TODAY
+        )
 
         assert moved == 0
         assert lesson.exists()
@@ -94,7 +94,9 @@ class TestArchivePastLessonFilesUseCase:
         plan_dir = tmp_path / "M li2 26-1"
         table = _make_table(plan_dir, [[_PAST, "0", "", "X Ferien"]])
 
-        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(
+            table, reference_date=_TODAY
+        )
 
         assert moved == 0
 
@@ -107,7 +109,9 @@ class TestArchivePastLessonFilesUseCase:
         (plan_dir / "Einheiten").mkdir(parents=True, exist_ok=True)
         table = _make_table(plan_dir, [[_PAST, "2", "[[already]]", ""]])
 
-        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(
+            table, reference_date=_TODAY
+        )
 
         assert moved == 0
         assert (alteinheiten / "already.md").exists()
@@ -138,7 +142,9 @@ class TestArchivePastLessonFilesUseCase:
             ],
         )
 
-        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(table, reference_date=_TODAY)
+        moved = ArchivePastLessonFilesUseCase(lesson_repo=FileSystemLessonRepository()).execute(
+            table, reference_date=_TODAY
+        )
 
         assert moved == 2
         assert (plan_dir / "Alteinheiten" / "aa1111.md").exists()

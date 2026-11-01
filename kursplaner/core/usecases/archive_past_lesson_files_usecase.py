@@ -11,7 +11,6 @@ ist.
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
 
 from kursplaner.core.domain.lesson_directory import LESSON_DIR_ARCHIVE, LESSON_DIR_PRIMARY
 from kursplaner.core.domain.plan_table import PlanTableData

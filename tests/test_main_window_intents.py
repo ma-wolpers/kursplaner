@@ -1,12 +1,13 @@
 from types import SimpleNamespace
 
+from bw_gui.contracts.events import EventResult
+
 import kursplaner.adapters.gui.ui_intent_controller as ui_intent_controller
 from kursplaner.adapters.gui.main_window import KursplanerApp
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 from tests.day_column_factory import make_day_column
-from bw_gui.contracts.events import EventResult
 
 
 class _ActionControllerSpy:
@@ -709,7 +710,7 @@ def test_shortcut_undo_is_ignored_inside_text_widget(monkeypatch):
     class _FakeText:
         pass
 
-    monkeypatch.setattr(ui_intent_controller.tk, "Text", _FakeText)
+    monkeypatch.setattr(ui_intent_controller.ui, "Text", _FakeText)
 
     app = _build_dummy_app()
     app.is_detail_view = True
@@ -726,7 +727,7 @@ def test_shortcut_redo_is_ignored_inside_text_widget(monkeypatch):
     class _FakeText:
         pass
 
-    monkeypatch.setattr(ui_intent_controller.tk, "Text", _FakeText)
+    monkeypatch.setattr(ui_intent_controller.ui, "Text", _FakeText)
 
     app = _build_dummy_app()
     app.is_detail_view = True
@@ -985,7 +986,7 @@ def test_grid_delete_is_ignored_when_event_originates_from_text_widget(monkeypat
     class _FakeText:
         pass
 
-    monkeypatch.setattr(ui_intent_controller.tk, "Text", _FakeText)
+    monkeypatch.setattr(ui_intent_controller.ui, "Text", _FakeText)
 
     selection_controller = _SelectionControllerSpy(select_first_result=True)
     editor_controller = _EditorControllerSpy()
@@ -1020,7 +1021,7 @@ def test_grid_home_is_ignored_when_event_originates_from_text_widget(monkeypatch
     class _FakeText:
         pass
 
-    monkeypatch.setattr(ui_intent_controller.tk, "Text", _FakeText)
+    monkeypatch.setattr(ui_intent_controller.ui, "Text", _FakeText)
 
     selection_controller = _SelectionControllerSpy(select_first_result=True)
     app = SimpleNamespace(
@@ -1045,7 +1046,7 @@ def test_grid_end_is_ignored_when_focus_is_text_widget(monkeypatch):
     class _FakeText:
         pass
 
-    monkeypatch.setattr(ui_intent_controller.tk, "Text", _FakeText)
+    monkeypatch.setattr(ui_intent_controller.ui, "Text", _FakeText)
 
     selection_controller = _SelectionControllerSpy(select_first_result=True)
     app = SimpleNamespace(

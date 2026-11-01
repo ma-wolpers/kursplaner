@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from kursplaner.adapters.gui.action_controller import MainWindowActionController
 from kursplaner.adapters.gui.overview_controller import MainWindowOverviewController
 from kursplaner.adapters.gui.plan_view_state import PlanViewState, capture_plan_view, restore_plan_view
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
@@ -185,6 +186,20 @@ class TestReloadKeepingView:
         controller, calls = self._controller(monkeypatch, items=["a.md", "b.md"])
         controller.refresh_overview()
         assert calls == ["list", "clear", "overview"]
+
+
+def test_undo_and_redo_keep_the_view():
+    """Früher sprangen sie zur nächsten Einheit und verloren Auswahl und Scrollposition."""
+    calls = []
+    controller = object.__new__(MainWindowActionController)
+    controller.app = SimpleNamespace(
+        overview_controller=SimpleNamespace(reload_keeping_view=lambda: calls.append("reload"))
+    )
+    controller.update_action_controls = lambda: calls.append("controls")
+
+    controller._refresh_after_history_step()
+
+    assert calls == ["reload", "controls"]
 
 
 class TestRefreshIntent:

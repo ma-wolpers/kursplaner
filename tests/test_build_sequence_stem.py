@@ -6,8 +6,6 @@ wird ignoriert, damit bestehende Aufrufer unverändert bleiben.
 
 from __future__ import annotations
 
-import pytest
-
 from kursplaner.core.domain.sequence_planning import build_sequence_stem
 
 
@@ -145,8 +143,6 @@ class TestEnsureSequenceDocumentUsesNewStem:
         )
 
         repo = FileSystemSequencePlanRepository()
-        sequence_path = repo.ensure_sequence_document(
-            table=table, sequence_name="Lineare Funktionen"
-        )
+        sequence_path = repo.ensure_sequence_document(table=table, sequence_name="Lineare Funktionen")
 
         assert sequence_path.stem == "gruen-6 Lineare Funktionen"

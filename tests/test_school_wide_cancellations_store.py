@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from kursplaner.core.config import school_wide_cancellations_store as store

@@ -2,28 +2,10 @@
 
 from __future__ import annotations
 
-import tkinter
-
-import pytest
-
-from bw_gui.runtime import create_root, ui
+from bw_gui.runtime import ui
 
 from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.ui_intents import UiIntent
-
-
-@pytest.fixture(scope="module")
-def root():
-    for attempt in range(3):
-        try:
-            instance = create_root()
-            break
-        except tkinter.TclError as exc:
-            if not any(m in str(exc) for m in ("usable", "tcl_findLibrary", "init.tcl")) or attempt == 2:
-                raise
-    instance.withdraw()
-    yield instance
-    instance.destroy()
 
 
 class _App:

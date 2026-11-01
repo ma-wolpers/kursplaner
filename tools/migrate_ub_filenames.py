@@ -11,6 +11,7 @@ Usage::
 The script is idempotent: re-running after a successful migration finds no
 old-format files and exits cleanly without making changes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,7 @@ from kursplaner.core.config.path_store import (
     load_path_values,
     resolve_path_value,
 )
-from kursplaner.core.domain.unterrichtsbesuch_policy import UB_OVERVIEW_FILE_NAME, UB_ROOT_RELATIVE_PARTS, UbStem
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_OVERVIEW_FILE_NAME, UbStem
 from kursplaner.core.usecases.ub_markdown_sections import parse_list_section, parse_reflection
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository

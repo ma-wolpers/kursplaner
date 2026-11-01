@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from bw_libs.shared_gui_core import ensure_bw_gui_on_path
+from functools import partial
 
-ensure_bw_gui_on_path()
-from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker
 from bw_gui.contracts import KeySpec
+from bw_gui.dialogs import open_tabbed_settings_dialog as _open_tabbed_settings_dialog_contract_marker  # noqa: F401
 from bw_gui.runtime import (
     WidgetShortcutBinder,
     bind_click,
@@ -37,7 +36,9 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
 
-class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShortcutsMixin, ScreenMenusMixin, ScreenToolbarMixin):
+class ScreenBuilder(
+    ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShortcutsMixin, ScreenMenusMixin, ScreenToolbarMixin
+):
     """Baut die visuellen UI-Strukturen der Hauptansicht.
 
     Enthält ausschließlich Layout-, Menü- und Theme-Aufbau ohne Fachlogik.
@@ -158,7 +159,7 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
         styler = getattr(self.app, "toolbar_icon_styler", None)
         for spec in TOOLBAR_ACTIONS:
             slot = self.app.toolbar_slots[spec.slot_key]
-            command = lambda intent=spec.intent, payload=spec.payload: self._emit_intent(intent, **dict(payload))
+            command = partial(self._emit_intent, spec.intent, **dict(spec.payload))
             button = styler.create_button(slot, spec, command) if styler is not None else None
             if button is None:
                 button_kwargs: dict = {
@@ -207,7 +208,10 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
 
         tree = self.app.lesson_tree
         WidgetShortcutBinder(tree).bind(
-            KeySpec.parse("Enter (tolerate: Shift)"), self._on_tree_enter, binding_id="course.enter", intent=UiIntent.GRID_ENTER
+            KeySpec.parse("Enter (tolerate: Shift)"),
+            self._on_tree_enter,
+            binding_id="course.enter",
+            intent=UiIntent.GRID_ENTER,
         )
         # Maus: Doppelklick und Loslassen der linken Taste bestaetigen den Kurs (wie frueher
         # <Double-1>/<ButtonRelease-1>; beim Loslassen ist die native Auswahl schon gesetzt).
@@ -312,7 +316,9 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
 
         y_scroll = widgets.Scrollbar(editor_frame, orient="vertical", command=self.app._on_vertical_scroll)
         self.app.x_scroll = widgets.Scrollbar(editor_frame, orient="horizontal", command=self.app._on_horizontal_scroll)
-        self.app.grid_canvas.configure(yscrollcommand=y_scroll.set, xscrollcommand=self.app.viewport_sync_h.on_view_changed)
+        self.app.grid_canvas.configure(
+            yscrollcommand=y_scroll.set, xscrollcommand=self.app.viewport_sync_h.on_view_changed
+        )
         y_scroll.grid(row=1, column=2, sticky="ns")
         self.app.x_scroll.grid(row=2, column=1, sticky="ew")
 
@@ -339,5 +345,3 @@ class ScreenBuilder(ScreenKeyHandlersMixin, ScreenShortcutDebugMixin, ScreenShor
 
         self.refresh_course_overview_toolbar()
         self.show_course_overview()
-
-
