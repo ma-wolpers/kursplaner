@@ -47,7 +47,7 @@ from kursplaner.core.usecases.export_topic_units_pdf_usecase import ExportTopicU
 from kursplaner.core.usecases.extend_plan_to_next_vacation_usecase import ExtendPlanToNextVacationUseCase
 from kursplaner.core.usecases.find_markdown_for_selected_usecase import FindMarkdownForSelectedUseCase
 from kursplaner.core.usecases.grid_cell_policy_usecase import GridCellPolicyUseCase
-from kursplaner.core.usecases.history_usecase import HistoryUseCase
+from kursplaner.core.usecases.history_usecase import DEFAULT_MAX_HISTORY, HistoryUseCase
 from kursplaner.core.usecases.invalidate_lesson_index_usecase import InvalidateLessonIndexUseCase
 from kursplaner.core.usecases.invalidate_repository_caches_usecase import InvalidateRepositoryCachesUseCase
 from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
@@ -252,7 +252,7 @@ class GuiDependencies:
 AppDependencies = GuiDependencies
 
 
-def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
+def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDependencies:
     """Erzeugt die vollständige GUI-Verdrahtung im Composition Root.
 
     Hier werden konkrete Repository-Implementierungen instanziiert und in

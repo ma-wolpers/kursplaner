@@ -8,6 +8,13 @@ from kursplaner.core.usecases.command_executor_usecase import CommandEntry, Comm
 
 TActionResult = TypeVar("TActionResult")
 
+DEFAULT_MAX_HISTORY = 100
+"""Länge des Undo-Verlaufs; einzige Quelle des Standardwerts.
+
+Die Sequenzleiter erzeugt pro Strg+Pfeil-Schritt einen Eintrag; mit 30 fielen
+Plan-Änderungen zu schnell aus dem Verlauf. Einträge sind kleine Text-Snapshots.
+"""
+
 
 @dataclass(frozen=True)
 class HistoryStepResult:
@@ -43,7 +50,7 @@ class HistoryUseCase:
     Die Klasse verwaltet Command-History und delegiert Delta-Anwendung an den Command-Executor.
     """
 
-    def __init__(self, command_executor: CommandExecutorUseCase, *, max_history: int = 30):
+    def __init__(self, command_executor: CommandExecutorUseCase, *, max_history: int = DEFAULT_MAX_HISTORY):
         """Initialisiert die Historie mit einem Command-Executor.
 
         Args:

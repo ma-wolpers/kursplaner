@@ -35,6 +35,7 @@ The format is based on Keep a Changelog.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
 ### Changed
+- **Längerer Rückgängig-Verlauf:** Strg+Z merkt sich jetzt die letzten 100 Schritte statt 30.
 - **Für Mitentwickelnde:** Neue Use Cases `LoadSequenceLadderUseCase`/`EditSequenceLadderUseCase` und `TrackedWriteUseCase.run_tracked_file_action` (undo-fähiges Schreiben einzelner Dateien ohne Plan-Bezug).
 - **Für Mitentwickelnde:** Das kurze Tageslabel (`Mi 18.02.`) des Grid-Kopfs kommt aus `core/usecases/day_label_format.py::short_day_label` (auch von der Sequenzleiter genutzt).
 - **Für Mitentwickelnde:** Abgerundete Rechtecke (Kompetenznetz-Knoten) kommen aus bw-gui (`bw_gui.widgets.canvas_shapes`); die lokale Kopie ist entfernt.
