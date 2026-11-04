@@ -10,10 +10,10 @@ from bw_gui.theming import (
     canvas_outline_color,
     canvas_text_fill,
 )
+from bw_gui.widgets.canvas_shapes import create_rounded_rectangle
 
 from kursplaner.adapters.gui.kompetenzgraph_canvas_colors import hue_to_color_pair
 from kursplaner.adapters.gui.kompetenzgraph_canvas_edges import KompetenzGraphEdgeRenderer
-from kursplaner.adapters.gui.kompetenzgraph_canvas_shapes import create_rounded_rectangle
 from kursplaner.core.domain.kompetenzgraph_layout import KompetenzGraphLayout
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
@@ -52,7 +52,7 @@ class KompetenzGraphCanvasRenderer:
     `canvas_text_fill` für Token-Farben, `canvas_domain_fill`/
     `canvas_domain_outline` für Bereichs-Hue-Farben aus
     `kompetenzgraph_canvas_colors.py`) -- kein hartkodierter Hex-Wert.
-    Knoten sind abgerundete Rechtecke (`kompetenzgraph_canvas_shapes.py`).
+    Knoten sind abgerundete Rechtecke (`bw_gui.widgets.canvas_shapes`).
     """
 
     def __init__(
