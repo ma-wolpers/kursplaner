@@ -13,9 +13,6 @@ from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
-from kursplaner.core.usecases.rename_linked_file_for_row_usecase import (
-    RenameLinkedFileForRowUseCase,
-)
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase, RowFilterSettings
 from kursplaner.core.usecases.save_oberthema_cell import save_oberthema_cell
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
@@ -32,22 +29,9 @@ class SaveCellValueResult:
 
 @dataclass(frozen=True)
 class SaveCellEditPlan:
-    """Fachliche Vorabplanung für Save-Dialoge und Rename-Entscheidung."""
+    """Fachliche Vorabplanung des Speicherns: geparste Listeneinträge bei Listenfeldern."""
 
     list_entries: list[str] | None
-    should_rename_topic: bool
-    desired_stem: str
-    rename_target_preview: Path | None
-
-
-@dataclass(frozen=True)
-class SaveCellConfirmationPlan:
-    """Beschreibt, welche Bestätigungen im UI-Flow einzuholen sind."""
-
-    require_yaml_save: bool
-    require_rename: bool
-    require_plan_save_for_rename: bool
-    rename_target_preview: Path | None
 
 
 @dataclass(frozen=True)
@@ -70,7 +54,6 @@ class SaveCellValueUseCase:
         lesson_edit: LessonEditUseCase,
         plan_repo: PlanRepository,
         lesson_transfer: LessonTransferUseCase,
-        rename_linked_file_for_row: RenameLinkedFileForRowUseCase,
         row_display_mode_usecase: RowDisplayModeUseCase,
         sync_ub_development_focus_usecase: SyncUbDevelopmentFocusUseCase | None = None,
     ):
@@ -78,7 +61,6 @@ class SaveCellValueUseCase:
         self.lesson_edit = lesson_edit
         self.plan_repo = plan_repo
         self.lesson_transfer = lesson_transfer
-        self.rename_linked_file_for_row = rename_linked_file_for_row
         self.row_display_mode_usecase = row_display_mode_usecase
         self.sync_ub_development_focus_usecase = sync_ub_development_focus_usecase
 
@@ -137,12 +119,7 @@ class SaveCellValueUseCase:
         if field_key in self.row_display_mode_usecase.list_like_fields():
             list_entries = parse_list_cell(value)
 
-        return SaveCellEditPlan(
-            list_entries=list_entries,
-            should_rename_topic=False,
-            desired_stem="",
-            rename_target_preview=None,
-        )
+        return SaveCellEditPlan(list_entries=list_entries)
 
     def build_runtime_context(
         self,
@@ -220,36 +197,6 @@ class SaveCellValueUseCase:
             message_text=None,
         )
 
-    def build_confirmation_plan(
-        self,
-        *,
-        field_key: str,
-        lesson_path: Path | None,
-        edit_plan: SaveCellEditPlan,
-    ) -> SaveCellConfirmationPlan:
-        """Leitet den fachlichen Bestätigungsbedarf des Save-Flows ab."""
-        if field_key == "inhalt":
-            return SaveCellConfirmationPlan(
-                require_yaml_save=False,
-                require_rename=False,
-                require_plan_save_for_rename=False,
-                rename_target_preview=None,
-            )
-
-        requires_rename = bool(
-            edit_plan.should_rename_topic
-            and isinstance(edit_plan.rename_target_preview, Path)
-            and isinstance(lesson_path, Path)
-            and edit_plan.rename_target_preview.resolve() != lesson_path.resolve()
-        )
-
-        return SaveCellConfirmationPlan(
-            require_yaml_save=True,
-            require_rename=requires_rename,
-            require_plan_save_for_rename=edit_plan.should_rename_topic,
-            rename_target_preview=edit_plan.rename_target_preview,
-        )
-
     def execute(
         self,
         *,
@@ -259,11 +206,7 @@ class SaveCellValueUseCase:
         value: str,
         lesson_path: Path | None,
         list_entries: list[str] | None,
-        should_rename_topic: bool,
-        desired_stem: str,
         allow_yaml_save: bool,
-        allow_rename: bool,
-        allow_plan_save_for_rename: bool,
     ) -> SaveCellValueResult:
         """Führt den Speichern-Flow für eine einzelne Zelle aus."""
         self.lesson_edit.validate_table(table)
@@ -337,29 +280,5 @@ class SaveCellValueUseCase:
             value,
             list_entries=list_entries,
         )
-
-        if should_rename_topic and not allow_plan_save_for_rename:
-            return SaveCellValueResult(
-                proceed=False,
-                error_message="Speichern der Planungstabelle abgebrochen.",
-            )
-
-        if should_rename_topic:
-            rename_result = self.rename_linked_file_for_row.execute(
-                table=table,
-                row_index=row_index,
-                desired_stem=desired_stem,
-                allow_rename=allow_rename,
-                allow_plan_save=allow_plan_save_for_rename,
-            )
-            if not rename_result.proceed:
-                return SaveCellValueResult(
-                    proceed=False,
-                    error_message=rename_result.error_message,
-                )
-            return SaveCellValueResult(
-                proceed=True,
-                lesson_path=rename_result.target_path or lesson_path,
-            )
 
         return SaveCellValueResult(proceed=True, lesson_path=lesson_path)

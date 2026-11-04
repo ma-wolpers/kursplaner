@@ -394,7 +394,6 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         lesson_edit=lesson_edit,
         plan_repo=plan_repo,
         lesson_transfer=lesson_transfer,
-        rename_linked_file_for_row=rename_linked_file_for_row,
         row_display_mode_usecase=row_display_mode_usecase,
         sync_ub_development_focus_usecase=sync_ub_development_focus_usecase,
     )

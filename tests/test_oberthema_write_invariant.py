@@ -130,7 +130,6 @@ def _save_cell_usecase(repo: FileSystemLessonRepository) -> SaveCellValueUseCase
         lesson_edit=LessonEditUseCase(repo),
         plan_repo=cast(Any, _PlanRepoStub()),
         lesson_transfer=cast(Any, object()),
-        rename_linked_file_for_row=cast(Any, object()),
         row_display_mode_usecase=cast(Any, _RowDisplayModeStub()),
     )
 
@@ -156,11 +155,7 @@ def _execute(usecase: SaveCellValueUseCase, table: PlanTableData, field_key: str
         value=value,
         lesson_path=path,
         list_entries=None,
-        should_rename_topic=False,
-        desired_stem="",
         allow_yaml_save=True,
-        allow_rename=False,
-        allow_plan_save_for_rename=False,
     )
 
 

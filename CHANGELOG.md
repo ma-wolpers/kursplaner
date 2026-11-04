@@ -40,6 +40,7 @@ The format is based on Keep a Changelog.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
 ### Changed
+- **Für Mitentwickelnde:** Der nie mehr aktive Umbenennungs-Zweig beim Speichern einer Grid-Zelle ist aus `SaveCellValueUseCase` entfernt (`should_rename_topic`, `build_confirmation_plan`). Einheiten werden beim Ändern einer Zelle nicht umbenannt – wie bisher.
 - **Für Mitentwickelnde:** Welche Stundenfelder Listen sind, steht nur noch in `lesson_yaml_policy.LIST_FIELDS`; die UB-Entwicklungsfelder nur noch in `unterrichtsbesuch_policy.UB_DEVELOPMENT_FIELDS`. Speichern, Zeilenanzeige und Grid lesen beide von dort. Verhalten unverändert.
 - **Für Mitentwickelnde:** `mypy kursplaner` meldet nach den Sequenzleiter-Arbeiten weniger Befunde als vorher (Mixin-Attribut `app` deklariert).
 - **Für Mitentwickelnde:** Die Farbtöne für Ausfall, LZK und Hospitation stehen nur noch in `adapters/gui/lesson_kind_tints.py` (`LESSON_KIND_TINTS`); Grid, Auswahl und Sequenzleiter nutzen sie gemeinsam.

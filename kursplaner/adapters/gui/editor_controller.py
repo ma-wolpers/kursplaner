@@ -237,11 +237,7 @@ class MainWindowEditorController:
                 value=value,
                 lesson_path=runtime.lesson_path,
                 list_entries=edit_plan.list_entries,
-                should_rename_topic=edit_plan.should_rename_topic,
-                desired_stem=edit_plan.desired_stem,
                 allow_yaml_save=True,
-                allow_rename=True,
-                allow_plan_save_for_rename=True,
             )
 
         extra_before: list[pathlib.Path] = []
