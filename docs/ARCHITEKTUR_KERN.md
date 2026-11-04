@@ -1130,3 +1130,30 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
 - **Upgrade (abgeschlossen 2026-10-06):** Der Bestand wurde einmalig mit `tools/migrate_sequence_focus_competencies.py` migriert; Tool und Test sind danach entfernt (Git-Historie, Commit `8df8f2f`). Im aktiven Code kennt nichts mehr den alten Key.
 - **Grid-Darstellung:** `TopicSequencePlanView.field_text(field_key)` ist die einzige Stelle, die beide Sequenz-Zielfelder als Zelltext liefert (Rendering, Mount-Reconciliation, Dirty-Check). `UpdateSequenceGoalFieldUseCase` erhält den rohen Zelltext und parst `Leitkompetenzen` mit `parse_list_cell`.
 - **Abschluss-Check (alter Vertrag):** `rg "^\s*Leitkompetenz\s*:|[\"']Leitkompetenz[\"']"` und `rg -w "leitkompetenz|_FOCUS_COMPETENCY_KEY|read_goal_and_focus_competency|write_goal_and_focus_competency"` über `kursplaner/`, `tests/`, `tools/`, README und dieses Dokument. Erlaubte Treffer: `tests/test_sequence_focus_competencies.py` (beweist die Ablehnung des Altkeys), der Upgrade-Abschnitt in README/CHANGELOG und historische CHANGELOG-/DEVELOPMENT_LOG-Einträge.
+
+## 37) Mini-ADR: Sequenzleiter (verbindlich)
+
+**Betroffene Module:** neu `core/domain/sequence_ladder.py` (Modell + Regeln), `sequence_ladder_ops.py` (Operationen), `sequence_ladder_codec.py` (Dateiformat), `sequence_ladder_import.py` (Kompetenznetz → Bausteine); `core/domain/markdown_sections.py` (generisches Abschnitt-Ersetzen); `infrastructure/repositories/sequence_plan_repository.py` + Port `SequencePlanRepository`; neue Use Cases `load_sequence_ladder_usecase.py`, `edit_sequence_ladder_usecase.py`; `TrackedWriteUseCase.run_tracked_file_action`; GUI `adapters/gui/sequence_ladder_*.py` auf dem bw-gui-Widget `CardBoard`.
+
+**Regelbezug:** §4/§15 (jede Schreibaktion genau ein Use Case und genau ein Undo-Eintrag), §25 (GUI ohne Dateizugriff und Fachentscheidung), §27 (eine Format-/Parse-Stelle), §28 (300 Zeilen), §34 (Sequenzdatei-Vertrag bleibt unverändert).
+
+**Schnitt vorher → nachher:** Vorher kennt die Sequenzdatei nur Frontmatter (`Sequenzziel`, `Leitkompetenzen`), `## Brainstorming` und die generierte `## Export`-Tabelle. Nachher gibt es zusätzlich den Body-Abschnitt `## Sequenzleiter` (vor `## Export`), den ausschließlich `sequence_ladder_codec.py` liest und schreibt. Alle Änderungen laufen als Operation-Objekt durch **einen** Dispatcher (`apply_ladder_operation`) und **einen** Use Case (`EditSequenceLadderUseCase`), der pro Operation genau einen History-Eintrag mit genau der Sequenzdatei als Delta erzeugt (`run_tracked_file_action`). Das Leiter-Fenster nutzt den gemeinsamen App-Verlauf (Strg+Z/Y).
+
+**Nicht-Ziele (Prototyp):** Bausteine überschreiben weder `Stundenziel`/`Teilziele` der Einheiten noch `Leitkompetenzen`; keine kursübergreifende Sequenzauswahl; keine Übernahme der Leiter bei Umbenennung des Oberthemas (die Datei bleibt dann unter altem Namen liegen); Netz-Bausteine werden nicht nachträglich mit geänderten Titeln aus dem Netz abgeglichen.
+
+**Dateiformat:** Verschachtelte Markdown-Liste, Sprossen von unten (1) nach oben, Kind-Reihenfolge je Spalte = Reihenfolge in der Zelle:
+
+```markdown
+## Sequenzleiter
+
+- Sprosse 1
+  - Inhalt: Eigener Baustein
+  - Inhalt: [[Mat-RF-14|Titel der Kompetenz]]
+  - Prozess: [[Mat-DA-2|Titel der Kompetenz]]
+  - Idee: eine Zeile des Ideenfelds
+- Sprosse 2
+```
+
+Der Parser ist strikt (`LadderFormatError` mit Zeilennummer); bei Fehlern öffnet die Leiter schreibgeschützt, statt Handeingaben zu überschreiben. `is_trivial` prüft den rohen Abschnitt auf Inhalt (ohne zu parsen), damit eine Leiter die Sequenzdatei vor dem automatischen Aufräumen schützt und eine kaputte Leiter den Sync nicht lahmlegt.
+
+**Regeln:** Baustein-Text ist Primärschlüssel (eindeutig nach Trimmen, ohne Groß-/Kleinschreibung; einzeilig; eigene Bausteine beginnen nicht mit `[[`). Netz-Bausteine (Text = Kompetenz-Titel, Code = Kompetenz-ID) sind nicht umbenennbar. Kein Baustein wechselt die Spalte. Sprossen sind Positionen, keine Einheiten-Bindung; Termin-Labels kommen aus allen Planzeilen zwischen erstem und letztem Mitglied jedes Laufs derselben Datei (inkl. Ausfall), jenseits davon `??`. Operationen referenzieren Bausteine per Text, nie per Index (der Use Case liest pro Operation neu).

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from kursplaner.core.domain.course_subject import subject_short_or_name, subject_sort_key
-from kursplaner.core.domain.kompetenzgraph_node import BereichNode
+from kursplaner.core.domain.kompetenzgraph_node import BEREICH_KIND_INHALT, BEREICH_KIND_PROZESS, BereichNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 
 
@@ -125,6 +125,6 @@ def compute_filter_options(snapshot: KompetenzGraphSnapshot) -> KompetenzGraphFi
         niveaus=tuple(sorted(niveaus)),
         status_werte=tuple(sorted(status_werte)),
         anforderungen=tuple(sorted(anforderungen)),
-        inhaltsbereiche=_bereich_options(snapshot, "inhaltsbereich"),
-        prozessbereiche=_bereich_options(snapshot, "prozessbereich"),
+        inhaltsbereiche=_bereich_options(snapshot, BEREICH_KIND_INHALT),
+        prozessbereiche=_bereich_options(snapshot, BEREICH_KIND_PROZESS),
     )

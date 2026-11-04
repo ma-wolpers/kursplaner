@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFieldIssue
-from kursplaner.core.domain.kompetenzgraph_node import BereichNode
+from kursplaner.core.domain.kompetenzgraph_node import BEREICH_KIND_INHALT, BEREICH_KIND_PROZESS, BereichNode
 from kursplaner.core.domain.kompetenzgraph_types import SourceRef
 from kursplaner.core.domain.markdown_sections import derive_first_heading_title
 
@@ -57,9 +57,9 @@ def parse_bereich_node_from_raw(
         keinem Kantentyp zugeordnet werden).
     """
     if node_id.startswith("I-"):
-        kind = "inhaltsbereich"
+        kind = BEREICH_KIND_INHALT
     elif node_id.startswith("P-"):
-        kind = "prozessbereich"
+        kind = BEREICH_KIND_PROZESS
     else:
         return None, (
             KompetenzFieldIssue(

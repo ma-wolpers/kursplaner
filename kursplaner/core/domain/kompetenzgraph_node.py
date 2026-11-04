@@ -5,6 +5,12 @@ from typing import Literal
 
 from kursplaner.core.domain.kompetenzgraph_types import KcZuordnungEintrag, SourceRef
 
+BereichKind = Literal["inhaltsbereich", "prozessbereich"]
+BEREICH_KIND_INHALT: BereichKind = "inhaltsbereich"
+"""Bereichsart eines `I-`-Hubs (inhaltsbezogen); einzige Quelle des Werts."""
+BEREICH_KIND_PROZESS: BereichKind = "prozessbereich"
+"""Bereichsart eines `P-`-Hubs (prozessbezogen); einzige Quelle des Werts."""
+
 
 @dataclass(frozen=True)
 class KompetenzNode:
@@ -124,6 +130,6 @@ class BereichNode:
     id: str
     source: SourceRef
     kuerzel: str
-    kind: Literal["inhaltsbereich", "prozessbereich"]
+    kind: BereichKind
     title: str
     body_markdown: str
