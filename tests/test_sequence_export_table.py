@@ -15,8 +15,8 @@ from kursplaner.core.domain.wiki_links import wiki_link_display_text
 from kursplaner.core.usecases.sequence_export_table import (
     EXPORT_TABLE_HEADERS,
     date_hour_cell,
+    entries_cell,
     export_row_cells,
-    material_cell,
     text_cell,
 )
 from tests.day_column_factory import make_day_column
@@ -67,7 +67,7 @@ def test_one_entry_per_line_for_competencies_and_material():
 
 def test_empty_material_is_an_empty_cell():
     assert export_row_cells(_row(material=()))[4] == ()
-    assert material_cell(()) == ()
+    assert entries_cell(()) == ()
 
 
 def test_free_text_cells_split_lines_and_drop_blank_ones():
@@ -150,3 +150,12 @@ def test_non_list_competencies_violate_the_invariant(tmp_path: Path):
 
     with pytest.raises(TypeError):
         build_export_rows_for_run([day], TopicSequenceRun(oberthema="T", member_row_indices=(0,)))
+
+
+def test_net_links_show_their_title_in_goal_and_competence_cells():
+    cells = export_row_cells(
+        _row(stundenziel="[[Mat-KO-4|Terme aufstellen]]", kompetenzen=("[[Inf-PL-24|Algorithmen entwerfen]]", "Frei"))
+    )
+
+    assert cells[1] == ("Algorithmen entwerfen", "Frei")
+    assert cells[3] == ("Terme aufstellen",)

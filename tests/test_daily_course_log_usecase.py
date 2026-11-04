@@ -6,6 +6,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.usecases.daily_course_log_usecase import DailyCourseLogUseCase
+from tests.day_column_factory import make_day_column
 
 
 class _FakePlanRepo:
@@ -229,3 +230,21 @@ def test_daily_export_serializes_paths_workspace_relative(tmp_path, monkeypatch)
     assert ":\\" not in link_path
     assert not source_dir.startswith("\\")
     assert not link_path.startswith("\\")
+
+
+def test_daily_log_cells_show_title_of_net_linked_goals_and_competences():
+    day = make_day_column(
+        datum="31-03-26",
+        yaml={
+            "Stundentyp": "Unterricht",
+            "Stundenziel": "[[Mat-KO-4|Terme aufstellen]]",
+            "Kompetenzen": ["[[Inf-PL-24|Algorithmen entwerfen]]", "K2"],
+            "Material": ["[[Material/AB.pdf|AB 1]]"],
+        },
+    )
+
+    cells = DailyCourseLogUseCase._cells_for_unit(day)
+
+    assert cells["Stundenziel"] == "Terme aufstellen"
+    assert cells["Kompetenzen"] == ["Algorithmen entwerfen", "K2"]
+    assert cells["Material"] == ["[[Material/AB.pdf|AB 1]]"]

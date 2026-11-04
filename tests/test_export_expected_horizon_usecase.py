@@ -266,3 +266,36 @@ def test_expected_horizon_filters_competency_prefixes_from_goals(tmp_path):
         "... Bubble Sort erklären",
         "... Merge Sort einordnen",
     ]
+
+
+def test_expected_horizon_shows_title_of_net_linked_goals(tmp_path):
+    renderer = _RendererSpy()
+    usecase = ExportExpectedHorizonUseCase(renderer=renderer)
+
+    day_columns = [
+        _day(
+            tmp_path,
+            row_index=0,
+            datum="01-09-25",
+            kind="Unterricht",
+            obert="Algorithmen",
+            ziel="[[Inf-PL-24|Algorithmen entwerfen]]",
+            teilziele=["[[Inf-PL-7|Struktogramme lesen]]", "Freitext-Ziel"],
+        )
+    ]
+
+    usecase.execute(
+        table=_table(),
+        raw_day_columns=day_columns,
+        oberthemen=["Algorithmen"],
+        cutoff=HorizonCutoff.up_to_and_including(date(2099, 1, 1)),
+        output_path=Path("A:/7thCloud/Kompetenzhorizont.pdf"),
+        export_date=date(2026, 4, 1),
+    )
+
+    document, _ = renderer.calls[0]
+    assert [row.ich_kann for row in document.rows] == [
+        "... Algorithmen entwerfen",
+        "... Struktogramme lesen",
+        "... Freitext-Ziel",
+    ]

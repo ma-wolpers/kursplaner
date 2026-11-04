@@ -3,7 +3,7 @@
 Bildet die typisierten Fachdaten eines Export-DTOs (`TopicUnitExportRow`) auf
 medienneutrale Tabellenzellen (`ExportCell` = Zeilen einer Zelle) ab. Die Regeln
 hier sind **Darstellungsregeln dieses einen Exports** — Wochentagskürzel,
-``Std.``-Suffix, Zeilenaufteilung, Material-Anzeigenamen —, keine Fachregeln;
+``Std.``-Suffix, Zeilenaufteilung, Link-Anzeigenamen —, keine Fachregeln;
 deshalb liegt das Modul bei den Use Cases, die die Tabelle zusammenstellen
 (`ExportTopicUnitsPdfUseCase`, `SyncTopicSequencePlansUseCase`), und nicht im
 Domain-Kern. Jedes Ausgabemedium (Markdown-Tabelle, PDF) verbindet die Zeilen
@@ -54,11 +54,13 @@ def date_hour_cell(row: TopicUnitExportRow) -> ExportCell:
     return tuple(lines)
 
 
-def material_cell(entries: tuple[str, ...]) -> ExportCell:
-    """Zelle „Material“: ein Anzeigename pro Zeile (leeres Material → leere Zelle).
+def entries_cell(entries: tuple[str, ...]) -> ExportCell:
+    """Zelle aus Listeneinträgen (Kompetenzen, Material): ein Anzeigename pro Zeile.
+
+    Keine Einträge → leere Zelle.
 
     Args:
-        entries: Einträge des Listenfelds ``Material``.
+        entries: Einträge eines Listenfelds.
 
     Returns:
         Je Eintrag `wiki_link_display_text` (Alias bzw. Dateiname bei einem
@@ -87,10 +89,10 @@ def export_row_cells(row: TopicUnitExportRow) -> ExportTableRow:
     """
     return (
         date_hour_cell(row),
-        tuple(row.kompetenzen),
+        entries_cell(row.kompetenzen),
         text_cell(row.stundenthema),
-        text_cell(row.stundenziel),
-        material_cell(row.material),
+        text_cell(wiki_link_display_text(row.stundenziel)),
+        entries_cell(row.material),
     )
 
 

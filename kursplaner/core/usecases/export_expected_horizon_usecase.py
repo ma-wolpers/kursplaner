@@ -14,7 +14,7 @@ from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPd
 from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon, reconcile
 from kursplaner.core.domain.oberthema_values import normalize_oberthemen
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.wiki_links import strip_wiki_link, wiki_link_display_text
 from kursplaner.core.ports.expected_horizon import ExistingExpectedHorizonReaderPort
 
 __all__ = [
@@ -159,17 +159,21 @@ class ExportExpectedHorizonUseCase:
         return cls._COMPETENCY_PREFIX_RE.sub("", str(text or "").strip()).strip()
 
     @classmethod
+    def _goal_text(cls, entry: object) -> str:
+        """Anzeigetext eines Ziels: Link-Titel (`wiki_link_display_text`) ohne Kompetenz-Präfix."""
+        return cls._strip_competency_prefix(wiki_link_display_text(str(entry or "").strip()))
+
+    @classmethod
     def _goals_for_day(cls, yaml_data: dict[str, object]) -> list[tuple[str, GoalKind]]:
         goals: list[tuple[str, GoalKind]] = []
-        lesson_goal = cls._strip_competency_prefix(str(yaml_data.get("Stundenziel", "")).strip())
+        lesson_goal = cls._goal_text(yaml_data.get("Stundenziel", ""))
         if lesson_goal:
             goals.append((lesson_goal, GoalKind.STUNDENZIEL))
         goals.extend(
-            (cls._strip_competency_prefix(item), GoalKind.TEILZIEL)
-            for item in cls._parse_text_list(yaml_data.get("Teilziele", []))
+            (cls._goal_text(item), GoalKind.TEILZIEL) for item in cls._parse_text_list(yaml_data.get("Teilziele", []))
         )
         goals.extend(
-            (cls._strip_competency_prefix(item), GoalKind.SONDERZIEL)
+            (cls._goal_text(item), GoalKind.SONDERZIEL)
             for item in cls._parse_text_list(yaml_data.get("Sonderziele", []))
         )
         goals = [(text, kind) for text, kind in goals if text]

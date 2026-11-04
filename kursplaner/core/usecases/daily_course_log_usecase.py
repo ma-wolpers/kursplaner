@@ -9,6 +9,7 @@ from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date, read_yaml_oberthema
+from kursplaner.core.domain.wiki_links import wiki_link_display_text
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
 
 
@@ -43,6 +44,9 @@ class DailyCourseLogUseCase:
         "Ressourcen",
         "Baustellen",
     )
+    # Ziel-/Kompetenzeinträge können Netz-Links `[[ID|Titel]]` sein; der Log trägt
+    # wie beim Oberthema den Anzeigetext.
+    _LINK_DISPLAY_FIELDS: frozenset[str] = frozenset({"Stundenziel", "Kompetenzen"})
 
     def __init__(self, plan_repo: PlanRepository, lesson_repo: LessonRepository):
         """Initialisiert den Use Case mit Port-basierten Repositories."""
@@ -106,7 +110,7 @@ class DailyCourseLogUseCase:
                 # Anzeigetext tragen, siehe `plan_table.read_yaml_oberthema`.
                 cells[field] = read_yaml_oberthema(yaml_data, day.group_name)
                 continue
-            cells[field] = cls._normalize_value(
+            value = cls._normalize_value(
                 yaml_data.get(
                     field,
                     []
@@ -115,6 +119,13 @@ class DailyCourseLogUseCase:
                     else "",
                 )
             )
+            if field in cls._LINK_DISPLAY_FIELDS:
+                value = (
+                    [wiki_link_display_text(item) for item in value]
+                    if isinstance(value, list)
+                    else wiki_link_display_text(value)
+                )
+            cells[field] = value
         return cells
 
     def _units_for_table(self, table: PlanTableData, export_day: date) -> list[dict[str, object]]:
