@@ -15,6 +15,12 @@ from kursplaner.core.config.ui_preferences_store import (
     NEXT_UNIT_MODE_STARTZEIT,
     LessonBuilderFieldSettings,
 )
+from kursplaner.core.domain.course_kc_context import (
+    BUNDESLAND_KEY,
+    SCHULFORM_KEY,
+    CourseKcContext,
+    course_kc_context,
+)
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
 
 _UB_CUTOFF_HOUR_KEY = "ub_past_cutoff_hour"
@@ -142,6 +148,27 @@ def _build_settings_spec(path_settings_usecase: PathSettingsUseCase) -> Settings
                 ),
             ),
             SettingsSectionSpec(
+                key="new_courses",
+                label="Neue Kurse",
+                fields=(
+                    SettingsFieldSpec(
+                        key=BUNDESLAND_KEY,
+                        label="Standard-Bundesland",
+                        field_type="string",
+                        hint="Vorbelegung im Dialog „Neuer Kurs“, z. B. Niedersachsen.",
+                    ),
+                    SettingsFieldSpec(
+                        key=SCHULFORM_KEY,
+                        label="Standard-Schulform",
+                        field_type="string",
+                        hint=(
+                            "Vorbelegung im Dialog „Neuer Kurs“, z. B. IGS. Bundesland und Schulform "
+                            "bestimmen, welche Kerncurriculum-Einträge des Kompetenznetzes für den Kurs gelten."
+                        ),
+                    ),
+                ),
+            ),
+            SettingsSectionSpec(
                 key="school_wide_cancellations",
                 label="Schulweite Ausfälle",
                 fields=(
@@ -170,6 +197,7 @@ def _initial_values(
     school_wide_cancellations_path: str,
     next_unit_mode: str,
     next_unit_cutoff_time: time,
+    course_kc_defaults: CourseKcContext,
 ) -> dict[str, object]:
     values: dict[str, object] = {key: value for key, value in path_values.items()}
     values[_UB_CUTOFF_HOUR_KEY] = int(ub_past_cutoff_time.hour)
@@ -181,6 +209,8 @@ def _initial_values(
     values[_NEXT_UNIT_MODE_KEY] = next_unit_mode
     values[_NEXT_UNIT_CUTOFF_HOUR_KEY] = int(next_unit_cutoff_time.hour)
     values[_NEXT_UNIT_CUTOFF_MINUTE_KEY] = int(next_unit_cutoff_time.minute)
+    values[BUNDESLAND_KEY] = course_kc_defaults.bundesland or ""
+    values[SCHULFORM_KEY] = course_kc_defaults.schulform or ""
     return values
 
 
@@ -292,6 +322,8 @@ def open_settings_dialog(
     on_next_unit_mode_saved=None,
     next_unit_cutoff_time: time | None = None,
     on_next_unit_cutoff_time_saved=None,
+    course_kc_defaults: CourseKcContext | None = None,
+    on_course_kc_defaults_saved=None,
     theme_key: str | None = None,
     path_settings_usecase: PathSettingsUseCase | None = None,
 ) -> None:
@@ -317,6 +349,7 @@ def open_settings_dialog(
         else NEXT_UNIT_MODE_STARTZEIT
     )
     active_next_unit_cutoff_time = next_unit_cutoff_time or time(hour=15, minute=0)
+    active_course_kc_defaults = course_kc_defaults or CourseKcContext()
     active_section: str | None = None
     effective_theme_key = str(theme_key or "slate_indigo")
 
@@ -329,6 +362,7 @@ def open_settings_dialog(
             school_wide_cancellations_path=active_school_wide_cancellations_path,
             next_unit_mode=active_next_unit_mode,
             next_unit_cutoff_time=active_next_unit_cutoff_time,
+            course_kc_defaults=active_course_kc_defaults,
         )
         result = open_tabbed_settings_dialog(
             master,
@@ -348,6 +382,7 @@ def open_settings_dialog(
         proposed_school_wide_cancellations_path = _extract_school_wide_cancellations_path(result)
         proposed_next_unit_mode = _extract_next_unit_mode(result)
         proposed_next_unit_cutoff_time = _extract_next_unit_cutoff_time(result)
+        proposed_course_kc_defaults = course_kc_context(result)
 
         issues = path_settings_usecase.validate_values(proposed_path_values)
         if issues:
@@ -374,6 +409,7 @@ def open_settings_dialog(
             active_school_wide_cancellations_path = proposed_school_wide_cancellations_path
             active_next_unit_mode = proposed_next_unit_mode
             active_next_unit_cutoff_time = proposed_next_unit_cutoff_time
+            active_course_kc_defaults = proposed_course_kc_defaults
             active_section = "paths"
             continue
 
@@ -391,6 +427,7 @@ def open_settings_dialog(
                 active_course_overview_highlight_days = proposed_course_overview_highlight_days
                 active_next_unit_mode = proposed_next_unit_mode
                 active_next_unit_cutoff_time = proposed_next_unit_cutoff_time
+                active_course_kc_defaults = proposed_course_kc_defaults
                 active_section = "school_wide_cancellations"
                 continue
 
@@ -407,4 +444,6 @@ def open_settings_dialog(
             on_next_unit_mode_saved(proposed_next_unit_mode)
         if on_next_unit_cutoff_time_saved:
             on_next_unit_cutoff_time_saved(proposed_next_unit_cutoff_time)
+        if on_course_kc_defaults_saved:
+            on_course_kc_defaults_saved(proposed_course_kc_defaults)
         return

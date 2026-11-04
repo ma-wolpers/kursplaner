@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Protocol
 
 from kursplaner.core.domain.achievement_requirements import DomainAchievementRequirements
+from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.file_relation_registry import FileRelationRegistrySnapshot
 from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFileDiagnostic
@@ -191,6 +192,7 @@ class PlanRepository(Protocol):
         kc_profile_label: str | None = None,
         process_competencies: tuple[str, ...] = (),
         content_competency: str | None = None,
+        kc_context: CourseKcContext = CourseKcContext(),
     ) -> None:
         """Schreibt/aktualisiert den YAML-Metadatenblock einer Plan-Datei.
 
@@ -203,6 +205,18 @@ class PlanRepository(Protocol):
             kc_profile_label: Optionales KC-Profil fuer die Unterrichtseinheit.
             process_competencies: Optional gewaehlte prozessbezogene Kompetenzen.
             content_competency: Optional gewaehltes inhaltsbezogenes Stundenziel.
+            kc_context: Bundesland/Schulform des Kurses (``None``-Felder werden nicht geschrieben).
+        """
+        ...
+
+    def update_plan_kc_context(self, markdown_path: Path, kc_context: CourseKcContext) -> bool:
+        """Setzt chirurgisch ``Bundesland``/``Schulform`` in der Plan-Datei-Frontmatter.
+
+        Vorhandene Zeilen werden ersetzt, fehlende nach ``Stufe`` eingefügt;
+        ``None``-Felder bleiben unberührt, alle anderen Zeilen unverändert.
+
+        Returns:
+            ``True``, wenn die Datei geändert wurde.
         """
         ...
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzkatalog import KompetenzAbschnitt, Kompetenzkatalog, KompetenzkatalogManifestEntry
 from kursplaner.core.usecases.new_lesson_form_usecase import NewLessonFormData, NewLessonFormUseCase
 
@@ -101,10 +102,13 @@ def test_build_start_request_persists_selected_competencies_for_informatik(tmp_p
         kc_profile_id_raw=profile_id,
         process_competencies_raw=process_selected,
         content_competency_raw=content_selected,
+        bundesland_raw=" Niedersachsen ",
+        schulform_raw="IGS",
     )
 
     request = usecase.build_start_request(form)
 
+    assert request.kc_context == CourseKcContext("Niedersachsen", "IGS")
     assert request.kc_profile_label == options.profile_labels[profile_id]
     assert request.process_competencies == process_selected
     assert request.content_competency == content_selected

@@ -5,6 +5,7 @@ from pathlib import Path
 from bw_libs.app_paths import atomic_write_json
 from bw_libs.safe_read import read_json_or_default
 from kursplaner.core.config.settings import SCRIPT_DIR
+from kursplaner.core.domain.course_kc_context import CourseKcContext, course_kc_context, kc_context_fields
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilitySettings
 from kursplaner.core.usecases.row_display_mode_usecase import RowFilterSettings
 
@@ -19,6 +20,7 @@ _LESSON_BUILDER_FIELDS_KEY = "lesson_builder_fields"
 _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _ROW_FILTER_KEY = "row_filter"
 _SCHOOL_WIDE_CANCELLATIONS_PATH_KEY = "school_wide_cancellations_path"
+_COURSE_KC_DEFAULTS_KEY = "course_kc_defaults"
 
 
 @dataclass(frozen=True)
@@ -297,4 +299,17 @@ def save_row_filter_settings(settings: RowFilterSettings) -> None:
     payload[_ROW_FILTER_KEY] = {
         "field_mode_overrides": {field_key: sorted(modes) for field_key, modes in settings.field_mode_overrides.items()}
     }
+    _save_payload(payload)
+
+
+def load_course_kc_defaults() -> CourseKcContext:
+    """Standard-Bundesland/-Schulform für neue Kurse (Einstellungen); nicht gesetzt → leer."""
+    raw = _load_payload().get(_COURSE_KC_DEFAULTS_KEY)
+    return course_kc_context(raw) if isinstance(raw, dict) else CourseKcContext()
+
+
+def save_course_kc_defaults(context: CourseKcContext) -> None:
+    """Persistiert Standard-Bundesland/-Schulform (gleiche Feldnamen wie in der Plan-Datei)."""
+    payload = _load_payload()
+    payload[_COURSE_KC_DEFAULTS_KEY] = dict(kc_context_fields(context))
     _save_payload(payload)

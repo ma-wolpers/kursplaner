@@ -8,6 +8,7 @@ from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.weekday_rhythm_picker import WeekdayRhythmPicker
 from kursplaner.core.config.path_store import CALENDAR_DIR_KEY, UNTERRICHT_DIR_KEY
+from kursplaner.core.config.ui_preferences_store import load_course_kc_defaults
 from kursplaner.core.usecases.new_lesson_form_usecase import NewLessonFormData, NewLessonFormUseCase
 from kursplaner.core.usecases.new_lesson_usecase import NewLessonUseCase
 from kursplaner.core.usecases.path_settings_usecase import PathSettingsUseCase
@@ -64,6 +65,9 @@ class NewCourseWindow(ScrollablePopupWindow):
         self.grade_var = ui.StringVar(value="8")
         self.period_input_var = ui.StringVar()
         self.vacation_horizon_var = ui.StringVar(value="1")
+        kc_defaults = load_course_kc_defaults()
+        self.bundesland_var = ui.StringVar(value=kc_defaults.bundesland or "")
+        self.schulform_var = ui.StringVar(value=kc_defaults.schulform or "")
         self.preview_var = ui.StringVar(value="Ordnervorschau: –")
         self.vacation_preview_var = ui.StringVar(value="Planende (Ferienbeginn): –")
 
@@ -132,6 +136,13 @@ class NewCourseWindow(ScrollablePopupWindow):
 
         self._refresh_vacation_horizon_visibility()
 
+        kc_frame = widgets.LabelFrame(root, text="Kerncurriculum")
+        kc_frame.pack(fill="x", pady=(0, 10))
+        for row, (label, var) in enumerate((("Bundesland", self.bundesland_var), ("Schulform", self.schulform_var))):
+            widgets.Label(kc_frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
+            widgets.Entry(kc_frame, textvariable=var).grid(row=row, column=1, sticky="ew", pady=4)
+        kc_frame.columnconfigure(1, weight=1)
+
         rhythm_frame = widgets.LabelFrame(root, text="Unterrichtsrhythmus (Mo–Fr)")
         rhythm_frame.pack(fill="x", pady=(0, 10))
         self._rhythm_picker = WeekdayRhythmPicker(rhythm_frame)
@@ -191,6 +202,8 @@ class NewCourseWindow(ScrollablePopupWindow):
             kc_profile_id_raw="",
             process_competencies_raw=(),
             content_competency_raw="",
+            bundesland_raw=self.bundesland_var.get(),
+            schulform_raw=self.schulform_var.get(),
         )
 
     def _refresh_vacation_horizon_visibility(self):

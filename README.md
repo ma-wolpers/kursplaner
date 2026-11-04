@@ -60,6 +60,7 @@ Plan-Dateien tragen am Anfang YAML-Metadaten:
 - `Kursfach`
 - `Stufe` (1–13)
 - `Rhythmus`: der Stundenplan des Kurses, also Wochentage, Startzeit und Stundenzahl, optional nur in geraden/ungeraden Kalenderwochen (`gKW`/`uKW`) und mit Stundenplanwechseln (`ab <Datum>`), z. B. `"Mo 08:00 2"` oder `"Do 07:50 2 gKW"`
+- optional `Bundesland` und `Schulform` (z. B. `"Niedersachsen"`, `"IGS"`): bestimmen, welche Kerncurriculum-Einträge des Kompetenznetzes für den Kurs gelten (Startfilter des Kompetenznetzes). Neue Kurse übernehmen sie aus den Einstellungen („Neue Kurse“); bestehende Kurse ergänzt `python -m tools.set_course_kc_context` (erst mit `--dry-run`, vorher den Vault sichern).
 - optional `KC-Profil`, `Kompetenzen`, `Stundenziel`
 
 **Ausführliche Anleitung zum Stundenplan-Format, zu zweiwöchigem Unterricht und zu Stundenplanänderungen: [docs/STUNDENPLAN_RHYTHMUS.md](docs/STUNDENPLAN_RHYTHMUS.md).**

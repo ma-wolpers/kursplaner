@@ -8,12 +8,14 @@ from kursplaner.adapters.gui.settings_window import open_settings_dialog
 from kursplaner.core.config.school_wide_cancellations_store import set_store_path_override
 from kursplaner.core.config.ui_preferences_store import (
     LessonBuilderFieldSettings,
+    load_course_kc_defaults,
     load_course_overview_highlight_days,
     load_lesson_builder_field_settings,
     load_next_unit_cutoff_time,
     load_next_unit_mode,
     load_school_wide_cancellations_path_override,
     load_ub_past_cutoff_time,
+    save_course_kc_defaults,
     save_course_overview_highlight_days,
     save_lesson_builder_field_settings,
     save_next_unit_cutoff_time,
@@ -79,6 +81,8 @@ class MainWindowPathSettingsController:
             on_next_unit_mode_saved=self.on_next_unit_mode_saved,
             next_unit_cutoff_time=load_next_unit_cutoff_time(),
             on_next_unit_cutoff_time_saved=self.on_next_unit_cutoff_time_saved,
+            course_kc_defaults=load_course_kc_defaults(),
+            on_course_kc_defaults_saved=save_course_kc_defaults,
             theme_key=self.app.theme_var.get(),
             path_settings_usecase=self.path_settings_usecase,
         )

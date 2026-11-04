@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 from bw_libs.app_paths import atomic_write_text
+from kursplaner.core.domain.course_kc_context import CourseKcContext, kc_context_fields
 from kursplaner.core.domain.course_lifecycle import course_archive_root
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, format_rhythm
 from kursplaner.core.domain.course_subject import normalize_course_subject
@@ -257,6 +258,7 @@ class FileSystemPlanRepository:
         kc_profile_label: str | None = None,
         process_competencies: tuple[str, ...] = (),
         content_competency: str | None = None,
+        kc_context: CourseKcContext = CourseKcContext(),
     ) -> None:
         """Schreibt/ersetzt den YAML-Frontmatterblock für Plan-Metadaten."""
         text = markdown_path.read_text(encoding="utf-8") if markdown_path.exists() else ""
@@ -270,6 +272,7 @@ class FileSystemPlanRepository:
             f"Lerngruppe: {self._yaml_quote(group_link)}",
             f"Kursfach: {self._yaml_quote(canonical_course_subject)}",
             f"Stufe: {grade_level}",
+            *self._kc_context_lines(kc_context),
             "Rhythmus:",
         ]
         lines.extend(f"  - {self._yaml_quote(entry)}" for entry in format_rhythm(rhythm))
@@ -338,3 +341,40 @@ class FileSystemPlanRepository:
         if text.endswith("\n"):
             output += "\n"
         atomic_write_text(markdown_path, output, encoding="utf-8")
+
+    def _kc_context_lines(self, kc_context: CourseKcContext) -> list[str]:
+        """Frontmatter-Zeilen für Bundesland/Schulform (einzige Formatierung, Anlage und Umstellung)."""
+        return [f"{key}: {self._yaml_quote(value)}" for key, value in kc_context_fields(kc_context)]
+
+    def update_plan_kc_context(self, markdown_path: Path, kc_context: CourseKcContext) -> bool:
+        """Setzt chirurgisch ``Bundesland``/``Schulform``; vorhandene Zeilen ersetzt, fehlende nach ``Stufe``.
+
+        Alle übrigen Frontmatter-Zeilen und der Body bleiben unverändert;
+        ``None``-Felder werden nicht angefasst.
+
+        Returns:
+            ``True``, wenn die Datei geändert wurde.
+
+        Raises:
+            RuntimeError: Wenn die Datei kein YAML-Frontmatter hat.
+        """
+        text = markdown_path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        if not lines or lines[0].strip() != "---" or "---" not in (line.strip() for line in lines[1:]):
+            raise RuntimeError(f"Fehlendes YAML-Frontmatter in Plan-Datei: {markdown_path}")
+        end = next(idx for idx in range(1, len(lines)) if lines[idx].strip() == "---")
+        new_lines = list(lines)
+        for line in reversed(self._kc_context_lines(kc_context)):
+            key = line.split(":", 1)[0]
+            existing = next((idx for idx in range(1, end) if new_lines[idx].startswith(f"{key}:")), None)
+            if existing is not None:
+                new_lines[existing] = line
+                continue
+            stufe = next((idx for idx in range(1, end) if new_lines[idx].startswith("Stufe:")), end - 1)
+            new_lines.insert(stufe + 1, line)
+            end += 1
+        if new_lines == lines:
+            return False
+        output = "\n".join(new_lines) + ("\n" if text.endswith("\n") else "")
+        atomic_write_text(markdown_path, output, encoding="utf-8")
+        return True

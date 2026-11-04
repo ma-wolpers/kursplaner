@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from kursplaner.core.domain.course_kc_context import course_kc_context, schulform_matches
 from kursplaner.core.domain.kompetenzgraph_context import compute_context_node_ids
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
@@ -31,7 +32,9 @@ class KompetenzGraphFilter:
             `node_matches_filter()`) -- ein Knoten mit einem Eintrag
             Niedersachsen/Jahrgang 11 und einem zweiten Eintrag
             Bayern/Jahrgang 8 darf beim Filter "Niedersachsen + Jahrgang 8"
-            NICHT treffen.
+            NICHT treffen. `schulform` vergleicht über
+            `course_kc_context.schulform_matches` (Stufenangaben wie
+            ``SekII`` umfassen mehrere Schulformen).
         status: Bezieht sich auf das Knoten-Ebene-Feld `status` (nicht pro
             `kc_zuordnung`-Eintrag), separat UND-verknüpft.
         inhaltsbereich_id, prozessbereich_id: Beziehen sich auf
@@ -109,7 +112,7 @@ def _entry_matches_kc_zuordnung_criteria(entry: KcZuordnungEintrag, criteria: Ko
     """
     if criteria.jahrgang is not None and entry.jahrgang != criteria.jahrgang:
         return False
-    if criteria.schulform is not None and entry.schulform != criteria.schulform:
+    if not schulform_matches(entry.schulform, criteria.schulform):
         return False
     if criteria.bundesland is not None and entry.bundesland != criteria.bundesland:
         return False
@@ -192,15 +195,12 @@ def compute_visible_bereich_ids(snapshot: KompetenzGraphSnapshot, node_ids: froz
 def build_initial_kompetenz_graph_filter(course_metadata: Mapping[str, object]) -> KompetenzGraphFilter:
     """Baut den initialen Filter aus dem Metadaten-Dict des aktuell geöffneten Kurses.
 
-    Belegt ausschließlich Felder, für die bereits ein echtes Kursfeld
-    existiert: `Kursfach` → `subjects` (Einzelmenge, im Popup frei
-    erweiterbar/änderbar), `Stufe` → `jahrgang`. Bundesland/Schulform/
-    Niveau bleiben unbelegt ("alle") -- dafür gibt es aktuell kein
-    Kursfeld, und es werden bewusst keine neuen Kursfelder nur für dieses
-    Popup eingeführt und keine Heuristiken (z. B. Dateinamens-Raten)
-    verwendet. Diese isolierte Funktion macht das Feature erweiterbar,
-    falls der Kurskontext künftig um Bundesland/Schulform/Niveau ergänzt
-    wird, ohne den Rest des Kompetenzgraph-Features umzubauen.
+    Belegt ausschließlich Felder, für die ein echtes Kursfeld existiert:
+    `Kursfach` → `subjects` (Einzelmenge, im Popup frei erweiterbar/änderbar),
+    `Stufe` → `jahrgang`, `Bundesland`/`Schulform` → `bundesland`/`schulform`
+    (über `course_kc_context`; fehlt das Feld, bleibt der Filter "alle").
+    Niveau bleibt unbelegt -- dafür gibt es kein Kursfeld, und es werden
+    keine Heuristiken (z. B. Dateinamens-Raten) verwendet.
 
     Args:
         course_metadata: `PlanTableData.metadata`-artiges Dict des aktuell
@@ -212,4 +212,7 @@ def build_initial_kompetenz_graph_filter(course_metadata: Mapping[str, object]) 
     kursfach = str(course_metadata.get("Kursfach", "") or "").strip()
     subjects = frozenset({kursfach}) if kursfach else None
     jahrgang = parse_stufe(course_metadata.get("Stufe", ""))
-    return KompetenzGraphFilter(subjects=subjects, jahrgang=jahrgang)
+    context = course_kc_context(course_metadata)
+    return KompetenzGraphFilter(
+        subjects=subjects, jahrgang=jahrgang, schulform=context.schulform, bundesland=context.bundesland
+    )

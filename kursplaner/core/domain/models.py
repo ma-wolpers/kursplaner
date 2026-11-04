@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 
 
@@ -27,6 +28,7 @@ class StartRequest:
     takeover_start: date | None = None
     stop_at_next_break: bool = False
     vacation_break_horizon: int = 1
+    kc_context: CourseKcContext = CourseKcContext()
 
     @property
     def folder_name(self) -> str:

@@ -70,7 +70,10 @@ class KompetenzGraphFilterPanel:
             [str(jahrgang) for jahrgang in self._options.jahrgaenge],
             str(initial.jahrgang) if initial.jahrgang is not None else None,
         )
-        self._schulform_var = self._build_combobox("Schulform", list(self._options.schulformen), initial.schulform)
+        # Die Kurs-Schulform (z. B. "Gymnasium") steht im Netz oft nur als Stufenangabe ("SekII");
+        # sie bleibt trotzdem wählbar, damit der Startfilter nach einem Wechsel wiederherstellbar ist.
+        schulformen = sorted({*self._options.schulformen, *([initial.schulform] if initial.schulform else [])})
+        self._schulform_var = self._build_combobox("Schulform", schulformen, initial.schulform)
         self._bundesland_var = self._build_combobox("Bundesland", list(self._options.bundeslaender), initial.bundesland)
         self._niveau_var = self._build_combobox("Niveau", list(self._options.niveaus), initial.niveau)
         self._status_var = self._build_combobox("Status", list(self._options.status_werte), initial.status)

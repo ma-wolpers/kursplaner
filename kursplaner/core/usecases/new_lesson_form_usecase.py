@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 from typing import Callable
 
+from kursplaner.core.domain.course_kc_context import BUNDESLAND_KEY, SCHULFORM_KEY, course_kc_context
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.kompetenzkatalog import KompetenzkatalogManifestEntry
 from kursplaner.core.domain.models import StartRequest
@@ -36,6 +37,8 @@ class NewLessonFormData:
     kc_profile_id_raw: str = ""
     process_competencies_raw: tuple[str, ...] = ()
     content_competency_raw: str = ""
+    bundesland_raw: str = ""
+    schulform_raw: str = ""
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,7 @@ class NewLessonFormUseCase:
             takeover_start=takeover_start,
             stop_at_next_break=stop_at_next_break,
             vacation_break_horizon=horizon,
+            kc_context=course_kc_context({BUNDESLAND_KEY: form.bundesland_raw, SCHULFORM_KEY: form.schulform_raw}),
         )
 
     def get_informatik_competency_options(

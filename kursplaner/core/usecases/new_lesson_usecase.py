@@ -71,6 +71,7 @@ class NewLessonUseCase:
                 kc_profile_label=request.kc_profile_label,
                 process_competencies=request.process_competencies,
                 content_competency=request.content_competency,
+                kc_context=request.kc_context,
             )
 
             plan_result = self._create_plan_usecase.execute(

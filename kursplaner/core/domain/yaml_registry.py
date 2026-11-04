@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Sequence
 
+from kursplaner.core.domain.course_kc_context import BUNDESLAND_KEY, SCHULFORM_KEY
 from kursplaner.core.domain.course_rhythm import is_valid_rhythm_value
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.sequence_planning import (
@@ -97,6 +98,10 @@ def _is_valid_kursfach(value: object) -> bool:
         return False
 
 
+def _is_non_empty_text(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
 def _is_valid_stundentyp(value: object) -> bool:
     return str(value or "").strip() in {"Unterricht", "LZK", "Hospitation", "Ausfall"}
 
@@ -115,6 +120,8 @@ PLAN_METADATA_SCHEMA = YamlSchema(
         "Kursfach": _is_valid_kursfach,
         "Stufe": _is_valid_stufe,
         "Rhythmus": is_valid_rhythm_value,
+        BUNDESLAND_KEY: _is_non_empty_text,
+        SCHULFORM_KEY: _is_non_empty_text,
     },
 )
 """Schema fuer die Plan-Datei-Frontmatter.
@@ -139,6 +146,9 @@ einzige Quelle fuer die Stundenzahl/Startzeit eines Kalendertags. Dateien im
 alten Format ohne dieses Feld muessen mit
 ``tools/migrate_plan_table_schema.py`` migriert werden, bevor sie wieder
 ladbar sind.
+
+``Bundesland`` und ``Schulform`` (optional, wenn vorhanden nicht leer) bilden
+den KC-Kontext des Kurses, siehe :mod:`kursplaner.core.domain.course_kc_context`.
 """
 
 LESSON_SCHEMA = YamlSchema(
