@@ -45,6 +45,11 @@ def test_title_with_pipe_survives_the_roundtrip():
     assert parse_ladder_section("\n".join(format_ladder_section(ladder))) == ladder
 
 
+def test_same_right_block_in_several_rungs_is_valid():
+    ladder = parse_ladder_section("- Sprosse 1\n  - Prozess: [[Mat-1|p]]\n- Sprosse 2\n  - Prozess: [[Mat-1|p]]")
+    assert [len(rung.prozess) for rung in ladder.rungs] == [1, 1]
+
+
 def test_network_text_normalizes_like_the_file_does():
     assert network_block_text("Mat-1", "Titel [mit] Klammern") == "Titel mit Klammern"
     assert network_block_text("Mat-1", "") == "Mat-1"
@@ -59,6 +64,8 @@ def test_network_text_normalizes_like_the_file_does():
         ("- Sprosse 1\nirgendwas", "Unbekannte Zeile"),
         ("- Sprosse 1\n  - Inhalt: [[a]] und mehr", "genau ein Wiki-Link"),
         ("- Sprosse 1\n  - Inhalt:", "ohne Beschreibung"),
+        ("- Sprosse 1\n  - Inhalt: x\n- Sprosse 2\n  - Inhalt: X", "Spalte bereits"),
+        ("- Sprosse 1\n  - Prozess: [[Mat-1|p]]\n  - Prozess: [[Mat-1|p]]", "Sprosse bereits"),
     ],
 )
 def test_parser_is_strict_with_line_numbers(body, message):

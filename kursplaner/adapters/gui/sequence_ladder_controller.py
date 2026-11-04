@@ -4,8 +4,8 @@ Jede Nutzeraktion wird hier zu genau einer Operation (`sequence_ladder_ops`) und
 geht über `EditSequenceLadderUseCase` – dem einzigen Schreibweg, der pro Aktion
 einen Undo-Eintrag erzeugt (§37). Der Controller kennt kein Tk: Dialoge laufen
 über das `LadderDialogs`-Protocol (Adapter `TkLadderDialogs`), die Anzeige über
-den `render`-Callback des Fensters. Cursor-Werte sind Board-Cursor (Baustein-Text
-oder Board-Zelle, siehe `sequence_ladder_board_mapping`).
+den `render`-Callback des Fensters. Cursor-Werte sind Board-Cursor (Kartenschlüssel
+eines `BlockRef` oder Board-Zelle, siehe `sequence_ladder_board_mapping`).
 """
 
 from __future__ import annotations
@@ -18,7 +18,9 @@ from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
+    block_ref,
     board_cell,
+    card_key,
     cell_slot,
     initial_cursor,
     ladder_slot,
@@ -26,7 +28,13 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
 )
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
-from kursplaner.core.domain.sequence_ladder import LadderSlot, SequenceLadder, block_text_error
+from kursplaner.core.domain.sequence_ladder import (
+    BlockRef,
+    LadderBlock,
+    LadderSlot,
+    SequenceLadder,
+    block_text_error,
+)
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
     LadderOperation,
@@ -155,7 +163,7 @@ class SequenceLadderController:
 
     # -- Aktionen --------------------------------------------------------------
 
-    def _run(self, op: LadderOperation, cursor_after: Cursor) -> EditSequenceLadderResult | None:
+    def _run(self, op: LadderOperation, cursor_after: Cursor = None) -> EditSequenceLadderResult | None:
         if self.read_only:
             self._dialogs.show_info("Sequenzleiter", self._banner() or "Die Leiter ist schreibgeschützt.")
             return None
@@ -168,18 +176,27 @@ class SequenceLadderController:
             self._dialogs.show_info("Sequenzleiter", "\n".join(result.notes))
         if result.applied:
             self._after_write()
-        self.reload(cursor_after if result.applied else None)
+        cursor = card_key(result.focus) if result.focus is not None else cursor_after
+        self.reload(cursor if result.applied else None)
         return result
 
-    def _ask(self, title: str, initial: str = "", ignore: str | None = None) -> str | None:
+    def _ask(self, title: str, slot: LadderSlot, initial: str = "", ignore: BlockRef | None = None) -> str | None:
         ladder = self.ladder
         text = self._dialogs.ask_text(
             title,
             "Beschreibung des Bausteins:",
             initial=initial,
-            validate=lambda t: block_text_error(t, ladder, ignore=ignore),
+            validate=lambda t: block_text_error(t, ladder, side=slot.side, rung=slot.rung, ignore=ignore),
         )
         return text.strip() if text is not None else None
+
+    def _selected(self) -> tuple[BlockRef, LadderSlot, LadderBlock] | None:
+        """Gewählter Baustein mit Position, ``None`` ohne Baustein-Auswahl."""
+        if not isinstance(self.cursor, str):
+            return None
+        ref = block_ref(self.cursor)
+        found = self.ladder.find(ref)
+        return (ref, found[0], found[1]) if found is not None else None
 
     def _end_slot(self, cell: BoardCell) -> LadderSlot | None:
         """Position unter dem letzten Baustein einer Zelle; ``None`` für die Ideen-Spalte."""
@@ -193,14 +210,15 @@ class SequenceLadderController:
         slot = self._end_slot(cell)
         if slot is None or self.read_only:
             return
-        text = self._ask("Neuer Baustein")
+        text = self._ask("Neuer Baustein", slot)
         if text:
-            self._run(AddBlock(slot, text), text)
+            self._run(AddBlock(slot, text))
 
     def copy(self) -> None:
         """Strg+C: den gewählten Baustein merken."""
-        if isinstance(self.cursor, str):
-            self.clipboard = self.cursor
+        selected = self._selected()
+        if selected is not None:
+            self.clipboard = selected[2].text
 
     def paste(self) -> None:
         """Strg+V: Kopie über dem gewählten Baustein (oder in die gewählte Zelle) mit neuem Namen."""
@@ -211,51 +229,53 @@ class SequenceLadderController:
         if slot is None:
             self._dialogs.show_info("Einfügen", "Erst einen Baustein oder eine Zelle der Leiter wählen.")
             return
-        text = self._ask("Kopie benennen", initial=self.clipboard)
+        text = self._ask("Kopie benennen", slot, initial=self.clipboard)
         if text:
-            self._run(AddBlock(slot, text, pasted=True), text)
+            self._run(AddBlock(slot, text, pasted=True))
 
     def _paste_slot(self) -> LadderSlot | None:
         if isinstance(self.cursor, str):
-            found = self.ladder.locate(self.cursor)
-            return found[0] if found is not None else None
+            selected = self._selected()
+            return selected[1] if selected is not None else None
         if isinstance(self.cursor, BoardCell):
             return self._end_slot(self.cursor)
         return None
 
     def delete(self) -> None:
         """Entf: gewählten Baustein löschen; danach den Nachbarn in der Zelle wählen."""
-        found = self.ladder.locate(self.cursor) if isinstance(self.cursor, str) else None
-        if found is None:
+        selected = self._selected()
+        if selected is None:
             return
-        slot = found[0]
-        result = self._run(RemoveBlock(self.cursor), self.cursor)
+        ref, slot, _block = selected
+        result = self._run(RemoveBlock(ref), self.cursor)
         if result is not None and result.applied:
-            blocks = self.ladder.rung(slot.rung).blocks(slot.side)
-            self.cursor = blocks[min(slot.index, len(blocks) - 1)].text if blocks else board_cell(slot)
+            count = len(self.ladder.rung(slot.rung).blocks(slot.side))
+            neighbor = self.ladder.ref_at(LadderSlot(slot.rung, slot.side, min(slot.index, count - 1)))
+            self.cursor = card_key(neighbor) if neighbor is not None else board_cell(slot)
             self.reload()
 
     def rename(self) -> None:
         """F2: eigenen Baustein umbenennen (Netz-Bausteine sind gesperrt)."""
-        found = self.ladder.locate(self.cursor) if isinstance(self.cursor, str) else None
-        if found is None or self.read_only:
+        selected = self._selected()
+        if selected is None or self.read_only:
             return
-        block = found[1]
+        ref, slot, block = selected
         if block.is_network:
             self._dialogs.show_info("Umbenennen", "Bausteine aus dem Kompetenznetz können nicht umbenannt werden.")
             return
-        text = self._ask("Baustein umbenennen", initial=block.text, ignore=block.text)
+        text = self._ask("Baustein umbenennen", slot, initial=block.text, ignore=ref)
         if text and text != block.text:
-            self._run(RenameBlock(block.text, text), text)
+            self._run(RenameBlock(ref, text))
 
     def step(self, up: bool) -> None:
         """Strg+↑/↓: eine Position höher/tiefer (über Sprossengrenzen)."""
-        if isinstance(self.cursor, str):
-            self._run(StepBlock(self.cursor, up), self.cursor)
+        selected = self._selected()
+        if selected is not None:
+            self._run(StepBlock(selected[0], up), self.cursor)
 
-    def drop(self, card_key: str, slot: BoardSlot) -> None:
-        """Drag & Drop: Baustein an die angezeigte Einfügelinie verschieben."""
-        self._run(MoveBlock(card_key, ladder_slot(slot)), card_key)
+    def drop(self, key: str, slot: BoardSlot) -> None:
+        """Drag & Drop: Baustein (Kartenschlüssel *key*) an die angezeigte Einfügelinie verschieben."""
+        self._run(MoveBlock(block_ref(key), ladder_slot(slot)), key)
 
     def commit_ideas(self, cell: BoardCell, text: str) -> None:
         """Ideenfeld einer Sprosse übernehmen (ein Undo-Schritt)."""

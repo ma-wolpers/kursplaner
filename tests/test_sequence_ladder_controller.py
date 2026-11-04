@@ -6,8 +6,15 @@ import pytest
 from bw_gui.widgets.card_board import BoardCell, BoardSlot
 from test_sequence_plan_repository import _build_table
 
-from kursplaner.adapters.gui.sequence_ladder_board_mapping import LANE_IDEEN, LANE_INHALT, LANE_PROZESS, rung_key
+from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
+    LANE_IDEEN,
+    LANE_INHALT,
+    LANE_PROZESS,
+    card_key,
+    rung_key,
+)
 from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
@@ -65,6 +72,10 @@ def make(tmp_path):
     return factory
 
 
+def _key(text, rung=0, side=LadderSide.INHALT):
+    return card_key(BlockRef(rung, side, text))
+
+
 def _inhalt(controller, rung=0):
     return [b.text for b in controller.ladder.rung(rung).inhalt]
 
@@ -74,7 +85,7 @@ def test_plus_asks_for_a_name_and_appends_in_the_cell(make):
     dialogs.answers = ["A", "B"]
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
-    assert _inhalt(controller) == ["A", "B"] and controller.cursor == "B"
+    assert _inhalt(controller) == ["A", "B"] and controller.cursor == _key("B")
     assert len(writes) == 2 and len(history.undo_stack) == 2
     assert dialogs.validators[-1]("a") is not None  # Eindeutigkeit schon im Dialog
 
@@ -84,9 +95,9 @@ def test_copy_paste_inserts_above_with_prefilled_name(make):
     dialogs.answers = ["A", "B", "A2"]
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
-    controller.set_cursor("A")
+    controller.set_cursor(_key("A"))
     controller.copy()
-    controller.set_cursor("B")
+    controller.set_cursor(_key("B"))
     controller.paste()
     assert dialogs.asked[-1] == ("Kopie benennen", "A")
     assert _inhalt(controller) == ["A", "A2", "B"]
@@ -111,7 +122,7 @@ def test_rename_refuses_network_blocks(make, tmp_path):
         encoding="utf-8",
     )
     controller.reload()
-    controller.set_cursor("Netz")
+    controller.set_cursor(_key("Netz", side=LadderSide.PROZESS))
     controller.rename()
     assert dialogs.asked == [] and "nicht umbenannt" in dialogs.infos[0]
 
@@ -121,9 +132,9 @@ def test_delete_selects_the_neighbour_or_the_empty_cell(make):
     dialogs.answers = ["A", "B"]
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
-    controller.set_cursor("A")
+    controller.set_cursor(_key("A"))
     controller.delete()
-    assert controller.cursor == "B"
+    assert controller.cursor == _key("B")
     controller.delete()
     assert controller.cursor == BoardCell(rung_key(0), LANE_INHALT)
 
@@ -133,9 +144,9 @@ def test_step_and_drop_keep_the_selection(make):
     dialogs.answers = ["A"]
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
     controller.step(up=True)
-    assert _inhalt(controller, 1) == ["A"] and controller.cursor == "A"
-    controller.drop("A", BoardSlot(rung_key(3), LANE_INHALT, 0))
-    assert _inhalt(controller, 3) == ["A"]
+    assert _inhalt(controller, 1) == ["A"] and controller.cursor == _key("A", 1)
+    controller.drop(_key("A", 1), BoardSlot(rung_key(3), LANE_INHALT, 0))
+    assert _inhalt(controller, 3) == ["A"] and controller.cursor == _key("A", 3)
 
 
 def test_ideas_commit_is_one_step(make):
@@ -150,3 +161,15 @@ def test_missing_sequence_is_read_only_with_banner(make):
     controller.add(BoardCell(rung_key(0), LANE_PROZESS))
     assert controller.read_only and writes == [] and dialogs.asked == []
     assert "nicht (mehr) vor" in renders[-1][2]
+
+
+def test_right_column_names_are_checked_per_rung(make):
+    controller, dialogs, *_ = make()
+    dialogs.answers = ["P", None, None]
+    controller.add(BoardCell(rung_key(0), LANE_PROZESS))
+    controller.add(BoardCell(rung_key(1), LANE_PROZESS))
+    other_rung = dialogs.validators[-1]
+    controller.add(BoardCell(rung_key(0), LANE_PROZESS))
+    same_rung = dialogs.validators[-1]
+    assert other_rung("p") is None
+    assert same_rung("p") is not None

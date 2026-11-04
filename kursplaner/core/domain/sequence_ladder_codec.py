@@ -13,14 +13,21 @@ Markdown-Liste, Sprossen von unten (1) nach oben::
 Netz-Bausteine sind genau ein Wiki-Link (Ziel = Kompetenz-ID, Alias = Titel);
 Links bauen und lesen ausschließlich `wiki_links`. Der Parser ist strikt: jede
 unbekannte Zeile ist ein `LadderFormatError`, damit Handeingaben nie still
-verloren gehen.
+verloren gehen; ebenso ein Baustein, der die Eindeutigkeitsregel
+(`uniqueness_scope`) verletzt.
 """
 
 from __future__ import annotations
 
 import re
 
-from kursplaner.core.domain.sequence_ladder import LadderBlock, LadderRung, LadderSide, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import (
+    LadderBlock,
+    LadderRung,
+    LadderSide,
+    SequenceLadder,
+    conflict_message,
+)
 from kursplaner.core.domain.wiki_links import build_wiki_link, extract_wiki_link_target, wiki_link_display_text
 
 LADDER_HEADING = "Sequenzleiter"
@@ -107,7 +114,18 @@ def parse_ladder_section(body: str) -> SequenceLadder:
         label, value = entry.group(1), (entry.group(2) or "").strip()
         if label not in rungs[-1]:
             raise LadderFormatError(line_no, f"Unbekannte Spalte „{label}“ (erlaubt: Inhalt, Prozess, Idee).")
-        rungs[-1][label].append(value if label == _IDEA_LABEL else _parse_block(value, line_no))
+        if label == _IDEA_LABEL:
+            rungs[-1][label].append(value)
+            continue
+        block, side = _parse_block(value, line_no), LadderSide(label)
+        clash = _build(rungs).conflict(side, len(rungs) - 1, block.text, kompetenz_id=block.kompetenz_id)
+        if clash is not None:
+            raise LadderFormatError(line_no, conflict_message(clash, side))
+        rungs[-1][label].append(block)
+    return _build(rungs)
+
+
+def _build(rungs: list[dict[str, list]]) -> SequenceLadder:
     return SequenceLadder(
         tuple(
             LadderRung(

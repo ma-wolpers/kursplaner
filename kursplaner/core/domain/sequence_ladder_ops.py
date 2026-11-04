@@ -4,9 +4,11 @@ Jede Aktion im Leiter-Editor (anlegen, einfügen, löschen, umbenennen,
 verschieben, Strg+Pfeil, Netz-Import, Ideen) ist ein unveränderliches
 Operation-Objekt. `apply_ladder_operation` ist die einzige Stelle, die
 Operationen auf eine Leiter anwendet (Registry), `operation_label` die einzige
-Quelle der Undo-Beschriftung. Bausteine werden immer per Text referenziert,
-nie per Index: der Use Case liest vor jeder Operation neu, eine zwischenzeitlich
-extern geänderte Datei trifft so nie den falschen Baustein.
+Quelle der Undo-Beschriftung. Bausteine werden immer per `BlockRef` (Sprosse,
+Spalte, Text) referenziert, nie per Index: der Use Case liest vor jeder
+Operation neu, eine zwischenzeitlich extern geänderte Datei trifft so nie den
+falschen Baustein. Jede Operation, die einen Baustein anlegt oder bewegt, meldet
+seinen neuen Verweis als `focus` (für die Auswahl im Editor).
 """
 
 from __future__ import annotations
@@ -15,14 +17,15 @@ from dataclasses import dataclass
 from typing import Callable, Union
 
 from kursplaner.core.domain.sequence_ladder import (
+    BlockRef,
     LadderBlock,
     LadderRuleError,
     LadderRung,
     LadderSide,
     LadderSlot,
     SequenceLadder,
-    block_key,
     block_text_error,
+    conflict_message,
 )
 
 
@@ -39,14 +42,14 @@ class AddBlock:
 class RemoveBlock:
     """Baustein löschen."""
 
-    text: str
+    ref: BlockRef
 
 
 @dataclass(frozen=True)
 class RenameBlock:
     """Eigenen Baustein umbenennen (Netz-Bausteine sind gesperrt)."""
 
-    text: str
+    ref: BlockRef
     new_text: str
 
 
@@ -54,7 +57,7 @@ class RenameBlock:
 class MoveBlock:
     """Baustein an *target* verschieben (gleiche Spalte; Index gilt nach dem Herausnehmen)."""
 
-    text: str
+    ref: BlockRef
     target: LadderSlot
 
 
@@ -62,7 +65,7 @@ class MoveBlock:
 class StepBlock:
     """Strg+↑/↓: eine Position höher bzw. tiefer, über Sprossengrenzen hinweg."""
 
-    text: str
+    ref: BlockRef
     up: bool
 
 
@@ -95,16 +98,23 @@ LadderOperation = Union[AddBlock, RemoveBlock, RenameBlock, MoveBlock, StepBlock
 
 @dataclass(frozen=True)
 class LadderApplyResult:
-    """Ergebnis einer Operation: neue Leiter (ohne leere Sprossen oben) und Hinweise für die Nutzerin."""
+    """Ergebnis einer Operation.
+
+    Attributes:
+        ladder: Neue Leiter (ohne leere Sprossen oben).
+        notes: Hinweise für die Nutzerin (z. B. übersprungene Kompetenzen).
+        focus: Neuer Verweis des angelegten/bewegten Bausteins, sonst ``None``.
+    """
 
     ladder: SequenceLadder
     notes: tuple[str, ...] = ()
+    focus: BlockRef | None = None
 
 
-def _require(ladder: SequenceLadder, text: str) -> tuple[LadderSlot, LadderBlock]:
-    found = ladder.locate(text)
+def _require(ladder: SequenceLadder, ref: BlockRef) -> tuple[LadderSlot, LadderBlock]:
+    found = ladder.find(ref)
     if found is None:
-        raise LadderRuleError(f"Baustein „{text}“ nicht gefunden (Datei wurde zwischenzeitlich geändert?).")
+        raise LadderRuleError(f"Baustein „{ref.text}“ nicht gefunden (Datei wurde zwischenzeitlich geändert?).")
     return found
 
 
@@ -121,38 +131,51 @@ def _insert(ladder: SequenceLadder, slot: LadderSlot, block: LadderBlock) -> Seq
     return ladder.with_rung(slot.rung, rung.with_blocks(slot.side, blocks[:index] + (block,) + blocks[index:]))
 
 
+def _relocate(ladder: SequenceLadder, ref: BlockRef, target: LadderSlot) -> LadderApplyResult:
+    """Baustein *ref* nach *target* bringen; Kollision im Zielbereich ist ein Regelfehler."""
+    slot, block = _require(ladder, ref)
+    if target.side is not slot.side:
+        raise LadderRuleError("Bausteine bleiben in ihrer Spalte.")
+    clash = ladder.conflict(target.side, target.rung, block.text, kompetenz_id=block.kompetenz_id, ignore=ref)
+    if clash is not None:
+        raise LadderRuleError(f"Sprosse {target.rung + 1}: {conflict_message(clash, target.side)}")
+    moved = _insert(_remove(ladder, slot), target, block)
+    return LadderApplyResult(moved, focus=BlockRef(target.rung, target.side, block.text))
+
+
 def _add(ladder: SequenceLadder, op: AddBlock) -> LadderApplyResult:
-    error = block_text_error(op.text, ladder)
+    error = block_text_error(op.text, ladder, side=op.slot.side, rung=op.slot.rung)
     if error:
         raise LadderRuleError(error)
-    return LadderApplyResult(_insert(ladder, op.slot, LadderBlock(op.text.strip())))
+    text = op.text.strip()
+    return LadderApplyResult(
+        _insert(ladder, op.slot, LadderBlock(text)), focus=BlockRef(op.slot.rung, op.slot.side, text)
+    )
 
 
 def _remove_op(ladder: SequenceLadder, op: RemoveBlock) -> LadderApplyResult:
-    slot, _block = _require(ladder, op.text)
+    slot, _block = _require(ladder, op.ref)
     return LadderApplyResult(_remove(ladder, slot))
 
 
 def _rename(ladder: SequenceLadder, op: RenameBlock) -> LadderApplyResult:
-    slot, block = _require(ladder, op.text)
+    slot, block = _require(ladder, op.ref)
     if block.is_network:
         raise LadderRuleError("Bausteine aus dem Kompetenznetz können nicht umbenannt werden.")
-    error = block_text_error(op.new_text, ladder, ignore=block.text)
+    error = block_text_error(op.new_text, ladder, side=slot.side, rung=slot.rung, ignore=op.ref)
     if error:
         raise LadderRuleError(error)
-    renamed = _remove(ladder, slot)
-    return LadderApplyResult(_insert(renamed, slot, LadderBlock(op.new_text.strip())))
+    text = op.new_text.strip()
+    renamed = _insert(_remove(ladder, slot), slot, LadderBlock(text))
+    return LadderApplyResult(renamed, focus=BlockRef(slot.rung, slot.side, text))
 
 
 def _move(ladder: SequenceLadder, op: MoveBlock) -> LadderApplyResult:
-    slot, block = _require(ladder, op.text)
-    if op.target.side is not slot.side:
-        raise LadderRuleError("Bausteine bleiben in ihrer Spalte.")
-    return LadderApplyResult(_insert(_remove(ladder, slot), op.target, block))
+    return _relocate(ladder, op.ref, op.target)
 
 
 def _step(ladder: SequenceLadder, op: StepBlock) -> LadderApplyResult:
-    slot, block = _require(ladder, op.text)
+    slot, _block = _require(ladder, op.ref)
     count = len(ladder.rung(slot.rung).blocks(slot.side))
     if op.up:
         target = (
@@ -165,23 +188,19 @@ def _step(ladder: SequenceLadder, op: StepBlock) -> LadderApplyResult:
     elif slot.rung > 0:
         target = LadderSlot(slot.rung - 1, slot.side, 0)
     else:
-        return LadderApplyResult(ladder)
-    return LadderApplyResult(_insert(_remove(ladder, slot), target, block))
+        return LadderApplyResult(ladder, focus=op.ref)
+    return _relocate(ladder, op.ref, target)
 
 
 def _import(ladder: SequenceLadder, op: ImportCompetences) -> LadderApplyResult:
     notes: list[str] = []
     targets = {side: ladder.highest_occupied(side) + 1 for side in LadderSide}
-    seen: set[str] = set()
     for item in op.items:
-        if ladder.contains_kompetenz(item.kompetenz_id):
-            notes.append(f"{item.kompetenz_id} liegt bereits auf der Leiter.")
-            continue
-        if ladder.locate(item.text) is not None or block_key(item.text) in seen:
-            notes.append(f"{item.kompetenz_id}: Ein Baustein „{item.text}“ existiert bereits.")
-            continue
-        seen.add(block_key(item.text))
         rung = targets[item.side]
+        clash = ladder.conflict(item.side, rung, item.text, kompetenz_id=item.kompetenz_id)
+        if clash is not None:
+            notes.append(f"{item.kompetenz_id}: {conflict_message(clash, item.side)}")
+            continue
         end = len(ladder.rung(rung).blocks(item.side))
         ladder = _insert(ladder, LadderSlot(rung, item.side, end), LadderBlock(item.text, item.kompetenz_id))
     return LadderApplyResult(ladder, tuple(notes))
@@ -214,7 +233,7 @@ def apply_ladder_operation(ladder: SequenceLadder, op: LadderOperation) -> Ladde
     """
     handler, _label = _REGISTRY[type(op)]
     result = handler(ladder, op)
-    return LadderApplyResult(result.ladder.trimmed(), result.notes)
+    return LadderApplyResult(result.ladder.trimmed(), result.notes, result.focus)
 
 
 def operation_label(op: LadderOperation) -> str:

@@ -11,13 +11,22 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     LANE_IDEEN,
     LANE_INHALT,
     LANE_PROZESS,
+    block_ref,
     board_rows,
     can_drop,
+    card_key,
     initial_cursor,
     ladder_slot,
     rung_key,
 )
-from kursplaner.core.domain.sequence_ladder import LadderBlock, LadderRung, LadderSide, LadderSlot, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import (
+    BlockRef,
+    LadderBlock,
+    LadderRung,
+    LadderSide,
+    LadderSlot,
+    SequenceLadder,
+)
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungInfo, RungKind, SequenceLadderView
 
 LADDER = SequenceLadder(
@@ -46,20 +55,36 @@ def test_rows_run_top_down_with_dates_kinds_and_tints():
     assert rows[0].label == "Sprosse 3\n??" and rows[0].tint is None
 
 
-def test_cards_use_text_as_key_and_competence_code_as_badge():
+A = card_key(BlockRef(0, LadderSide.INHALT, "A"))
+NETZ = card_key(BlockRef(0, LadderSide.PROZESS, "Netz"))
+
+
+def test_cards_key_a_block_ref_and_show_the_competence_code_as_badge():
     bottom = board_rows(_view())[-1]
-    assert [(c.key, c.badge) for c in bottom.cards[LANE_PROZESS]] == [("Netz", "Mat-PL-1")]
-    assert [c.key for c in bottom.cards[LANE_INHALT]] == ["A"]
+    assert [(c.key, c.text, c.badge) for c in bottom.cards[LANE_PROZESS]] == [(NETZ, "Netz", "Mat-PL-1")]
+    assert [c.key for c in bottom.cards[LANE_INHALT]] == [A]
     assert bottom.texts[LANE_IDEEN] == "Idee 1\nIdee 2"
 
 
+def test_card_key_round_trips_texts_with_separators_of_other_kinds():
+    ref = BlockRef(3, LadderSide.PROZESS, "a | b: c")
+    assert block_ref(card_key(ref)) == ref
+
+
 def test_drop_only_into_the_blocks_own_column():
-    assert can_drop(LADDER, "A", BoardSlot(rung_key(1), LANE_INHALT, 0))
-    assert not can_drop(LADDER, "A", BoardSlot(rung_key(1), LANE_PROZESS, 0))
-    assert not can_drop(LADDER, "Netz", BoardSlot(rung_key(0), LANE_IDEEN, 0))
+    assert can_drop(LADDER, A, BoardSlot(rung_key(1), LANE_INHALT, 0))
+    assert not can_drop(LADDER, A, BoardSlot(rung_key(1), LANE_PROZESS, 0))
+    assert not can_drop(LADDER, NETZ, BoardSlot(rung_key(0), LANE_IDEEN, 0))
+
+
+def test_no_drop_line_where_the_right_rung_already_holds_the_block():
+    ladder = LADDER.with_rung(1, LadderRung((LadderBlock("B"),), (LadderBlock("Netz", "Mat-PL-1"),)))
+    assert not can_drop(ladder, NETZ, BoardSlot(rung_key(1), LANE_PROZESS, 0))
+    assert can_drop(ladder, NETZ, BoardSlot(rung_key(2), LANE_PROZESS, 0))
+    assert can_drop(ladder, NETZ, BoardSlot(rung_key(0), LANE_PROZESS, 0))
 
 
 def test_slot_translation_and_initial_cursor():
     assert ladder_slot(BoardSlot(rung_key(4), LANE_PROZESS, 2)) == LadderSlot(4, LadderSide.PROZESS, 2)
-    assert initial_cursor(LADDER) == "A"
+    assert initial_cursor(LADDER) == A
     assert initial_cursor(SequenceLadder()) == BoardCell(rung_key(0), LANE_INHALT)

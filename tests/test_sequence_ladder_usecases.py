@@ -8,7 +8,7 @@ from kompetenzgraph_test_support import make_bereich, make_node
 from test_sequence_plan_repository import _build_table
 
 from kursplaner.core.domain.kompetenzgraph_snapshot_builder import build_kompetenz_graph_snapshot
-from kursplaner.core.domain.sequence_ladder import LadderSide, LadderSlot
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide, LadderSlot
 from kursplaner.core.domain.sequence_ladder_ops import AddBlock, RenameBlock, StepBlock
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
@@ -45,7 +45,8 @@ def test_each_operation_is_one_undo_step_and_undo_restores_the_file(env):
     assert edit.execute(sequence_path=path, operation=AddBlock(LadderSlot(0, INH, 0), "A")).applied
     assert edit.execute(sequence_path=path, operation=AddBlock(LadderSlot(0, INH, 1), "B")).applied
     after_two = path.read_text(encoding="utf-8")
-    assert edit.execute(sequence_path=path, operation=StepBlock("B", up=True)).applied
+    stepped = edit.execute(sequence_path=path, operation=StepBlock(BlockRef(0, INH, "B"), up=True))
+    assert stepped.applied and stepped.focus == BlockRef(0, INH, "B")
     assert [e.label for e in history.undo_stack] == ["Baustein anlegen", "Baustein anlegen", "Baustein verschieben"]
     history.undo()
     assert path.read_text(encoding="utf-8") == after_two
@@ -61,8 +62,8 @@ def test_rule_errors_and_no_ops_create_no_entry(env):
     edit.execute(sequence_path=path, operation=AddBlock(LadderSlot(0, INH, 0), "A"))
     result = edit.execute(sequence_path=path, operation=AddBlock(LadderSlot(0, INH, 0), "a"))
     assert not result.applied and "bereits" in result.error
-    assert not edit.execute(sequence_path=path, operation=StepBlock("A", up=False)).applied
-    assert not edit.execute(sequence_path=path, operation=RenameBlock("A", "A")).applied
+    assert not edit.execute(sequence_path=path, operation=StepBlock(BlockRef(0, INH, "A"), up=False)).applied
+    assert not edit.execute(sequence_path=path, operation=RenameBlock(BlockRef(0, INH, "A"), "A")).applied
     assert len(history.undo_stack) == 1
 
 

@@ -10,9 +10,11 @@ from bw_gui.testing.keys import press_key
 from test_sequence_ladder_controller import FakeDialogs
 from test_sequence_plan_repository import _build_table
 
+from kursplaner.adapters.gui.sequence_ladder_board_mapping import card_key
 from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
@@ -64,7 +66,7 @@ def test_enter_on_empty_cell_adds_and_ctrl_up_moves_across_rungs(ladder):
     assert press_key(key_widget, "Up", state=CTRL) is True
     assert [b.text for b in controller.ladder.rung(1).inhalt] == ["A"]
     window.board.flush_now()
-    assert window.board.cursor == "A"
+    assert window.board.cursor == card_key(BlockRef(1, LadderSide.INHALT, "A"))
 
 
 def test_delete_and_undo_keys_are_consumed_by_the_ladder(ladder):

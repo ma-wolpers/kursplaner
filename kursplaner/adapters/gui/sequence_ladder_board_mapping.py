@@ -2,8 +2,9 @@
 
 Hier – und nur hier – stehen Spaltentitel, Lane-/Zeilenschlüssel, die
 Darstellung der Sprossen-Beschriftung (Datum + Typ-Kürzel) und die Zuordnung
-Termin-Art → Farbton (aus `LESSON_KIND_TINTS`). Board-Kartenschlüssel sind die
-Baustein-Texte (Primärschlüssel, §37). Leiter-Index 0 ist die unterste Sprosse,
+Termin-Art → Farbton (aus `LESSON_KIND_TINTS`). Board-Kartenschlüssel kodieren
+einen `BlockRef` (Sprosse, Spalte, Text; `card_key`/`block_ref`), weil derselbe
+Text rechts in mehreren Sprossen stehen darf (§37). Leiter-Index 0 ist die unterste Sprosse,
 das Board zeigt die oberste Zeile zuerst; die Umrechnung steckt in
 `rung_key`/`rung_index`.
 """
@@ -13,7 +14,7 @@ from __future__ import annotations
 from bw_gui.widgets.card_board import BoardCard, BoardCell, BoardLane, BoardRow, BoardSlot, LaneKind, RowTint
 
 from kursplaner.adapters.gui.lesson_kind_tints import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, LESSON_KIND_TINTS
-from kursplaner.core.domain.sequence_ladder import LadderSide, LadderSlot, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide, LadderSlot, SequenceLadder
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungKind, SequenceLadderView
 
 LANE_INHALT = "inhalt"
@@ -42,6 +43,21 @@ def rung_index(row_key: str) -> int:
     return int(row_key.rsplit("-", 1)[1])
 
 
+_KEY_SEPARATOR = "\n"
+"""Trenner im Kartenschlüssel; Baustein-Texte sind einzeilig und enthalten ihn nie."""
+
+
+def card_key(ref: BlockRef) -> str:
+    """Board-Kartenschlüssel eines Bausteins."""
+    return _KEY_SEPARATOR.join((str(ref.rung), ref.side.value, ref.text))
+
+
+def block_ref(key: str) -> BlockRef:
+    """Baustein-Verweis zu einem Board-Kartenschlüssel (Umkehrung von `card_key`)."""
+    rung, side, text = key.split(_KEY_SEPARATOR, 2)
+    return BlockRef(int(rung), LadderSide(side), text)
+
+
 def _row_label(index: int, view: SequenceLadderView) -> str:
     info = view.rungs[index]
     tint_kind = _TINT_KIND.get(info.kind)
@@ -65,7 +81,8 @@ def board_rows(view: SequenceLadderView) -> list[BoardRow]:
         rung = ladder.rung(index)
         cards = {
             LANE_BY_SIDE[side]: tuple(
-                BoardCard(block.text, block.text, block.kompetenz_id) for block in rung.blocks(side)
+                BoardCard(card_key(BlockRef(index, side, block.text)), block.text, block.kompetenz_id)
+                for block in rung.blocks(side)
             )
             for side in LadderSide
         }
@@ -100,10 +117,22 @@ def board_cell(slot: LadderSlot) -> BoardCell:
 def initial_cursor(ladder: SequenceLadder) -> str | BoardCell:
     """Startcursor: erster Inhalts-Baustein der untersten Sprosse, sonst deren Inhaltszelle."""
     blocks = ladder.rung(0).blocks(LadderSide.INHALT)
-    return blocks[0].text if blocks else BoardCell(rung_key(0), LANE_INHALT)
+    return card_key(BlockRef(0, LadderSide.INHALT, blocks[0].text)) if blocks else BoardCell(rung_key(0), LANE_INHALT)
 
 
-def can_drop(ladder: SequenceLadder, card_key: str, slot: BoardSlot) -> bool:
-    """Ablegen nur in der eigenen Spalte (§37: kein Baustein wechselt die Spalte)."""
-    found = ladder.locate(card_key)
-    return found is not None and SIDE_BY_LANE.get(slot.lane_key) is found[0].side
+def can_drop(ladder: SequenceLadder, key: str, slot: BoardSlot) -> bool:
+    """Ablegen nur in der eigenen Spalte und ohne Kollision in der Zielsprosse (§37).
+
+    Kein Baustein wechselt die Spalte; rechts darf die Zielsprosse denselben
+    Baustein noch nicht tragen (`SequenceLadder.conflict`). So erscheint die
+    Einfügelinie nur dort, wo das Ablegen auch gelingt.
+    """
+    ref = block_ref(key)
+    found = ladder.find(ref)
+    if found is None or SIDE_BY_LANE.get(slot.lane_key) is not ref.side:
+        return False
+    block = found[1]
+    return (
+        ladder.conflict(ref.side, rung_index(slot.row_key), block.text, kompetenz_id=block.kompetenz_id, ignore=ref)
+        is None
+    )

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
-from kursplaner.core.domain.sequence_ladder import LadderRuleError, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
 from kursplaner.core.domain.sequence_ladder_import import competence_import_items
 from kursplaner.core.domain.sequence_ladder_ops import (
@@ -35,12 +35,14 @@ class EditSequenceLadderResult:
         ladder: Aktuelle Leiter nach der Operation (bei Formatfehler ``None``).
         error: Nutzerlesbarer Grund, warum nichts geändert wurde.
         notes: Hinweise (z. B. beim Import übersprungene Kompetenzen).
+        focus: Neuer Verweis des angelegten/bewegten Bausteins (für die Auswahl), sonst ``None``.
     """
 
     applied: bool
     ladder: SequenceLadder | None
     error: str | None = None
     notes: tuple[str, ...] = ()
+    focus: BlockRef | None = None
 
 
 class EditSequenceLadderUseCase:
@@ -71,13 +73,13 @@ class EditSequenceLadderUseCase:
             return EditSequenceLadderResult(False, ladder, str(exc), notes)
         all_notes = notes + result.notes
         if result.ladder == ladder.trimmed():
-            return EditSequenceLadderResult(False, ladder, None, all_notes)
+            return EditSequenceLadderResult(False, ladder, None, all_notes, result.focus)
         self._tracked_write.run_tracked_file_action(
             label=operation_label(operation),
             paths=[sequence_path],
             action=lambda: self._repo.write_sequence_ladder(sequence_path=sequence_path, ladder=result.ladder),
         )
-        return EditSequenceLadderResult(True, result.ladder, None, all_notes)
+        return EditSequenceLadderResult(True, result.ladder, None, all_notes, result.focus)
 
     def import_competences(
         self, *, sequence_path: Path, snapshot: KompetenzGraphSnapshot, kompetenz_ids: Iterable[str]
