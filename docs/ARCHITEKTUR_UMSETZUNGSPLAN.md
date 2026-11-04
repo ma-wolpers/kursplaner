@@ -1,6 +1,6 @@
 # kursplaner - Umsetzungsplan (nur offene Punkte)
 
-Stand: 2026-03-27
+Stand: 2026-11-04
 
 Kurz: Dieses Dokument enthaelt nur Arbeit, die noch passieren soll. Abgeschlossene Aenderungen und historische Statusnotizen gehoeren nicht hierher.
 
@@ -21,6 +21,9 @@ Referenz fuer dauerhafte Leitplanken:
 
 - **`NewLesson*UseCase`-Umbenennung** (2026-08-09 vermerkt): Der GUI-Dialog heißt seit dieser Session `NewCourseWindow`, die dahinterliegenden Use Cases (`NewLessonFormUseCase`, `NewLessonUseCase`, `new_lesson_form_usecase.py`, `new_lesson_usecase.py`) bewusst noch nicht mit umbenannt — größere, hier nicht angegangene Umbenennung mit vielen Importstellen.
 - **`lesson_conversion_controller.py`-Split** (2026-08-09 vermerkt, siehe `ARCHITEKTUR_KERN.md` §28 Ausnahme-Tabelle): Prefill-Hilfsfunktionen (`_unterricht_prefill_values`, `_coerce_string_list`, `_extract_markdown_section_refs`, `_prefill_ausfall_reason_from_content`) in ein eigenes `lesson_conversion_prefill.py` auslagern.
+- **Sequenzleiter → Einheiten** (2026-11-04, Prototyp-Grenze aus §37): Bausteine einer Sprosse in `Stundenziel`/`Teilziele` (links) bzw. `Kompetenzen` und Sequenz-`Leitkompetenzen` (rechts) der zugehörigen Einheit übertragen. Offen: Zuordnung Sprosse → Einheit (Sprossen sind heute Positionen), Konfliktregel bei bereits gefüllten Feldern, ein Undo-Schritt über mehrere Dateien.
+- **Sequenzdatei bei Oberthema-Umbenennung übernehmen** (2026-11-04): Benennt die Nutzerin das Oberthema einer Sequenz um, entsteht eine neue, leere Sequenzdatei; die alte (mit Leiter, Sequenzziel, Brainstorming) bleibt verwaist liegen, weil `is_trivial` sie schützt. Gesucht: expliziter Übernahme-Use-Case (keine Heuristik), z. B. beim Umbenennen anbieten.
+- **Kursübergreifende Sequenzauswahl** (2026-11-04): Die Sequenzübersicht (Leiter, „Zu einer Sequenz hinzufügen…“) zeigt nur Sequenzen des geöffneten Kurses; für andere Kurse müssten deren Tagesspalten für die Sprossen-Termine geladen werden.
 - **`grid_cell_policy_usecase.py`/`lesson_context_controller.py`-Duplikation** (2026-08-09 vermerkt): `GridCellPolicyUseCase.field_value`/`is_editable` sind ein nahezu wortgleicher Klon von `MainWindowLessonContextController.field_value`/`RowDisplayModeUseCase.is_editable` — bereits vor dieser Session bestehend, durch die Rhythmus-Umstellung (`"startzeit"`-Feld musste an beiden Stellen ergänzt werden) erneut sichtbar geworden. Konsolidierung auf eine Quelle empfohlen.
 
 ---
