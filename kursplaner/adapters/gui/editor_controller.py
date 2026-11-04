@@ -7,7 +7,7 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,
 )
-from kursplaner.core.domain.list_cell_text import parse_list_cell
+from kursplaner.core.domain.list_cell_text import format_list_cell, parse_list_cell
 
 
 class MainWindowEditorController:
@@ -98,7 +98,13 @@ class MainWindowEditorController:
             self.app.grid_canvas.focus_set()
             if kompetenzen_selection is None:
                 return True
-            apply_field, apply_value = "Kompetenzen", " | ".join(kompetenzen_selection.kompetenzen_refs)
+            # Listenzellen-Text nach dem Listenvertrag: jede gewählte Kompetenz wird ein eigener Eintrag.
+            try:
+                apply_value = format_list_cell(list(kompetenzen_selection.kompetenzen_refs))
+            except ValueError as exc:
+                messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
+                return True
+            apply_field = "Kompetenzen"
 
         try:
             self.apply_value(apply_field, day_index, apply_value)
