@@ -58,6 +58,28 @@ class TrackedWriteUseCase:
         files.extend(self._normalize_paths(extra_paths))
         return self.history_usecase.capture(files)
 
+    def run_tracked_file_action(
+        self, *, label: str, paths: list[Path], action: Callable[[], TActionResult]
+    ) -> TActionResult:
+        """Führt eine Aktion aus, die genau *paths* schreibt, als einen History-Eintrag.
+
+        Für Schreibaktionen ohne Plan-/Spaltenbezug (z. B. Sequenzdatei: Leiter,
+        Sequenzziel): erfasst nur diese Dateien, funktioniert ohne geöffneten
+        Plan und löst keinen Vault-Scan aus. Ohne Änderung entsteht kein Eintrag.
+
+        Args:
+            label: Sichtbarer Name der Aktion im Verlauf.
+            paths: Alle Dateien, die *action* verändern kann.
+            action: Die schreibende Aktion.
+        """
+        normalized = self._normalize_paths(paths)
+        return self.history_usecase.run_tracked_action(
+            label=label,
+            action=action,
+            capture_before=lambda: self.history_usecase.capture(normalized),
+            extra_after=normalized,
+        )
+
     def run_tracked_action(
         self,
         *,

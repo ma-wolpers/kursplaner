@@ -38,6 +38,7 @@ from kursplaner.core.usecases.convert_to_lzk_usecase import ConvertToLzkUseCase
 from kursplaner.core.usecases.create_plan_usecase import CreatePlanUseCase
 from kursplaner.core.usecases.daily_course_log_usecase import DailyCourseLogUseCase
 from kursplaner.core.usecases.daily_log_state_usecase import DailyLogStateUseCase
+from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
 from kursplaner.core.usecases.expected_horizon_topic_query_usecase import ExpectedHorizonTopicQueryUseCase
 from kursplaner.core.usecases.export_achievements_report_usecase import ExportAchievementsReportUseCase
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExportExpectedHorizonUseCase
@@ -60,6 +61,7 @@ from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCa
 from kursplaner.core.usecases.list_lessons_usecase import ListLessonsUseCase
 from kursplaner.core.usecases.load_last_ub_insights_usecase import LoadLastUbInsightsUseCase
 from kursplaner.core.usecases.load_plan_detail_usecase import LoadPlanDetailUseCase
+from kursplaner.core.usecases.load_sequence_ladder_usecase import LoadSequenceLadderUseCase
 from kursplaner.core.usecases.mark_unit_as_ub_usecase import MarkUnitAsUbUseCase
 from kursplaner.core.usecases.migrate_oberthema_list_usecase import MigrateOberthemaListUseCase
 from kursplaner.core.usecases.move_selected_columns_usecase import MoveSelectedColumnsUseCase
@@ -194,6 +196,8 @@ class GuiDependencies:
     sequence_plan_repo: FileSystemSequencePlanRepository
     sync_topic_sequence_plans_usecase: SyncTopicSequencePlansUseCase
     update_sequence_goal_field_usecase: UpdateSequenceGoalFieldUseCase
+    load_sequence_ladder_usecase: LoadSequenceLadderUseCase
+    edit_sequence_ladder_usecase: EditSequenceLadderUseCase
     file_relation_registry_repo: FileSystemFileRelationRegistryRepository
     rebuild_file_relation_registry_usecase: RebuildFileRelationRegistryUseCase
     grid_cell_policy_usecase: GridCellPolicyUseCase
@@ -443,6 +447,10 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         sequence_plan_repo=sequence_plan_repo, sequence_export_sync=sync_sequence_export_table_usecase
     )
     update_sequence_goal_field_usecase = UpdateSequenceGoalFieldUseCase(sequence_plan_repo=sequence_plan_repo)
+    load_sequence_ladder_usecase = LoadSequenceLadderUseCase(sequence_plan_repo=sequence_plan_repo)
+    edit_sequence_ladder_usecase = EditSequenceLadderUseCase(
+        sequence_plan_repo=sequence_plan_repo, tracked_write=tracked_write_usecase
+    )
     # `reportlab` ist eine optionale Laufzeitabhaengigkeit (siehe requirements.txt):
     # fehlt sie, bleiben nur die drei PDF-/LZK-Exportwege deaktiviert (GUI zeigt
     # dann einen Hinweis statt abzustuerzen), der Rest der App startet normal.
@@ -562,6 +570,8 @@ def build_gui_dependencies(*, max_history: int = 30) -> GuiDependencies:
         sequence_plan_repo=sequence_plan_repo,
         sync_topic_sequence_plans_usecase=sync_topic_sequence_plans_usecase,
         update_sequence_goal_field_usecase=update_sequence_goal_field_usecase,
+        load_sequence_ladder_usecase=load_sequence_ladder_usecase,
+        edit_sequence_ladder_usecase=edit_sequence_ladder_usecase,
         file_relation_registry_repo=file_relation_registry_repo,
         rebuild_file_relation_registry_usecase=rebuild_file_relation_registry_usecase,
         grid_cell_policy_usecase=grid_cell_policy_usecase,
