@@ -17,7 +17,7 @@ binds itself.
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from bw_gui.contracts import EventResult, KeySpec
 from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, event_in_toplevel, on_global_click
@@ -54,6 +54,9 @@ class ShortcutRow(NamedTuple):
 
 class ScreenShortcutsMixin:
     """Shortcut table, binder setup, runtime context and popup gating of the main window (ScreenBuilder mixin)."""
+
+    app: Any
+    """Main window, set by ``ScreenBuilder.__init__`` (declared for the type checker)."""
 
     def _shortcut_rows(self) -> tuple[ShortcutRow, ...]:
         """The fixed main-window shortcuts (the guide entries from ``shortcut_guide.json`` come on top).

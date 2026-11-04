@@ -191,7 +191,9 @@ class SequenceLadderController:
     def add(self, cell: BoardCell) -> None:
         """ "+" in einer Zelle: neuen eigenen Baustein unten in der Zelle anlegen."""
         slot = self._end_slot(cell)
-        text = self._ask("Neuer Baustein") if slot is not None and not self.read_only else None
+        if slot is None or self.read_only:
+            return
+        text = self._ask("Neuer Baustein")
         if text:
             self._run(AddBlock(slot, text), text)
 
