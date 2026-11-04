@@ -5,6 +5,7 @@ from pathlib import Path
 from kursplaner.core.domain.content_markers import normalize_marker_text
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.list_cell_text import format_list_cell
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 
 
 class GridCellPolicyUseCase:
@@ -70,13 +71,12 @@ class GridCellPolicyUseCase:
             "Vertretungsmaterial",
             "Ressourcen",
             "Baustellen",
-            "Professionalisierungsschritte",
-            "Nutzbare Ressourcen",
+            *UB_DEVELOPMENT_FIELDS,
         }:
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""
-            if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
+            if field_key in UB_DEVELOPMENT_FIELDS:
                 # UB-Felder (Markdown-Aufzählungen der UB-Datei) unterliegen nicht
                 # der Listen-Invariante; zeilenweise wie in der GUI-Anzeige.
                 return "\n".join(str(item).strip() for item in entries if str(item).strip())

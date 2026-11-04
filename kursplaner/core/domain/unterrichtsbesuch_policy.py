@@ -16,6 +16,13 @@ UB_YAML_KEY_LANGENTWURF = "Langentwurf"
 UB_YAML_KEY_BEOBACHTUNG = "Beobachtungsschwerpunkt"
 UB_YAML_KEY_EINHEIT = "Einheit"
 
+UB_DEVELOPMENT_FIELDS: tuple[str, str] = ("Professionalisierungsschritte", "Nutzbare Ressourcen")
+"""Grid-Felder, die aus der verknüpften UB-Datei (Markdown-Aufzählungen) gelesen und dorthin geschrieben werden.
+
+Sie stehen nicht in der Stunden-YAML und unterliegen nicht der Listen-Invariante
+(`list_cell_text`), werden im Grid aber wie Listen dargestellt und bearbeitet.
+"""
+
 JAHRGANGSSTUFE_MIN = 5
 JAHRGANGSSTUFE_MAX = 13
 

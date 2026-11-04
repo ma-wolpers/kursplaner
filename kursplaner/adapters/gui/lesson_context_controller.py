@@ -10,6 +10,7 @@ from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import sanitize_hour_title
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 
@@ -85,7 +86,7 @@ class MainWindowLessonContextController:
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""
-            if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
+            if field_key in UB_DEVELOPMENT_FIELDS:
                 # UB-Felder stammen aus Markdown-Aufzählungen der UB-Datei, nicht
                 # aus Lesson-YAML; sie unterliegen nicht der Listen-Invariante und
                 # behalten ihre bisherige zeilenweise Anzeige.

@@ -8,6 +8,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.list_cell_text import parse_list_cell
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY
 from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
@@ -63,11 +64,6 @@ class SaveCellRuntimeContext:
 
 class SaveCellValueUseCase:
     """Persistiert Zelländerungen für Plan-/Lesson-Felder als ein Write-Flow."""
-
-    UB_DEVELOPMENT_FIELDS: tuple[str, str] = (
-        "Professionalisierungsschritte",
-        "Nutzbare Ressourcen",
-    )
 
     def __init__(
         self,
@@ -303,7 +299,7 @@ class SaveCellValueUseCase:
                 error_message=f"Speichern des Felds '{field_key}' in der Stunden-YAML abgebrochen.",
             )
 
-        if field_key in self.UB_DEVELOPMENT_FIELDS:
+        if field_key in UB_DEVELOPMENT_FIELDS:
             if self.sync_ub_development_focus_usecase is None:
                 return SaveCellValueResult(
                     proceed=False,

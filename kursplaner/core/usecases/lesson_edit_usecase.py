@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS, infer_stundentyp
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, encode_oberthemen, normalize_oberthemen
 from kursplaner.core.domain.plan_table import COLUMN_INHALT, PlanTableData
 from kursplaner.core.ports.repositories import LessonRepository
@@ -71,15 +71,7 @@ class LessonEditUseCase:
     ) -> None:
         """Aktualisiert ein einzelnes YAML-Feld einer Stunde (skalare oder Listenfelder)."""
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
-        if field_key in {
-            "Kompetenzen",
-            "Teilziele",
-            "Sonderziele",
-            "Material",
-            "Vertretungsmaterial",
-            "Ressourcen",
-            "Baustellen",
-        }:
+        if field_key in LIST_FIELDS:
             lesson.data[field_key] = list_entries or []
         else:
             lesson.data[field_key] = value

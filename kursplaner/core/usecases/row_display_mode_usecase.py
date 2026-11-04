@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 
 RowDef = tuple[str, str]
 
@@ -161,25 +163,19 @@ class RowDisplayModeUseCase:
 
     @staticmethod
     def list_like_fields() -> set[str]:
-        """Liefert YAML-Felder, die als Listen dargestellt/bearbeitet werden."""
-        return {
-            "Kompetenzen",
-            "Teilziele",
-            "Sonderziele",
-            "Material",
-            "Vertretungsmaterial",
-            "Ressourcen",
-            "Baustellen",
-            "Professionalisierungsschritte",
-            "Nutzbare Ressourcen",
-        }
+        """Liefert Felder, die als Listen dargestellt/bearbeitet werden.
+
+        Listenfelder der Stunden-YAML (`lesson_yaml_policy.LIST_FIELDS`) plus die
+        UB-Entwicklungsfelder (`unterrichtsbesuch_policy.UB_DEVELOPMENT_FIELDS`).
+        """
+        return set(LIST_FIELDS) | set(UB_DEVELOPMENT_FIELDS)
 
     def field_is_relevant_for_day(
         self, field_key: str, day: DayColumn, settings: "RowFilterSettings | None" = None
     ) -> bool:
         """Prüft, ob ein Feld zur fachlichen Art einer Spalte passt."""
         mode = self.infer_day_mode(day)
-        if field_key in {"Professionalisierungsschritte", "Nutzbare Ressourcen"}:
+        if field_key in UB_DEVELOPMENT_FIELDS:
             if mode != self.MODE_UNTERRICHT:
                 return False
             ub_link = str(day.yaml.get("Unterrichtsbesuch", "")).strip()
