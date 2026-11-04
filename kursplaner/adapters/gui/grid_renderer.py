@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from bw_gui.contracts import EventResult, KeyModifiers
 from bw_gui.contracts.pointer import Axis, wheel_axis
 from bw_gui.runtime import on_resize, ui
@@ -26,6 +24,7 @@ from kursplaner.adapters.gui.sequence_field_grid_renderer import (
 )
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.usecases.day_label_format import short_day_label
 
 
 class GridRenderer:
@@ -128,7 +127,7 @@ class GridRenderer:
         if day_index >= len(self.app.day_columns):
             return "", "normal"
         day = self.app.day_columns[day_index]
-        date_text = self._format_header_date(day.datum)
+        date_text = short_day_label(day.datum)
         is_next_unit = day_index == self._next_unit_index
         next_unit_marker = " ▶" if is_next_unit else ""
 
@@ -178,27 +177,6 @@ class GridRenderer:
             theme_widget_border(widget, color_token="accent", thickness=2)
         else:
             theme_widget_border(widget, color_token="border", thickness=1)
-
-    @staticmethod
-    def _format_header_date(raw_date: str) -> str:
-        """Formatiert Datumswerte als `Mi 18.02.`; bei Parsing-Fehlern bleibt der Originalwert."""
-        text = str(raw_date).strip()
-        if not text:
-            return ""
-
-        parsed = None
-        for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d-%m-%y", "%d.%m.%Y", "%d.%m.%y"):
-            try:
-                parsed = datetime.strptime(text, fmt)
-                break
-            except ValueError:
-                continue
-        if parsed is None:
-            return text
-
-        weekday_map = {0: "Mo", 1: "Di", 2: "Mi", 3: "Do", 4: "Fr", 5: "Sa", 6: "So"}
-        weekday = weekday_map.get(parsed.weekday(), "")
-        return f"{weekday} {parsed.day:02d}.{parsed.month:02d}.".strip()
 
     def _row_index_for_field(self, field_key: str) -> int | None:
         """Liefert die Grid-Zeile für ein fachliches Feld."""
