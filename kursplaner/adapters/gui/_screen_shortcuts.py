@@ -8,10 +8,11 @@ minimum-set matching); named keys tolerate Shift where no own Shift variant exis
 
 Popup gating reads the bw-gui overlay stack (``OVERLAY_STACK_CONTRACT.md``) with the
 preset ``blocking(include_menus=True)``: modal popups and menu popups block the
-guide shortcuts, non-modal tool windows (Kompetenznetz, loading hint, shortcut debug
-window) do not. This reproduces the former scan, which counted every visible direct
-child toplevel of the main window (menu popups included) unless it had been tracked
-as non-blocking.
+shortcuts, non-modal tool windows (Kompetenznetz, Sequenzleiter, loading hint, shortcut
+debug window) do not -- the main window stays usable next to them. Every main binding
+carries ``applies_when=_event_in_main_window`` (bw-gui ``event_in_toplevel``): a key
+pressed inside another window never runs a main-window action, whatever that window
+binds itself.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from bw_gui.contracts import EventResult, KeySpec
-from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, on_global_click
+from bw_gui.runtime import ApplicationShortcutBinder, accepts_text_input, event_in_toplevel, on_global_click
 from bw_gui.runtime.overlay_stack import OverlayCategory, blocking, register_overlay
 
 from bw_libs.ui_contract.keybinding import (
@@ -31,7 +32,6 @@ from bw_libs.ui_contract.keybinding import (
 )
 from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability
 from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
-from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
@@ -174,6 +174,7 @@ class ScreenShortcutsMixin:
                 binding_id=f"guide.{entry.intent}.{index}",
                 intent=entry.intent,
                 modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+                applies_when=self._event_in_main_window,
             )
         for row in self._shortcut_rows():
             binder.bind(
@@ -183,6 +184,7 @@ class ScreenShortcutsMixin:
                 intent=row.intent,
                 modes=row.modes,
                 allow_when_text_input=row.allow_when_text_input,
+                applies_when=self._event_in_main_window,
             )
         self._shortcut_binder = binder
         # Globaler Klick: Beobachter am all-Router (frueher bind_all("<Button-1>")); nie bei Texteingabe.
@@ -252,9 +254,15 @@ class ScreenShortcutsMixin:
         register_overlay(window, OverlayCategory.NON_MODAL_POPUP, toplevel=window)
 
     def _has_active_popup(self) -> bool:
-        """Return whether a blocking overlay or any ``ScrollablePopupWindow`` is open.
+        """Return whether a blocking overlay (modal dialog or menu popup) is open.
 
-        Stricter than the binder's ``dialog_open``: the handlers also stand still while a
-        non-modal popup such as the Kompetenznetz is open (unchanged from the former scan).
+        Non-modal tool windows (Kompetenznetz, Sequenzleiter, debug window) no longer block:
+        the main window stays usable next to them. Keys pressed *inside* such a window never
+        reach main-window actions, because every main binding is gated by
+        ``_event_in_main_window`` (``applies_when``).
         """
-        return self._shortcut_dialog_open() or ScrollablePopupWindow.has_active_popup()
+        return self._shortcut_dialog_open()
+
+    def _event_in_main_window(self, event) -> bool:
+        """Whether a key/click event happened in the main window itself (not in another toplevel)."""
+        return event_in_toplevel(event, self.app)

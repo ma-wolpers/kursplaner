@@ -63,19 +63,23 @@ def test_non_toolbar_shortcut_still_delegates_in_editable_widget(monkeypatch):
     assert payload["from_shortcut"] is True
 
 
-def test_shortcut_handler_blocks_when_popup_is_active(monkeypatch):
+def test_shortcut_handler_blocks_only_for_blocking_overlays(monkeypatch):
+    """Ein offenes nicht-modales Werkzeugfenster (Kompetenznetz, Sequenzleiter) legt das
+    Hauptfenster nicht mehr lahm; modale Dialoge/Menüs (``dialog_open``) sperren weiter."""
     sink = _IntentSink()
     app = SimpleNamespace(_handle_ui_intent=sink)
     builder = ScreenBuilder(app)
     builder._shortcut_dialog_open = lambda: False  # kein Tk-Interpreter: Overlay-Stack leer
-
     monkeypatch.setattr(
         "kursplaner.adapters.gui.popup_window.ScrollablePopupWindow.has_active_popup",
         staticmethod(lambda: True),
     )
-
     handler = builder._build_shortcut_handler(_entry("detail.open_column_visibility_settings"))
-    result = handler(SimpleNamespace(widget=object()))
 
-    assert result is EventResult.HANDLED
+    handler(SimpleNamespace(widget=object()))
+    assert [call[0] for call in sink.calls] == ["detail.open_column_visibility_settings"]
+
+    sink.calls.clear()
+    builder._shortcut_dialog_open = lambda: True
+    assert handler(SimpleNamespace(widget=object())) is EventResult.HANDLED
     assert sink.calls == []

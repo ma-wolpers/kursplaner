@@ -131,3 +131,54 @@ def test_timetable_dialog_undo_is_local_and_gone_after_close(root, wired, tmp_pa
         assert router_for(root).verify() == []
     finally:
         dialog.destroy()
+
+
+def test_keys_in_another_window_never_run_main_window_actions(root, intents):
+    top = ui.Toplevel(root)
+    top.geometry("+3000+3000")
+    inner = ui.Frame(top)
+    inner.pack()
+    top.update()
+    try:
+        press_key(inner, "n", state=CONTROL)
+        press_key(inner, "Up")
+        assert intents == []
+        press_key(root, "n", state=CONTROL)
+        assert intents == [UiIntent.TOOLBAR_NEW]
+    finally:
+        top.destroy()
+
+
+def test_non_modal_popup_does_not_block_the_main_window(root, wired):
+    from bw_gui.runtime.overlay_stack import OverlayCategory
+
+    from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+
+    builder, _recorded = wired
+    popup = ScrollablePopupWindow(
+        root,
+        title="Werkzeug",
+        geometry="200x100+3000+3000",
+        minsize=(100, 50),
+        overlay_category=OverlayCategory.NON_MODAL_POPUP,
+    )
+    try:
+        assert builder._has_active_popup() is False
+    finally:
+        popup.destroy()
+
+
+def test_click_in_another_window_commits_no_grid_cell(root, wired):
+    from types import SimpleNamespace
+
+    builder, recorded = wired
+    recorded.clear()
+    top = ui.Toplevel(root)
+    top.geometry("+3000+3000")
+    try:
+        builder._on_global_click_commit_cell(SimpleNamespace(widget=top))
+        assert recorded == []
+        builder._on_global_click_commit_cell(SimpleNamespace(widget=root))
+        assert recorded == [UiIntent.GLOBAL_CLICK_COMMIT_CELL]
+    finally:
+        top.destroy()

@@ -18,8 +18,11 @@ class ScreenKeyHandlersMixin:
     """Key and mouse event handlers of the main window (ScreenBuilder mixin)."""
 
     def _on_global_click_commit_cell(self, event):
-        """Meldet globalen Klick als Commit-Intent an den Orchestrator."""
-        if self._has_active_popup():
+        """Meldet einen Klick im Hauptfenster als Commit-Intent an den Orchestrator.
+
+        Klicks in anderen Fenstern (z. B. Sequenzleiter, Kompetenznetz) übernehmen keine Grid-Zelle.
+        """
+        if self._has_active_popup() or not self._event_in_main_window(event):
             return EventResult.HANDLED
         return self._emit_intent(UiIntent.GLOBAL_CLICK_COMMIT_CELL, event=event)
 
@@ -127,8 +130,13 @@ class ScreenKeyHandlersMixin:
         return self._emit_intent(UiIntent.GRID_DELETE_CELL, event=_event)
 
     def _on_escape(self, _event):
-        """Meldet Esc-Shortcut als Intent an den Orchestrator."""
-        if self._has_active_popup():
+        """Meldet Esc-Shortcut als Intent an den Orchestrator.
+
+        Bewusste Ausnahme von der Regel „nur blockierende Overlays sperren“: Esc im
+        Hauptfenster schließt weiterhin das oberste offene Popup, auch ein nicht-modales
+        Werkzeugfenster (bw-gui `topmost_window`, Overlay-Stack-Contract).
+        """
+        if self._has_active_popup() or ScrollablePopupWindow.has_active_popup():
             ScrollablePopupWindow.close_active_popup()
             return EventResult.HANDLED
         return self._emit_intent(UiIntent.SHORTCUT_ESCAPE, event=_event)
