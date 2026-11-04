@@ -98,6 +98,28 @@ def extract_wiki_link_target(text: str) -> str:
     return raw
 
 
+def single_wiki_link(entry: str) -> tuple[str, str | None] | None:
+    """Zerlegt einen Eintrag, der **genau** ein ``[[…]]`` ist, in ``(Ziel, Alias)``.
+
+    Einzige Erkennung „der ganze Eintrag ist ein einzelner Link“. Das Ziel kommt
+    aus `extract_wiki_link_target` (ohne Pfad und Stunden-Endung), der Alias ist
+    ``None`` ohne (bzw. bei leerem) Alias. Jeder andere Text liefert ``None``.
+
+    Example::
+
+        single_wiki_link("[[Mat-RF-14|Terme]]")  # -> ("Mat-RF-14", "Terme")
+        single_wiki_link("[[Skizze]]")           # -> ("Skizze", None)
+        single_wiki_link("Tafelbild [[Skizze]]") # -> None
+    """
+    text = str(entry)
+    match = re.fullmatch(r"\[\[([^\[\]]+)\]\]", text)
+    if match is None:
+        return None
+    inner = match.group(1)
+    alias = inner.split("|", 1)[1].strip() if "|" in inner else ""
+    return extract_wiki_link_target(text), alias or None
+
+
 def wiki_link_display_text(entry: str) -> str:
     """Anzeigename eines Listeneintrags, der ein einzelner Wiki-Link sein kann.
 
@@ -121,15 +143,11 @@ def wiki_link_display_text(entry: str) -> str:
         wiki_link_display_text("Tafelbild [[Skizze]]")             # -> unverändert
     """
     text = str(entry)
-    match = re.fullmatch(r"\[\[([^\[\]]+)\]\]", text)
-    if match is None:
+    parts = single_wiki_link(text)
+    if parts is None:
         return text
-    inner = match.group(1)
-    if "|" in inner:
-        alias = inner.split("|", 1)[1].strip()
-        if alias:
-            return alias
-    return extract_wiki_link_target(text) or text
+    target, alias = parts
+    return alias or target or text
 
 
 def strip_group_prefixed_link(raw: str, group_name: str) -> str:

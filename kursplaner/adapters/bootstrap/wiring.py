@@ -94,6 +94,7 @@ from kursplaner.core.usecases.school_wide_cancellation_overlap_query_usecase imp
 )
 from kursplaner.core.usecases.school_wide_cancellation_preview_usecase import SchoolWideCancellationPreviewUseCase
 from kursplaner.core.usecases.school_wide_cancellation_revert_usecase import SchoolWideCancellationRevertUseCase
+from kursplaner.core.usecases.sequence_ladder_source import SequenceLadderSource
 from kursplaner.core.usecases.subject_sources_usecase import SubjectSourcesUseCase
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopicSequencePlansUseCase
@@ -446,9 +447,14 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         sequence_plan_repo=sequence_plan_repo, sequence_export_sync=sync_sequence_export_table_usecase
     )
     update_sequence_goal_field_usecase = UpdateSequenceGoalFieldUseCase(sequence_plan_repo=sequence_plan_repo)
-    load_sequence_ladder_usecase = LoadSequenceLadderUseCase(sequence_plan_repo=sequence_plan_repo)
+    sequence_ladder_source = SequenceLadderSource(sequence_plan_repo=sequence_plan_repo, lesson_repo=lesson_repo)
+    load_sequence_ladder_usecase = LoadSequenceLadderUseCase(source=sequence_ladder_source)
     edit_sequence_ladder_usecase = EditSequenceLadderUseCase(
-        sequence_plan_repo=sequence_plan_repo, tracked_write=tracked_write_usecase
+        source=sequence_ladder_source,
+        sequence_plan_repo=sequence_plan_repo,
+        lesson_repo=lesson_repo,
+        lesson_edit=lesson_edit,
+        tracked_write=tracked_write_usecase,
     )
     # `reportlab` ist eine optionale Laufzeitabhaengigkeit (siehe requirements.txt):
     # fehlt sie, bleiben nur die drei PDF-/LZK-Exportwege deaktiviert (GUI zeigt

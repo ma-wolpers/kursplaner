@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.infrastructure.repositories.file_signature import file_signature
+from kursplaner.infrastructure.repositories.markdown_section_files import read_body_section, write_body_section
 from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     create_linked_lesson_file,
     get_row_link_path,
@@ -129,3 +131,14 @@ class FileSystemLessonRepository:
             methodik_refs=methodik_refs,
         )
         self._lesson_yaml_cache.pop(lesson_path.resolve(), None)
+
+    def read_lesson_section(self, lesson_path: Path, heading: str) -> tuple[str, ...]:
+        """Zeilen eines ``##``-Abschnitts im Body (immer frisch von der Platte; `markdown_section_files`)."""
+        section = read_body_section(lesson_path, heading)
+        return tuple(section.splitlines()) if section else ()
+
+    def write_lesson_section(self, lesson_path: Path, heading: str, lines: Sequence[str]) -> bool:
+        """Schreibt einen ``##``-Abschnitt im Body, Frontmatter byte-genau; verwirft den Cache-Eintrag."""
+        changed = write_body_section(lesson_path, heading, lines)
+        self._lesson_yaml_cache.pop(lesson_path.resolve(), None)
+        return changed

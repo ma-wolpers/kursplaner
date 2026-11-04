@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Literal
 
 from kursplaner.core.domain.list_cell_text import raise_on_violation
@@ -100,6 +101,33 @@ def infer_stundentyp(data: dict[str, object]) -> LessonType:
 def allowed_keys_for_type(stundentyp: LessonType) -> tuple[str, ...]:
     """Liefert die exakt erlaubten YAML-Felder fuer einen Stundentyp."""
     return _ALLOWED_BY_TYPE[stundentyp]
+
+
+def lesson_list_entries(data: Mapping[str, object], key: str) -> tuple[str, ...]:
+    """Liest ein Listenfeld aus **kanonisiertem** Lesson-YAML (einzige Lesestelle dieser Regel).
+
+    `canonicalize_lesson_yaml` garantiert für Listenfelder ``list[str]`` mit
+    Einträgen, die die Listen-Invariante erfüllen; fehlt der Key (z. B.
+    ``Material`` bei einer LZK), gibt es keine Einträge. Jeder andere Wert ist
+    eine Verletzung dieser Invariante und wird nicht still per ``str()``
+    umgedeutet.
+
+    Args:
+        data: Kanonisiertes Lesson-YAML.
+        key: Name des Listenfelds.
+
+    Returns:
+        Die Einträge unverändert.
+
+    Raises:
+        TypeError: Wenn der Wert keine Liste aus Texten ist.
+    """
+    value = data.get(key)
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise TypeError(f"Listenfeld {key!r} ist keine Liste aus Texten: {value!r}")
+    return tuple(value)
 
 
 def _normalize_list(field: str, value: object, *, source_label: str = "") -> list[str]:

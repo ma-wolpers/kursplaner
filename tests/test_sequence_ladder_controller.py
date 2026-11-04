@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from bw_gui.widgets.card_board import BoardCell, BoardSlot
-from test_sequence_plan_repository import _build_table
+from sequence_ladder_test_support import make_ladder_env
 
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     LANE_IDEEN,
@@ -15,14 +15,6 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
 )
 from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
 from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
-from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
-from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
-from kursplaner.core.usecases.history_usecase import HistoryUseCase
-from kursplaner.core.usecases.load_sequence_ladder_usecase import LoadSequenceLadderUseCase
-from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
-from kursplaner.infrastructure.repositories.command_repository import FileSystemCommandRepository
-from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
 
 
 class FakeDialogs:
@@ -47,27 +39,22 @@ class FakeDialogs:
 
 @pytest.fixture
 def make(tmp_path):
-    plan_dir = tmp_path / "M GK test-1 26-2"
-    plan_dir.mkdir()
-    plan_path = plan_dir / "M GK test-1 26-2.md"
-    plan_path.write_text("# Kursplan\n", encoding="utf-8")
-    repo = FileSystemSequencePlanRepository()
-    path = repo.ensure_sequence_document(table=_build_table(plan_path), sequence_name="Brüche")
-    history = HistoryUseCase(CommandExecutorUseCase(command_repo=FileSystemCommandRepository()))
+    """Controller über einer synthetischen Sequenz; ohne *kinds* liegen alle Sprossen in der Ablage."""
 
-    def factory(context=("Brüche", [TopicSequenceRun("Brüche", (0, 1))], [])):
+    def factory(kinds="", *, missing=False, after_write=None, **units):
+        env = make_ladder_env(tmp_path, kinds, **units)
         dialogs, renders, writes = FakeDialogs(), [], []
         controller = SequenceLadderController(
-            sequence_path=path,
-            load=LoadSequenceLadderUseCase(repo),
-            edit=EditSequenceLadderUseCase(repo, TrackedWriteUseCase(history)),
-            context=lambda: context,
+            sequence_path=env.sequence_path,
+            load=env.load,
+            edit=env.edit,
+            context=lambda: None if missing else env.context,
             dialogs=dialogs,
             render=lambda view, cursor, banner: renders.append((view, cursor, banner)),
-            after_write=lambda: writes.append(1),
+            after_write=after_write or (lambda: writes.append(1)),
         )
         controller.reload()
-        return controller, dialogs, renders, writes, history
+        return controller, dialogs, renders, writes, env.history
 
     return factory
 
@@ -117,7 +104,7 @@ def test_rename_refuses_network_blocks(make, tmp_path):
     path = controller.sequence_path
     path.write_text(
         path.read_text(encoding="utf-8").replace(
-            "## Export", "## Sequenzleiter\n\n- Sprosse 1\n  - Prozess: [[Mat-PL-1|Netz]]\n\n## Export"
+            "## Export", "## Sequenzleiter\n\n- Ablage 1\n  - Prozess: [[Mat-PL-1|Netz]]\n\n## Export"
         ),
         encoding="utf-8",
     )
@@ -157,7 +144,7 @@ def test_ideas_commit_is_one_step(make):
 
 
 def test_missing_sequence_is_read_only_with_banner(make):
-    controller, dialogs, renders, writes, _history = make(context=None)
+    controller, dialogs, renders, writes, _history = make(missing=True)
     controller.add(BoardCell(rung_key(0), LANE_PROZESS))
     assert controller.read_only and writes == [] and dialogs.asked == []
     assert "nicht (mehr) vor" in renders[-1][2]
@@ -173,3 +160,31 @@ def test_right_column_names_are_checked_per_rung(make):
     same_rung = dialogs.validators[-1]
     assert other_rung("p") is None
     assert same_rung("p") is not None
+
+
+def test_write_reloads_the_main_window_and_the_ladder_exactly_once(make):
+    reloads = []
+    holder = {}
+
+    def after_write():
+        reloads.append("main")
+        holder["controller"].reload()  # wie `_publish_sequence_plans` nach `reload_keeping_view`
+
+    controller, dialogs, renders, *_ = make("U", after_write=after_write)
+    holder["controller"] = controller
+    dialogs.answers = ["Ziel"]
+    before = len(renders)
+    controller.add(BoardCell(rung_key(0), LANE_INHALT))
+    assert reloads == ["main"] and len(renders) == before + 1
+    assert controller.cursor == _key("Ziel")
+
+
+def test_locked_rung_explains_itself_instead_of_asking(make):
+    controller, dialogs, _renders, writes, _history = make("UL")
+    controller.add(BoardCell(rung_key(1), LANE_INHALT))
+    assert dialogs.asked == [] and writes == [] and "Sprosse 2" in dialogs.infos[0]
+
+
+def test_banner_lists_legacy_duplicates(make):
+    _controller, _dialogs, renders, *_ = make("UU", u0={"ziel": "Gleich"}, u1={"ziel": "Gleich"})
+    assert "„Gleich“ steht mehrfach (Sprossen 1 und 2)" in renders[-1][2]

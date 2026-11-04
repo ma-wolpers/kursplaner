@@ -175,3 +175,67 @@ def test_unknown_block_reference_is_a_rule_error():
         _apply(_ladder(), RemoveBlock(BlockRef(0, INH, "gibt es nicht")))
     with pytest.raises(LadderRuleError, match="nicht gefunden"):
         _apply(_ladder(), RemoveBlock(BlockRef(1, PRO, "Netz")))
+
+
+def _locked() -> SequenceLadder:
+    """Sprosse 1 gesperrt (z. B. LZK zwischen zwei Einheiten)."""
+    return SequenceLadder(_ladder().rungs[:1] + (LadderRung(), LadderRung((LadderBlock("C"),))), frozenset({1}))
+
+
+def test_locked_rungs_refuse_blocks_moves_and_ideas():
+    ladder = _locked()
+    for op in (
+        AddBlock(LadderSlot(1, INH, 0), "X"),
+        MoveBlock(BlockRef(0, INH, "A"), LadderSlot(1, INH, 0)),
+        SetIdeas(1, ("Idee",)),
+    ):
+        with pytest.raises(LadderRuleError, match="Sprosse 2"):
+            apply_ladder_operation(ladder, op)
+
+
+def test_ctrl_arrows_and_import_skip_locked_rungs():
+    ladder = _locked()
+    up = apply_ladder_operation(ladder, StepBlock(BlockRef(0, INH, "A"), up=True))
+    assert up.focus == BlockRef(2, INH, "A") and _texts(up.ladder, 2, INH) == ["C", "A"]
+    down = apply_ladder_operation(ladder, StepBlock(BlockRef(2, INH, "C"), up=False))
+    assert down.focus == BlockRef(0, INH, "C")
+    item = ImportedCompetence("Mat-X-1", "X", PRO)
+    assert _texts(apply_ladder_operation(ladder, ImportCompetences((item,))).ladder, 2, PRO) == ["X"]
+    assert up.ladder.locked_rungs == frozenset({1})  # Sperre überlebt jede Operation
+
+
+def test_legacy_duplicates_stay_movable_renamable_and_deletable():
+    ladder = SequenceLadder((LadderRung((LadderBlock("Gleich"),)), LadderRung((LadderBlock("gleich"),))))
+    assert ladder.duplicate_groups() == ((BlockRef(0, INH, "Gleich"), BlockRef(1, INH, "gleich")),)
+    moved = apply_ladder_operation(ladder, MoveBlock(BlockRef(0, INH, "Gleich"), LadderSlot(2, INH, 0)))
+    assert _texts(moved.ladder, 2, INH) == ["Gleich"]
+    renamed = apply_ladder_operation(ladder, RenameBlock(BlockRef(1, INH, "gleich"), "Anders")).ladder
+    assert renamed.duplicate_groups() == ()
+    assert apply_ladder_operation(ladder, RemoveBlock(BlockRef(1, INH, "gleich"))).ladder.duplicate_groups() == ()
+    with pytest.raises(LadderRuleError):
+        apply_ladder_operation(ladder, AddBlock(LadderSlot(3, INH, 0), "GLEICH"))
+
+
+def test_moving_a_right_block_to_another_rung_still_checks_that_rung():
+    ladder = SequenceLadder(
+        (LadderRung(prozess=(LadderBlock("P", "Mat-1"),)), LadderRung(prozess=(LadderBlock("anders", "Mat-1"),)))
+    )
+    with pytest.raises(LadderRuleError, match="Sprosse 2"):
+        apply_ladder_operation(ladder, MoveBlock(BlockRef(0, PRO, "P"), LadderSlot(1, PRO, 0)))
+
+
+def test_duplicate_groups_are_connected_over_text_and_competence_id():
+    ladder = SequenceLadder(
+        (
+            LadderRung((LadderBlock("Titel", "Mat-1"),)),
+            LadderRung((LadderBlock("titel"),)),
+            LadderRung((LadderBlock("Anders", "Mat-1"),)),
+        )
+    )
+    assert ladder.duplicate_groups() == (
+        (BlockRef(0, INH, "Titel"), BlockRef(1, INH, "titel"), BlockRef(2, INH, "Anders")),
+    )
+
+
+def test_block_text_follows_the_list_entry_contract():
+    assert "';'" in (block_text_error("K1; K2", SequenceLadder(), side=INH, rung=0) or "")

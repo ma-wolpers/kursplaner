@@ -7,43 +7,29 @@ from __future__ import annotations
 
 import pytest
 from bw_gui.testing.keys import press_key
+from sequence_ladder_test_support import make_ladder_env
 from test_sequence_ladder_controller import FakeDialogs
-from test_sequence_plan_repository import _build_table
 
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import card_key
 from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
 from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
-from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
-from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
-from kursplaner.core.usecases.history_usecase import HistoryUseCase
-from kursplaner.core.usecases.load_sequence_ladder_usecase import LoadSequenceLadderUseCase
-from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
-from kursplaner.infrastructure.repositories.command_repository import FileSystemCommandRepository
-from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
 
 CTRL = 0x4
 
 
 @pytest.fixture
 def ladder(root, tmp_path):
-    plan_dir = tmp_path / "M GK test-1 26-2"
-    plan_dir.mkdir()
-    plan_path = plan_dir / "M GK test-1 26-2.md"
-    plan_path.write_text("# Kursplan\n", encoding="utf-8")
-    repo = FileSystemSequencePlanRepository()
-    path = repo.ensure_sequence_document(table=_build_table(plan_path), sequence_name="Brüche")
-    history = HistoryUseCase(CommandExecutorUseCase(command_repo=FileSystemCommandRepository()))
+    env = make_ladder_env(tmp_path)
     window = SequenceLadderWindow(root, theme_key=None, on_import_click=lambda: None)
     window.geometry("1000x600+3000+3000")
     dialogs, undone = FakeDialogs(), []
     controller = SequenceLadderController(
-        sequence_path=path,
-        load=LoadSequenceLadderUseCase(repo),
-        edit=EditSequenceLadderUseCase(repo, TrackedWriteUseCase(history)),
-        context=lambda: ("Brüche", [TopicSequenceRun("Brüche", (0, 1))], []),
+        sequence_path=env.sequence_path,
+        load=env.load,
+        edit=env.edit,
+        context=lambda: env.context,
         dialogs=dialogs,
         render=window.render,
         after_write=lambda: None,

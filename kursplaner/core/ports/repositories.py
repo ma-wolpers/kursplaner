@@ -348,6 +348,33 @@ class LessonRepository(Protocol):
         """
         ...
 
+    def read_lesson_section(self, lesson_path: Path, heading: str) -> tuple[str, ...]:
+        """Liest die Zeilen eines ``##``-Abschnitts im Body einer Stunden-Datei.
+
+        Args:
+            lesson_path: Pfad zur Stunden-Datei.
+            heading: Überschriftstext ohne ``##`` (z. B. ``"Ideen"``).
+
+        Returns:
+            Die Zeilen ohne Rand-Leerzeilen; ``()`` ohne Abschnitt.
+        """
+        ...
+
+    def write_lesson_section(self, lesson_path: Path, heading: str, lines: Sequence[str]) -> bool:
+        """Ersetzt, legt an (am Ende) oder entfernt (leere *lines*) einen ``##``-Abschnitt.
+
+        Nur der Body ändert sich; das Frontmatter bleibt byte-genau erhalten.
+
+        Args:
+            lesson_path: Pfad zur Stunden-Datei.
+            heading: Überschriftstext ohne ``##``.
+            lines: Neuer Abschnittsinhalt.
+
+        Returns:
+            ``True``, wenn die Datei geändert wurde.
+        """
+        ...
+
 
 class CalendarRepository(Protocol):
     """Definiert den Vertrag für Calendar Repository.
@@ -813,12 +840,12 @@ class SequencePlanRepository(Protocol):
         """Read the editable brainstorming section from a sequence markdown file."""
         ...
 
-    def read_sequence_ladder(self, sequence_path: Path) -> SequenceLadder:
-        """Read the ``## Sequenzleiter`` section (empty ladder without it); raises ``LadderFormatError``."""
+    def read_ladder_ablage(self, sequence_path: Path) -> SequenceLadder:
+        """Read the ladder's Ablage (rung 0 = "Ablage 1"; empty without section); raises ``LadderFormatError``."""
         ...
 
-    def write_sequence_ladder(self, *, sequence_path: Path, ladder: SequenceLadder) -> None:
-        """Write only the ladder section (before ``## Export``); an empty ladder removes it."""
+    def write_ladder_ablage(self, *, sequence_path: Path, ablage: SequenceLadder) -> None:
+        """Write only the Ablage section (before ``## Export``); an empty Ablage removes it."""
         ...
 
     def write_brainstorming(self, *, sequence_path: Path, brainstorming_text: str) -> None:

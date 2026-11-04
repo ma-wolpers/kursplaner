@@ -20,6 +20,7 @@ from datetime import date
 
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.export_date_formatting import parse_day_date
+from kursplaner.core.domain.lesson_yaml_policy import lesson_list_entries
 
 ELIGIBLE_SEQUENCE_TYPES = frozenset({"Unterricht", "LZK", "Hospitation"})
 """Stundentypen, die selbst ein Oberthema tragen und Teil einer Sequenz sein können."""
@@ -212,33 +213,6 @@ class TopicUnitExportRow:
     material: tuple[str, ...]
 
 
-def _yaml_list_field(day: DayColumn, key: str) -> tuple[str, ...]:
-    """Liest ein Listenfeld aus dem kanonisierten YAML einer Tages-Spalte.
-
-    `canonicalize_lesson_yaml` garantiert für Listenfelder ``list[str]`` mit
-    Einträgen, die die Listen-Invariante erfüllen; fehlt der Key (z. B.
-    ``Material`` bei einer LZK), gibt es keine Einträge. Jeder andere Wert ist
-    eine Verletzung dieser Invariante und wird nicht still per ``str()``
-    umgedeutet.
-
-    Args:
-        day: Tages-Spalte mit kanonisiertem YAML.
-        key: Name des Listenfelds.
-
-    Returns:
-        Die Einträge unverändert.
-
-    Raises:
-        TypeError: Wenn der Wert keine Liste aus Texten ist.
-    """
-    value = day.yaml.get(key)
-    if value is None:
-        return ()
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise TypeError(f"Listenfeld {key!r} ist keine Liste aus Texten: {value!r}")
-    return tuple(value)
-
-
 def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRun) -> list[TopicUnitExportRow]:
     """Baut die Exportzeilen ausschließlich aus den Mitgliedern eines Sequenz-Laufs.
 
@@ -277,8 +251,8 @@ def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRu
                 stunden=day.stunden(),
                 stundenthema=str(day.yaml.get("Stundenthema", "")).strip(),
                 stundenziel=str(day.yaml.get("Stundenziel", "")).strip(),
-                kompetenzen=_yaml_list_field(day, "Kompetenzen"),
-                material=_yaml_list_field(day, "Material"),
+                kompetenzen=lesson_list_entries(day.yaml, "Kompetenzen"),
+                material=lesson_list_entries(day.yaml, "Material"),
             )
         )
     return rows

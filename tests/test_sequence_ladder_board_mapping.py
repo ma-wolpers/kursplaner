@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bw_gui.widgets.card_board import BoardCell, BoardSlot
+from bw_gui.widgets.card_board import BoardCell, BoardSlot, CardTone
 
 from kursplaner.adapters.gui.lesson_kind_tints import LESSON_KIND_TINTS
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
@@ -18,6 +18,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     initial_cursor,
     ladder_slot,
     rung_key,
+    view_hints,
 )
 from kursplaner.core.domain.sequence_ladder import (
     BlockRef,
@@ -88,3 +89,35 @@ def test_slot_translation_and_initial_cursor():
     assert ladder_slot(BoardSlot(rung_key(4), LANE_PROZESS, 2)) == LadderSlot(4, LadderSide.PROZESS, 2)
     assert initial_cursor(LADDER) == A
     assert initial_cursor(SequenceLadder()) == BoardCell(rung_key(0), LANE_INHALT)
+
+
+def test_locked_rungs_become_locked_rows_and_take_no_drop():
+    ladder = SequenceLadder(LADDER.rungs[:1], frozenset({1}))
+    rows = board_rows(_view(ladder))
+    assert [row.locked for row in rows] == [False, True, False]
+    assert not can_drop(ladder, A, BoardSlot(rung_key(1), LANE_INHALT, 0))
+    assert can_drop(ladder, A, BoardSlot(rung_key(2), LANE_INHALT, 0))
+
+
+def test_top_left_block_of_a_unit_rung_is_emphasised_only_there():
+    ladder = LADDER.with_rung(0, LadderRung((LadderBlock("A"), LadderBlock("A2")), (LadderBlock("Netz", "Mat-PL-1"),)))
+    ladder = ladder.with_rung(2, LadderRung((LadderBlock("Ablage"),)))
+    rows = {row.key: row for row in board_rows(_view(ladder))}
+    unit = rows[rung_key(0)]
+    assert [c.tone for c in unit.cards[LANE_INHALT]] == [CardTone.EMPHASIS, CardTone.NORMAL]
+    assert [c.tone for c in unit.cards[LANE_PROZESS]] == [CardTone.NORMAL]
+    assert [c.tone for c in rows[rung_key(2)].cards[LANE_INHALT]] == [CardTone.NORMAL]  # Ablage: kein Stundenziel
+
+
+def test_legacy_duplicates_get_the_warning_tone_and_a_hint():
+    ladder = LADDER.with_rung(2, LadderRung((LadderBlock("a"),)))
+    group = (BlockRef(0, LadderSide.INHALT, "A"), BlockRef(2, LadderSide.INHALT, "a"))
+    view = SequenceLadderView(
+        Path("x.md"), "Brüche", ladder, _view().rungs, notes=("Sprosse 9: Hinweis",), duplicates=(group,)
+    )
+    rows = {row.key: row for row in board_rows(view)}
+    assert rows[rung_key(0)].cards[LANE_INHALT][0].tone is CardTone.WARNING
+    assert view_hints(view) == (
+        "Sprosse 9: Hinweis",
+        "Lernziel „A“ steht mehrfach (Sprossen 1 und 3) – bitte zusammenführen.",
+    )

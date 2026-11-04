@@ -21,7 +21,7 @@ from kursplaner.core.domain.kompetenzgraph_ebene import is_hauptkompetenz
 from kursplaner.core.domain.kompetenzgraph_node import BEREICH_KIND_INHALT, BEREICH_KIND_PROZESS, KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.sequence_ladder import LadderSide
-from kursplaner.core.domain.sequence_ladder_codec import network_block_text
+from kursplaner.core.domain.sequence_ladder_entries import network_block_text
 from kursplaner.core.domain.sequence_ladder_ops import ImportedCompetence
 
 _SIDE_BY_KIND = {BEREICH_KIND_INHALT: LadderSide.INHALT, BEREICH_KIND_PROZESS: LadderSide.PROZESS}

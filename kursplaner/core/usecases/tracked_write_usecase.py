@@ -63,9 +63,11 @@ class TrackedWriteUseCase:
     ) -> TActionResult:
         """Führt eine Aktion aus, die genau *paths* schreibt, als einen History-Eintrag.
 
-        Für Schreibaktionen ohne Plan-/Spaltenbezug (z. B. Sequenzdatei: Leiter,
-        Sequenzziel): erfasst nur diese Dateien, funktioniert ohne geöffneten
-        Plan und löst keinen Vault-Scan aus. Ohne Änderung entsteht kein Eintrag.
+        Für Schreibaktionen ohne Plan-/Spaltenbezug (z. B. Sequenzleiter über
+        Einheiten und Sequenzdatei, Sequenzziel): erfasst nur diese Dateien,
+        funktioniert ohne geöffneten Plan und löst keinen Vault-Scan aus. Ohne
+        Änderung entsteht kein Eintrag. Wirft *action*, werden alle *paths*
+        byte-genau zurückgesetzt – nie bleibt ein Teilstand über mehrere Dateien.
 
         Args:
             label: Sichtbarer Name der Aktion im Verlauf.
@@ -78,6 +80,7 @@ class TrackedWriteUseCase:
             action=action,
             capture_before=lambda: self.history_usecase.capture(normalized),
             extra_after=normalized,
+            rollback_on_error=True,
         )
 
     def run_tracked_action(

@@ -368,6 +368,27 @@ def frontmatter_text(raw_text: str) -> str | None:
     return raw_text[start:end]
 
 
+def split_frontmatter_block(raw_text: str) -> tuple[str, str]:
+    """Teilt einen Dateitext wörtlich in Frontmatter-Block und Rest: ``head + rest == raw_text``.
+
+    ``head`` reicht vom öffnenden ``---`` bis einschließlich des schließenden
+    ``---`` (ohne dessen Zeilenumbruch); ohne (oder mit unterminiertem)
+    Frontmatter ist ``head`` leer. Für Schreibwege, die nur den Body ändern und
+    das Frontmatter byte-genau erhalten müssen (z. B. ``## Ideen`` einer Einheit).
+    Teilt sich `_frontmatter_bounds()` mit `body_after_frontmatter()`.
+
+    Example::
+
+        split_frontmatter_block("---\\na: 1\\n---\\n\\nBody")
+        # -> ("---\\na: 1\\n---", "\\n\\nBody")
+    """
+    bounds = _frontmatter_bounds(raw_text)
+    if bounds is None:
+        return "", raw_text
+    _, end = bounds
+    return raw_text[: end + 4], raw_text[end + 4 :]
+
+
 def _yaml_scalar_line(key: str, value: object) -> str:
     """Rendert eine einzelne skalare YAML-Zeile, mit Link-Escaping bei Bedarf."""
     text = "true" if value is True else "false" if value is False else str(value or "")

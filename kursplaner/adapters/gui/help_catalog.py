@@ -123,12 +123,16 @@ SCHOOL_WIDE_CANCELLATION_HELP: dict[str, str] = {
 SEQUENCE_LADDER_HELP: dict[str, str] = {
     "import": (
         "Öffnet das Kompetenznetz: Kompetenzen markieren (Strg+Klick/Leertaste oder „Alle gefilterten "
-        "markieren“) und übernehmen. Sie landen je Spalte in der Sprosse über der höchsten belegten."
+        "markieren“) und übernehmen. Sie landen je Spalte in der ersten offenen Sprosse über der höchsten belegten."
     ),
     "keys": (
-        "Pfeile: wählen · Strg+↑/↓: Baustein höher/tiefer (über Sprossen hinweg) · Strg+C/Strg+V: kopieren/"
-        "darüber einfügen mit neuem Namen · Entf: löschen · F2 oder Doppelklick: umbenennen (nur eigene) · "
-        "Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · Strg+Z/Strg+Y: rückgängig/wiederholen."
+        "Jede Sprosse mit Unterrichtstermin zeigt ihre Einheit: der oberste linke Baustein ist das Stundenziel "
+        "(hervorgehoben), darunter die Teilziele, rechts die Kompetenzen, Ideen unter „## Ideen“ – Änderungen "
+        "landen direkt in der Einheit. LZK, Hospitation und Ausfall sind gesperrt; „??“-Sprossen sind die Ablage "
+        "der Sequenzdatei. Pfeile: wählen · Strg+↑/↓: Baustein höher/tiefer (über Sprossen hinweg) · "
+        "Strg+C/Strg+V: kopieren/darüber einfügen mit neuem Namen · Entf: löschen · F2 oder Doppelklick: "
+        "umbenennen (nur eigene) · Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · "
+        "Strg+Z/Strg+Y: rückgängig/wiederholen."
     ),
 }
 

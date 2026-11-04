@@ -1,6 +1,8 @@
-"""Use Case: Sequenzleiter einer Sequenzdatei samt Sprossen-Terminen laden.
+"""Use Case: Sequenzleiter einer Sequenz samt Sprossen-Terminen laden.
 
-Sprossen sind Positionen; ihre Beschriftung kommt aus den Terminen der Sequenz:
+Die Leiter ist eine Sicht auf die Einheiten (`sequence_ladder_homes`): Sprossen
+mit Termin zeigen Ziele, Kompetenzen und Ideen ihrer Einheit, Sprossen jenseits
+der Termine die Ablage der Sequenzdatei. Die Termine kommen aus der Sequenz:
 pro Lauf alle Planzeilen vom ersten bis zum letzten Mitglied (Unterricht, LZK,
 Hospitation und dazwischenliegende Ausfälle), vereinigt über alle Läufe, die
 dieselbe Datei teilen. Zeilen fremder Themen zwischen zwei Läufen werden nie
@@ -11,28 +13,28 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.sequence_ladder import SequenceLadder
+from kursplaner.core.domain.sequence_ladder import BlockRef, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
+from kursplaner.core.domain.sequence_ladder_homes import RungKind, rung_kind
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
-from kursplaner.core.ports.repositories import SequencePlanRepository
 from kursplaner.core.usecases.day_label_format import short_day_label
+from kursplaner.core.usecases.sequence_ladder_source import SequenceLadderSource
 
 UNKNOWN_DATE_LABEL = "??"
 """Beschriftung von Sprossen ohne zugeordneten Termin."""
 
-
-class RungKind(str, Enum):
-    """Art des Termins einer Sprosse (steuert die Markierung in der Leiter)."""
-
-    UNTERRICHT = "unterricht"
-    LZK = "lzk"
-    HOSPITATION = "hospitation"
-    AUSFALL = "ausfall"
-    OFFEN = "offen"
+__all__ = [
+    "UNKNOWN_DATE_LABEL",
+    "LoadSequenceLadderUseCase",
+    "RungInfo",
+    "RungKind",
+    "SequenceLadderView",
+    "rung_infos",
+    "sequence_term_days",
+]
 
 
 @dataclass(frozen=True)
@@ -50,9 +52,11 @@ class SequenceLadderView:
     Attributes:
         sequence_path: Sequenzdatei (Identität der Sequenz).
         oberthema: Name der Sequenz.
-        ladder: Gelesene Leiter; ``None`` bei Lesefehler (dann schreibgeschützt).
+        ladder: Zusammengesetzte Leiter; ``None`` bei Lesefehler (dann schreibgeschützt).
         rungs: Termin je angezeigter Sprosse (unten → oben), inkl. einer Reserve-Sprosse.
         error: Nutzerlesbarer Fehler (Formatfehler, Datei fehlt) oder ``None``.
+        notes: Hinweise zu einzelnen Sprossen (gesperrt, nicht lesbar, gekürzt).
+        duplicates: Gruppen von Bausteinen, die schon vor der Eindeutigkeitsregel doppelt standen.
     """
 
     sequence_path: Path
@@ -60,16 +64,8 @@ class SequenceLadderView:
     ladder: SequenceLadder | None
     rungs: tuple[RungInfo, ...]
     error: str | None = None
-
-
-def _kind(day: DayColumn) -> RungKind:
-    if day.is_cancel():
-        return RungKind.AUSFALL
-    if day.is_lzk():
-        return RungKind.LZK
-    if day.is_hospitation():
-        return RungKind.HOSPITATION
-    return RungKind.UNTERRICHT
+    notes: tuple[str, ...] = ()
+    duplicates: tuple[tuple[BlockRef, ...], ...] = ()
 
 
 def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSequenceRun]) -> list[DayColumn]:
@@ -97,7 +93,7 @@ def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSeq
 def rung_infos(days: Sequence[DayColumn], rung_count: int) -> tuple[RungInfo, ...]:
     """Termin je Sprosse (Index 0 = unten); ohne Termin ``??``/`OFFEN`."""
     return tuple(
-        RungInfo(short_day_label(days[i].datum), _kind(days[i]))
+        RungInfo(short_day_label(days[i].datum), rung_kind(days[i]))
         if i < len(days)
         else RungInfo(UNKNOWN_DATE_LABEL, RungKind.OFFEN)
         for i in range(rung_count)
@@ -105,11 +101,11 @@ def rung_infos(days: Sequence[DayColumn], rung_count: int) -> tuple[RungInfo, ..
 
 
 class LoadSequenceLadderUseCase:
-    """Liest die Leiter und berechnet die Sprossen-Termine."""
+    """Liest die Leiter aus Einheiten und Ablage und berechnet die Sprossen-Termine."""
 
-    def __init__(self, sequence_plan_repo: SequencePlanRepository) -> None:
-        """Initialisiert den Use Case mit dem Sequenzdatei-Repository."""
-        self._repo = sequence_plan_repo
+    def __init__(self, source: SequenceLadderSource) -> None:
+        """Initialisiert den Use Case mit der gemeinsamen Lesequelle."""
+        self._source = source
 
     def execute(
         self,
@@ -127,14 +123,22 @@ class LoadSequenceLadderUseCase:
             runs: Alle Läufe mit diesem Pfad (leer, wenn die Sequenz im Kurs nicht mehr vorkommt).
             day_columns: Alle Tagesspalten des geöffneten Plans.
         """
-        ladder: SequenceLadder | None
-        error: str | None = None
-        try:
-            ladder = self._repo.read_sequence_ladder(sequence_path)
-        except LadderFormatError as exc:
-            ladder, error = None, f"{exc} – die Leiter ist schreibgeschützt, bis die Datei korrigiert ist."
-        except OSError as exc:
-            ladder, error = None, f"Sequenzdatei nicht lesbar: {exc}"
         days = sequence_term_days(day_columns, runs)
-        count = max(len(days), len(ladder.rungs) if ladder is not None else 0) + 1
-        return SequenceLadderView(sequence_path, oberthema, ladder, rung_infos(days, count), error)
+        try:
+            snapshot = self._source.read(sequence_path, days)
+        except LadderFormatError as exc:
+            error = f"{exc} – die Leiter ist schreibgeschützt, bis die Datei korrigiert ist."
+            return SequenceLadderView(sequence_path, oberthema, None, rung_infos(days, len(days) + 1), error)
+        except OSError as exc:
+            error = f"Sequenzdatei nicht lesbar: {exc}"
+            return SequenceLadderView(sequence_path, oberthema, None, rung_infos(days, len(days) + 1), error)
+        ladder = snapshot.ladder
+        count = max(len(days), len(ladder.rungs)) + 1
+        return SequenceLadderView(
+            sequence_path,
+            oberthema,
+            ladder,
+            rung_infos(days, count),
+            notes=snapshot.notes,
+            duplicates=ladder.duplicate_groups(),
+        )

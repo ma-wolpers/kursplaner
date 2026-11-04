@@ -197,7 +197,7 @@ def test_undo_and_redo_keep_the_view():
     )
     controller.update_action_controls = lambda: calls.append("controls")
 
-    controller._refresh_after_history_step()
+    controller.refresh_after_file_write()
 
     assert calls == ["reload", "controls"]
 

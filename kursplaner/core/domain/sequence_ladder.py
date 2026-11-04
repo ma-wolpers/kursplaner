@@ -12,13 +12,20 @@ innerhalb einer Sprosse – dieselbe Prozesskompetenz darf in mehreren Sprossen
 stehen. Die Regel steht allein in `uniqueness_scope`; ein Baustein wird daher
 über `BlockRef` (Sprosse, Spalte, Text) angesprochen. Bausteine aus dem
 Kompetenznetz tragen zusätzlich die Kompetenz-ID und sind nicht umbenennbar.
+
+Gesperrte Sprossen (`SequenceLadder.locked_rungs`, z. B. LZK/Hospitation/Ausfall)
+nehmen keine Bausteine und keine Ideen auf; die Sperre wird aus den Terminen
+abgeleitet und nie gespeichert (`sequence_ladder_homes`). Bausteine, die schon
+vor der Eindeutigkeitsregel doppelt standen, meldet `duplicate_groups`.
 Siehe `docs/ARCHITEKTUR_KERN.md` §37.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
+
+from kursplaner.core.domain.list_cell_text import list_entry_violation
 
 
 class LadderSide(str, Enum):
@@ -96,6 +103,17 @@ def block_key(text: str) -> str:
     return str(text).strip().casefold()
 
 
+def collision_keys(block: LadderBlock) -> frozenset[tuple[str, str]]:
+    """Schlüssel, über die zwei Bausteine im selben Bereich kollidieren – die einzige Stelle dieser Regel.
+
+    Gleicher Text (`block_key`) oder – bei Netz-Bausteinen – gleiche Kompetenz-ID.
+    """
+    keys = {("text", block_key(block.text))}
+    if block.kompetenz_id is not None:
+        keys.add(("id", block.kompetenz_id))
+    return frozenset(keys)
+
+
 def uniqueness_scope(side: LadderSide, rung: int) -> tuple[object, ...]:
     """Eindeutigkeitsbereich eines Bausteins – die einzige Stelle dieser Regel.
 
@@ -109,13 +127,23 @@ def uniqueness_scope(side: LadderSide, rung: int) -> tuple[object, ...]:
 
 @dataclass(frozen=True)
 class SequenceLadder:
-    """Die ganze Leiter; unveränderlich, Operationen liefern neue Leitern."""
+    """Die ganze Leiter; unveränderlich, Operationen liefern neue Leitern.
+
+    Attributes:
+        rungs: Sprossen von unten nach oben.
+        locked_rungs: Indizes gesperrter Sprossen (keine Bausteine, keine Ideen).
+    """
 
     rungs: tuple[LadderRung, ...] = ()
+    locked_rungs: frozenset[int] = field(default_factory=frozenset)
 
     def rung(self, index: int) -> LadderRung:
         """Sprosse *index*; jenseits der gespeicherten Sprossen eine leere Sprosse."""
         return self.rungs[index] if 0 <= index < len(self.rungs) else LadderRung()
+
+    def is_locked(self, index: int) -> bool:
+        """``True``, wenn Sprosse *index* gesperrt ist."""
+        return index in self.locked_rungs
 
     def with_rung(self, index: int, rung: LadderRung) -> SequenceLadder:
         """Kopie mit ersetzter Sprosse; fehlende Sprossen darunter werden leer ergänzt."""
@@ -123,7 +151,7 @@ class SequenceLadder:
             raise LadderRuleError("Unter der ersten Sprosse gibt es keine Sprosse.")
         rungs = list(self.rungs) + [LadderRung()] * max(0, index + 1 - len(self.rungs))
         rungs[index] = rung
-        return SequenceLadder(tuple(rungs))
+        return replace(self, rungs=tuple(rungs))
 
     def find(self, ref: BlockRef) -> tuple[LadderSlot, LadderBlock] | None:
         """Position und Baustein zu *ref* (Textvergleich über `block_key`), sonst ``None``."""
@@ -156,7 +184,7 @@ class SequenceLadder:
             kompetenz_id: Seine Kompetenz-ID (Netz-Baustein) oder ``None``.
             ignore: Baustein, der nicht zählt (der verschobene/umbenannte selbst).
         """
-        scope, key = uniqueness_scope(side, rung), block_key(text)
+        scope, wanted = uniqueness_scope(side, rung), collision_keys(LadderBlock(text, kompetenz_id))
         ignored = (ignore.rung, ignore.side, block_key(ignore.text)) if ignore is not None else None
         for rung_index, other in enumerate(self.rungs):
             if uniqueness_scope(side, rung_index) != scope:
@@ -164,7 +192,7 @@ class SequenceLadder:
             for block in other.blocks(side):
                 if (rung_index, side, block_key(block.text)) == ignored:
                     continue
-                if block_key(block.text) == key or (kompetenz_id is not None and block.kompetenz_id == kompetenz_id):
+                if wanted & collision_keys(block):
                     return block
         return None
 
@@ -172,12 +200,48 @@ class SequenceLadder:
         """Index der höchsten Sprosse mit Bausteinen in *side*, ``-1`` wenn keine."""
         return max((index for index, rung in enumerate(self.rungs) if rung.blocks(side)), default=-1)
 
+    def duplicate_groups(self) -> tuple[tuple[BlockRef, ...], ...]:
+        """Gruppen von Bausteinen, die in ihrem Eindeutigkeitsbereich miteinander kollidieren.
+
+        Neue Kollisionen verhindern die Operationen; diese Abfrage findet den
+        Altbestand (z. B. dasselbe Lernziel in zwei Einheiten), damit er markiert
+        werden kann. Eine Gruppe ist zusammenhängend: zwei Bausteine gehören
+        dazu, wenn sie – auch über einen dritten hinweg – einen Kollisionsschlüssel
+        (`collision_keys`) im selben Bereich teilen. Reihenfolge: unten → oben.
+        """
+        by_key: dict[tuple[object, ...], list[BlockRef]] = {}
+        keys_of: dict[BlockRef, set[tuple[object, ...]]] = {}
+        for index, rung in enumerate(self.rungs):
+            for side in LadderSide:
+                scope = uniqueness_scope(side, index)
+                for block in rung.blocks(side):
+                    ref = BlockRef(index, side, block.text)
+                    keys_of[ref] = {(scope, key) for key in collision_keys(block)}
+                    for key in keys_of[ref]:
+                        by_key.setdefault(key, []).append(ref)
+        groups: list[tuple[BlockRef, ...]] = []
+        seen: set[BlockRef] = set()
+        for start in keys_of:
+            if start in seen:
+                continue
+            group, todo = [], [start]
+            while todo:
+                ref = todo.pop()
+                if ref in seen:
+                    continue
+                seen.add(ref)
+                group.append(ref)
+                todo.extend(other for key in keys_of[ref] for other in by_key[key])
+            if len(group) > 1:
+                groups.append(tuple(sorted(group, key=lambda r: r.rung)))
+        return tuple(groups)
+
     def trimmed(self) -> SequenceLadder:
         """Kopie ohne leere Sprossen am oberen Ende (werden nicht gespeichert)."""
         rungs = list(self.rungs)
         while rungs and rungs[-1].is_empty:
             rungs.pop()
-        return SequenceLadder(tuple(rungs))
+        return replace(self, rungs=tuple(rungs))
 
     @property
     def is_empty(self) -> bool:
@@ -191,14 +255,20 @@ def conflict_message(block: LadderBlock, side: LadderSide) -> str:
     return f"Es gibt {where} bereits einen Baustein „{block.text}“."
 
 
+def locked_message(rung: int) -> str:
+    """Nutzerlesbare Meldung: Sprosse *rung* (0-basiert) ist gesperrt."""
+    return f"Sprosse {rung + 1} nimmt keine Bausteine oder Ideen auf (LZK, Hospitation oder Ausfall)."
+
+
 def block_text_error(
     text: str, ladder: SequenceLadder, *, side: LadderSide, rung: int, ignore: BlockRef | None = None
 ) -> str | None:
     """Prüft den Text eines eigenen Bausteins; liefert eine Fehlermeldung oder ``None``.
 
     Regeln: nicht leer, einzeilig, beginnt nicht mit ``[[`` (im Dateiformat für
-    Netz-Bausteine reserviert) und ist in seinem Eindeutigkeitsbereich
-    (`uniqueness_scope`) eindeutig.
+    Netz-Bausteine reserviert), erfüllt den Listenvertrag der Einheiten-Felder
+    (`list_cell_text.list_entry_violation`, z. B. kein ``;``) und ist in seinem
+    Eindeutigkeitsbereich (`uniqueness_scope`) eindeutig.
 
     Args:
         text: Gewünschter Text.
@@ -215,5 +285,8 @@ def block_text_error(
         return "Die Beschreibung muss einzeilig sein."
     if stripped.startswith("[["):
         return "Eigene Bausteine dürfen nicht mit „[[“ beginnen (reserviert für Kompetenzen aus dem Netz)."
+    violation = list_entry_violation(stripped)
+    if violation:
+        return violation
     found = ladder.conflict(side, rung, stripped, ignore=ignore)
     return conflict_message(found, side) if found is not None else None

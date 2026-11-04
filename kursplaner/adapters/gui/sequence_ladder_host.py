@@ -114,7 +114,7 @@ class SequenceLadderHost:
             context=lambda: self._context(path),
             dialogs=TkLadderDialogs(window),
             render=window.render,
-            after_write=self.app.action_controller.update_action_controls,
+            after_write=self.app.action_controller.refresh_after_file_write,
         )
         window.attach(controller)
         bind_ladder_keys(window, window.board, controller, undo=self._undo, redo=self._redo)

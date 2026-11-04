@@ -133,10 +133,16 @@ class HistoryUseCase:
         capture_before: Callable[[], dict[Path, str | None]] | None = None,
         extra_after: list[Path] | None = None,
         extra_after_from_result: Callable[[TActionResult], list[Path]] | None = None,
+        rollback_on_error: bool = False,
     ) -> TActionResult:
         """Führt eine Aktion aus und erzeugt den passenden History-Eintrag.
 
         Damit bleibt die Capture/Record-Orchestrierung im Use Case statt im Adapter.
+
+        Args:
+            rollback_on_error: Wirft *action*, werden alle erfassten Dateien
+                byte-genau auf den Vorher-Zustand zurückgesetzt (kein Teilstand
+                bei Aktionen über mehrere Dateien); die Ausnahme wird weitergereicht.
         """
         before = before_state
         if before is None:
@@ -144,12 +150,23 @@ class HistoryUseCase:
                 raise RuntimeError("Für run_tracked_action wird before_state oder capture_before benötigt.")
             before = capture_before()
 
-        result = action()
+        try:
+            result = action()
+        except Exception:
+            if rollback_on_error:
+                self._restore(before)
+            raise
         tracked_after = list(extra_after or [])
         if extra_after_from_result is not None:
             tracked_after.extend(extra_after_from_result(result))
         self.record(label=label, before=before, extra_after=tracked_after)
         return result
+
+    def _restore(self, before: dict[Path, str | None]) -> None:
+        """Setzt die Dateien aus *before* auf diesen Zustand zurück (ohne History-Eintrag)."""
+        entry = self.command_executor.build_entry(label="", before=before, after=self.capture(list(before)))
+        if entry is not None:
+            self._apply_entry(entry, use_before=True)
 
     def _apply_entry(self, entry: CommandEntry, *, use_before: bool) -> None:
         """Wendet einen History-Eintrag als Undo oder Redo an."""

@@ -173,3 +173,13 @@ def test_write_plan_metadata_persists_competency_fields(tmp_path):
     assert 'KC-Profil: "Informatik Sek I (5-9)"' in text
     assert "Kompetenzen:" in text
     assert 'Stundenziel: "I 2.2 entwerfen Algorithmen und stellen diese geeignet dar"' in text
+
+
+def test_single_wiki_link_splits_target_and_alias_of_a_whole_entry_only():
+    from kursplaner.core.domain.wiki_links import single_wiki_link
+
+    assert single_wiki_link("[[Mat-RF-14|Terme]]") == ("Mat-RF-14", "Terme")
+    assert single_wiki_link("[[Einheiten/ab12.md]]") == ("ab12", None)
+    assert single_wiki_link("[[a|]]") == ("a", None)
+    assert single_wiki_link("Tafelbild [[Skizze]]") is None
+    assert single_wiki_link("[[a]] [[b]]") is None

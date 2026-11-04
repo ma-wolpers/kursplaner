@@ -25,6 +25,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     initial_cursor,
     ladder_slot,
     rung_index,
+    view_hints,
 )
 from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.day_column import DayColumn
@@ -35,6 +36,7 @@ from kursplaner.core.domain.sequence_ladder import (
     LadderSlot,
     SequenceLadder,
     block_text_error,
+    locked_message,
 )
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
@@ -112,13 +114,16 @@ class SequenceLadderController:
             context: Liefert Oberthema, Läufe und Tagesspalten des geöffneten Kurses.
             dialogs: Dialog-Adapter.
             render: ``(view, cursor, banner)`` – Anzeige aktualisieren.
-            after_write: Nach jedem Schreibvorgang (z. B. Undo-Knöpfe aktualisieren).
+            after_write: Nach jedem Schreibvorgang: Hauptfenster neu laden (Grid zeigt
+                die geänderten Einheiten); lädt es dabei die Leiter neu, entfällt das
+                eigene Neuladen.
         """
         self.sequence_path = sequence_path
         self._load, self._edit, self._context = load, edit, context
         self._dialogs, self._render, self._after_write = dialogs, render, after_write
         self._oberthema = sequence_path.stem
         self._missing = False
+        self._reload_count = 0
         self.view: SequenceLadderView | None = None
         self.cursor: Cursor = None
         self.clipboard: str | None = None
@@ -136,7 +141,8 @@ class SequenceLadderController:
         return self.view is None or self.view.ladder is None or self._missing
 
     def reload(self, cursor: Cursor | None = None) -> None:
-        """Liest Datei und Termine neu und zeigt sie an; *cursor* ersetzt den bisherigen (falls angegeben)."""
+        """Liest Einheiten, Ablage und Termine neu und zeigt sie an; *cursor* ersetzt den bisherigen."""
+        self._reload_count += 1
         context = self._context()
         self._missing = context is None
         if context is not None:
@@ -156,7 +162,8 @@ class SequenceLadderController:
             return self.view.error
         if self._missing:
             return "Diese Sequenz kommt im geöffneten Kurs nicht (mehr) vor – die Leiter ist schreibgeschützt."
-        return None
+        hints = view_hints(self.view) if self.view is not None else ()
+        return "\n".join(hints) or None
 
     def set_cursor(self, cursor: Cursor) -> None:
         """Übernimmt den Cursor nach einem Klick im Board."""
@@ -164,22 +171,43 @@ class SequenceLadderController:
 
     # -- Aktionen --------------------------------------------------------------
 
-    def _run(self, op: LadderOperation, cursor_after: Cursor = None) -> EditSequenceLadderResult | None:
-        if self.read_only:
+    def _writable_context(self) -> LadderContext | None:
+        """Aktueller Kontext, wenn geschrieben werden darf; sonst Hinweis und ``None``."""
+        context = self._context()
+        if self.read_only or context is None:
             self._dialogs.show_info("Sequenzleiter", self._banner() or "Die Leiter ist schreibgeschützt.")
             return None
-        return self._finish(self._edit.execute(sequence_path=self.sequence_path, operation=op), cursor_after)
+        return context
+
+    def _run(self, op: LadderOperation, cursor_after: Cursor = None) -> EditSequenceLadderResult | None:
+        context = self._writable_context()
+        if context is None:
+            return None
+        _oberthema, runs, days = context
+        result = self._edit.execute(sequence_path=self.sequence_path, runs=runs, day_columns=days, operation=op)
+        return self._finish(result, cursor_after)
 
     def _finish(self, result: EditSequenceLadderResult, cursor_after: Cursor) -> EditSequenceLadderResult:
         if result.error:
             self._dialogs.show_error("Sequenzleiter", result.error)
         if result.notes:
             self._dialogs.show_info("Sequenzleiter", "\n".join(result.notes))
-        if result.applied:
-            self._after_write()
-        cursor = card_key(result.focus) if result.focus is not None else cursor_after
-        self.reload(cursor if result.applied else None)
+        if not result.applied:
+            self.reload()
+            return result
+        self.cursor = card_key(result.focus) if result.focus is not None else cursor_after
+        reloads_before = self._reload_count
+        self._after_write()
+        if self._reload_count == reloads_before:
+            self.reload()
         return result
+
+    def _locked(self, slot: LadderSlot) -> bool:
+        """Gesperrte Sprosse: Hinweis statt Texteingabe (Regeltext aus der Domain)."""
+        if self.ladder.is_locked(slot.rung):
+            self._dialogs.show_info("Sequenzleiter", locked_message(slot.rung))
+            return True
+        return False
 
     def _ask(self, title: str, slot: LadderSlot, initial: str = "", ignore: BlockRef | None = None) -> str | None:
         ladder = self.ladder
@@ -209,7 +237,7 @@ class SequenceLadderController:
     def add(self, cell: BoardCell) -> None:
         """ "+" in einer Zelle: neuen eigenen Baustein unten in der Zelle anlegen."""
         slot = self._end_slot(cell)
-        if slot is None or self.read_only:
+        if slot is None or self.read_only or self._locked(slot):
             return
         text = self._ask("Neuer Baustein", slot)
         if text:
@@ -229,6 +257,8 @@ class SequenceLadderController:
         slot = self._paste_slot()
         if slot is None:
             self._dialogs.show_info("Einfügen", "Erst einen Baustein oder eine Zelle der Leiter wählen.")
+            return
+        if self._locked(slot):
             return
         text = self._ask("Kopie benennen", slot, initial=self.clipboard)
         if text:
@@ -289,10 +319,16 @@ class SequenceLadderController:
         kc_context: CourseKcContext = CourseKcContext(),
     ) -> None:
         """Markierte Netz-Kompetenzen übernehmen (ein Undo-Schritt; *kc_context* = Kurs der Sequenz)."""
-        if self.read_only:
-            self._dialogs.show_info("Sequenzleiter", self._banner() or "Die Leiter ist schreibgeschützt.")
+        context = self._writable_context()
+        if context is None:
             return
+        _oberthema, runs, days = context
         result = self._edit.import_competences(
-            sequence_path=self.sequence_path, snapshot=snapshot, kompetenz_ids=kompetenz_ids, kc_context=kc_context
+            sequence_path=self.sequence_path,
+            runs=runs,
+            day_columns=days,
+            snapshot=snapshot,
+            kompetenz_ids=kompetenz_ids,
+            kc_context=kc_context,
         )
         self._finish(result, self.cursor)

@@ -9,6 +9,12 @@ Spalte, Text) referenziert, nie per Index: der Use Case liest vor jeder
 Operation neu, eine zwischenzeitlich extern geänderte Datei trifft so nie den
 falschen Baustein. Jede Operation, die einen Baustein anlegt oder bewegt, meldet
 seinen neuen Verweis als `focus` (für die Auswahl im Editor).
+
+Gesperrte Sprossen (`SequenceLadder.locked_rungs`) nehmen nichts auf: Anlegen,
+Verschieben und Ideen dorthin sind Regelfehler; Strg+↑/↓ und der Netz-Import
+überspringen sie. Beim Verschieben wird die Eindeutigkeit nur geprüft, wenn der
+Baustein seinen Eindeutigkeitsbereich wechselt – so bleiben Altbestand-Doppelungen
+(`duplicate_groups`) verschieb-, umbenenn- und löschbar, neue entstehen nie.
 """
 
 from __future__ import annotations
@@ -26,6 +32,8 @@ from kursplaner.core.domain.sequence_ladder import (
     SequenceLadder,
     block_text_error,
     conflict_message,
+    locked_message,
+    uniqueness_scope,
 )
 
 
@@ -118,6 +126,18 @@ def _require(ladder: SequenceLadder, ref: BlockRef) -> tuple[LadderSlot, LadderB
     return found
 
 
+def _require_open(ladder: SequenceLadder, rung: int) -> None:
+    if ladder.is_locked(rung):
+        raise LadderRuleError(locked_message(rung))
+
+
+def _next_open(ladder: SequenceLadder, rung: int, step: int) -> int:
+    """Erste nicht gesperrte Sprosse ab *rung* in Richtung *step*; ``-1`` unter der untersten."""
+    while rung >= 0 and ladder.is_locked(rung):
+        rung += step
+    return rung
+
+
 def _remove(ladder: SequenceLadder, slot: LadderSlot) -> SequenceLadder:
     rung = ladder.rung(slot.rung)
     blocks = rung.blocks(slot.side)
@@ -132,18 +152,25 @@ def _insert(ladder: SequenceLadder, slot: LadderSlot, block: LadderBlock) -> Seq
 
 
 def _relocate(ladder: SequenceLadder, ref: BlockRef, target: LadderSlot) -> LadderApplyResult:
-    """Baustein *ref* nach *target* bringen; Kollision im Zielbereich ist ein Regelfehler."""
+    """Baustein *ref* nach *target* bringen.
+
+    Gesperrte Zielsprosse und – nur bei Wechsel des Eindeutigkeitsbereichs –
+    eine Kollision im Zielbereich sind Regelfehler.
+    """
     slot, block = _require(ladder, ref)
     if target.side is not slot.side:
         raise LadderRuleError("Bausteine bleiben in ihrer Spalte.")
-    clash = ladder.conflict(target.side, target.rung, block.text, kompetenz_id=block.kompetenz_id, ignore=ref)
-    if clash is not None:
-        raise LadderRuleError(f"Sprosse {target.rung + 1}: {conflict_message(clash, target.side)}")
+    _require_open(ladder, target.rung)
+    if uniqueness_scope(target.side, target.rung) != uniqueness_scope(slot.side, slot.rung):
+        clash = ladder.conflict(target.side, target.rung, block.text, kompetenz_id=block.kompetenz_id, ignore=ref)
+        if clash is not None:
+            raise LadderRuleError(f"Sprosse {target.rung + 1}: {conflict_message(clash, target.side)}")
     moved = _insert(_remove(ladder, slot), target, block)
     return LadderApplyResult(moved, focus=BlockRef(target.rung, target.side, block.text))
 
 
 def _add(ladder: SequenceLadder, op: AddBlock) -> LadderApplyResult:
+    _require_open(ladder, op.slot.rung)
     error = block_text_error(op.text, ladder, side=op.slot.side, rung=op.slot.rung)
     if error:
         raise LadderRuleError(error)
@@ -175,26 +202,27 @@ def _move(ladder: SequenceLadder, op: MoveBlock) -> LadderApplyResult:
 
 
 def _step(ladder: SequenceLadder, op: StepBlock) -> LadderApplyResult:
+    """Eine Position höher/tiefer; über Sprossengrenzen hinweg, gesperrte Sprossen werden übersprungen."""
     slot, _block = _require(ladder, op.ref)
     count = len(ladder.rung(slot.rung).blocks(slot.side))
-    if op.up:
-        target = (
-            LadderSlot(slot.rung, slot.side, slot.index - 1)
-            if slot.index > 0
-            else LadderSlot(slot.rung + 1, slot.side, len(ladder.rung(slot.rung + 1).blocks(slot.side)))
-        )
+    if op.up and slot.index > 0:
+        target = LadderSlot(slot.rung, slot.side, slot.index - 1)
+    elif op.up:
+        above = _next_open(ladder, slot.rung + 1, 1)
+        target = LadderSlot(above, slot.side, len(ladder.rung(above).blocks(slot.side)))
     elif slot.index < count - 1:
         target = LadderSlot(slot.rung, slot.side, slot.index + 1)
-    elif slot.rung > 0:
-        target = LadderSlot(slot.rung - 1, slot.side, 0)
+    elif (below := _next_open(ladder, slot.rung - 1, -1)) >= 0:
+        target = LadderSlot(below, slot.side, 0)
     else:
         return LadderApplyResult(ladder, focus=op.ref)
     return _relocate(ladder, op.ref, target)
 
 
 def _import(ladder: SequenceLadder, op: ImportCompetences) -> LadderApplyResult:
+    """Je Spalte in die erste offene Sprosse über der höchsten belegten."""
     notes: list[str] = []
-    targets = {side: ladder.highest_occupied(side) + 1 for side in LadderSide}
+    targets = {side: _next_open(ladder, ladder.highest_occupied(side) + 1, 1) for side in LadderSide}
     for item in op.items:
         rung = targets[item.side]
         clash = ladder.conflict(item.side, rung, item.text, kompetenz_id=item.kompetenz_id)
@@ -207,6 +235,7 @@ def _import(ladder: SequenceLadder, op: ImportCompetences) -> LadderApplyResult:
 
 
 def _ideas(ladder: SequenceLadder, op: SetIdeas) -> LadderApplyResult:
+    _require_open(ladder, op.rung)
     lines = tuple(line.rstrip() for line in op.lines)
     while lines and not lines[-1]:
         lines = lines[:-1]

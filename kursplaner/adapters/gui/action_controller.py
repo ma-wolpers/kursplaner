@@ -1363,8 +1363,12 @@ class MainWindowActionController:
             return False
         return bool(str(clipboard_value).strip())
 
-    def _refresh_after_history_step(self) -> None:
-        """Zeigt den Stand nach Undo/Redo, ohne dass der Nutzer seinen Platz verliert."""
+    def refresh_after_file_write(self) -> None:
+        """Zeigt den Stand nach einem Dateischreibvorgang außerhalb des Grids (Undo/Redo, Sequenzleiter).
+
+        Einziger Weg dafür: Plan neu laden, ohne dass der Nutzer seinen Platz verliert
+        (`reload_keeping_view`); das veröffentlicht auch die Sequenzen neu.
+        """
         self.app.overview_controller.reload_keeping_view()
         self.update_action_controls()
 
@@ -1375,7 +1379,7 @@ class MainWindowActionController:
             messagebox.showinfo("Undo", "Kein Undo-Eintrag vorhanden.", parent=self.app)
             self.update_action_controls()
             return
-        self._refresh_after_history_step()
+        self.refresh_after_file_write()
 
     def redo_history(self):
         """Führt Redo über den zentralen History-Use-Case aus und aktualisiert die GUI."""
@@ -1384,7 +1388,7 @@ class MainWindowActionController:
             messagebox.showinfo("Redo", "Kein Redo-Eintrag vorhanden.", parent=self.app)
             self.update_action_controls()
             return
-        self._refresh_after_history_step()
+        self.refresh_after_file_write()
 
     def list_recent_change_labels(self, *, limit: int = 5) -> list[str]:
         """Liefert die letzten Undo-Labels (neueste zuerst) für Menüdarstellung."""
@@ -1413,7 +1417,7 @@ class MainWindowActionController:
             messagebox.showinfo("Letzte Änderungen", "Kein passender Undo-Eintrag vorhanden.", parent=self.app)
             self.update_action_controls()
             return
-        self._refresh_after_history_step()
+        self.refresh_after_file_write()
 
     def copy_selected_lesson(self):
         """Kopiert die verlinkte Stunden-Datei der ausgewählten Spalte in die Zwischenablage."""

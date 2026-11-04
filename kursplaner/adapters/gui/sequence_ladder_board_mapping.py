@@ -7,14 +7,30 @@ einen `BlockRef` (Sprosse, Spalte, Text; `card_key`/`block_ref`), weil derselbe
 Text rechts in mehreren Sprossen stehen darf (§37). Leiter-Index 0 ist die unterste Sprosse,
 das Board zeigt die oberste Zeile zuerst; die Umrechnung steckt in
 `rung_key`/`rung_index`.
+
+Markierungen: gesperrte Sprossen (LZK/Hospitation/Ausfall) werden gesperrte
+Board-Zeilen; der oberste linke Baustein einer Unterrichts-Sprosse – ihr
+Stundenziel nach der Positionsregel (`sequence_ladder_homes.goals_from_left`) –
+trägt den Ton `EMPHASIS`; Altbestand-Doppelungen (`SequenceLadderView.duplicates`)
+den Ton `WARNING` und einen Hinweis im Banner (`view_hints`).
 """
 
 from __future__ import annotations
 
-from bw_gui.widgets.card_board import BoardCard, BoardCell, BoardLane, BoardRow, BoardSlot, LaneKind, RowTint
+from bw_gui.widgets.card_board import (
+    BoardCard,
+    BoardCell,
+    BoardLane,
+    BoardRow,
+    BoardSlot,
+    CardTone,
+    LaneKind,
+    RowTint,
+)
 
 from kursplaner.adapters.gui.lesson_kind_tints import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, LESSON_KIND_TINTS
-from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide, LadderSlot, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, LadderSide, LadderSlot, SequenceLadder
+from kursplaner.core.domain.sequence_ladder_ops import MoveBlock, apply_ladder_operation
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungKind, SequenceLadderView
 
 LANE_INHALT = "inhalt"
@@ -73,16 +89,28 @@ def _row_tint(index: int, view: SequenceLadderView) -> RowTint | None:
     return RowTint(tint.color_tint, tint.degree, tint.base_token)
 
 
+def _tone(view: SequenceLadderView, ref: BlockRef, position: int, locked: bool) -> CardTone:
+    if any(ref in group for group in view.duplicates):
+        return CardTone.WARNING
+    is_unit = view.rungs[ref.rung].kind is RungKind.UNTERRICHT and not locked
+    return CardTone.EMPHASIS if is_unit and ref.side is LadderSide.INHALT and position == 0 else CardTone.NORMAL
+
+
 def board_rows(view: SequenceLadderView) -> list[BoardRow]:
     """Zeilen für das Board, oberste Sprosse zuerst (alle Sprossen aus `view.rungs`)."""
     ladder = view.ladder or SequenceLadder()
     rows: list[BoardRow] = []
     for index in reversed(range(len(view.rungs))):
-        rung = ladder.rung(index)
+        rung, locked = ladder.rung(index), ladder.is_locked(index)
         cards = {
             LANE_BY_SIDE[side]: tuple(
-                BoardCard(card_key(BlockRef(index, side, block.text)), block.text, block.kompetenz_id)
-                for block in rung.blocks(side)
+                BoardCard(
+                    card_key(ref := BlockRef(index, side, block.text)),
+                    block.text,
+                    block.kompetenz_id,
+                    _tone(view, ref, position, locked),
+                )
+                for position, block in enumerate(rung.blocks(side))
             )
             for side in LadderSide
         }
@@ -93,9 +121,23 @@ def board_rows(view: SequenceLadderView) -> list[BoardRow]:
                 cards,
                 {LANE_IDEEN: "\n".join(rung.ideen)},
                 _row_tint(index, view),
+                locked=locked,
             )
         )
     return rows
+
+
+def view_hints(view: SequenceLadderView) -> tuple[str, ...]:
+    """Banner-Hinweise: Sprossen-Hinweise der Ansicht und je Altbestand-Doppelung eine Zeile.
+
+    Die Gruppen bildet die Domain (`SequenceLadder.duplicate_groups`); hier steht nur der Text.
+    """
+    lines = list(view.notes)
+    for group in view.duplicates:
+        rungs = " und ".join(str(rung + 1) for rung in sorted({ref.rung for ref in group}))
+        what = "Lernziel" if group[0].side is LadderSide.INHALT else "Kompetenz"
+        lines.append(f"{what} „{group[0].text}“ steht mehrfach (Sprossen {rungs}) – bitte zusammenführen.")
+    return tuple(lines)
 
 
 def ladder_slot(slot: BoardSlot) -> LadderSlot:
@@ -121,18 +163,16 @@ def initial_cursor(ladder: SequenceLadder) -> str | BoardCell:
 
 
 def can_drop(ladder: SequenceLadder, key: str, slot: BoardSlot) -> bool:
-    """Ablegen nur in der eigenen Spalte und ohne Kollision in der Zielsprosse (§37).
+    """Ablegen nur, wo es auch gelingt (§37): fragt die Domain, ob `MoveBlock` gelingen würde.
 
-    Kein Baustein wechselt die Spalte; rechts darf die Zielsprosse denselben
-    Baustein noch nicht tragen (`SequenceLadder.conflict`). So erscheint die
-    Einfügelinie nur dort, wo das Ablegen auch gelingt.
+    So gelten dieselben Regeln wie beim Ablegen selbst (eigene Spalte, keine
+    gesperrte Sprosse, Eindeutigkeit beim Bereichswechsel) – ohne Kopie. Die
+    Einfügelinie erscheint nur dort, wo das Ablegen auch gelingt.
     """
-    ref = block_ref(key)
-    found = ladder.find(ref)
-    if found is None or SIDE_BY_LANE.get(slot.lane_key) is not ref.side:
+    if slot.lane_key not in SIDE_BY_LANE:
         return False
-    block = found[1]
-    return (
-        ladder.conflict(ref.side, rung_index(slot.row_key), block.text, kompetenz_id=block.kompetenz_id, ignore=ref)
-        is None
-    )
+    try:
+        apply_ladder_operation(ladder, MoveBlock(block_ref(key), ladder_slot(slot)))
+    except LadderRuleError:
+        return False
+    return True
