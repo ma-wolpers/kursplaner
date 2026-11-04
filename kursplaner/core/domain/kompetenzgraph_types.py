@@ -1,18 +1,41 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Literal
 
 ANFORDERUNG_BASIS = "basis"
 ANFORDERUNG_WEITERFUEHREND_OPTIONAL = "weiterfuehrend-optional"
 ANFORDERUNG_VALUES: frozenset[str] = frozenset({ANFORDERUNG_BASIS, ANFORDERUNG_WEITERFUEHREND_OPTIONAL})
-"""Zulässige Werte für `kc_zuordnung[].anforderung` (siehe `_Schema.md`).
+"""Fachneutral zulässige Werte für `kc_zuordnung[].anforderung` (siehe `_Schema.md`).
 
-Bewusst binär, kein Sammelfeld für andere Eigenschaften -- ein Wert außerhalb
-dieser Menge ist ein weicher Fehler (dieser `kc_zuordnung`-Eintrag wird
-verworfen, siehe `kompetenzgraph_mapping.py`), kein harter Parse-Abbruch.
+Kein Sammelfeld für andere Eigenschaften -- ein Wert außerhalb der für das Fach
+zulässigen Menge (`anforderung_values_for`) ist ein weicher Fehler (dieser
+`kc_zuordnung`-Eintrag wird verworfen, siehe `kompetenzgraph_mapping.py`), kein
+harter Parse-Abbruch.
 """
+
+ANFORDERUNG_ERGAENZUNG_OPTIONAL = "ergaenzung-optional"
+
+ANFORDERUNG_FACH_ERWEITERUNGEN: Mapping[str, frozenset[str]] = MappingProxyType(
+    {"Informatik": frozenset({ANFORDERUNG_ERGAENZUNG_OPTIONAL})}
+)
+"""Fachspezifische Erweiterungen des Wertebereichs, je Fachordner.
+
+`_Schema.md` erlaubt sie ausdrücklich („fachspezifische Erweiterung um weitere
+Stufen zulässig, siehe <Fach>\\_Schema.md“). Quelle der Informatik-Stufe:
+`34 Fachinhalte/Informatik/_Schema.md`, Abschnitt „`anforderung`-Wertebereich:
+um `ergaenzung-optional` erweitert“ (KC-Spalte „Ergänzung“). Neue Fachstufen
+nur hier eintragen, nachdem sie im jeweiligen Fach-Schema stehen.
+"""
+
+
+def anforderung_values_for(subject: str) -> frozenset[str]:
+    """Zulässige `anforderung`-Werte für einen Fachordner (fachneutral + Fach-Erweiterung)."""
+    return ANFORDERUNG_VALUES | ANFORDERUNG_FACH_ERWEITERUNGEN.get(subject, frozenset())
+
 
 STATUS_ENTWURF = "entwurf"
 STATUS_GEPRUEFT = "geprüft"

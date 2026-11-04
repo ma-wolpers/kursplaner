@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFieldIssue
-from kursplaner.core.domain.kompetenzgraph_types import ANFORDERUNG_VALUES, KcZuordnungEintrag
+from kursplaner.core.domain.kompetenzgraph_types import KcZuordnungEintrag, anforderung_values_for
 
 _KC_ZUORDNUNG_FIELD = "kc_zuordnung"
 
@@ -36,7 +36,7 @@ def _parse_jahrgang(value: object) -> int | None:
 
 
 def _parse_single_kc_zuordnung_entry(
-    raw_entry: object,
+    raw_entry: object, allowed_anforderungen: frozenset[str]
 ) -> tuple[KcZuordnungEintrag | None, KompetenzFieldIssue | None]:
     """Parst einen einzelnen rohen `kc_zuordnung`-Listeneintrag.
 
@@ -53,7 +53,7 @@ def _parse_single_kc_zuordnung_entry(
         )
 
     anforderung = str(raw_entry.get("anforderung", "")).strip()
-    if anforderung not in ANFORDERUNG_VALUES:
+    if anforderung not in allowed_anforderungen:
         return None, KompetenzFieldIssue(
             field=_KC_ZUORDNUNG_FIELD,
             message=f"Ungültige 'anforderung': {anforderung!r}.",
@@ -76,7 +76,9 @@ def _entry_identity_key(entry: KcZuordnungEintrag) -> tuple[str | None, str | No
     return (entry.bundesland, entry.schulform, entry.niveau, entry.jahrgang)
 
 
-def parse_kc_zuordnung_list(raw_value: object) -> tuple[tuple[KcZuordnungEintrag, ...], list[KompetenzFieldIssue]]:
+def parse_kc_zuordnung_list(
+    raw_value: object, *, subject: str = ""
+) -> tuple[tuple[KcZuordnungEintrag, ...], list[KompetenzFieldIssue]]:
     """Parst das komplette `kc_zuordnung`-Feld einer Kompetenz-Datei.
 
     Erwartet laut Schema mindestens einen gültigen Eintrag -- ob dieses
@@ -88,6 +90,9 @@ def parse_kc_zuordnung_list(raw_value: object) -> tuple[tuple[KcZuordnungEintrag
     Args:
         raw_value: Der rohe, von PyYAML geparste Wert des Frontmatter-Felds
             `kc_zuordnung` (erwartet: Liste von Dicts).
+        subject: Fachordner der Datei; bestimmt den zulässigen
+            `anforderung`-Wertebereich (`anforderung_values_for`). Leer =
+            nur der fachneutrale Bereich.
 
     Returns:
         Ein Tupel aus (a) den erfolgreich geparsten, um Duplikate
@@ -104,12 +109,13 @@ def parse_kc_zuordnung_list(raw_value: object) -> tuple[tuple[KcZuordnungEintrag
             )
         ]
 
+    allowed = anforderung_values_for(subject)
     issues: list[KompetenzFieldIssue] = []
     seen_keys: set[tuple[str | None, str | None, str | None, int | None]] = set()
     entries: list[KcZuordnungEintrag] = []
 
     for raw_entry in raw_value:
-        entry, issue = _parse_single_kc_zuordnung_entry(raw_entry)
+        entry, issue = _parse_single_kc_zuordnung_entry(raw_entry, allowed)
         if issue is not None:
             issues.append(issue)
             continue

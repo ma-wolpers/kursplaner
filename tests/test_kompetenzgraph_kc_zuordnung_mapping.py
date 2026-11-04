@@ -86,3 +86,14 @@ def test_multiple_entries_with_different_combinations_are_all_kept():
 
     assert issues == []
     assert len(entries) == 2
+
+
+def test_informatik_accepts_its_schema_extension_ergaenzung_optional():
+    """Informatik/_Schema.md erweitert `anforderung` um `ergaenzung-optional` (KC-Spalte „Ergänzung“)."""
+    entries, issues = parse_kc_zuordnung_list([_raw_entry(anforderung="ergaenzung-optional")], subject="Informatik")
+    assert issues == [] and entries[0].anforderung == "ergaenzung-optional"
+
+
+def test_other_subjects_still_reject_ergaenzung_optional():
+    entries, issues = parse_kc_zuordnung_list([_raw_entry(anforderung="ergaenzung-optional")], subject="Mathematik")
+    assert entries == () and "anforderung" in issues[0].message

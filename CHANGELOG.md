@@ -48,6 +48,7 @@ The format is based on Keep a Changelog.
 - **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel. Das Mausrad über der Scrollbar eines scrollbaren Bereichs (z. B. im Einstellungsdialog) scrollt jetzt genau dreimal so weit wie über dem Inhalt (bisher unbeabsichtigt fünfmal).
 
 ### Fixed
+- **Alle Informatik-Kompetenzen im Kompetenznetz:** 29 Informatik-Kompetenzen der Stufe „Ergänzung“ wurden bisher nicht angezeigt; sie erscheinen jetzt (auch im Filter „Anforderung“).
 - **Hauptfenster bleibt neben Kompetenznetz und Sequenzleiter bedienbar:** Solange eines dieser Fenster offen war, reagierte das Hauptfenster nicht auf Tastenkürzel wie Strg+Z oder Strg+C. Jetzt funktionieren die Kürzel im Hauptfenster weiter, und Tasten in den Werkzeugfenstern lösen nie versehentlich Aktionen im Plan aus. Esc im Hauptfenster schließt wie bisher das zuletzt geöffnete Fenster.
 - **Sequenzziel und Leitkompetenzen rückgängig machen:** Änderungen in den Grid-Zeilen „Sequenzziel“ und „Leitkompetenzen“ lassen sich jetzt mit Strg+Z/Strg+Y zurücknehmen bzw. wiederholen (bisher wurden sie nicht im Verlauf erfasst).
 - Rückgängig und Wiederholen: Der geöffnete Kursplan bleibt an der gleichen Stelle, gewählte Spalte oder Zelle und Scrollposition bleiben erhalten; bisher sprang die Ansicht zur nächsten Einheit. In der Kursübersicht öffnen beide den gewählten Kurs nicht mehr von selbst.

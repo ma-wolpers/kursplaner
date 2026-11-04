@@ -205,7 +205,7 @@ def parse_kompetenz_node_from_raw(
     if bereich_issue is not None:
         issues.append(bereich_issue)
 
-    kc_zuordnung, kc_issues = parse_kc_zuordnung_list(frontmatter_raw.get("kc_zuordnung"))
+    kc_zuordnung, kc_issues = parse_kc_zuordnung_list(frontmatter_raw.get("kc_zuordnung"), subject=source.subject)
     issues.extend(kc_issues)
     if not kc_zuordnung and not any(issue.severity == "error" for issue in kc_issues):
         # Feld war syntaktisch eine Liste, aber nach Bereinigung blieb kein gueltiger
