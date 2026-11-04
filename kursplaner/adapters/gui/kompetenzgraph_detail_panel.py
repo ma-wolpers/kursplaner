@@ -3,7 +3,7 @@ from __future__ import annotations
 from bw_gui.runtime import bind_click, ui, widgets
 
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
-from kursplaner.core.domain.kompetenzgraph_types import KcZuordnungEintrag
+from kursplaner.core.domain.kompetenzgraph_types import EBENE_HAUPT, KcZuordnungEintrag
 from kursplaner.core.usecases.kompetenzgraph_load_body_usecase import LoadKompetenzNodeBodyUseCase
 
 _COPIED_FEEDBACK_MS = 1200
@@ -103,6 +103,7 @@ class KompetenzGraphDetailPanel:
                 entry.niveau,
                 f"Jg. {entry.jahrgang}" if entry.jahrgang is not None else None,
                 entry.anforderung,
+                "Hauptkompetenz" if entry.ebene == EBENE_HAUPT else None,
             )
             if part
         ]

@@ -135,7 +135,8 @@ SEQUENCE_LADDER_HELP: dict[str, str] = {
 KOMPETENZGRAPH_HELP: dict[str, str] = {
     "mark_visible": (
         "Markiert alle aktuell gefilterten Kompetenzen (ohne gedimmte Kontextknoten). Einzeln markieren: "
-        "Strg+Klick auf einen Knoten oder Leertaste auf dem gewählten Knoten."
+        "Strg+Klick auf einen Knoten oder Leertaste auf dem gewählten Knoten. Inhaltsbezogene "
+        "Hauptkompetenzen (doppelter Rahmen) werden über ihre Einzelkompetenzen erworben und nicht markiert."
     ),
     "import_marked": (
         "Übernimmt die markierten Kompetenzen als Bausteine in eine Sequenzleiter: Inhaltsbereiche links, "

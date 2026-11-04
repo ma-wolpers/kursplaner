@@ -37,6 +37,18 @@ def anforderung_values_for(subject: str) -> frozenset[str]:
     return ANFORDERUNG_VALUES | ANFORDERUNG_FACH_ERWEITERUNGEN.get(subject, frozenset())
 
 
+EBENE_HAUPT = "haupt"
+EBENE_VALUES: frozenset[str] = frozenset({EBENE_HAUPT})
+"""Zulässige Werte für `kc_zuordnung[].ebene` (siehe `34 Fachinhalte/_Schema.md`).
+
+``haupt`` markiert eine Hauptkompetenz dieses KCs: eine übergreifende
+Kompetenz, die über viele Einzelkompetenzen hinweg erworben wird (Informatik:
+KC Kap. 3.1/3.2). Fehlt das Feld, ist der Eintrag eine Einzelkompetenz. Ein
+unbekannter Wert ist ein weicher Fehler: Warnung, der Eintrag gilt als
+Einzelkompetenz.
+"""
+
+
 STATUS_ENTWURF = "entwurf"
 STATUS_GEPRUEFT = "geprüft"
 STATUS_VALUES: frozenset[str] = frozenset({STATUS_ENTWURF, STATUS_GEPRUEFT})
@@ -126,6 +138,8 @@ class KcZuordnungEintrag:
             zu genau dieser Zuordnung gehört. Darf laut Schema bewusst
             leer sein (z. B. wenn der Originaltext noch nicht
             nachgeschlagen wurde) -- kein Parse-Fehler.
+        ebene: `EBENE_HAUPT`, wenn die Kompetenz in diesem KC eine
+            Hauptkompetenz ist, sonst ``None`` (Einzelkompetenz).
     """
 
     bundesland: str | None
@@ -134,3 +148,4 @@ class KcZuordnungEintrag:
     jahrgang: int | None
     anforderung: str
     kc_verweis: str
+    ebene: str | None = None

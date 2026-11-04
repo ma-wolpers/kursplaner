@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFieldIssue
-from kursplaner.core.domain.kompetenzgraph_types import KcZuordnungEintrag, anforderung_values_for
+from kursplaner.core.domain.kompetenzgraph_types import EBENE_VALUES, KcZuordnungEintrag, anforderung_values_for
 
 _KC_ZUORDNUNG_FIELD = "kc_zuordnung"
 
@@ -43,7 +43,8 @@ def _parse_single_kc_zuordnung_entry(
     Gibt bei einem strukturell ungültigen Eintrag (kein Dict, ungültige
     `anforderung`) `(None, issue)` zurück -- ein weicher Fehler, der laut
     Fehlerklassifizierung nur diesen einen Eintrag verwirft, nicht die
-    gesamte Datei.
+    gesamte Datei. Eine unbekannte `ebene` liefert `(entry, issue)`: der
+    Eintrag bleibt als Einzelkompetenz erhalten.
     """
     if not isinstance(raw_entry, dict):
         return None, KompetenzFieldIssue(
@@ -60,6 +61,15 @@ def _parse_single_kc_zuordnung_entry(
             severity="warning",
         )
 
+    ebene = _clean_optional_str(raw_entry.get("ebene"))
+    issue = None
+    if ebene is not None and ebene not in EBENE_VALUES:
+        issue = KompetenzFieldIssue(
+            field=_KC_ZUORDNUNG_FIELD,
+            message=f"Ungültige 'ebene': {ebene!r} – Eintrag gilt als Einzelkompetenz.",
+            severity="warning",
+        )
+        ebene = None
     entry = KcZuordnungEintrag(
         bundesland=_clean_optional_str(raw_entry.get("bundesland")),
         schulform=_clean_optional_str(raw_entry.get("schulform")),
@@ -67,8 +77,9 @@ def _parse_single_kc_zuordnung_entry(
         jahrgang=_parse_jahrgang(raw_entry.get("jahrgang")),
         anforderung=anforderung,
         kc_verweis=str(raw_entry.get("kc_verweis", "") or "").strip(),
+        ebene=ebene,
     )
-    return entry, None
+    return entry, issue
 
 
 def _entry_identity_key(entry: KcZuordnungEintrag) -> tuple[str | None, str | None, str | None, int | None]:
@@ -118,8 +129,8 @@ def parse_kc_zuordnung_list(
         entry, issue = _parse_single_kc_zuordnung_entry(raw_entry, allowed)
         if issue is not None:
             issues.append(issue)
+        if entry is None:
             continue
-        assert entry is not None
         key = _entry_identity_key(entry)
         if key in seen_keys:
             issues.append(

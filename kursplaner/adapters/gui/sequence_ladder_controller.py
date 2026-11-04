@@ -26,6 +26,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     ladder_slot,
     rung_index,
 )
+from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.sequence_ladder import (
@@ -281,12 +282,17 @@ class SequenceLadderController:
         """Ideenfeld einer Sprosse übernehmen (ein Undo-Schritt)."""
         self._run(SetIdeas(rung_index(cell.row_key), tuple(text.splitlines())), cell)
 
-    def import_competences(self, snapshot: KompetenzGraphSnapshot, kompetenz_ids: Iterable[str]) -> None:
-        """Markierte Netz-Kompetenzen übernehmen (ein Undo-Schritt)."""
+    def import_competences(
+        self,
+        snapshot: KompetenzGraphSnapshot,
+        kompetenz_ids: Iterable[str],
+        kc_context: CourseKcContext = CourseKcContext(),
+    ) -> None:
+        """Markierte Netz-Kompetenzen übernehmen (ein Undo-Schritt; *kc_context* = Kurs der Sequenz)."""
         if self.read_only:
             self._dialogs.show_info("Sequenzleiter", self._banner() or "Die Leiter ist schreibgeschützt.")
             return
         result = self._edit.import_competences(
-            sequence_path=self.sequence_path, snapshot=snapshot, kompetenz_ids=kompetenz_ids
+            sequence_path=self.sequence_path, snapshot=snapshot, kompetenz_ids=kompetenz_ids, kc_context=kc_context
         )
         self._finish(result, self.cursor)

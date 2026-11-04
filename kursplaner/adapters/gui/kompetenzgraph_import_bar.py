@@ -4,7 +4,9 @@ Das Popup kennt kein Ziel selbst, nur das `CompetenceImportTarget`-Protocol:
 aus einer Sequenzleiter geöffnet übernimmt es „in diese Leiter“, frei geöffnet
 fragt es die Sequenz in der Sequenzübersicht ab (beides in
 `sequence_ladder_host.py`). Ein bereits offenes Popup wird über `set_target`
-umgebunden, Filter und Markierung bleiben erhalten.
+umgebunden, Filter und Markierung bleiben erhalten. Markierbar ist nur, was in
+eine Leiter des Ziel-Kurses übernommen werden kann (`ladder_import_problem` mit
+dem KC-Kontext des Ziels) – inhaltsbezogene Hauptkompetenzen werden übergangen.
 """
 
 from __future__ import annotations
@@ -18,8 +20,10 @@ from bw_gui.widgets import HoverTooltip
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
 from kursplaner.adapters.gui.kompetenzgraph_marking import clear_marks, mark_visible, toggle_mark
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
+from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
+from kursplaner.core.domain.sequence_ladder_import import ladder_import_problem
 
 
 class CompetenceImportTarget(Protocol):
@@ -31,6 +35,10 @@ class CompetenceImportTarget(Protocol):
 
     def import_ids(self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot) -> None:
         """Übernimmt die Kompetenzen (ein Undo-Schritt in der Ziel-Leiter)."""
+        ...
+
+    def kc_context(self) -> CourseKcContext:
+        """KC-Kontext (Bundesland/Schulform) des Ziel-Kurses; bestimmt, was markierbar ist."""
         ...
 
 
@@ -81,15 +89,19 @@ class KompetenzGraphImportBar:
 
     def toggle(self, node_id: str) -> None:
         """Strg+Klick/Leertaste auf einer Kompetenz."""
-        toggle_mark(self._state, self._snapshot, node_id)
+        toggle_mark(self._state, self._snapshot, node_id, self._markable)
         self._changed()
 
     def mark_visible(self) -> None:
         """Alle aktuellen Filtertreffer markieren."""
         view = self._current_view()
         if view is not None:
-            mark_visible(self._state, self._snapshot, view)
+            mark_visible(self._state, self._snapshot, view, self._markable)
             self._changed()
+
+    def _markable(self, node_id: str) -> bool:
+        context = self._target.kc_context() if self._target is not None else CourseKcContext()
+        return ladder_import_problem(self._snapshot, node_id, context) is None
 
     def clear(self) -> None:
         """Alle Markierungen aufheben."""

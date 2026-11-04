@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
@@ -82,14 +83,20 @@ class EditSequenceLadderUseCase:
         return EditSequenceLadderResult(True, result.ladder, None, all_notes, result.focus)
 
     def import_competences(
-        self, *, sequence_path: Path, snapshot: KompetenzGraphSnapshot, kompetenz_ids: Iterable[str]
+        self,
+        *,
+        sequence_path: Path,
+        snapshot: KompetenzGraphSnapshot,
+        kompetenz_ids: Iterable[str],
+        kc_context: CourseKcContext = CourseKcContext(),
     ) -> EditSequenceLadderResult:
         """Übernimmt Kompetenzen aus dem Netz als ein Undo-Schritt (Spalte aus der Bereichsart).
 
-        Nicht übernehmbare IDs (unbekannt, ohne Primärbereich) und übersprungene
-        Duplikate stehen in ``notes``.
+        Nicht übernehmbare IDs (unbekannt, ohne Primärbereich, inhaltsbezogene
+        Hauptkompetenz im *kc_context* des Kurses) und übersprungene Duplikate
+        stehen in ``notes``.
         """
-        items, problems = competence_import_items(snapshot, kompetenz_ids)
+        items, problems = competence_import_items(snapshot, kompetenz_ids, kc_context)
         if not items:
             return EditSequenceLadderResult(False, None, "Keine übernehmbaren Kompetenzen markiert.", problems)
         return self.execute(sequence_path=sequence_path, operation=ImportCompetences(items), notes=problems)

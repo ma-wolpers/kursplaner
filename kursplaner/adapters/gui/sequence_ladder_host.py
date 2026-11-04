@@ -18,6 +18,7 @@ from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.sequence_ladder_controller import LadderContext, SequenceLadderController, TkLadderDialogs
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
+from kursplaner.core.domain.course_kc_context import CourseKcContext, course_kc_context
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.usecases.day_label_format import short_day_label
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
@@ -147,10 +148,15 @@ class SequenceLadderHost:
         """Übernahme-Ziel für ein frei geöffnetes Kompetenznetz: Sequenz erst auswählen."""
         return _ChooserTarget(self)
 
+    def kc_context(self) -> CourseKcContext:
+        """KC-Kontext (Bundesland/Schulform) des geöffneten Kurses; ohne Kurs leer."""
+        table = getattr(self.app, "current_table", None)
+        return course_kc_context(table.metadata) if table is not None else CourseKcContext()
+
     def import_into(self, path: Path, snapshot: KompetenzGraphSnapshot, kompetenz_ids: Iterable[str]) -> None:
         """Übernimmt Kompetenzen in die Leiter von *path* und zeigt sie."""
         controller = self.show_for_sequence(path)
-        controller.import_competences(snapshot, list(kompetenz_ids))
+        controller.import_competences(snapshot, list(kompetenz_ids), self.kc_context())
 
 
 class _LadderTarget:
@@ -162,6 +168,10 @@ class _LadderTarget:
     def button_label(self, count: int) -> str:
         """Beschriftung des Übernahme-Knopfs im Kompetenznetz."""
         return f"In Leiter übernehmen ({count})"
+
+    def kc_context(self) -> CourseKcContext:
+        """KC-Kontext des Kurses dieser Leiter."""
+        return self._host.kc_context()
 
     def import_ids(self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot) -> None:
         """Übernimmt die markierten Kompetenzen in diese Leiter."""
@@ -177,6 +187,10 @@ class _ChooserTarget:
     def button_label(self, count: int) -> str:
         """Beschriftung des Übernahme-Knopfs im Kompetenznetz."""
         return f"Zu einer Sequenz hinzufügen… ({count})"
+
+    def kc_context(self) -> CourseKcContext:
+        """KC-Kontext des geöffneten Kurses (nur dessen Sequenzen sind wählbar)."""
+        return self._host.kc_context()
 
     def import_ids(self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot) -> None:
         """Fragt die Ziel-Sequenz ab und übernimmt dorthin."""

@@ -60,6 +60,7 @@ def _build_dialog_stub() -> KompetenzGraphDialog:
     dialog._state = KompetenzGraphUiState(filter=KompetenzGraphFilter(), selected_id="A")
     dialog._last_view = view
     dialog._last_layout = layout
+    dialog._haupt_ids = frozenset()
     dialog._renderer = _RecordingRenderer()
     dialog._zoom_pan = SimpleNamespace(reapply_label_visibility=lambda: None, reapply_zoom=lambda: None)
     dialog._sidebar_tabs = SimpleNamespace(render_detail_panel=lambda _node: None)

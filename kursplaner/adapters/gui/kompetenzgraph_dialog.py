@@ -29,6 +29,8 @@ from kursplaner.adapters.gui.kompetenzgraph_sidebar_tabs import KompetenzGraphSi
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
 from kursplaner.adapters.gui.kompetenzgraph_view_mode_toggle import KompetenzGraphViewModeToggle
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.core.domain.course_kc_context import CourseKcContext
+from kursplaner.core.domain.kompetenzgraph_ebene import is_hauptkompetenz
 from kursplaner.core.domain.kompetenzgraph_filter import KompetenzGraphFilter, compute_visible_node_ids
 from kursplaner.core.domain.kompetenzgraph_layout import compute_layered_layout
 from kursplaner.core.domain.kompetenzgraph_node import KompetenzNode
@@ -92,6 +94,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._last_view = None
         self._last_layout = None
         self._import_target = import_target
+        self._haupt_ids = self._compute_haupt_ids()
 
         self._build_ui(load_result, load_body_usecase)
         self.apply_theme()
@@ -171,7 +174,13 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
     def set_import_target(self, target: CompetenceImportTarget | None) -> None:
         """Bindet ein neues Übernahme-Ziel; Filter und Markierung bleiben erhalten."""
         self._import_target = target
+        self._haupt_ids = self._compute_haupt_ids()
         self._import_bar.set_target(target)
+
+    def _compute_haupt_ids(self) -> frozenset[str]:
+        """Hauptkompetenzen im KC-Kontext des Übernahme-Ziels (doppelter Rahmen; dieselbe Regel wie die Sperre)."""
+        context = self._import_target.kc_context() if self._import_target is not None else CourseKcContext()
+        return frozenset(node_id for node_id, node in self._snapshot.nodes.items() if is_hauptkompetenz(node, context))
 
     def _on_space_key(self, _event) -> EventResult:
         """Leertaste: Übernahme-Markierung des gewählten Knotens umschalten."""
@@ -355,6 +364,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             focus_id=self._state.focus_id,
             bereich_hues=self._state.bereich_hues,
             marked_ids=self._state.marked_ids,
+            haupt_ids=self._haupt_ids,
         )
         self._zoom_pan.reapply_zoom()
         self._zoom_pan.reapply_label_visibility()
