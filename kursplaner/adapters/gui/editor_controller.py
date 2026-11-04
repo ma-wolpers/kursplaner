@@ -296,12 +296,19 @@ class MainWindowEditorController:
             self.app.pending_cell_text.pop((sequence_field_key, first_row_index), None)
             return True
 
+        table = self.app.current_table
         try:
-            self.update_sequence_goal_field_usecase.execute(
-                table=self.app.current_table,
-                oberthema=view.run.oberthema,
-                field_key=sequence_field_key,
-                value=value,
+            # Eigener Undo-Schritt nur für die Sequenzdatei: sonst nähme ein Undo der
+            # Sequenzleiter (dieselbe Datei, Datei-Snapshots) diesen Edit stillschweigend mit.
+            self._tracked_write_uc.run_tracked_file_action(
+                label=f"{sequence_field_key} bearbeiten",
+                paths=[view.sequence_path],
+                action=lambda: self.update_sequence_goal_field_usecase.execute(
+                    table=table,
+                    oberthema=view.run.oberthema,
+                    field_key=sequence_field_key,
+                    value=value,
+                ),
             )
         except Exception as exc:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc), parent=self.app)
