@@ -134,3 +134,22 @@ class DuplicateIdDiagnostic:
     id: str
     winning_source: Path
     discarded_sources: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
+class DuplicateTitleDiagnostic:
+    """Mehrere Kompetenzen eines Fachs tragen denselben Titel.
+
+    Verstößt gegen Schema-Invariante 16 (Titel pro Fach unterscheidbar). Rein
+    informativ wie die übrigen Diagnosen; im Kursplaner zusätzlich wichtig, weil
+    der Titel als Baustein-Text einer Sequenzleiter Primärschlüssel ist.
+
+    Attributes:
+        subject: Fachordner.
+        title: Der (erste gefundene) Titel in Originalschreibweise.
+        node_ids: Alle betroffenen Kompetenz-IDs, sortiert.
+    """
+
+    subject: str
+    title: str
+    node_ids: tuple[str, ...]

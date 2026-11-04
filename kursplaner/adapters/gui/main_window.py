@@ -22,6 +22,7 @@ from kursplaner.adapters.gui.screen_builder import ScreenBuilder
 from kursplaner.adapters.gui.search_controller import MainWindowSearchController
 from kursplaner.adapters.gui.search_state import SearchOverlayState
 from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
+from kursplaner.adapters.gui.sequence_ladder_host import SequenceLadderHost
 from kursplaner.adapters.gui.toolbar_icon_styler import ToolbarIconStyler
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_intents import UiIntent
@@ -182,6 +183,7 @@ class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBas
 
         self.grid_renderer = GridRenderer(self)
         self.action_controller = MainWindowActionController(self)
+        self.sequence_ladder_host = SequenceLadderHost(self)
 
         self.screen_builder.build_ui(frame)
         self.screen_builder._bind_shortcuts()

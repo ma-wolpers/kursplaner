@@ -241,5 +241,13 @@
     "intent": "detail.show_kompetenzgraph",
     "mnemonic": "K = Kompetenznetz",
     "didactic_hint": "Shift trennt das Kompetenznetz von der bereits belegten LZK-Markierung (Strg+K)."
+  },
+  {
+    "key": "Ctrl+Shift+L",
+    "display_shortcut": "Strg+Shift+L",
+    "action_label": "Sequenzleiter öffnen",
+    "intent": "detail.show_sequence_ladder",
+    "mnemonic": "L = Leiter",
+    "didactic_hint": "Shift trennt die Leiter von der Spaltenarten-Einstellung (Strg+L)."
   }
 ]

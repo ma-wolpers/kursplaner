@@ -8,7 +8,7 @@ from kursplaner.adapters.gui.kompetenzgraph_canvas_arrow_nav import KompetenzGra
 from kursplaner.adapters.gui.kompetenzgraph_canvas_render import KompetenzGraphCanvasRenderer
 from kursplaner.adapters.gui.kompetenzgraph_canvas_tooltip import KompetenzGraphCanvasTooltip
 from kursplaner.adapters.gui.kompetenzgraph_canvas_zoom_pan import KompetenzGraphCanvasZoomPan
-from kursplaner.adapters.gui.local_keys import ENTER
+from kursplaner.adapters.gui.local_keys import ENTER, SPACE
 
 
 class KompetenzGraphCanvasArea:
@@ -28,6 +28,8 @@ class KompetenzGraphCanvasArea:
         on_node_double_click: Callable[[str], None],
         on_arrow_direction: Callable[[tuple[float, float]], None],
         on_enter_key: Callable,
+        on_node_mark: Callable[[str], None] | None = None,
+        on_space_key: Callable | None = None,
     ):
         """Baut den Canvas-Bereich in `parent` und verdrahtet ihn mit den übergebenen Dialog-Callbacks."""
         canvas_container = widgets.Frame(parent)
@@ -44,8 +46,14 @@ class KompetenzGraphCanvasArea:
 
         self.tooltip = KompetenzGraphCanvasTooltip(self.canvas)
         self.renderer = KompetenzGraphCanvasRenderer(
-            self.canvas, on_node_click=on_node_click, on_node_double_click=on_node_double_click, tooltip=self.tooltip
+            self.canvas,
+            on_node_click=on_node_click,
+            on_node_double_click=on_node_double_click,
+            on_node_mark=on_node_mark,
+            tooltip=self.tooltip,
         )
         self.zoom_pan = KompetenzGraphCanvasZoomPan(self.canvas)
         self._arrow_nav = KompetenzGraphCanvasArrowNav(self.canvas, on_direction=on_arrow_direction)
         self._arrow_nav.keys.bind(ENTER, on_enter_key, binding_id="graph.enter", intent="graph.enter")
+        if on_space_key is not None:
+            self._arrow_nav.keys.bind(SPACE, on_space_key, binding_id="graph.mark", intent="graph.mark")

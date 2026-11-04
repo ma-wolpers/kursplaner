@@ -1,6 +1,6 @@
 # Shortcut-Konfliktmatrix
 
-Stand: 2026-03-31
+Stand: 2026-11-04
 
 Quelle der aktuellen Belegung:
 - `kursplaner/resources/shortcuts/shortcut_guide.json` (Guide-Kuerzel) und `kursplaner/adapters/gui/_screen_shortcuts.py` (`_bind_shortcuts`)
@@ -31,6 +31,7 @@ Quelle der aktuellen Belegung:
 | UB-Übersicht | Strg+Shift+U | U = Unterrichtsbesuch | Shift trennt Uebersicht von Markieren. | selten standardisiert | niedrig | gut |
 | Shortcut-Übersicht | Strg+H | H = Hilfe | H liefert schnellen Zugang zur Lernhilfe selbst. | Verlauf/Replace je nach App | mittel | gut merkbar |
 | Kompetenznetz anzeigen | Strg+Shift+K | K = Kompetenznetz | Shift trennt es von der bereits belegten LZK-Markierung (Strg+K). | selten standardisiert | niedrig | gut |
+| Sequenzleiter öffnen | Strg+Shift+L | L = Leiter | Shift trennt sie von der Spaltenarten-Einstellung (Strg+L). | selten standardisiert | niedrig | gut |
 
 ## Kurzfazit
 
@@ -42,3 +43,18 @@ Quelle der aktuellen Belegung:
 ## Reine Navigationstasten (nicht in `shortcut_guide.json`, direkt in `screen_builder.py::_bind_shortcuts` gebunden)
 
 Analog zu `Links`/`Rechts`/`Pos1`/`Ende` (ebenfalls nicht in obiger Tabelle, da keine Ctrl-Merkregel nötig ist): Zifferntasten `0`–`9` wählen im Detailraster relativ zur markierten "nächsten Einheit" (0 = diese, 1–9 = die N-te folgende stattfindende Einheit). Gebunden nur im Spaltenauswahlmodus (`allow_when_text_input=False` + zusätzliche `SELECTION_LEVEL_COLUMN`-Prüfung im Intent-Handler) — keine Kollision mit Zifferneingabe in Textfeldern. Geprüft: keine bestehende Belegung von `0`–`9` in `shortcut_guide.json` oder anderswo in `_bind_shortcuts`.
+
+## Sequenzleiter (Fensterscope, `adapters/gui/sequence_ladder_keys.py`)
+
+Gebunden per `WindowShortcutBinder` am Leiter-Fenster: Diese Kürzel gelten nur dort und gehen den gleichlautenden Hauptfenster-Kürzeln vor (Strg+C/V, Strg+Pfeile, Entf, F2, Strg+Z/Y). Jeder Handler meldet `HANDLED`, damit keine Taste zum Hauptfenster durchsickert. `allow_when_text_input=False`: Im Ideen-Textfeld behalten Pfeile und Strg+C/V/Z ihre native Bedeutung (Strg+Enter übernimmt, Esc verwirft – über den bw-gui-`CardBoard`).
+
+| Aktion | Kürzel | Bemerkung |
+|---|---|---|
+| Baustein/Zelle wählen | Pfeiltasten | Hoch/Runter durch die Spalte über Sprossen hinweg |
+| Baustein höher/tiefer | Strg+↑ / Strg+↓ | tauscht mit dem Nachbarn; oben in der Zelle → unten in die nächsthöhere Sprosse |
+| Kopieren / Einfügen | Strg+C / Strg+V | Einfügen über dem gewählten Baustein, fragt sofort den neuen Namen ab |
+| Löschen | Entf | |
+| Umbenennen | F2 (oder Doppelklick) | nur eigene Bausteine |
+| Neuer Baustein / Ideen bearbeiten | Enter | auf leerer Zelle bzw. im Ideenfeld |
+| Rückgängig / Wiederholen | Strg+Z / Strg+Y | gemeinsamer Verlauf mit dem Hauptfenster |
+

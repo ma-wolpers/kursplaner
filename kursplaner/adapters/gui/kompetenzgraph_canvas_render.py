@@ -61,6 +61,7 @@ class KompetenzGraphCanvasRenderer:
         *,
         on_node_click: Callable[[str], None],
         on_node_double_click: Callable[[str], None] | None = None,
+        on_node_mark: Callable[[str], None] | None = None,
         tooltip=None,
     ):
         """Initialisiert den Renderer.
@@ -72,6 +73,8 @@ class KompetenzGraphCanvasRenderer:
                 Kompetenz- oder Bereichs-Knoten angeklickt wird.
             on_node_double_click: Optional -- wird mit der Knoten-ID bei
                 einem Doppelklick aufgerufen (Fokus-Toggle, Meilenstein 5).
+            on_node_mark: Optional -- Strg+Klick auf einen Kompetenz-Knoten
+                schaltet dessen Übernahme-Markierung um statt ihn auszuwählen.
             tooltip: Optionales `KompetenzGraphCanvasTooltip` -- wenn
                 gesetzt, wird für jeden gezeichneten Knoten ein
                 Hover-Binding registriert.
@@ -79,6 +82,7 @@ class KompetenzGraphCanvasRenderer:
         self.canvas = canvas
         self._on_node_click = on_node_click
         self._on_node_double_click = on_node_double_click
+        self._on_node_mark = on_node_mark
         self._tooltip = tooltip
         self._edges = KompetenzGraphEdgeRenderer(
             canvas, competency_half_extent=_COMPETENCY_HALF_EXTENT, bereich_half_extent=_BEREICH_HALF_EXTENT
@@ -94,10 +98,12 @@ class KompetenzGraphCanvasRenderer:
         selected_id: str | None,
         focus_id: str | None,
         bereich_hues: Mapping[str, float],
+        marked_ids: frozenset[str] = frozenset(),
     ) -> None:
         """Baut die komplette Canvas-Zeichnung für den aktuellen Zustand neu auf.
 
         Args:
+            marked_ids: Zur Übernahme markierte Kompetenzen (Füllung `selection_bg`, Titel mit ✓).
             bereich_hues: Über die Popup-Sitzung stabile Bereich→Farbton-
                 Zuordnung (`kompetenzgraph_canvas_colors.py::assign_bereich_hues`,
                 einmalig in `KompetenzGraphUiState.bereich_hues` gehalten) --
@@ -122,9 +128,17 @@ class KompetenzGraphCanvasRenderer:
                 is_context=node_id in view.visible.context_ids,
                 is_selected=node_id == selected_id,
                 is_focused=node_id == focus_id,
+                is_marked=node_id in marked_ids,
             )
 
         self._update_scrollregion(layout)
+
+    def _dispatch_click(self, node_id: str, event) -> None:
+        """Klick: Strg markiert (falls unterstützt), sonst Auswahl."""
+        if self._on_node_mark is not None and bool(getattr(event.modifiers, "control", False)):
+            self._on_node_mark(node_id)
+        else:
+            self._on_node_click(node_id)
 
     def _draw_competency_node(
         self,
@@ -136,6 +150,7 @@ class KompetenzGraphCanvasRenderer:
         is_context: bool,
         is_selected: bool,
         is_focused: bool,
+        is_marked: bool = False,
     ) -> None:
         node = snapshot.nodes[node_id]
         position = layout.positions[node_id]
@@ -143,7 +158,9 @@ class KompetenzGraphCanvasRenderer:
         x1, y1 = position.x + _NODE_WIDTH / 2, position.y + _NODE_HEIGHT / 2
         tag = f"{NODE_TAG_PREFIX}{node_id}"
 
-        fill_token = "accent_soft" if is_focused else ("bg_surface" if is_context else "bg_panel")
+        fill_token = (
+            "accent_soft" if is_focused else "selection_bg" if is_marked else "bg_surface" if is_context else "bg_panel"
+        )
         rect_id = create_rounded_rectangle(self.canvas, x0, y0, x1, y1, radius=_CORNER_RADIUS, tags=(tag,))
         canvas_fill(self.canvas, rect_id, token=fill_token)
         if is_selected:
@@ -169,7 +186,7 @@ class KompetenzGraphCanvasRenderer:
         text_id = self.canvas.create_text(
             position.x,
             position.y,
-            text=_truncate(node.title, _MAX_COMPETENCY_LABEL_CHARS),
+            text=("✓ " if is_marked else "") + _truncate(node.title, _MAX_COMPETENCY_LABEL_CHARS),
             width=_NODE_WIDTH - 10,
             tags=(tag, LABEL_TAG),
         )
@@ -178,7 +195,7 @@ class KompetenzGraphCanvasRenderer:
         bind_canvas_item(
             self.canvas,
             tag,
-            on_click=lambda _event, nid=node_id: self._on_node_click(nid),
+            on_click=lambda event, nid=node_id: self._dispatch_click(nid, event),
             on_double_click=(
                 (lambda _event, nid=node_id: self._on_node_double_click(nid))
                 if self._on_node_double_click is not None

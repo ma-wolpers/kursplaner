@@ -120,7 +120,27 @@ SCHOOL_WIDE_CANCELLATION_HELP: dict[str, str] = {
     "diagnostics": "Abweichungen zwischen gespeicherten Einträgen und dem tatsächlichen Kursplan-Zustand (rein informativ).",
 }
 
+SEQUENCE_LADDER_HELP: dict[str, str] = {
+    "import": (
+        "Öffnet das Kompetenznetz: Kompetenzen markieren (Strg+Klick/Leertaste oder „Alle gefilterten "
+        "markieren“) und übernehmen. Sie landen je Spalte in der Sprosse über der höchsten belegten."
+    ),
+    "keys": (
+        "Pfeile: wählen · Strg+↑/↓: Baustein höher/tiefer (über Sprossen hinweg) · Strg+C/Strg+V: kopieren/"
+        "darüber einfügen mit neuem Namen · Entf: löschen · F2 oder Doppelklick: umbenennen (nur eigene) · "
+        "Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · Strg+Z/Strg+Y: rückgängig/wiederholen."
+    ),
+}
+
 KOMPETENZGRAPH_HELP: dict[str, str] = {
+    "mark_visible": (
+        "Markiert alle aktuell gefilterten Kompetenzen (ohne gedimmte Kontextknoten). Einzeln markieren: "
+        "Strg+Klick auf einen Knoten oder Leertaste auf dem gewählten Knoten."
+    ),
+    "import_marked": (
+        "Übernimmt die markierten Kompetenzen als Bausteine in eine Sequenzleiter: Inhaltsbereiche links, "
+        "Prozessbereiche rechts, jeweils in die Sprosse über der höchsten belegten."
+    ),
     "subjects": "Fach-Mehrfachauswahl: mehrere angehakte Fächer werden ODER-verknüpft angezeigt.",
     "kontexttiefe": (
         "Matchingtiefe: 0 zeigt nur echte Filtertreffer. Ab 1 werden zusätzlich Graph-Nachbarn "

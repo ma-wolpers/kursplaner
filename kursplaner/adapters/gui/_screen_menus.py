@@ -162,6 +162,11 @@ class ScreenMenusMixin:
                 label="Kompetenznetz anzeigen… (Strg+Shift+K)",
                 command=lambda: self._emit_intent(UiIntent.SHOW_KOMPETENZGRAPH),
             ),
+            SharedMenuItem(
+                type="command",
+                label="Sequenzleiter öffnen… (Strg+Shift+L)",
+                command=lambda: self._emit_intent(UiIntent.SHOW_SEQUENCE_LADDER),
+            ),
         )
 
     def _set_var_and_emit(self, variable, value: bool, intent: str) -> None:

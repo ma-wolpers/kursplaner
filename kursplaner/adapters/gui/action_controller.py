@@ -218,8 +218,13 @@ class MainWindowActionController:
             return
         self.app._set_column_visibility_settings(settings)
 
-    def show_kompetenzgraph(self) -> None:
+    def show_kompetenzgraph(self, import_target=None) -> None:
         """Öffnet das nicht-modale Kompetennetz-Popup, oder aktiviert ein bereits offenes.
+
+        `import_target` bestimmt, wohin markierte Kompetenzen übernommen werden
+        (aus einer Sequenzleiter geöffnet: diese Leiter); ohne Angabe fragt die
+        Übernahme die Sequenz ab (`SequenceLadderHost.free_import_target`). Ein
+        offenes Popup wird nur umgebunden, Filter und Markierung bleiben.
 
         Baut den initialen Filter aus dem aktuell geöffneten Kurs ab
         (`Kursfach`/`Stufe`, siehe `build_initial_kompetenz_graph_filter`)
@@ -229,8 +234,10 @@ class MainWindowActionController:
         `docs/ARCHITEKTUR_KERN.md` §29) oder keine strukturierten
         Kompetenzdaten gefunden wurden.
         """
+        target = import_target if import_target is not None else self.app.sequence_ladder_host.free_import_target()
         existing = getattr(self.app, "kompetenzgraph_dialog", None)
         if existing is not None and int(existing.winfo_exists()):
+            existing.set_import_target(target)
             existing.deiconify()
             existing.lift()
             existing.focus_force()
@@ -268,6 +275,7 @@ class MainWindowActionController:
             compute_view_usecase=self.app.gui_dependencies.compute_kompetenz_graph_view_usecase,
             load_body_usecase=self.app.gui_dependencies.load_kompetenz_graph_body_usecase,
             theme_key=self.app.theme_var.get(),
+            import_target=target,
         )
         self.app.kompetenzgraph_dialog = dialog
 

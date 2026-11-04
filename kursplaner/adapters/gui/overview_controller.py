@@ -418,7 +418,7 @@ class MainWindowOverviewController:
         self.app.current_table = None
         self.app.raw_day_columns = []
         self.app.day_columns = []
-        self.app.topic_sequence_plans = []
+        self._publish_sequence_plans([])
         self.app.day_column_x_positions = {}
         self._reset_selection()
         if bool(self.app.auto_row_mode_var.get()):
@@ -643,7 +643,7 @@ class MainWindowOverviewController:
         if self.app.current_table is None:
             self.app.raw_day_columns = []
             self.app.day_columns = []
-            self.app.topic_sequence_plans = []
+            self._publish_sequence_plans([])
             return
         if changed_row_indices is not None:
             self.app.raw_day_columns = self.load_plan_detail_usecase.build_day_columns_incremental(
@@ -654,6 +654,17 @@ class MainWindowOverviewController:
         self.app.day_columns = self._project_visible_day_columns(self.app.raw_day_columns)
         self.app.grid_renderer.invalidate_row_layout_cache()
         self._sync_topic_sequence_plans()
+
+    def _publish_sequence_plans(self, views: list) -> None:
+        """Einzige Stelle, die `app.topic_sequence_plans` setzt; benachrichtigt danach die Sequenzleiter.
+
+        Deckt jede Neuberechnung ab (Laden, Grid-Edit, Undo/Redo, Kurswechsel, Schließen),
+        damit ein offenes Leiter-Fenster Termine und Schreibschutz immer aktuell zeigt.
+        """
+        self.app.topic_sequence_plans = views
+        host = getattr(self.app, "sequence_ladder_host", None)
+        if host is not None:
+            host.on_sequence_plans_changed()
 
     def _sync_topic_sequence_plans(self) -> None:
         """Aktualisiert erkannte Themen-Sequenzen und deren Sequenzdateien.
@@ -666,11 +677,13 @@ class MainWindowOverviewController:
         gemeinsames Oberthema tragen.
         """
         if self.app.current_table is None:
-            self.app.topic_sequence_plans = []
+            self._publish_sequence_plans([])
             return
         try:
-            self.app.topic_sequence_plans = self.sync_topic_sequence_plans_usecase.execute(
-                table=self.app.current_table, day_columns=self.app.raw_day_columns
+            self._publish_sequence_plans(
+                self.sync_topic_sequence_plans_usecase.execute(
+                    table=self.app.current_table, day_columns=self.app.raw_day_columns
+                )
             )
         except RuntimeError as exc:
             # Ungültige Sequenzdatei (z. B. nicht migrierter Altbestand ohne
@@ -678,7 +691,7 @@ class MainWindowOverviewController:
             # Fehlerdarstellung, kein Kompatibilitätsmodus. Ohne Teilzustand
             # weiterarbeiten; dieselbe Meldung nur einmal zeigen, da der Sync
             # nach jedem Grid-Rebuild erneut läuft.
-            self.app.topic_sequence_plans = []
+            self._publish_sequence_plans([])
             message = str(exc)
             if message != getattr(self, "_last_sequence_sync_error", None):
                 self._last_sequence_sync_error = message

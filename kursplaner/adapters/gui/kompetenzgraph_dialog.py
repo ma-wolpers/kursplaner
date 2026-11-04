@@ -8,6 +8,7 @@ from bw_gui.runtime import WindowShortcutBinder, widgets
 from bw_gui.runtime.overlay_stack import OverlayCategory
 from bw_gui.theming import theme_canvas
 
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
 from kursplaner.adapters.gui.kompetenzgraph_canvas_area import KompetenzGraphCanvasArea
 from kursplaner.adapters.gui.kompetenzgraph_canvas_colors import assign_bereich_hues
@@ -19,7 +20,11 @@ from kursplaner.adapters.gui.kompetenzgraph_canvas_selection import (
     handle_double_click_or_enter,
     select_nearest_in_direction,
 )
-from kursplaner.adapters.gui.kompetenzgraph_diagnostics_banner import KompetenzGraphDiagnosticsBanner
+from kursplaner.adapters.gui.kompetenzgraph_diagnostics_banner import (
+    KompetenzGraphDiagnosticsBanner,
+    duplicate_title_summary,
+)
+from kursplaner.adapters.gui.kompetenzgraph_import_bar import CompetenceImportTarget, KompetenzGraphImportBar
 from kursplaner.adapters.gui.kompetenzgraph_sidebar_tabs import KompetenzGraphSidebarTabs
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
 from kursplaner.adapters.gui.kompetenzgraph_view_mode_toggle import KompetenzGraphViewModeToggle
@@ -63,6 +68,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         compute_view_usecase: ComputeKompetenzGraphViewUseCase,
         load_body_usecase: LoadKompetenzNodeBodyUseCase | None,
         theme_key: str | None = None,
+        import_target: CompetenceImportTarget | None = None,
     ):
         # scrollable=False: Graph-Canvas und Sidebar (KompetenzGraphSidebarScroll) verwalten ihr
         # eigenes Scrollen bereits selbst -- ein zusaetzlicher, fensterweiter Scroll-Layer wuerde
@@ -85,6 +91,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         self._text_search_index = KompetenzTextSearchIndex(load_body_usecase)
         self._last_view = None
         self._last_layout = None
+        self._import_target = import_target
 
         self._build_ui(load_result, load_body_usecase)
         self.apply_theme()
@@ -98,6 +105,9 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
         )
         self._refresh()
         self.canvas.focus_set()
+        duplicates = duplicate_title_summary(load_result)
+        if duplicates:
+            self.after_idle(lambda: messagebox.showwarning("Doppelte Kompetenz-Titel", duplicates, parent=self))
 
     def _requires_close_confirmation(self) -> bool:
         """Reine Leseansicht ohne ungespeicherten Zustand -- schließt immer ohne Rückfrage."""
@@ -136,6 +146,14 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             on_mode_selected=self._on_view_mode_selected,
             mode_help_text={MODE_ABHAENGIGKEITEN: KOMPETENZGRAPH_HELP["abhaengigkeiten_ansicht"]},
         )
+        self._import_bar = KompetenzGraphImportBar(
+            toolbar,
+            state=self._state,
+            snapshot=self._snapshot,
+            current_view=lambda: self._last_view,
+            on_marks_changed=self._reapply_selection,
+            target=self._import_target,
+        )
 
         canvas_area = KompetenzGraphCanvasArea(
             right,
@@ -143,10 +161,23 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             on_node_double_click=self._on_node_double_clicked,
             on_arrow_direction=self._on_arrow_direction,
             on_enter_key=self._on_enter_key,
+            on_node_mark=self._import_bar.toggle,
+            on_space_key=self._on_space_key,
         )
         self.canvas = canvas_area.canvas
         self._renderer = canvas_area.renderer
         self._zoom_pan = canvas_area.zoom_pan
+
+    def set_import_target(self, target: CompetenceImportTarget | None) -> None:
+        """Bindet ein neues Übernahme-Ziel; Filter und Markierung bleiben erhalten."""
+        self._import_target = target
+        self._import_bar.set_target(target)
+
+    def _on_space_key(self, _event) -> EventResult:
+        """Leertaste: Übernahme-Markierung des gewählten Knotens umschalten."""
+        if self._state.selected_id is not None:
+            self._import_bar.toggle(self._state.selected_id)
+        return EventResult.HANDLED
 
     def _on_toggle_view_mode_shortcut(self, _event) -> EventResult:
         """Strg+Tab: zyklisch zur nächsten Ansicht (`next_mode()`, mit Wraparound über alle `VIEW_MODES`)."""
@@ -323,6 +354,7 @@ class KompetenzGraphDialog(ScrollablePopupWindow):
             selected_id=self._state.selected_id,
             focus_id=self._state.focus_id,
             bereich_hues=self._state.bereich_hues,
+            marked_ids=self._state.marked_ids,
         )
         self._zoom_pan.reapply_zoom()
         self._zoom_pan.reapply_label_visibility()
@@ -336,6 +368,7 @@ def ask_kompetenz_graph(
     compute_view_usecase: ComputeKompetenzGraphViewUseCase,
     load_body_usecase: LoadKompetenzNodeBodyUseCase | None,
     theme_key: str | None = None,
+    import_target: CompetenceImportTarget | None = None,
 ) -> KompetenzGraphDialog:
     """Öffnet das Kompetenzgraph-Popup nicht-modal und gibt die Dialog-Instanz zurück.
 
@@ -353,4 +386,5 @@ def ask_kompetenz_graph(
         compute_view_usecase=compute_view_usecase,
         load_body_usecase=load_body_usecase,
         theme_key=theme_key,
+        import_target=import_target,
     )

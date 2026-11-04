@@ -5,8 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.kompetenzgraph_dag import check_kompetenz_graph_for_cycles
-from kursplaner.core.domain.kompetenzgraph_diagnostics import CycleDiagnostic, KompetenzFileDiagnostic
+from kursplaner.core.domain.kompetenzgraph_diagnostics import (
+    CycleDiagnostic,
+    DuplicateTitleDiagnostic,
+    KompetenzFileDiagnostic,
+)
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
+from kursplaner.core.domain.kompetenzgraph_title_check import check_kompetenz_graph_for_duplicate_titles
 from kursplaner.core.ports.repositories import KompetenzGraphRepository
 
 
@@ -22,12 +27,16 @@ class KompetenzGraphLoadResult:
         cycle_diagnostics: Reines Diagnoseinstrument (kein Render-Guard) --
             siehe `kompetenzgraph_dag.py::check_kompetenz_graph_for_cycles`.
         loaded_subjects: Die tatsächlich geladenen Fachordner.
+        title_diagnostics: Titel, die in einem Fach mehrfach vorkommen
+            (Schema-Invariante 16; Sequenzleiter-Primärschlüssel) -- rein
+            informativ, siehe `kompetenzgraph_title_check.py`.
     """
 
     snapshot: KompetenzGraphSnapshot
     file_diagnostics: tuple[KompetenzFileDiagnostic, ...]
     cycle_diagnostics: tuple[CycleDiagnostic, ...]
     loaded_subjects: tuple[str, ...]
+    title_diagnostics: tuple[DuplicateTitleDiagnostic, ...] = ()
 
 
 class LoadKompetenzGraphUseCase:
@@ -61,4 +70,5 @@ class LoadKompetenzGraphUseCase:
             file_diagnostics=file_diagnostics,
             cycle_diagnostics=cycle_diagnostics,
             loaded_subjects=loaded_subjects,
+            title_diagnostics=check_kompetenz_graph_for_duplicate_titles(snapshot),
         )

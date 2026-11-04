@@ -35,6 +35,9 @@ class KompetenzGraphUiState:
             Knoten-IDs der aktuellen Textsuche, nur bei Klick auf den
             "Suchen"-Button neu berechnet (siehe `kompetenzgraph_dialog.py`);
             `None` ohne aktive Textsuche.
+        marked_ids: Zur Übernahme in eine Sequenzleiter markierte Kompetenz-IDs
+            (Strg+Klick/Leertaste, „Alle gefilterten markieren“); unabhängig von
+            `selected_id`, bleibt über Filterwechsel erhalten.
     """
 
     filter: KompetenzGraphFilter
@@ -43,3 +46,4 @@ class KompetenzGraphUiState:
     focus_id: str | None = None
     bereich_hues: Mapping[str, float] = field(default_factory=dict)
     text_search_matches: frozenset[str] | None = None
+    marked_ids: frozenset[str] = frozenset()

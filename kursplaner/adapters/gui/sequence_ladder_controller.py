@@ -1,0 +1,270 @@
+"""Sequenzleiter-Editor: Cursor, Zwischenablage und Aktionen → Operationen (GUI ohne Fachentscheidung).
+
+Jede Nutzeraktion wird hier zu genau einer Operation (`sequence_ladder_ops`) und
+geht über `EditSequenceLadderUseCase` – dem einzigen Schreibweg, der pro Aktion
+einen Undo-Eintrag erzeugt (§37). Der Controller kennt kein Tk: Dialoge laufen
+über das `LadderDialogs`-Protocol (Adapter `TkLadderDialogs`), die Anzeige über
+den `render`-Callback des Fensters. Cursor-Werte sind Board-Cursor (Baustein-Text
+oder Board-Zelle, siehe `sequence_ladder_board_mapping`).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Sequence
+from pathlib import Path
+from typing import Any, Protocol
+
+from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor
+
+from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
+from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
+    board_cell,
+    cell_slot,
+    initial_cursor,
+    ladder_slot,
+    rung_index,
+)
+from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
+from kursplaner.core.domain.sequence_ladder import LadderSlot, SequenceLadder, block_text_error
+from kursplaner.core.domain.sequence_ladder_ops import (
+    AddBlock,
+    LadderOperation,
+    MoveBlock,
+    RemoveBlock,
+    RenameBlock,
+    SetIdeas,
+    StepBlock,
+)
+from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderResult, EditSequenceLadderUseCase
+from kursplaner.core.usecases.load_sequence_ladder_usecase import LoadSequenceLadderUseCase, SequenceLadderView
+
+LadderContext = tuple[str, Sequence[TopicSequenceRun], Sequence[DayColumn]]
+"""(Oberthema, Läufe mit dieser Datei, alle Tagesspalten) – ``None``, wenn die Sequenz im Kurs fehlt."""
+
+
+class LadderDialogs(Protocol):
+    """Dialoge, die der Editor braucht (Tk-frei testbar)."""
+
+    def ask_text(self, title: str, prompt: str, *, initial: str, validate: Callable[[str], str | None]) -> str | None:
+        """Fragt einen Text ab; ``None`` bei Abbruch. *validate* hält den Dialog bei Fehlern offen."""
+        ...
+
+    def show_error(self, title: str, message: str) -> None:
+        """Zeigt einen Fehler."""
+        ...
+
+    def show_info(self, title: str, message: str) -> None:
+        """Zeigt einen Hinweis."""
+        ...
+
+
+class TkLadderDialogs:
+    """`LadderDialogs` über die bw-gui-Dialogdienste."""
+
+    def __init__(self, parent: Any) -> None:
+        """Bindet die Dialoge an ihr Elternfenster."""
+        self._parent = parent
+
+    def ask_text(self, title: str, prompt: str, *, initial: str, validate: Callable[[str], str | None]) -> str | None:
+        """Textabfrage mit Validierung (bw-gui `askstring(validate=...)`)."""
+        return simpledialog.askstring(title, prompt, initialvalue=initial, validate=validate, parent=self._parent)
+
+    def show_error(self, title: str, message: str) -> None:
+        """Fehlermeldung."""
+        messagebox.showerror(title, message, parent=self._parent)
+
+    def show_info(self, title: str, message: str) -> None:
+        """Hinweis."""
+        messagebox.showinfo(title, message, parent=self._parent)
+
+
+class SequenceLadderController:
+    """Zustand und Aktionen eines geöffneten Leiter-Editors."""
+
+    def __init__(
+        self,
+        *,
+        sequence_path: Path,
+        load: LoadSequenceLadderUseCase,
+        edit: EditSequenceLadderUseCase,
+        context: Callable[[], LadderContext | None],
+        dialogs: LadderDialogs,
+        render: Callable[[SequenceLadderView, Cursor, str | None], None],
+        after_write: Callable[[], None],
+    ) -> None:
+        """Verdrahtet den Editor; `reload()` lädt die erste Ansicht.
+
+        Args:
+            sequence_path: Sequenzdatei (Identität der Sequenz).
+            load: Lade-Use-Case.
+            edit: Einziger Schreibweg.
+            context: Liefert Oberthema, Läufe und Tagesspalten des geöffneten Kurses.
+            dialogs: Dialog-Adapter.
+            render: ``(view, cursor, banner)`` – Anzeige aktualisieren.
+            after_write: Nach jedem Schreibvorgang (z. B. Undo-Knöpfe aktualisieren).
+        """
+        self.sequence_path = sequence_path
+        self._load, self._edit, self._context = load, edit, context
+        self._dialogs, self._render, self._after_write = dialogs, render, after_write
+        self._oberthema = sequence_path.stem
+        self._missing = False
+        self.view: SequenceLadderView | None = None
+        self.cursor: Cursor = None
+        self.clipboard: str | None = None
+
+    # -- Laden und Anzeige -----------------------------------------------------
+
+    @property
+    def ladder(self) -> SequenceLadder:
+        """Aktuelle Leiter (leer, solange nichts geladen oder lesbar ist)."""
+        return self.view.ladder if self.view is not None and self.view.ladder is not None else SequenceLadder()
+
+    @property
+    def read_only(self) -> bool:
+        """Schreibgeschützt bei Formatfehler oder wenn die Sequenz im Kurs nicht mehr vorkommt."""
+        return self.view is None or self.view.ladder is None or self._missing
+
+    def reload(self, cursor: Cursor | None = None) -> None:
+        """Liest Datei und Termine neu und zeigt sie an; *cursor* ersetzt den bisherigen (falls angegeben)."""
+        context = self._context()
+        self._missing = context is None
+        if context is not None:
+            self._oberthema = context[0]
+        oberthema, runs, days = context if context is not None else (self._oberthema, (), ())
+        self.view = self._load.execute(
+            sequence_path=self.sequence_path, oberthema=oberthema, runs=runs, day_columns=days
+        )
+        if cursor is not None:
+            self.cursor = cursor
+        elif self.cursor is None:
+            self.cursor = initial_cursor(self.ladder)
+        self._render(self.view, self.cursor, self._banner())
+
+    def _banner(self) -> str | None:
+        if self.view is not None and self.view.error:
+            return self.view.error
+        if self._missing:
+            return "Diese Sequenz kommt im geöffneten Kurs nicht (mehr) vor – die Leiter ist schreibgeschützt."
+        return None
+
+    def set_cursor(self, cursor: Cursor) -> None:
+        """Übernimmt den Cursor nach einem Klick im Board."""
+        self.cursor = cursor
+
+    # -- Aktionen --------------------------------------------------------------
+
+    def _run(self, op: LadderOperation, cursor_after: Cursor) -> EditSequenceLadderResult | None:
+        if self.read_only:
+            self._dialogs.show_info("Sequenzleiter", self._banner() or "Die Leiter ist schreibgeschützt.")
+            return None
+        return self._finish(self._edit.execute(sequence_path=self.sequence_path, operation=op), cursor_after)
+
+    def _finish(self, result: EditSequenceLadderResult, cursor_after: Cursor) -> EditSequenceLadderResult:
+        if result.error:
+            self._dialogs.show_error("Sequenzleiter", result.error)
+        if result.notes:
+            self._dialogs.show_info("Sequenzleiter", "\n".join(result.notes))
+        if result.applied:
+            self._after_write()
+        self.reload(cursor_after if result.applied else None)
+        return result
+
+    def _ask(self, title: str, initial: str = "", ignore: str | None = None) -> str | None:
+        ladder = self.ladder
+        text = self._dialogs.ask_text(
+            title,
+            "Beschreibung des Bausteins:",
+            initial=initial,
+            validate=lambda t: block_text_error(t, ladder, ignore=ignore),
+        )
+        return text.strip() if text is not None else None
+
+    def _end_slot(self, cell: BoardCell) -> LadderSlot | None:
+        """Position unter dem letzten Baustein einer Zelle; ``None`` für die Ideen-Spalte."""
+        probe = cell_slot(cell, 0)
+        if probe is None:
+            return None
+        return LadderSlot(probe.rung, probe.side, len(self.ladder.rung(probe.rung).blocks(probe.side)))
+
+    def add(self, cell: BoardCell) -> None:
+        """ "+" in einer Zelle: neuen eigenen Baustein unten in der Zelle anlegen."""
+        slot = self._end_slot(cell)
+        text = self._ask("Neuer Baustein") if slot is not None and not self.read_only else None
+        if text:
+            self._run(AddBlock(slot, text), text)
+
+    def copy(self) -> None:
+        """Strg+C: den gewählten Baustein merken."""
+        if isinstance(self.cursor, str):
+            self.clipboard = self.cursor
+
+    def paste(self) -> None:
+        """Strg+V: Kopie über dem gewählten Baustein (oder in die gewählte Zelle) mit neuem Namen."""
+        if self.clipboard is None:
+            self._dialogs.show_info("Einfügen", "Erst einen Baustein mit Strg+C kopieren.")
+            return
+        slot = self._paste_slot()
+        if slot is None:
+            self._dialogs.show_info("Einfügen", "Erst einen Baustein oder eine Zelle der Leiter wählen.")
+            return
+        text = self._ask("Kopie benennen", initial=self.clipboard)
+        if text:
+            self._run(AddBlock(slot, text, pasted=True), text)
+
+    def _paste_slot(self) -> LadderSlot | None:
+        if isinstance(self.cursor, str):
+            found = self.ladder.locate(self.cursor)
+            return found[0] if found is not None else None
+        if isinstance(self.cursor, BoardCell):
+            return self._end_slot(self.cursor)
+        return None
+
+    def delete(self) -> None:
+        """Entf: gewählten Baustein löschen; danach den Nachbarn in der Zelle wählen."""
+        found = self.ladder.locate(self.cursor) if isinstance(self.cursor, str) else None
+        if found is None:
+            return
+        slot = found[0]
+        result = self._run(RemoveBlock(self.cursor), self.cursor)
+        if result is not None and result.applied:
+            blocks = self.ladder.rung(slot.rung).blocks(slot.side)
+            self.cursor = blocks[min(slot.index, len(blocks) - 1)].text if blocks else board_cell(slot)
+            self.reload()
+
+    def rename(self) -> None:
+        """F2: eigenen Baustein umbenennen (Netz-Bausteine sind gesperrt)."""
+        found = self.ladder.locate(self.cursor) if isinstance(self.cursor, str) else None
+        if found is None or self.read_only:
+            return
+        block = found[1]
+        if block.is_network:
+            self._dialogs.show_info("Umbenennen", "Bausteine aus dem Kompetenznetz können nicht umbenannt werden.")
+            return
+        text = self._ask("Baustein umbenennen", initial=block.text, ignore=block.text)
+        if text and text != block.text:
+            self._run(RenameBlock(block.text, text), text)
+
+    def step(self, up: bool) -> None:
+        """Strg+↑/↓: eine Position höher/tiefer (über Sprossengrenzen)."""
+        if isinstance(self.cursor, str):
+            self._run(StepBlock(self.cursor, up), self.cursor)
+
+    def drop(self, card_key: str, slot: BoardSlot) -> None:
+        """Drag & Drop: Baustein an die angezeigte Einfügelinie verschieben."""
+        self._run(MoveBlock(card_key, ladder_slot(slot)), card_key)
+
+    def commit_ideas(self, cell: BoardCell, text: str) -> None:
+        """Ideenfeld einer Sprosse übernehmen (ein Undo-Schritt)."""
+        self._run(SetIdeas(rung_index(cell.row_key), tuple(text.splitlines())), cell)
+
+    def import_competences(self, snapshot: KompetenzGraphSnapshot, kompetenz_ids: Iterable[str]) -> None:
+        """Markierte Netz-Kompetenzen übernehmen (ein Undo-Schritt)."""
+        if self.read_only:
+            self._dialogs.show_info("Sequenzleiter", self._banner() or "Die Leiter ist schreibgeschützt.")
+            return
+        result = self._edit.import_competences(
+            sequence_path=self.sequence_path, snapshot=snapshot, kompetenz_ids=kompetenz_ids
+        )
+        self._finish(result, self.cursor)
