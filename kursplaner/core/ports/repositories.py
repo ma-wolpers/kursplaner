@@ -14,6 +14,7 @@ from kursplaner.core.domain.kompetenzgraph_diagnostics import KompetenzFileDiagn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzkatalog import Kompetenzkatalog, KompetenzkatalogManifestEntry
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
+from kursplaner.core.domain.sequence_ladder import SequenceLadder
 from kursplaner.core.ports.sequence_export import ExportTableRow
 
 ConfirmChange = Callable[[str, str], bool]
@@ -796,6 +797,14 @@ class SequencePlanRepository(Protocol):
 
     def read_brainstorming(self, sequence_path: Path) -> str:
         """Read the editable brainstorming section from a sequence markdown file."""
+        ...
+
+    def read_sequence_ladder(self, sequence_path: Path) -> SequenceLadder:
+        """Read the ``## Sequenzleiter`` section (empty ladder without it); raises ``LadderFormatError``."""
+        ...
+
+    def write_sequence_ladder(self, *, sequence_path: Path, ladder: SequenceLadder) -> None:
+        """Write only the ladder section (before ``## Export``); an empty ladder removes it."""
         ...
 
     def write_brainstorming(self, *, sequence_path: Path, brainstorming_text: str) -> None:

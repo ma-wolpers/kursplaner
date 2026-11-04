@@ -83,3 +83,29 @@ def test_extract_bullet_items_filters_and_strips_dash_lines():
 
 def test_extract_bullet_items_empty_without_any_bullets():
     assert extract_bullet_items("nur Text") == []
+
+
+# --- replace_section() ---
+
+from kursplaner.core.domain.markdown_sections import extract_section as _extract  # noqa: E402
+from kursplaner.core.domain.markdown_sections import replace_section  # noqa: E402
+
+_DOC = "# T\n\n## A\n\nalt\n### unter\nmehr\n\n## Export\n\n| x |\n"
+
+
+def test_replace_section_replaces_content_up_to_next_same_level_heading():
+    text = replace_section(_DOC, "A", ["neu"])
+    assert _extract(text, "A", target_level=2, stop_at_level=2) == "neu"
+    assert "## Export" in text and "### unter" not in text
+
+
+def test_replace_section_inserts_before_anchor_or_appends():
+    text = replace_section(_DOC, "Leiter", ["- x"], insert_before="Export")
+    assert text.index("## Leiter") < text.index("## Export")
+    appended = replace_section("# T", "Leiter", ["- x"])
+    assert appended == "# T\n\n## Leiter\n\n- x\n"
+
+
+def test_replace_section_with_empty_body_removes_or_ignores():
+    assert "## A" not in replace_section(_DOC, "A", [])
+    assert replace_section(_DOC, "Fehlt", []) == _DOC.rstrip("\n")

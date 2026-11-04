@@ -6,8 +6,10 @@ from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.list_cell_text import raise_on_violation
-from kursplaner.core.domain.markdown_sections import find_heading_line_index
+from kursplaner.core.domain.markdown_sections import extract_section, find_heading_line_index, replace_section
 from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.sequence_ladder import SequenceLadder
+from kursplaner.core.domain.sequence_ladder_codec import LADDER_HEADING, format_ladder_section, parse_ladder_section
 from kursplaner.core.domain.sequence_planning import (
     SEQUENCE_YAML_COURSE_PLAN_KEY,
     SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY,
@@ -356,11 +358,44 @@ class FileSystemSequencePlanRepository:
         new_lines = ["---"] + frontmatter_body + lines[closing_index:]
         atomic_write_text(path, "\n".join(new_lines).rstrip() + "\n", encoding="utf-8")
 
+    @staticmethod
+    def _raw_ladder_section(text: str) -> str | None:
+        """Roher Inhalt des Abschnitts ``## Sequenzleiter`` (``None`` ohne Abschnitt)."""
+        return extract_section(text, LADDER_HEADING, target_level=2, stop_at_level=2)
+
+    def read_sequence_ladder(self, sequence_path: Path) -> SequenceLadder:
+        """Liest die Sequenzleiter einer Sequenzdatei (leere Leiter ohne Abschnitt).
+
+        Raises:
+            LadderFormatError: Der Abschnitt weicht vom Format ab (§37); nichts wird umgedeutet.
+        """
+        text = sequence_path.expanduser().resolve().read_text(encoding="utf-8")
+        section = self._raw_ladder_section(text)
+        return parse_ladder_section(section) if section else SequenceLadder()
+
+    def write_sequence_ladder(self, *, sequence_path: Path, ladder: SequenceLadder) -> None:
+        """Schreibt nur den Leiter-Abschnitt (vor ``## Export``); eine leere Leiter entfernt ihn.
+
+        Alle anderen Inhalte (Frontmatter, Brainstorming, Export-Tabelle) bleiben
+        unverändert; unveränderter Inhalt wird nicht geschrieben.
+        """
+        path = sequence_path.expanduser().resolve()
+        original = path.read_text(encoding="utf-8")
+        export_heading = self._EXPORT_HEADING.lstrip("#").strip()
+        updated = replace_section(
+            original, LADDER_HEADING, format_ladder_section(ladder), level=2, insert_before=export_heading
+        )
+        new_text = updated.rstrip() + "\n"
+        if new_text != original:
+            atomic_write_text(path, new_text, encoding="utf-8")
+
     def is_trivial(self, sequence_path: Path) -> bool:
         """Prüft, ob eine Sequenzdatei außer Struktur keinen echten Inhalt trägt.
 
-        "Inhalt" umfasst Brainstorming-Text, Sequenzziel, Leitkompetenzen und
-        Export-Tabellenzeilen. Frontmatter-Metadaten (Sequenzname, Lerngruppe,
+        "Inhalt" umfasst Brainstorming-Text, Sequenzziel, Leitkompetenzen,
+        Sequenzleiter und Export-Tabellenzeilen. Die Leiter wird roh geprüft
+        (nicht geparst): eine Leiter schützt die Datei vor dem automatischen
+        Aufräumen, und ein Formatfehler darin legt den Sync nicht lahm. Frontmatter-Metadaten (Sequenzname, Lerngruppe,
         Halbjahr, Kursplan-Link) und die Titelzeile zählen nicht, da sie beim
         Anlegen immer gesetzt werden und für sich keinen fachlichen Inhalt tragen.
 
@@ -375,6 +410,8 @@ class FileSystemSequencePlanRepository:
         if not path.exists():
             return False
         if self.read_brainstorming(path).strip():
+            return False
+        if (self._raw_ladder_section(path.read_text(encoding="utf-8")) or "").strip():
             return False
         sequenzziel, leitkompetenzen = self.read_goal_and_focus_competencies(path)
         if sequenzziel.strip() or leitkompetenzen:
