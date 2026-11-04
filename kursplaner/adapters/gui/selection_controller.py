@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from bw_gui.theming import theme_label_tinted, theme_label_token
+from bw_gui.theming import theme_label_token
 
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
+from kursplaner.adapters.gui.lesson_kind_tints import (
+    KIND_AUSFALL,
+    KIND_HOSPITATION,
+    KIND_LZK,
+    LESSON_KIND_TINTS,
+    apply_label_tint,
+)
 from kursplaner.core.domain.day_column import DayColumn
 
 
@@ -210,16 +216,16 @@ class MainWindowSelectionController:
             theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
         elif is_cancel:
             label.configure(borderwidth=1, relief="solid")
-            theme_label_tinted(label, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            apply_label_tint(label, LESSON_KIND_TINTS[KIND_AUSFALL])
         elif is_hospitation:
             label.configure(borderwidth=1, relief="solid")
-            theme_label_tinted(label, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+            apply_label_tint(label, LESSON_KIND_TINTS[KIND_HOSPITATION])
         elif is_unresolved_link:
             label.configure(borderwidth=1, relief="solid")
             theme_label_token(label, bg_token="warning_soft")
         elif is_lzk:
             label.configure(borderwidth=1, relief="solid")
-            theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
+            apply_label_tint(label, LESSON_KIND_TINTS[KIND_LZK])
         else:
             label.configure(borderwidth=1, relief="solid")
             theme_label_token(label, bg_token="panel_strong")
@@ -507,16 +513,16 @@ class MainWindowSelectionController:
                 theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
             elif is_cancel:
                 label.configure(borderwidth=1, relief="solid")
-                theme_label_tinted(label, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+                apply_label_tint(label, LESSON_KIND_TINTS[KIND_AUSFALL])
             elif is_hospitation:
                 label.configure(borderwidth=1, relief="solid")
-                theme_label_tinted(label, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+                apply_label_tint(label, LESSON_KIND_TINTS[KIND_HOSPITATION])
             elif is_unresolved_link:
                 label.configure(borderwidth=1, relief="solid")
                 theme_label_token(label, bg_token="warning_soft")
             elif is_lzk:
                 label.configure(borderwidth=1, relief="solid")
-                theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
+                apply_label_tint(label, LESSON_KIND_TINTS[KIND_LZK])
             else:
                 label.configure(borderwidth=1, relief="solid")
                 theme_label_token(label, bg_token="panel_strong")

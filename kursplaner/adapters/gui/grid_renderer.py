@@ -5,24 +5,30 @@ from bw_gui.contracts.pointer import Axis, wheel_axis
 from bw_gui.runtime import on_resize, ui
 from bw_gui.theming import (
     canvas_fill,
-    canvas_tinted_fill,
     theme_canvas,
     theme_label_tinted,
     theme_label_token,
     theme_text,
-    theme_text_tinted,
     theme_widget_border,
 )
 
 from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
+from kursplaner.adapters.gui.lesson_kind_tints import (
+    KIND_AUSFALL,
+    KIND_HOSPITATION,
+    KIND_LZK,
+    LESSON_KIND_TINTS,
+    apply_canvas_tint,
+    apply_label_tint,
+    apply_text_tint,
+)
 from kursplaner.adapters.gui.sequence_field_grid_renderer import (
     SEQUENCE_FIELD_ROW_ORDER,
     SequenceFieldGridRenderer,
     compute_row_index_to_grid_col,
 )
-from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.usecases.day_label_format import short_day_label
 
@@ -62,11 +68,11 @@ class GridRenderer:
         """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
         normalized = str(kind).strip().lower()
         if normalized == "ausfall":
-            canvas_tinted_fill(canvas, item_id, color_tint="warning_soft", degree=0.72, base_token="panel_strong")
+            apply_canvas_tint(canvas, item_id, LESSON_KIND_TINTS[KIND_AUSFALL])
         elif normalized == "lzk":
-            canvas_tinted_fill(canvas, item_id, color_tint="success_soft", degree=0.72, base_token="panel_strong")
+            apply_canvas_tint(canvas, item_id, LESSON_KIND_TINTS[KIND_LZK])
         elif normalized == "hospitation":
-            canvas_tinted_fill(canvas, item_id, color_tint=HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+            apply_canvas_tint(canvas, item_id, LESSON_KIND_TINTS[KIND_HOSPITATION])
         else:
             canvas_fill(canvas, item_id, token="panel_strong")
 
@@ -146,11 +152,11 @@ class GridRenderer:
     def _apply_header_color(self, label: ui.Label, col_type: str) -> None:
         """Wendet Spalten-Typ-Farben auf ein Header-Label an (kein Hex-Wert im Consumer)."""
         if col_type == "cancel":
-            theme_label_tinted(label, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            apply_label_tint(label, LESSON_KIND_TINTS[KIND_AUSFALL])
         elif col_type == "hospitation":
-            theme_label_tinted(label, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+            apply_label_tint(label, LESSON_KIND_TINTS[KIND_HOSPITATION])
         elif col_type == "lzk":
-            theme_label_tinted(label, "success_soft", degree=0.72, base_token="panel_strong")
+            apply_label_tint(label, LESSON_KIND_TINTS[KIND_LZK])
         elif col_type == "unresolved":
             theme_label_token(label, bg_token="warning_soft")
         elif col_type == "next_unit":
@@ -558,21 +564,21 @@ class GridRenderer:
         widget.configure(font=("Consolas", self.app.preview_font_size, "italic") if italic else self.app.preview_font)
 
         if canceled:
-            theme_text_tinted(widget, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_AUSFALL])
             widget.configure(state="disabled")
             return
         if unresolved_link:
             theme_text(widget, bg_token="warning_soft")
             return
         if lzk_masked:
-            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_LZK].muted())
             widget.configure(state="disabled")
             return
         if is_hospitation:
-            theme_text_tinted(widget, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_HOSPITATION])
             return
         if is_lzk:
-            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_LZK])
             return
         if editable:
             theme_text(widget)
@@ -623,17 +629,17 @@ class GridRenderer:
         widget.insert("1.0", text)
 
         if canceled:
-            theme_text_tinted(widget, "warning_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_AUSFALL])
             widget.configure(state="disabled")
         elif unresolved_link:
             theme_text(widget, bg_token="warning_soft")
         elif lzk_masked:
-            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong", fg_token="fg_muted")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_LZK].muted())
             widget.configure(state="disabled")
         elif is_hospitation:
-            theme_text_tinted(widget, HOSPITATION_SEED, degree=0.38, base_token="panel_strong")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_HOSPITATION])
         elif is_lzk:
-            theme_text_tinted(widget, "success_soft", degree=0.72, base_token="panel_strong")
+            apply_text_tint(widget, LESSON_KIND_TINTS[KIND_LZK])
         elif editable:
             theme_text(widget)
         else:
