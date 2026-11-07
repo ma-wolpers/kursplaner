@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker, resolve_row_cancel_state
 from kursplaner.core.domain.plan_table import COLUMN_INHALT, COLUMN_THEMA_AUSFALL, PlanTableData
-from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, first_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
-
-LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 
 
 class PlanCommandsUseCase:
@@ -44,14 +41,10 @@ class PlanCommandsUseCase:
         idx_inhalt = table.column_index(COLUMN_INHALT)
         current = table.rows[row_index][idx_inhalt]
         if isinstance(current, str):
-            match = LINK_RE.search(current)
-            if match:
-                target = match.group(1).strip()
-                if "|" in target:
-                    target = target.split("|", 1)[0].strip()
-                if target:
-                    table.rows[row_index][idx_inhalt] = build_dataview_lesson_link(target)
-                    return
+            link = first_wiki_link(current)
+            if link is not None and link[0]:
+                table.rows[row_index][idx_inhalt] = build_dataview_lesson_link(link[0])
+                return
         table.rows[row_index][idx_inhalt] = ""
 
     def clear_selected_lesson(self, table: PlanTableData, row_index: int) -> Path | None:

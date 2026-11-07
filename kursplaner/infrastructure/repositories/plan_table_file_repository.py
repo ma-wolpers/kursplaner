@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
@@ -29,7 +28,7 @@ from kursplaner.core.domain.plan_table import (
     PlanTableData,
     sanitize_hour_title,
 )
-from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, strip_wiki_link
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, first_wiki_link, strip_wiki_link
 from kursplaner.core.domain.yaml_registry import (
     LESSON_SCHEMA,
     body_after_frontmatter,
@@ -56,15 +55,10 @@ __all__ = [
     "validate_managed_markdown_yaml",
 ]
 
-LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
-
 
 def _resolve_hours_link(plan_path: Path, content: str) -> Path | None:
-    match = LINK_RE.search(content)
-    if not match:
-        return None
-
-    target = match.group(1).split("|", 1)[0].strip()
+    link = first_wiki_link(content)
+    target = link[0] if link is not None else ""
     if not target:
         return None
 
@@ -112,7 +106,7 @@ def validate_managed_markdown_yaml(base_dir: Path):
             if idx_inhalt >= len(row):
                 continue
             content = row[idx_inhalt].strip()
-            if not LINK_RE.search(content):
+            if first_wiki_link(content) is None:
                 continue
             link_path = _resolve_hours_link(plan_md, content)
             if not isinstance(link_path, Path):

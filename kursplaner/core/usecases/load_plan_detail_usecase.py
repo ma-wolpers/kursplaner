@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,7 +10,11 @@ from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_RESOURCES_FIELD, UB_STEPS_FIELD, ub_link_stem
-from kursplaner.core.domain.wiki_links import extract_wiki_link_target, strip_wiki_link
+from kursplaner.core.domain.wiki_links import (
+    extract_wiki_link_target,
+    first_wiki_link_label,
+    strip_wiki_link,
+)
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.ub_files import load_development_lists
 
@@ -58,14 +61,7 @@ class LoadPlanDetailUseCase:
     @staticmethod
     def _extract_markdown_link_target(text: str) -> str:
         """Extrahiert das sichtbare Linkziel (Alias bevorzugt) aus `[[...]]`."""
-        match = re.search(r"\[\[([^\]]+)\]\]", text)
-        if not match:
-            return ""
-        target = match.group(1).strip()
-        if "|" in target:
-            left, right = target.split("|", 1)
-            return right.strip() or left.strip()
-        return target
+        return first_wiki_link_label(text)
 
     @classmethod
     def _header_content_label(cls, inhalt: str) -> tuple[str, bool]:

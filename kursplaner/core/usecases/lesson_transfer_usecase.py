@@ -5,7 +5,11 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_LESSON_KEY, ub_link_stem
-from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
+from kursplaner.core.domain.wiki_links import (
+    build_dataview_lesson_link,
+    first_wiki_link,
+    replace_first_wiki_link,
+)
 from kursplaner.core.ports.repositories import LessonFileRepository, LessonRepository
 
 _DATAVIEW_QUERY_RE = re.compile(r"`=[^`]*`")
@@ -102,8 +106,8 @@ class LessonTransferUseCase:
             table.set_inhalt(row_index, _DATAVIEW_QUERY_RE.sub(link, current, count=1))
             return
 
-        if "[[" in current and "]]" in current:
-            table.set_inhalt(row_index, re.sub(r"\[\[[^\]]+\]\]", link, current, count=1))
+        if first_wiki_link(current) is not None:
+            table.set_inhalt(row_index, replace_first_wiki_link(current, link))
             return
 
         prefix = current.strip()

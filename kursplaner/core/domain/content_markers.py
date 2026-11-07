@@ -3,9 +3,8 @@ from __future__ import annotations
 import re
 
 from kursplaner.core.domain.plan_table import COLUMN_THEMA_AUSFALL
+from kursplaner.core.domain.wiki_links import unwrap_wiki_links
 
-WIKI_LINK_WITH_ALIAS_RE = re.compile(r"\[\[([^\]|]+)\|([^\]]+)\]\]")
-WIKI_LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 WHITESPACE_RE = re.compile(r"\s+")
 
 
@@ -15,9 +14,7 @@ def normalize_marker_text(text: str) -> str:
     if not raw:
         return ""
 
-    unwrapped = WIKI_LINK_WITH_ALIAS_RE.sub(lambda match: match.group(2).strip() or match.group(1).strip(), raw)
-    unwrapped = WIKI_LINK_RE.sub(lambda match: match.group(1).strip(), unwrapped)
-    return WHITESPACE_RE.sub(" ", unwrapped).strip()
+    return WHITESPACE_RE.sub(" ", unwrap_wiki_links(raw)).strip()
 
 
 def _norm_prefix(text: str) -> str:

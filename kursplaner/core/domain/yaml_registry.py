@@ -11,9 +11,9 @@ from kursplaner.core.domain.sequence_planning import (
     SEQUENCE_YAML_COURSE_PLAN_KEY,
     SEQUENCE_YAML_FOCUS_COMPETENCIES_KEY,
 )
+from kursplaner.core.domain.wiki_links import whole_wiki_link
 from kursplaner.core.domain.yaml_scalars import decode_yaml_scalar, yaml_double_quote
 
-WIKI_LINK_VALUE_RE = re.compile(r"^\s*\[\[[^\]]+\]\]\s*$")
 MARKDOWN_LINK_VALUE_RE = re.compile(r"^\s*\[[^\]]+\]\([^\)]+\.md\)\s*$", re.IGNORECASE)
 """Erkennen YAML-Skalarwerte, die selbst ein Wiki-/Markdown-Link sind.
 
@@ -59,8 +59,9 @@ class YamlSchema:
 
 
 def _is_valid_lerngruppe(value: object) -> bool:
+    """Genau ein Wiki-Link ohne Alias (``[[li2]]``)."""
     text = str(value or "").strip()
-    return bool(re.fullmatch(r"\[\[[^\[\]\|]+\]\]", text))
+    return whole_wiki_link(text) is not None and "|" not in text
 
 
 STUFE_MIN = 1
@@ -392,7 +393,7 @@ def split_frontmatter_block(raw_text: str) -> tuple[str, str]:
 def _yaml_scalar_line(key: str, value: object) -> str:
     """Rendert eine einzelne skalare YAML-Zeile, mit Link-Escaping bei Bedarf."""
     text = "true" if value is True else "false" if value is False else str(value or "")
-    if WIKI_LINK_VALUE_RE.fullmatch(text) or MARKDOWN_LINK_VALUE_RE.fullmatch(text):
+    if whole_wiki_link(text) is not None or MARKDOWN_LINK_VALUE_RE.fullmatch(text):
         return f"{key}: {yaml_double_quote(text)}"
     return f"{key}: {text}"
 
@@ -404,7 +405,7 @@ def render_yaml_frontmatter(ordered_keys: Sequence[str], values: dict[str, objec
     (`plan_table_file_repository.py::_render_yaml_frontmatter`,
     `ub_repository.py::FileSystemUbRepository._render_yaml_frontmatter`)
     inklusive der dort ebenfalls doppelt definierten
-    `WIKI_LINK_VALUE_RE`/`MARKDOWN_LINK_VALUE_RE`. Übernimmt nur die reine
+    Link-Erkennung (Wiki-Links heute über `wiki_links.whole_wiki_link`). Übernimmt nur die reine
     Rendering-Mechanik (Listenwerte als ``key:\\n  - "x"``, Skalare als
     ``key: value``/``key: "escaped"``); welche Keys in welcher Reihenfolge
     gerendert werden, bleibt bewusst Aufrufer-Entscheidung (Lesson-Seite:

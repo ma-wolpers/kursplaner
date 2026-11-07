@@ -20,10 +20,9 @@ from datetime import date, datetime
 from pathlib import Path, PurePosixPath
 from typing import Sequence
 
-from kursplaner.core.domain.wiki_links import build_wiki_link
+from kursplaner.core.domain.wiki_links import build_wiki_link, whole_wiki_link
 
 _FORBIDDEN_NAME_CHARS_RE = re.compile(r'[\\/:*?"<>|#^\[\]]')
-_WIKI_LINK_RE = re.compile(r"^\[\[([^\]]+)\]\]$")
 MAX_TOPICS_IN_NAME = 3
 MAX_TOPIC_PART_LENGTH = 80
 
@@ -103,8 +102,8 @@ def resolve_horizon_link(raw_link: object, *, course_dir: Path, vault_root: Path
     text = str(raw_link or "").strip()
     if not text:
         return None
-    match = _WIKI_LINK_RE.match(text)
-    target = (match.group(1) if match else text).split("|", 1)[0].strip().replace("\\", "/")
+    link = whole_wiki_link(text)
+    target = (link[0] if link is not None else text.split("|", 1)[0].strip()).replace("\\", "/")
     if target.lower().endswith(".md"):
         target = target[:-3].strip()
     if not target:
