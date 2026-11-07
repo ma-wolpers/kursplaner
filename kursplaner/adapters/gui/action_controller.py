@@ -63,8 +63,8 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_LANGENTWURF,
+    ub_link_stem,
 )
-from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.domain.yaml_registry import parse_stufe
 from kursplaner.core.flows.lesson_transfer_flow import LessonTransferFlowWriteRequest
 from kursplaner.core.usecases.query_ub_achievements_usecase import (
@@ -549,7 +549,7 @@ class MainWindowActionController:
         selected_index, row_index, day = context
 
         lesson_yaml = day.yaml
-        ub_link = str(lesson_yaml.get("Unterrichtsbesuch", "")).strip()
+        ub_link = ub_link_stem(lesson_yaml)
 
         workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
 
@@ -796,14 +796,14 @@ class MainWindowActionController:
         lesson_yaml: dict[str, object],
     ) -> tuple[tuple[str, ...], bool, str]:
         """Leitet UB-Dialog-Defaults aus bestehender UB-Verknüpfung ab."""
-        ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
+        ub_link = ub_link_stem(lesson_yaml)
         if not ub_link:
             return ("Pädagogik",), False, ""
 
         ub_root = self.app.gui_dependencies.load_plan_detail_usecase.ub_repo
         if ub_root is None:
             return ("Pädagogik",), False, ""
-        ub_path = ub_root.ensure_ub_root(workspace_root) / f"{ub_link}.md"
+        ub_path = ub_root.ub_markdown_path(workspace_root, ub_link)
         if not ub_path.exists() or not ub_path.is_file():
             return ("Pädagogik",), False, ""
 
@@ -879,7 +879,7 @@ class MainWindowActionController:
         except Exception:
             return "none"
 
-        ub_link = strip_wiki_link(str(source_data.get("Unterrichtsbesuch", "")).strip())
+        ub_link = ub_link_stem(source_data)
         if not ub_link:
             return "none"
 
@@ -1590,11 +1590,11 @@ class MainWindowActionController:
             except Exception:
                 source_data = {}
 
-            ub_stem = strip_wiki_link(str(source_data.get("Unterrichtsbesuch", "")).strip())
+            ub_stem = ub_link_stem(source_data)
             ub_repo = self.app.gui_dependencies.load_plan_detail_usecase.ub_repo
             if ub_stem and ub_repo is not None:
                 workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
-                cut_extra_paths.append(ub_repo.ensure_ub_root(workspace_root) / f"{ub_stem}.md")
+                cut_extra_paths.append(ub_repo.ub_markdown_path(workspace_root, ub_stem))
                 cut_extra_paths.append(ub_repo.ub_overview_path(workspace_root))
 
         decision = "move"
@@ -1773,7 +1773,7 @@ class MainWindowActionController:
 
         workspace_root = self._workspace_root_from_path(self.app.current_table.markdown_path)
         lesson_yaml = day.yaml
-        ub_link = strip_wiki_link(str(lesson_yaml.get("Unterrichtsbesuch", "")).strip())
+        ub_link = ub_link_stem(lesson_yaml)
 
         confirmed = messagebox.askyesno(
             "Einheit löschen",

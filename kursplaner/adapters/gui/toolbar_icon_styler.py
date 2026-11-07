@@ -8,6 +8,7 @@ from bw_gui.theming import icon_button, recolor_photo, recolor_photo_token, reta
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.unterrichtsbesuch_policy import ub_link_stem
 
 # Maps ttk style name → bw_gui color_tint seed for icon recoloring.
 # None means no tint: icon pixels are recolored to fg_primary (the neutral
@@ -157,7 +158,7 @@ class ToolbarIconStyler:
             if 0 <= idx < len(day_columns):
                 day = day_columns[idx]
                 if isinstance(day, DayColumn):
-                    mark_ub_remove_mode = bool(str(day.yaml.get("Unterrichtsbesuch", "")).strip())
+                    mark_ub_remove_mode = bool(ub_link_stem(day.yaml))
                     ausfall_resume_mode = day.is_cancel()
 
         for spec in TOOLBAR_ACTIONS:

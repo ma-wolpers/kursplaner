@@ -9,6 +9,7 @@ from kursplaner.core.domain.oberthema_values import (
     UnsupportedOberthemaValue,
     distinct_raw_entries,
 )
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_LESSON_KEY
 
 LessonType = Literal["Unterricht", "LZK", "Ausfall", "Hospitation"]
 
@@ -47,7 +48,7 @@ _ALLOWED_BY_TYPE: dict[LessonType, tuple[str, ...]] = {
         "Sonderziele",
         "Kompetenzen",
         "Material",
-        "Unterrichtsbesuch",
+        UB_LESSON_KEY,
     ),
     "LZK": (
         "Stundentyp",
@@ -204,7 +205,7 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int |
                 "Sonderziele": [],
                 "Kompetenzen": [],
                 "Material": [],
-                "Unterrichtsbesuch": "",
+                UB_LESSON_KEY: "",
             }
         )
     elif stundentyp == "LZK":

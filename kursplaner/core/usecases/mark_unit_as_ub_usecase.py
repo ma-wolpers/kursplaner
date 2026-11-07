@@ -8,6 +8,7 @@ from kursplaner.core.domain.plan_table import COLUMN_DATUM, PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_KIND_FACH,
     UB_KIND_PAEDAGOGIK,
+    UB_LESSON_KEY,
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_EINHEIT,
@@ -15,9 +16,10 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     build_ub_stem,
     normalize_ub_kinds,
 )
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, UbRepository
-from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
+from kursplaner.core.usecases.ub_files import existing_ub_path
+from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
 
 
@@ -39,17 +41,6 @@ class MarkUnitAsUbUseCase:
         """Initialisiert den Use Case mit Port-basierten Repositoryabhaengigkeiten."""
         self.lesson_repo = lesson_repo
         self.ub_repo = ub_repo
-
-    def _resolve_existing_ub_path(self, workspace_root: Path, lesson_data: dict[str, object]) -> Path | None:
-        raw_link = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
-        if not raw_link:
-            return None
-
-        root = self.ub_repo.ensure_ub_root(workspace_root)
-        candidate = root / f"{raw_link}.md"
-        if candidate.exists() and candidate.is_file():
-            return candidate
-        return None
 
     def execute(
         self,
@@ -97,21 +88,16 @@ class MarkUnitAsUbUseCase:
             course_subject = normalize_course_subject(str(table.metadata.get("Kursfach", "")))
             bereich.append(course_subject)
 
-        ub_path = self._resolve_existing_ub_path(workspace_root, lesson_data)
+        ub_path = existing_ub_path(self.ub_repo, workspace_root, lesson_data)
         if ub_path is None:
             desired_stem = build_ub_stem(date_text)
             ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_stem)
 
-        existing_steps: list[str] = []
-        existing_resources: list[str] = []
+        # Bestehende UB-Datei: Body wörtlich behalten (Reflexion, Listen, eigener Text).
+        # Eine nicht lesbare Datei wird nicht überschrieben – der Fehler geht an die Nutzerin.
+        body = new_ub_body()
         if ub_path.exists() and ub_path.is_file():
-            try:
-                _, existing_body = self.ub_repo.load_ub_markdown(ub_path)
-                existing_steps = parse_list_section(existing_body, "Professionalisierungsschritte")
-                existing_resources = parse_list_section(existing_body, "Nutzbare Ressourcen")
-            except Exception:
-                existing_steps = []
-                existing_resources = []
+            _, body = self.ub_repo.load_ub_markdown(ub_path)
 
         ub_yaml = {
             UB_YAML_KEY_BEREICH: bereich,
@@ -120,15 +106,9 @@ class MarkUnitAsUbUseCase:
             UB_YAML_KEY_EINHEIT: build_wiki_link(lesson_path.stem),
         }
 
-        self.ub_repo.save_ub_markdown(
-            ub_path,
-            ub_yaml,
-            reflection_text="",
-            professional_steps=existing_steps,
-            usable_resources=existing_resources,
-        )
+        self.ub_repo.save_ub_markdown(ub_path, ub_yaml, body)
 
-        lesson_data["Unterrichtsbesuch"] = build_wiki_link(ub_path.stem)
+        lesson_data[UB_LESSON_KEY] = build_wiki_link(ub_path.stem)
         lesson.data = lesson_data
         self.lesson_repo.save_lesson_yaml(lesson)
 

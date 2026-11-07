@@ -5,11 +5,15 @@ from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
-from kursplaner.core.domain.unterrichtsbesuch_policy import UB_YAML_KEY_EINHEIT, build_ub_stem
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_LESSON_KEY,
+    UB_YAML_KEY_EINHEIT,
+    build_ub_stem,
+    ub_link_stem,
+)
+from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
-from kursplaner.core.usecases.ub_markdown_sections import parse_list_section, parse_reflection
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
 
 
@@ -61,7 +65,7 @@ class RenameLinkedFileForRowUseCase:
         except Exception:
             return
         data = lesson.data if isinstance(lesson.data, dict) else {}
-        ub_stem = strip_wiki_link(str(data.get("Unterrichtsbesuch", "")).strip())
+        ub_stem = ub_link_stem(data)
         if not ub_stem:
             return
 
@@ -87,18 +91,9 @@ class RenameLinkedFileForRowUseCase:
             final_ub_path = self.ub_repo.rename_ub_markdown(ub_path, desired_ub_path)
 
         ub_yaml[UB_YAML_KEY_EINHEIT] = build_wiki_link(lesson_path.stem)
-        reflection_text = parse_reflection(ub_body)
-        professional_steps = parse_list_section(ub_body, "Professionalisierungsschritte")
-        usable_resources = parse_list_section(ub_body, "Nutzbare Ressourcen")
-        self.ub_repo.save_ub_markdown(
-            final_ub_path,
-            ub_yaml,
-            reflection_text=reflection_text,
-            professional_steps=professional_steps,
-            usable_resources=usable_resources,
-        )
+        self.ub_repo.save_ub_markdown(final_ub_path, ub_yaml, ub_body)  # nur der Einheit-Link ändert sich
 
-        data["Unterrichtsbesuch"] = build_wiki_link(final_ub_path.stem)
+        data[UB_LESSON_KEY] = build_wiki_link(final_ub_path.stem)
         lesson.data = data
         self.lesson_repo.save_lesson_yaml(lesson)
         self.ub_repo.save_ub_overview(workspace_root, build_ub_overview_markdown(self.ub_repo, workspace_root))

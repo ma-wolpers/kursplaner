@@ -1,13 +1,9 @@
 """Reine Markdown-Bullet-Listen-Komposition (Titel + `- item`-Zeilen).
 
-Extrahiert aus der strukturell (nicht wörtlich) duplizierten Sections-Logik
-in `plan_table_file_repository.py::set_lesson_markdown_sections` (Wiki-Link-
-umschlossene Items, Section nur bei nicht-leerer Liste) und
-`ub_repository.py::FileSystemUbRepository._render_list_section` (Klartext-
-Items, Platzhalter-Bullet bei leerer Liste, Section immer gerendert). Beide
-unterschiedlichen Policies (Link-Wrapping, Leer-Verhalten) bleiben bewusst
-Aufrufer-Entscheidung vor dem Aufruf dieser Funktion — nur die gemeinsame
-"Titel + Bullets"-Komposition wird hier zentralisiert.
+Einzige Stelle der ``- item``-Darstellung. Nutzer: ``## Inhalte``/``## Methodik``
+einer Einheit (`LessonCommandsUseCase`, Wiki-Link-umschlossene Items) und der
+UB-Body (`ub_markdown_sections`, Klartext-Items, Platzhalter-Bullet bei leerer
+Liste). Link-Wrapping und Leer-Verhalten bleiben Aufrufer-Entscheidung.
 """
 
 from __future__ import annotations
@@ -31,6 +27,13 @@ def render_markdown_bullet_section(title: str, items: list[str]) -> str:
         render_markdown_bullet_section("Inhalte", ["[[a]]", "[[b]]"])
         # -> "## Inhalte\\n\\n- [[a]]\\n- [[b]]"
     """
-    lines = [f"## {title}", ""]
-    lines.extend(f"- {item}" for item in items)
-    return "\n".join(lines)
+    return "\n".join([f"## {title}", "", *markdown_bullet_lines(items)])
+
+
+def markdown_bullet_lines(items: list[str]) -> list[str]:
+    """Die ``- <item>``-Zeilen einer Aufzählung (einzige Stelle dieser Darstellung).
+
+    Für Aufrufer, die einen Abschnitt über `markdown_sections.replace_section`
+    ersetzen und dafür nur die Inhaltszeilen brauchen.
+    """
+    return [f"- {item}" for item in items]

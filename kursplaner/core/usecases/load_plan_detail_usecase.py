@@ -10,9 +10,10 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_RESOURCES_FIELD, UB_STEPS_FIELD, ub_link_stem
 from kursplaner.core.domain.wiki_links import extract_wiki_link_target, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
-from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
+from kursplaner.core.usecases.ub_files import load_development_lists
 
 
 @dataclass(frozen=True)
@@ -49,25 +50,6 @@ class LoadPlanDetailUseCase:
         self.plan_repo = plan_repo
         self.lesson_repo = lesson_repo
         self.ub_repo = ub_repo
-
-    def _load_ub_development_lists(self, *, workspace_root: Path, ub_link_stem: str) -> tuple[list[str], list[str]]:
-        """Lädt UB-Listenfelder aus der UB-Markdown-Datei, falls vorhanden."""
-        if self.ub_repo is None:
-            return [], []
-        stem = strip_wiki_link(str(ub_link_stem).strip())
-        if not stem:
-            return [], []
-        ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{stem}.md"
-        if not ub_path.exists() or not ub_path.is_file():
-            return [], []
-        try:
-            _, body = self.ub_repo.load_ub_markdown(ub_path)
-        except Exception:
-            return [], []
-        return (
-            parse_list_section(body, "Professionalisierungsschritte"),
-            parse_list_section(body, "Nutzbare Ressourcen"),
-        )
 
     @staticmethod
     def _workspace_root_from_table(table: PlanTableData) -> Path:
@@ -178,15 +160,11 @@ class LoadPlanDetailUseCase:
                 extracted_topic = split[1].strip() or link_target
             lesson = self._ensure_valid_lesson_yaml(link, topic=extracted_topic)
             yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
-            ub_link = str(yaml_data.get("Unterrichtsbesuch", "")).strip()
-            if ub_link:
-                steps, resources = self._load_ub_development_lists(
-                    workspace_root=self._workspace_root_from_table(table),
-                    ub_link_stem=ub_link,
+            if self.ub_repo is not None and ub_link_stem(yaml_data):
+                steps, resources = load_development_lists(
+                    self.ub_repo, self._workspace_root_from_table(table), yaml_data
                 )
-                yaml_data = dict(yaml_data)
-                yaml_data["Professionalisierungsschritte"] = steps
-                yaml_data["Nutzbare Ressourcen"] = resources
+                yaml_data = {**yaml_data, UB_STEPS_FIELD: steps, UB_RESOURCES_FIELD: resources}
 
         return DayColumn(
             row_index=row_index,

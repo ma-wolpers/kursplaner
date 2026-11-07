@@ -12,7 +12,6 @@ from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     load_linked_lesson_yaml,
     load_raw_linked_lesson_frontmatter,
     save_linked_lesson_yaml,
-    set_lesson_markdown_sections,
 )
 
 
@@ -47,7 +46,7 @@ class FileSystemLessonRepository:
         Liest nur dann tatsächlich von der Platte, wenn kein Cache-Eintrag für
         diesen (aufgelösten) Pfad existiert oder sich `(mtime_ns, size)` seit
         dem letzten Eintrag geändert hat — deckt sowohl eigene Schreibvorgänge
-        (siehe `save_lesson_yaml()`/`set_lesson_markdown_sections()`, die den
+        (siehe `save_lesson_yaml()`/`write_lesson_section()`, die den
         Eintrag explizit verwerfen) als auch externe Änderungen ab (Datei von
         außerhalb der App verändert, z. B. direkt in Obsidian oder durch ein
         Sync-Tool — die Signatur weicht dann beim nächsten Aufruf ab, ganz
@@ -118,24 +117,9 @@ class FileSystemLessonRepository:
             default_hours=default_hours,
         )
 
-    def set_lesson_markdown_sections(
-        self, lesson_path: Path, inhalte_refs: list[str], methodik_refs: list[str]
-    ) -> None:
-        """Schreibt Inhalts-/Methodik-Abschnitte in eine Stunden-Markdown-Datei.
-
-        Verwirft den Cache-Eintrag wie `save_lesson_yaml()` (siehe dort).
-        """
-        set_lesson_markdown_sections(
-            lesson_path=lesson_path,
-            inhalte_refs=inhalte_refs,
-            methodik_refs=methodik_refs,
-        )
-        self._lesson_yaml_cache.pop(lesson_path.resolve(), None)
-
     def read_lesson_section(self, lesson_path: Path, heading: str) -> tuple[str, ...]:
         """Zeilen eines ``##``-Abschnitts im Body (immer frisch von der Platte; `markdown_section_files`)."""
-        section = read_body_section(lesson_path, heading)
-        return tuple(section.splitlines()) if section else ()
+        return read_body_section(lesson_path, heading) or ()
 
     def write_lesson_section(self, lesson_path: Path, heading: str, lines: Sequence[str]) -> bool:
         """Schreibt einen ``##``-Abschnitt im Body, Frontmatter byte-genau; verwirft den Cache-Eintrag."""

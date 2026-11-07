@@ -86,38 +86,69 @@ def extract_wiki_link_target(text: str) -> str:
         extract_wiki_link_target("[[Einheiten/ab12cd.md|Bruchrechnung]]")
         # -> "ab12cd"
     """
-    match = re.search(r"\[\[([^\]]+)\]\]", str(text or ""))
-    if not match:
+    first = first_wiki_link(text)
+    if first is None:
         return ""
-    raw = match.group(1).strip()
-    if "|" in raw:
-        raw = raw.split("|", 1)[0].strip()
-    raw = strip_lesson_suffix(raw).strip()
+    raw = strip_lesson_suffix(first[0]).strip()
     if "/" in raw or "\\" in raw:
         raw = raw.replace("\\", "/").split("/")[-1].strip()
     return raw
 
 
-def single_wiki_link(entry: str) -> tuple[str, str | None] | None:
-    """Zerlegt einen Eintrag, der **genau** ein ``[[…]]`` ist, in ``(Ziel, Alias)``.
+_LINK_RE = re.compile(r"\[\[([^\[\]]+)\]\]")
+"""Die einzige Wiki-Link-Erkennung im Kursplaner (Implementierungsdetail; nur über die Funktionen nutzen)."""
 
-    Einzige Erkennung „der ganze Eintrag ist ein einzelner Link“. Das Ziel kommt
-    aus `extract_wiki_link_target` (ohne Pfad und Stunden-Endung), der Alias ist
-    ``None`` ohne (bzw. bei leerem) Alias. Jeder andere Text liefert ``None``.
+WikiLinkParts = tuple[str, "str | None"]
+"""``(Ziel, Alias)`` wie geschrieben; Alias ``None`` ohne bzw. bei leerem Alias."""
+
+
+def _parts(inner: str) -> WikiLinkParts:
+    target, _sep, alias = inner.partition("|")
+    return target.strip(), alias.strip() or None
+
+
+def _label(parts: WikiLinkParts) -> str:
+    return parts[1] or parts[0]
+
+
+def first_wiki_link(text: str) -> WikiLinkParts | None:
+    """Ziel und Alias des ersten ``[[…]]`` in *text* (Ziel wie geschrieben, inkl. Pfad); sonst ``None``."""
+    match = _LINK_RE.search(str(text or ""))
+    return _parts(match.group(1)) if match else None
+
+
+def whole_wiki_link(text: str) -> WikiLinkParts | None:
+    """Ziel und Alias, wenn *text* (getrimmt) **genau** ein ``[[…]]`` ist; sonst ``None``.
 
     Example::
 
-        single_wiki_link("[[Mat-RF-14|Terme]]")  # -> ("Mat-RF-14", "Terme")
-        single_wiki_link("[[Skizze]]")           # -> ("Skizze", None)
-        single_wiki_link("Tafelbild [[Skizze]]") # -> None
+        whole_wiki_link("[[Mat-RF-14|Terme]]")  # -> ("Mat-RF-14", "Terme")
+        whole_wiki_link("[[Skizze]]")           # -> ("Skizze", None)
+        whole_wiki_link("Tafelbild [[Skizze]]") # -> None
     """
-    text = str(entry)
-    match = re.fullmatch(r"\[\[([^\[\]]+)\]\]", text)
-    if match is None:
-        return None
-    inner = match.group(1)
-    alias = inner.split("|", 1)[1].strip() if "|" in inner else ""
-    return extract_wiki_link_target(text), alias or None
+    match = _LINK_RE.fullmatch(str(text or "").strip())
+    return _parts(match.group(1)) if match else None
+
+
+def first_wiki_link_label(text: str) -> str:
+    """Sichtbarer Text des ersten Links (Alias, sonst Ziel wie geschrieben); ``""`` ohne Link."""
+    first = first_wiki_link(text)
+    return _label(first) if first is not None else ""
+
+
+def unwrap_wiki_links(text: str) -> str:
+    """Ersetzt jeden Link durch seinen sichtbaren Text (Alias, sonst Ziel)."""
+    return _LINK_RE.sub(lambda match: _label(_parts(match.group(1))), str(text or ""))
+
+
+def remove_wiki_links(text: str) -> str:
+    """Entfernt alle Links samt Inhalt aus *text*."""
+    return _LINK_RE.sub("", str(text or ""))
+
+
+def replace_first_wiki_link(text: str, replacement: str) -> str:
+    """Ersetzt den ersten Link in *text* durch *replacement* (wörtlich)."""
+    return _LINK_RE.sub(lambda _match: replacement, str(text or ""), count=1)
 
 
 def wiki_link_display_text(entry: str) -> str:
@@ -143,11 +174,10 @@ def wiki_link_display_text(entry: str) -> str:
         wiki_link_display_text("Tafelbild [[Skizze]]")             # -> unverändert
     """
     text = str(entry)
-    parts = single_wiki_link(text)
+    parts = whole_wiki_link(text)
     if parts is None:
         return text
-    target, alias = parts
-    return alias or target or text
+    return parts[1] or extract_wiki_link_target(text) or text
 
 
 def strip_group_prefixed_link(raw: str, group_name: str) -> str:

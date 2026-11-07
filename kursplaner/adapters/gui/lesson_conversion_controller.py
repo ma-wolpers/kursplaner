@@ -16,9 +16,9 @@ from kursplaner.core.config.path_store import (
 from kursplaner.core.config.ui_preferences_store import load_lesson_builder_field_settings
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.markdown_sections import extract_bullet_items, extract_section
+from kursplaner.core.domain.lesson_yaml_policy import lesson_list_entries
 from kursplaner.core.domain.plan_table import read_yaml_oberthema
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.wiki_links import remove_wiki_links, strip_wiki_link
 from kursplaner.core.flows.lzk_lesson_flow import LzkLessonFlowWriteRequest
 
 
@@ -236,51 +236,8 @@ class MainWindowLessonConversionController:
         self.app.action_controller.update_action_controls()
 
     @staticmethod
-    def _coerce_string_list(raw_value) -> list[str]:
-        if isinstance(raw_value, list):
-            return [str(item).strip() for item in raw_value if str(item).strip()]
-        if isinstance(raw_value, tuple):
-            return [str(item).strip() for item in raw_value if str(item).strip()]
-        if isinstance(raw_value, str):
-            return [item.strip() for item in raw_value.split("|") if item.strip()]
-        return []
-
-    @staticmethod
-    def _extract_markdown_section_refs(lesson_path: pathlib.Path, heading: str) -> list[str]:
-        """Liest Wikilink-/Freitext-Bullets unter `## <heading>` aus einer Einheiten-Datei.
-
-        Nutzt `markdown_sections.py` fuer Ueberschriften-/Bullet-Erkennung (Ebene 2 exakt
-        gesucht und als Abschnittsende erkannt, case-insensitiv -- vereinheitlicht gegenueber
-        der vorherigen, unbeabsichtigt case-sensitiven Regex hier); die Wikilink-Alias-
-        Aufloesung (Alias bevorzugt, sonst das Linkziel selbst) bleibt lokale Logik, da sie
-        eine andere Frage beantwortet als `wiki_links.py::extract_wiki_link_target` (das
-        immer nur das Ziel liefert).
-        """
-        if not (isinstance(lesson_path, pathlib.Path) and lesson_path.exists() and lesson_path.is_file()):
-            return []
-        try:
-            raw_text = lesson_path.read_text(encoding="utf-8")
-        except OSError:
-            return []
-
-        section = extract_section(raw_text, heading, target_level=2, stop_at_level=2)
-        if section is None:
-            return []
-
-        refs: list[str] = []
-        for item in extract_bullet_items(section):
-            link_match = re.search(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", item)
-            if link_match:
-                value = (link_match.group(2) or link_match.group(1) or "").strip()
-            else:
-                value = item.strip()
-            if value:
-                refs.append(value)
-        return refs
-
-    @staticmethod
     def _prefill_ausfall_reason_from_content(content: str) -> str:
-        cleaned = re.sub(r"\[\[[^\]]+\]\]", "", str(content or "")).strip()
+        cleaned = remove_wiki_links(content).strip()
         if not cleaned:
             return ""
         lowered = cleaned.lower()
@@ -313,9 +270,8 @@ class MainWindowLessonConversionController:
             group_name = strip_wiki_link(str(self.app.current_table.metadata.get("Lerngruppe", "")))
             oberthema_initial = read_yaml_oberthema(yaml_data, group_name) or oberthema_initial
             stundenziel_initial = str(yaml_data.get("Stundenziel", "")).strip()
-            kompetenzen_initial = self._coerce_string_list(yaml_data.get("Kompetenzen", []))
-            inhalte_initial = self._extract_markdown_section_refs(existing_link, "Inhalte")
-            methodik_initial = self._extract_markdown_section_refs(existing_link, "Methodik")
+            kompetenzen_initial = list(lesson_list_entries(yaml_data, "Kompetenzen"))
+            inhalte_initial, methodik_initial = self.lesson_commands.read_lesson_sections(existing_link)
 
         return {
             "topic_initial": topic_initial,

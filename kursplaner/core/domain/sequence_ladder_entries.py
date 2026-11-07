@@ -15,13 +15,13 @@ Links erkennen, bauen und lesen ausschließlich `wiki_links`.
 from __future__ import annotations
 
 from kursplaner.core.domain.sequence_ladder import LadderBlock
-from kursplaner.core.domain.wiki_links import build_wiki_link, single_wiki_link, wiki_link_display_text
+from kursplaner.core.domain.wiki_links import build_wiki_link, whole_wiki_link, wiki_link_display_text
 
 
 def block_from_entry(entry: str) -> LadderBlock:
     """Baustein zu einem gespeicherten Eintrag (Netz-Baustein nur bei ``[[ID|Titel]]``)."""
     text = str(entry).strip()
-    parts = single_wiki_link(text)
+    parts = whole_wiki_link(text)
     if parts is not None and parts[0] and parts[1]:
         return LadderBlock(parts[1], parts[0])
     return LadderBlock(text)

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time
+
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 UB_KIND_PAEDAGOGIK = "Pädagogik"
 UB_KIND_FACH = "Fach"
@@ -16,11 +19,28 @@ UB_YAML_KEY_LANGENTWURF = "Langentwurf"
 UB_YAML_KEY_BEOBACHTUNG = "Beobachtungsschwerpunkt"
 UB_YAML_KEY_EINHEIT = "Einheit"
 
-UB_DEVELOPMENT_FIELDS: tuple[str, str] = ("Professionalisierungsschritte", "Nutzbare Ressourcen")
+UB_LESSON_KEY = "Unterrichtsbesuch"
+"""YAML-Feld einer Einheit mit dem Wiki-Link auf ihre UB-Datei."""
+
+
+def ub_link_stem(lesson_data: Mapping[str, object]) -> str:
+    """Dateistamm der verknüpften UB-Datei aus dem Lesson-YAML (``""`` ohne UB) – einzige Lesestelle."""
+    return strip_wiki_link(str(lesson_data.get(UB_LESSON_KEY, "") or "").strip())
+
+
+UB_STEPS_FIELD = "Professionalisierungsschritte"
+"""Grid-Feld und zugleich ``##``-Abschnitt der UB-Datei."""
+UB_RESOURCES_FIELD = "Nutzbare Ressourcen"
+"""Grid-Feld und zugleich ``##``-Abschnitt der UB-Datei."""
+UB_REFLECTION_HEADING = "Reflexion"
+"""``#``-Abschnitt (Ebene 1) der UB-Datei; endet an der nächsten ``##``-Überschrift."""
+
+UB_DEVELOPMENT_FIELDS: tuple[str, str] = (UB_STEPS_FIELD, UB_RESOURCES_FIELD)
 """Grid-Felder, die aus der verknüpften UB-Datei (Markdown-Aufzählungen) gelesen und dorthin geschrieben werden.
 
 Sie stehen nicht in der Stunden-YAML und unterliegen nicht der Listen-Invariante
 (`list_cell_text`), werden im Grid aber wie Listen dargestellt und bearbeitet.
+Ihre Namen sind zugleich die Abschnittsüberschriften der UB-Datei.
 """
 
 JAHRGANGSSTUFE_MIN = 5

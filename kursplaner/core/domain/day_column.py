@@ -47,6 +47,7 @@ from kursplaner.core.domain.oberthema_values import (
     read_oberthema_state,
 )
 from kursplaner.core.domain.plan_table import extract_plan_oberthema, parse_plan_row_date
+from kursplaner.core.domain.unterrichtsbesuch_policy import ub_link_stem
 
 
 @dataclass(frozen=True)
@@ -177,7 +178,7 @@ class DayColumn:
 
     def is_ub(self) -> bool:
         """``True``, wenn die verlinkte YAML einen Unterrichtsbesuch-Verweis trägt."""
-        return bool(str(self.yaml.get("Unterrichtsbesuch", "")).strip())
+        return bool(ub_link_stem(self.yaml))
 
     def is_cancel(self) -> bool:
         """Vollständiger Ausfall-Status: Textmarker in `thema_ausfall` ODER YAML `Stundentyp: Ausfall`."""

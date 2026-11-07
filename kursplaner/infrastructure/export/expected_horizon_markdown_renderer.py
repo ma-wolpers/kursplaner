@@ -23,6 +23,7 @@ from kursplaner.core.domain.expected_horizon_reconciliation import (
     ReconciledSection,
     reconcile,
 )
+from kursplaner.core.domain.markdown_tables import escape_table_cell
 from kursplaner.core.usecases.export_expected_horizon_usecase import ExpectedHorizonDocument, GoalKind
 from kursplaner.infrastructure.export.expected_horizon_markdown_reader import SECTION_HEADING_PREFIX
 
@@ -35,7 +36,7 @@ class ExpectedHorizonMarkdownRenderer:
 
     @staticmethod
     def _escape_cell(value: str) -> str:
-        return str(value or "").replace("|", "\\|").replace("\n", " ").strip()
+        return escape_table_cell(str(value or "").replace("\n", " ").strip())
 
     @staticmethod
     def _wrap(value: str, marker: str) -> str:

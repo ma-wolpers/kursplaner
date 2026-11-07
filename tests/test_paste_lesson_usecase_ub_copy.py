@@ -4,6 +4,7 @@ from typing import Any, cast
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.usecases.paste_lesson_usecase import PasteLessonUseCase
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
+from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository
 
 
@@ -91,9 +92,7 @@ def test_paste_usecase_copies_linked_ub_when_requested(tmp_path):
             "Beobachtungsschwerpunkt": "Fokus",
             "Einheit": "[[Kurs C 01-01 Thema]]",
         },
-        reflection_text="Reflexion",
-        professional_steps=["Schritt"],
-        usable_resources=["Ressource"],
+        new_ub_body("Reflexion", ["Schritt"], ["Ressource"]),
     )
 
     lesson_repo = _LessonRepoStub()

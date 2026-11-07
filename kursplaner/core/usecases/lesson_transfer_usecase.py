@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_LESSON_KEY, ub_link_stem
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import LessonFileRepository, LessonRepository
 
@@ -135,8 +136,8 @@ class LessonTransferUseCase:
         lesson_data = pasted_lesson.data if isinstance(pasted_lesson.data, dict) else {}
         should_save_yaml = False
 
-        if clear_ub_link and str(lesson_data.get("Unterrichtsbesuch", "")).strip():
-            lesson_data["Unterrichtsbesuch"] = ""
+        if clear_ub_link and ub_link_stem(lesson_data):
+            lesson_data[UB_LESSON_KEY] = ""
             should_save_yaml = True
 
         if target_path.stem != source_stem:

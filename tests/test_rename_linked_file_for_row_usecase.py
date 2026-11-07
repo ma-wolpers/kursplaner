@@ -3,6 +3,7 @@ from typing import Any, cast
 
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.usecases.rename_linked_file_for_row_usecase import RenameLinkedFileForRowUseCase
+from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
 from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository
 
@@ -73,9 +74,7 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
         },
-        reflection_text="Reflexion",
-        professional_steps=["Schritt 1"],
-        usable_resources=["Ressource 1"],
+        new_ub_body("Reflexion", ["Schritt 1"], ["Ressource 1"]),
     )
 
     table = PlanTableData(

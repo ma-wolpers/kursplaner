@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_LESSON_KEY, ub_link_stem
 from kursplaner.core.ports.repositories import LessonRepository, UbRepository
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
 
@@ -49,7 +49,7 @@ class RemoveUnitUbLinkUseCase:
 
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
         lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
-        ub_stem = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+        ub_stem = ub_link_stem(lesson_data)
         if not ub_stem:
             return RemoveUnitUbLinkResult(
                 proceed=False,
@@ -57,9 +57,9 @@ class RemoveUnitUbLinkUseCase:
                 error_message="Für die ausgewählte Einheit ist kein Unterrichtsbesuch verlinkt.",
             )
 
-        ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{ub_stem}.md"
+        ub_path = self.ub_repo.ub_markdown_path(workspace_root, ub_stem)
 
-        lesson_data["Unterrichtsbesuch"] = ""
+        lesson_data[UB_LESSON_KEY] = ""
         lesson.data = lesson_data
         self.lesson_repo.save_lesson_yaml(lesson)
 

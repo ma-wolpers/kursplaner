@@ -205,3 +205,30 @@ def test_mark_unit_as_ub_allows_zusatzbesuch_without_domain_selection(tmp_path):
     assert "Bereich:" in ub_text
     assert '  - "Pädagogik"' not in ub_text
     assert '  - "Mathematik"' not in ub_text
+
+
+def test_marking_again_keeps_reflection_lists_and_own_text(tmp_path):
+    """Regression: erneutes Markieren löschte die Reflexion (reflection_text="") und eigenen Text."""
+    workspace_root = tmp_path / "7thCloud"
+    plan_dir = workspace_root / "7thVault" / "Pädagogik" / "10 Unterricht" / "Mathe Kurs"
+    plan_dir.mkdir(parents=True)
+    lesson_path = plan_dir / "Einheiten" / "gruen-6 03-31 Funktionen.md"
+    _write_unterricht_lesson(lesson_path)
+    table = _table(plan_dir / "Mathe Kurs.md", lesson_path.stem)
+    usecase = MarkUnitAsUbUseCase(lesson_repo=FileSystemLessonRepository(), ub_repo=FileSystemUbRepository())
+    first = usecase.execute(
+        workspace_root=workspace_root, table=table, row_index=0, ub_kinds=["Pädagogik"],
+        langentwurf=False, beobachtungsschwerpunkt="A",
+    )  # fmt: skip
+    ub_path = first.ub_path
+    text = ub_path.read_text(encoding="utf-8").replace("# Reflexion\n", "# Reflexion\n\nMeine Reflexion\n")
+    ub_path.write_text(text + "\n## Eigene Notizen\n\nbleibt\n", encoding="utf-8")
+
+    second = usecase.execute(
+        workspace_root=workspace_root, table=table, row_index=0, ub_kinds=["Pädagogik", "Fach"],
+        langentwurf=True, beobachtungsschwerpunkt="B",
+    )  # fmt: skip
+    ub_text = second.ub_path.read_text(encoding="utf-8")
+    assert second.ub_path == ub_path
+    assert "Meine Reflexion" in ub_text and "## Eigene Notizen\n\nbleibt" in ub_text
+    assert "Beobachtungsschwerpunkt: B" in ub_text

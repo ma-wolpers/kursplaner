@@ -6,6 +6,7 @@ from typing import Literal
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.plan_table import PlanTableData
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_LESSON_KEY, ub_link_stem
 from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, UbRepository
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
@@ -82,11 +83,11 @@ class ReconcileUbOverviewUseCase:
 
             lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
             data = lesson.data if isinstance(lesson.data, dict) else {}
-            ub_stem = strip_wiki_link(str(data.get("Unterrichtsbesuch", "")).strip())
+            ub_stem = ub_link_stem(data)
             if not ub_stem:
                 continue
 
-            ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{ub_stem}.md"
+            ub_path = self.ub_repo.ub_markdown_path(workspace_root, ub_stem)
             if not ub_path.exists() or not ub_path.is_file():
                 conflicts.append(
                     UbReconcileConflict(
@@ -163,13 +164,13 @@ class ReconcileUbOverviewUseCase:
             lesson = self.lesson_repo.load_lesson_yaml(conflict.lesson_path)
             data = lesson.data if isinstance(lesson.data, dict) else {}
             if conflict.kind in {"missing_ub_file", "ub_yaml_invalid", "backlink_mismatch"}:
-                data["Unterrichtsbesuch"] = ""
+                data[UB_LESSON_KEY] = ""
                 lesson.data = data
                 self.lesson_repo.save_lesson_yaml(lesson)
                 return UbReconcileApplyResult(proceed=True)
 
             if conflict.kind == "overview_missing_entry":
-                data["Unterrichtsbesuch"] = build_wiki_link(conflict.ub_stem)
+                data[UB_LESSON_KEY] = build_wiki_link(conflict.ub_stem)
                 lesson.data = data
                 self.lesson_repo.save_lesson_yaml(lesson)
                 return UbReconcileApplyResult(proceed=True)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.unterrichtsbesuch_policy import ub_link_stem
 from kursplaner.core.ports.repositories import LessonFileRepository, LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
@@ -68,11 +68,11 @@ class ClearSelectedLessonUseCase:
         if isinstance(lesson_path, Path) and lesson_path.exists() and lesson_path.is_file():
             lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
             lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
-            ub_stem = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+            ub_stem = ub_link_stem(lesson_data)
 
             active_workspace_root = workspace_root or self._workspace_root_from_markdown(table.markdown_path)
             if ub_stem:
-                ub_path = self.ub_repo.ensure_ub_root(active_workspace_root) / f"{ub_stem}.md"
+                ub_path = self.ub_repo.ub_markdown_path(active_workspace_root, ub_stem)
 
         self.plan_repo.save_plan_table(table)
 

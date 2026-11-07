@@ -4,6 +4,7 @@ from typing import Any, cast
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.usecases.clear_selected_lesson_usecase import ClearSelectedLessonUseCase
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
+from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
 from kursplaner.infrastructure.repositories.lesson_file_repository import FileSystemLessonFileRepository
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository
 
@@ -61,9 +62,7 @@ def test_clear_selected_lesson_deletes_lesson_and_ub_when_requested(tmp_path):
             "Beobachtungsschwerpunkt": "Diagnose",
             "Einheit": "[[Kurs A 01-01 Thema]]",
         },
-        reflection_text="",
-        professional_steps=[],
-        usable_resources=[],
+        new_ub_body("", [], []),
     )
 
     lesson_repo = _LessonRepoStub(
@@ -120,9 +119,7 @@ def test_clear_selected_lesson_can_keep_ub_file(tmp_path):
             "Beobachtungsschwerpunkt": "Fokus",
             "Einheit": "[[Kurs B 01-01 Thema]]",
         },
-        reflection_text="",
-        professional_steps=[],
-        usable_resources=[],
+        new_ub_body("", [], []),
     )
 
     lesson_repo = _LessonRepoStub(

@@ -4,6 +4,7 @@ import pathlib
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.unterrichtsbesuch_policy import ub_link_stem
 
 
 class MainWindowColumnReorderController:
@@ -22,7 +23,7 @@ class MainWindowColumnReorderController:
 
     @staticmethod
     def _has_ub_link(day: DayColumn) -> bool:
-        return bool(str(day.yaml.get("Unterrichtsbesuch", "")).strip())
+        return bool(ub_link_stem(day.yaml))
 
     def _requires_ub_confirmation(self, selected_index: int, partner_index: int) -> bool:
         if not (0 <= selected_index < len(self.app.day_columns)):

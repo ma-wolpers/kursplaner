@@ -103,15 +103,40 @@ def extract_section(
     gewoehnlicher Text und bleiben TEIL des Abschnitts.
 
     Bewusst klein und stabil gehalten: keine weiteren Schalter (trim/include_heading/allow_nested/
-    stop_mode/...) ohne einen real existierenden Aufrufer, der sie braucht.
+    stop_mode/...) ohne einen real existierenden Aufrufer, der sie braucht. Wer Einrückungen der
+    ersten/letzten Zeile erhalten muss, nutzt `extract_section_lines`.
+    """
+    lines = extract_section_lines(
+        text, heading_text, case_sensitive=case_sensitive, target_level=target_level, stop_at_level=stop_at_level
+    )
+    return None if lines is None else "\n".join(lines).strip()
+
+
+def extract_section_lines(
+    text: str,
+    heading_text: str,
+    *,
+    case_sensitive: bool = False,
+    target_level: int | None = None,
+    stop_at_level: int | None = None,
+) -> list[str] | None:
+    """Zeilen eines Abschnitts wie `extract_section`, aber nur Rand-**Leerzeilen** entfernt.
+
+    Einrückungen und Leerraum innerhalb der Zeilen bleiben erhalten (Freitext-Abschnitte wie
+    Brainstorming oder Ideen). Dieselbe Abschnittsgrenze wie `extract_section` und
+    `replace_section` (`_section_end`). `None` ohne Abschnitt.
     """
     lines = text.splitlines()
     start_index = find_heading_line_index(lines, heading_text, case_sensitive=case_sensitive, target_level=target_level)
     if start_index == -1:
         return None
-
     start = start_index + 1
-    return "\n".join(lines[start : _section_end(lines, start, stop_at_level)]).strip()
+    section = lines[start : _section_end(lines, start, stop_at_level)]
+    while section and not section[0].strip():
+        section.pop(0)
+    while section and not section[-1].strip():
+        section.pop()
+    return section
 
 
 def _section_end(lines: list[str], start: int, stop_at_level: int | None) -> int:
@@ -137,6 +162,7 @@ def replace_section(
     *,
     level: int = 2,
     insert_before: str | None = None,
+    remove_when_empty: bool = True,
 ) -> str:
     """Ersetzt den Inhalt eines Abschnitts der Ebene `level`, legt ihn an oder entfernt ihn.
 
@@ -147,6 +173,9 @@ def replace_section(
       (gleiche Ebene), sonst am Ende.
     - Abschnitt fehlt, `body_lines` leer: Text unveraendert.
 
+    Mit ``remove_when_empty=False`` bleibt bzw. entsteht die Ueberschrift auch bei leerem Inhalt
+    (Abschnitte, die zum Geruest einer Datei gehoeren, z. B. ``## Brainstorming``).
+
     Rahmen: eine Leerzeile nach der Ueberschrift und nach dem Inhalt. Rein textuell; der Aufrufer
     entscheidet, ob und wohin geschrieben wird.
 
@@ -156,17 +185,19 @@ def replace_section(
         body_lines: Neuer Abschnittsinhalt (ohne Ueberschrift).
         level: Ueberschriftsebene des Abschnitts.
         insert_before: Ueberschriftstext, vor dem ein neuer Abschnitt eingefuegt wird.
+        remove_when_empty: ``False`` haelt die Ueberschrift bei leerem Inhalt.
 
     Returns:
         Der neue Text (Zeilen mit Zeilenumbruch verbunden, ohne garantierten Schluss-Umbruch).
     """
     lines = text.splitlines()
     block = [f"{'#' * level} {heading_text}", "", *body_lines, ""]
+    keep = bool(body_lines) or not remove_when_empty
     start = find_heading_line_index(lines, heading_text, target_level=level)
     if start != -1:
         end = _section_end(lines, start + 1, level)
-        lines[start:end] = block if body_lines else []
-    elif body_lines:
+        lines[start:end] = block if keep else []
+    elif keep:
         anchor = find_heading_line_index(lines, insert_before, target_level=level) if insert_before else -1
         if anchor == -1:
             lines = [*lines, *([""] if lines and lines[-1].strip() else []), *block]

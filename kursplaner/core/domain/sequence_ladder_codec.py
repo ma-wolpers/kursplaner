@@ -31,7 +31,7 @@ from kursplaner.core.domain.sequence_ladder import (
     conflict_message,
 )
 from kursplaner.core.domain.sequence_ladder_entries import block_from_entry, entry_from_block
-from kursplaner.core.domain.wiki_links import single_wiki_link
+from kursplaner.core.domain.wiki_links import whole_wiki_link
 
 LADDER_HEADING = "Sequenzleiter"
 """Überschrift (Ebene 2) des Ablage-Abschnitts in der Sequenzdatei."""
@@ -66,7 +66,7 @@ def format_ablage_section(ablage: SequenceLadder) -> list[str]:
 
 
 def _parse_block(value: str, line_no: int) -> LadderBlock:
-    if value.startswith("[[") and single_wiki_link(value) is None:
+    if value.startswith("[[") and whole_wiki_link(value) is None:
         raise LadderFormatError(line_no, "Ein Netz-Baustein muss genau ein Wiki-Link sein.")
     if not value:
         raise LadderFormatError(line_no, "Baustein ohne Beschreibung.")

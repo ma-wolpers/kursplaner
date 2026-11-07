@@ -14,8 +14,8 @@ from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.markdown_body_sections import extract_body_section, replace_body_section
 
 
-def read_body_section(path: Path, heading: str, *, level: int = 2) -> str | None:
-    """Getrimmter Abschnittsinhalt im Body von *path*; ``None`` ohne Abschnitt."""
+def read_body_section(path: Path, heading: str, *, level: int = 2) -> tuple[str, ...] | None:
+    """Zeilen des Abschnitts im Body von *path* (Einrückungen erhalten); ``None`` ohne Abschnitt."""
     return extract_body_section(path.read_text(encoding="utf-8"), heading, level=level)
 
 
@@ -26,10 +26,13 @@ def write_body_section(
     *,
     level: int = 2,
     insert_before: str | None = None,
+    remove_when_empty: bool = True,
 ) -> bool:
     """Ersetzt/legt an/entfernt einen Body-Abschnitt in *path*; ``True``, wenn geschrieben wurde."""
     original = path.read_text(encoding="utf-8")
-    updated = replace_body_section(original, heading, lines, level=level, insert_before=insert_before)
+    updated = replace_body_section(
+        original, heading, lines, level=level, insert_before=insert_before, remove_when_empty=remove_when_empty
+    )
     if updated == original:
         return False
     atomic_write_text(path, updated, encoding="utf-8")

@@ -5,6 +5,9 @@ Erkennt beide Formate des Markdown-Renderers:
 
 * Legacy/ein Thema: eine einzige Tabelle ohne Überschrift → ``section=None``,
 * mehrere Themen: je Thema ``### <Thema>`` gefolgt von einer Tabelle.
+
+Zellen zerlegt `markdown_tables.split_table_row` – invers zur Maskierung des
+Renderers, so dass ein ``|`` in einem Ziel die Spalten nicht verschiebt.
 """
 
 from __future__ import annotations
@@ -13,25 +16,14 @@ from pathlib import Path
 
 from bw_libs.safe_read import read_text_or_default
 from kursplaner.core.domain.expected_horizon_reconciliation import ExistingHorizonRow
+from kursplaner.core.domain.markdown_tables import is_separator_cells, split_table_row
 
 SECTION_HEADING_PREFIX = "### "
 """Präfix der Section-Überschriften (vom Markdown-Renderer geschrieben)."""
 
 
-def split_table_row(line: str) -> list[str]:
-    """Zerlegt eine Markdown-Tabellenzeile in getrimmte Zellen (``[]`` für Nicht-Tabellenzeilen)."""
-    text = str(line or "").strip()
-    if not text.startswith("|"):
-        return []
-    return [cell.strip() for cell in text.strip("|").split("|")]
-
-
 def _is_header_row(cells: list[str]) -> bool:
     return len(cells) >= 5 and cells[0] == "Datum" and cells[1].startswith("Die SuS können")
-
-
-def _is_separator_row(cells: list[str]) -> bool:
-    return bool(cells) and all(set(cell) <= {"-", ":"} and cell for cell in cells)
 
 
 class ExpectedHorizonMarkdownReader:
@@ -69,7 +61,7 @@ class ExpectedHorizonMarkdownReader:
             if _is_header_row(cells):
                 in_table = True
                 continue
-            if not in_table or _is_separator_row(cells) or len(cells) < 5:
+            if not in_table or is_separator_cells(cells) or len(cells) < 5:
                 continue
             rows.append(
                 ExistingHorizonRow(

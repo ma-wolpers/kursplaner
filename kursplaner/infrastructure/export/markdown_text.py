@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from kursplaner.core.domain.markdown_tables import escape_table_cell
 from kursplaner.core.ports.sequence_export import ExportCell, ExportTableRow
 
 LINE_BREAK = "<br>"
@@ -65,7 +66,7 @@ def markdown_table_cell(cell: ExportCell) -> str:
     """
     if not isinstance(cell, tuple) or not all(isinstance(line, str) for line in cell):
         raise TypeError(f"Tabellenzelle muss ein Tupel aus Texten sein, nicht {cell!r}")
-    escaped = [markdown_inline_text(line).replace("|", "\\|") for line in cell]
+    escaped = [escape_table_cell(markdown_inline_text(line)) for line in cell]
     return LINE_BREAK.join(escaped)
 
 

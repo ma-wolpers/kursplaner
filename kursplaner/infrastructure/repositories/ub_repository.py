@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
-from kursplaner.core.domain.markdown_lists import render_markdown_bullet_section
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_OVERVIEW_FILE_NAME,
     UB_ROOT_RELATIVE_PARTS,
@@ -55,17 +54,20 @@ class FileSystemUbRepository:
         """Liefert den Zielpfad der UB-Uebersichtsdatei."""
         return self.ensure_ub_root(workspace_root) / UB_OVERVIEW_FILE_NAME
 
+    def ub_markdown_path(self, workspace_root: Path, stem: str) -> Path:
+        """Pfad der UB-Datei zu einem Dateistamm – einzige Stelle der Namensregel (``<UB-Ordner>/<stem>.md``)."""
+        return self.ensure_ub_root(workspace_root) / f"{str(stem).strip()}.md"
+
     def unique_ub_markdown_path(self, workspace_root: Path, stem: str) -> Path:
         """Ermittelt einen kollisionsfreien UB-Dateipfad mit .md-Endung."""
-        root = self.ensure_ub_root(workspace_root)
         cleaned = str(stem or "").strip() or "ub 00-00-00"
-        base = root / f"{cleaned}.md"
+        base = self.ub_markdown_path(workspace_root, cleaned)
         if not base.exists():
             return base
 
         suffix = 2
         while True:
-            candidate = root / f"{cleaned} {suffix}.md"
+            candidate = self.ub_markdown_path(workspace_root, f"{cleaned} {suffix}")
             if not candidate.exists():
                 return candidate
             suffix += 1
@@ -82,37 +84,18 @@ class FileSystemUbRepository:
         values = {key: yaml_data.get(key, "") for key in _UB_ORDERED_KEYS}
         return render_yaml_frontmatter(_UB_ORDERED_KEYS, values)
 
-    @staticmethod
-    def _render_list_section(title: str, entries: list[str]) -> str:
-        """Rendert eine UB-Body-Sektion über die zentrale `render_markdown_bullet_section`.
+    def save_ub_markdown(self, ub_path: Path, yaml_data: dict[str, object], body: str) -> None:
+        """Schreibt UB-Frontmatter plus *body* wörtlich (Struktur des Bodys: `ub_markdown_sections`).
 
-        Reproduziert den bisherigen Platzhalter-Bullet (`"- "`) bei leerer
-        Liste, indem `[""]` statt einer leeren Liste übergeben wird.
+        Das Repository rendert den Body nicht selbst: Use Cases reichen den
+        bestehenden Body durch und ändern nur die Abschnitte, die sie betreffen,
+        damit zusätzlicher Text der Nutzerin nie verloren geht.
         """
-        cleaned = [item.strip() for item in entries if item and item.strip()]
-        return render_markdown_bullet_section(title, cleaned or [""])
-
-    def save_ub_markdown(
-        self,
-        ub_path: Path,
-        yaml_data: dict[str, object],
-        reflection_text: str,
-        professional_steps: list[str],
-        usable_resources: list[str],
-    ) -> None:
-        """Schreibt UB-Frontmatter plus Standardstruktur fuer Reflexion/Entwicklung."""
         ub_path.parent.mkdir(parents=True, exist_ok=True)
-
-        reflection = str(reflection_text or "").strip()
-        body_sections = ["# Reflexion", "", reflection]
-        body_sections.append("")
-        body_sections.append(self._render_list_section("Professionalisierungsschritte", professional_steps))
-        body_sections.append("")
-        body_sections.append(self._render_list_section("Nutzbare Ressourcen", usable_resources))
-
-        frontmatter = self._render_yaml_frontmatter(yaml_data)
-        body = "\n".join(body_sections).strip() + "\n"
-        atomic_write_text(ub_path, frontmatter + body, encoding="utf-8")
+        text = str(body or "").lstrip("\n")
+        if text and not text.endswith("\n"):
+            text += "\n"
+        atomic_write_text(ub_path, self._render_yaml_frontmatter(yaml_data) + text, encoding="utf-8")
 
     def load_ub_markdown(self, ub_path: Path) -> tuple[dict[str, object], str]:
         """Liest UB-Frontmatter plus restlichen Markdown-Body."""

@@ -6,14 +6,15 @@ from pathlib import Path
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_LESSON_KEY,
     UB_YAML_KEY_EINHEIT,
     build_ub_stem,
+    ub_link_stem,
 )
-from kursplaner.core.domain.wiki_links import build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.wiki_links import build_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.lesson_transfer_usecase import LessonTransferUseCase
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
-from kursplaner.core.usecases.ub_markdown_sections import parse_list_section, parse_reflection
 from kursplaner.core.usecases.ub_overview_builder import build_ub_overview_markdown
 
 
@@ -99,14 +100,14 @@ class PasteLessonUseCase:
         """Kopiert eine verknüpfte UB-Datei auf neues Datum/Einheit und aktualisiert die Verknüpfung."""
         lesson = self.lesson_repo.load_lesson_yaml(created_path)
         lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
-        source_ub_stem = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+        source_ub_stem = ub_link_stem(lesson_data)
         if not source_ub_stem:
             return None, None
 
         workspace_root = self._workspace_root_from_markdown(table.markdown_path)
-        source_ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{source_ub_stem}.md"
+        source_ub_path = self.ub_repo.ub_markdown_path(workspace_root, source_ub_stem)
         if not source_ub_path.exists() or not source_ub_path.is_file():
-            lesson_data["Unterrichtsbesuch"] = ""
+            lesson_data[UB_LESSON_KEY] = ""
             lesson.data = lesson_data
             self.lesson_repo.save_lesson_yaml(lesson)
             return None, None
@@ -123,15 +124,9 @@ class PasteLessonUseCase:
         ub_yaml = dict(ub_yaml)
         ub_yaml[UB_YAML_KEY_EINHEIT] = build_wiki_link(created_path.stem)
 
-        self.ub_repo.save_ub_markdown(
-            target_ub_path,
-            ub_yaml,
-            reflection_text=parse_reflection(ub_body),
-            professional_steps=parse_list_section(ub_body, "Professionalisierungsschritte"),
-            usable_resources=parse_list_section(ub_body, "Nutzbare Ressourcen"),
-        )
+        self.ub_repo.save_ub_markdown(target_ub_path, ub_yaml, ub_body)  # Kopie: Body wörtlich
 
-        lesson_data["Unterrichtsbesuch"] = build_wiki_link(target_ub_path.stem)
+        lesson_data[UB_LESSON_KEY] = build_wiki_link(target_ub_path.stem)
         lesson.data = lesson_data
         self.lesson_repo.save_lesson_yaml(lesson)
 
@@ -151,12 +146,12 @@ class PasteLessonUseCase:
 
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
         lesson_data = lesson.data if isinstance(lesson.data, dict) else {}
-        ub_stem = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+        ub_stem = ub_link_stem(lesson_data)
         if not ub_stem:
             return None, None
 
         workspace_root = self._workspace_root_from_markdown(table.markdown_path)
-        ub_path = self.ub_repo.ensure_ub_root(workspace_root) / f"{ub_stem}.md"
+        ub_path = self.ub_repo.ub_markdown_path(workspace_root, ub_stem)
         if ub_path.exists() and ub_path.is_file():
             self.ub_repo.delete_ub_markdown(ub_path)
 

@@ -14,8 +14,8 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_LANGENTWURF,
     parse_ub_date_from_stem,
+    ub_link_stem,
 )
-from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import LessonIndexRepository, LessonRepository, UbRepository
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 
@@ -303,7 +303,7 @@ class PlanOverviewQueryUseCase:
             if not isinstance(lesson_data, dict):
                 continue
 
-            ub_link = strip_wiki_link(str(lesson_data.get("Unterrichtsbesuch", "")).strip())
+            ub_link = ub_link_stem(lesson_data)
             if not ub_link:
                 continue
 

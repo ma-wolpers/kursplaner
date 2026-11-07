@@ -77,3 +77,13 @@ def test_frontmatter_stays_byte_identical(sequence):
     head = path.read_text(encoding="utf-8").split("\n---", 1)[0]
     repo.write_ladder_ablage(sequence_path=path, ablage=LADDER)
     assert path.read_text(encoding="utf-8").startswith(head + "\n---")
+
+
+def test_brainstorming_keeps_indentation_and_its_heading_when_emptied(sequence):
+    repo, path = sequence
+    repo.write_brainstorming(sequence_path=path, brainstorming_text="  - eingerückt\nzweite")
+    assert repo.read_brainstorming(path) == "  - eingerückt\nzweite"
+    repo.write_brainstorming(sequence_path=path, brainstorming_text="")
+    text = path.read_text(encoding="utf-8")
+    assert "## Brainstorming" in text and repo.read_brainstorming(path) == ""
+    assert text.index("## Brainstorming") < text.index("## Export")

@@ -333,21 +333,6 @@ class LessonRepository(Protocol):
         """
         ...
 
-    def set_lesson_markdown_sections(
-        self,
-        lesson_path: Path,
-        inhalte_refs: list[str],
-        methodik_refs: list[str],
-    ) -> None:
-        """Schreibt Inhalts-/Methodik-Sektionen in eine Stunden-Markdown-Datei.
-
-        Args:
-            lesson_path: Pfad zur Stunden-Datei.
-            inhalte_refs: Referenzen für die Inhalte-Sektion.
-            methodik_refs: Referenzen für die Methodik-Sektion.
-        """
-        ...
-
     def read_lesson_section(self, lesson_path: Path, heading: str) -> tuple[str, ...]:
         """Liest die Zeilen eines ``##``-Abschnitts im Body einer Stunden-Datei.
 
@@ -773,15 +758,12 @@ class UbRepository(Protocol):
         """Ermittelt einen kollisionsfreien Pfad fuer eine UB-Markdowndatei."""
         ...
 
-    def save_ub_markdown(
-        self,
-        ub_path: Path,
-        yaml_data: dict[str, object],
-        reflection_text: str,
-        professional_steps: list[str],
-        usable_resources: list[str],
-    ) -> None:
-        """Persistiert einen UB-Eintrag mit YAML-Frontmatter und Standardabschnitten."""
+    def ub_markdown_path(self, workspace_root: Path, stem: str) -> Path:
+        """Pfad der UB-Datei zu einem Dateistamm (`ub_link_stem`); einzige Stelle der Namensregel."""
+        ...
+
+    def save_ub_markdown(self, ub_path: Path, yaml_data: dict[str, object], body: str) -> None:
+        """Persistiert YAML-Frontmatter plus Markdown-Body wörtlich (Body-Struktur: `ub_markdown_sections`)."""
         ...
 
     def load_ub_markdown(self, ub_path: Path) -> tuple[dict[str, object], str]:

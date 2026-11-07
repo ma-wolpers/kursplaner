@@ -2,9 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kursplaner.core.domain.markdown_lists import markdown_bullet_lines
+from kursplaner.core.domain.markdown_sections import extract_bullet_items
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, distinct_raw_entries, read_oberthema_state
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
+from kursplaner.core.domain.wiki_links import build_wiki_link, first_wiki_link_label
 from kursplaner.core.ports.repositories import LessonRepository
+
+INHALTE_HEADING = "Inhalte"
+"""``##``-Abschnitt einer Einheit mit Verweisen auf Fachinhalte."""
+METHODIK_HEADING = "Methodik"
+"""``##``-Abschnitt einer Einheit mit Verweisen auf Methoden."""
 
 
 class LessonCommandsUseCase:
@@ -107,15 +115,35 @@ class LessonCommandsUseCase:
         self.lesson_repo.save_lesson_yaml(lesson, repair_oberthema=repair)
 
     def update_lesson_sections(self, lesson_path: Path, inhalte_refs: list[str], methodik_refs: list[str]) -> None:
-        """Schreibt Inhalte-/Methodik-Referenzen in die Stunden-Markdown-Datei.
+        """Setzt ``## Inhalte``/``## Methodik`` auf genau diese Verweise (je ein Wiki-Link pro Zeile).
+
+        Ersetzt vorhandene Abschnitte (statt sie erneut anzuhängen); eine leere
+        Liste entfernt den Abschnitt. Geschrieben wird über den gemeinsamen
+        Body-Abschnittsweg, das Frontmatter bleibt byte-genau (auch ``.ebw``).
 
         Args:
             lesson_path: Pfad zur Stunden-Datei.
             inhalte_refs: Einträge für den Abschnitt ``Inhalte``.
             methodik_refs: Einträge für den Abschnitt ``Methodik``.
         """
-        if inhalte_refs or methodik_refs:
-            self.lesson_repo.set_lesson_markdown_sections(lesson_path, inhalte_refs, methodik_refs)
+        for heading, refs in ((INHALTE_HEADING, inhalte_refs), (METHODIK_HEADING, methodik_refs)):
+            lines = markdown_bullet_lines([build_wiki_link(ref) for ref in refs])
+            self.lesson_repo.write_lesson_section(lesson_path, heading, lines)
+
+    def read_lesson_sections(self, lesson_path: Path) -> tuple[list[str], list[str]]:
+        """``(Inhalte, Methodik)``-Verweise einer Einheit (Alias bevorzugt, sonst Linkziel, sonst Freitext).
+
+        Gegenstück zu `update_lesson_sections`; ``([], [])`` bei nicht lesbarer Datei.
+        """
+        return self._section_refs(lesson_path, INHALTE_HEADING), self._section_refs(lesson_path, METHODIK_HEADING)
+
+    def _section_refs(self, lesson_path: Path, heading: str) -> list[str]:
+        try:
+            lines = self.lesson_repo.read_lesson_section(lesson_path, heading)
+        except OSError:
+            return []
+        refs = [first_wiki_link_label(item) or item.strip() for item in extract_bullet_items("\n".join(lines))]
+        return [ref for ref in refs if ref]
 
     def update_lesson_competencies(self, lesson_path: Path, kompetenzen_refs: list[str], stundenziel: str = "") -> None:
         """Schreibt Kompetenzlisten in die Stunden-YAML-Datei."""

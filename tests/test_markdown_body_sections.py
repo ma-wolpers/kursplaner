@@ -27,9 +27,9 @@ def test_split_is_lossless_and_without_frontmatter_everything_is_body():
 def test_replace_appends_replaces_and_removes_only_in_the_body():
     added = replace_body_section(DOC, "Ideen", ["Pizza"])
     assert added.startswith(DOC.rstrip("\n")) and added.endswith("## Ideen\n\nPizza\n")
-    assert extract_body_section(added, "Ideen") == "Pizza"
+    assert extract_body_section(added, "Ideen") == ("Pizza",)
     replaced = replace_body_section(added, "Ideen", ["Plakat", "Rätsel"])
-    assert replaced.count("\n## Ideen\n") == 1 and extract_body_section(replaced, "Ideen") == "Plakat\nRätsel"
+    assert replaced.count("\n## Ideen\n") == 1 and extract_body_section(replaced, "Ideen") == ("Plakat", "Rätsel")
     assert replace_body_section(replaced, "Ideen", []) == DOC.rstrip("\n") + "\n"
     assert extract_body_section(DOC, "Ideen") is None  # Frontmatter-Zeile ist keine Überschrift
 

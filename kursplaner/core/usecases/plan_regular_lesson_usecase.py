@@ -220,15 +220,14 @@ class PlanRegularLessonUseCase:
         )
 
     def update_sections(self, lesson_path: Path, inhalte_refs: list[str], methodik_refs: list[str]) -> None:
-        """Aktualisiert optionale Inhalte-/Methodik-Abschnitte der Stunde.
+        """Setzt die Inhalte-/Methodik-Abschnitte der Stunde (leere Liste entfernt den Abschnitt).
 
         Args:
             lesson_path: Pfad der Stunden-Datei.
             inhalte_refs: Verweise für den Abschnitt ``Inhalte``.
             methodik_refs: Verweise für den Abschnitt ``Methodik``.
         """
-        if inhalte_refs or methodik_refs:
-            self.lesson_commands.update_lesson_sections(lesson_path, inhalte_refs, methodik_refs)
+        self.lesson_commands.update_lesson_sections(lesson_path, inhalte_refs, methodik_refs)
 
     def update_competencies(self, lesson_path: Path, kompetenzen_refs: list[str], stundenziel_input: str) -> None:
         """Aktualisiert optionale Kompetenzlisten der Stunde in der YAML-Struktur."""

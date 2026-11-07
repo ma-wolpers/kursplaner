@@ -1,4 +1,5 @@
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_OVERVIEW_FILE_NAME
+from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository
 
 
@@ -34,9 +35,7 @@ def test_ub_repository_save_and_load_roundtrip(tmp_path):
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
         },
-        reflection_text="Reflexionstext",
-        professional_steps=["Ich plane klarere Übergänge."],
-        usable_resources=["Exit-Tickets"],
+        new_ub_body("Reflexionstext", ["Ich plane klarere Übergänge."], ["Exit-Tickets"]),
     )
 
     yaml_data, body = repo.load_ub_markdown(path)
@@ -77,9 +76,7 @@ def test_ub_repository_loads_legacy_jahrgangsstufe_field_and_drops_it_on_resave(
     repo.save_ub_markdown(
         path,
         yaml_data,
-        reflection_text="",
-        professional_steps=[],
-        usable_resources=[],
+        new_ub_body("", [], []),
     )
 
     resaved_text = path.read_text(encoding="utf-8")

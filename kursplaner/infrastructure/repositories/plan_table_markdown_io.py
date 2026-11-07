@@ -14,6 +14,12 @@ from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.course_subject import normalize_course_subject
+from kursplaner.core.domain.markdown_tables import (
+    escape_table_cell,
+    is_separator_row,
+    split_table_row,
+    table_blocks,
+)
 from kursplaner.core.domain.plan_table import COLUMN_DATUM, COLUMN_INHALT, COLUMN_THEMA_AUSFALL, PlanTableData
 from kursplaner.core.domain.yaml_registry import PLAN_METADATA_SCHEMA, parse_yaml_frontmatter
 from kursplaner.infrastructure.repositories.file_signature import file_signature as _file_signature
@@ -21,48 +27,6 @@ from kursplaner.infrastructure.repositories.file_signature import file_signature
 PLAN_DATE_RE = re.compile(r"\d{2}-\d{2}-\d{2}")
 _EXPECTED_HEADERS = [COLUMN_DATUM.lower(), COLUMN_INHALT.lower(), COLUMN_THEMA_AUSFALL.lower()]
 """Erwartete Header der Planungstabelle, aus den kanonischen Spaltennamen abgeleitet."""
-
-
-def _split_row(row_line: str) -> list[str]:
-    """Teilt eine Markdown-Tabellenzeile in Zellen auf."""
-    line = row_line.strip()
-    if line.startswith("|"):
-        line = line[1:]
-    if line.endswith("|"):
-        line = line[:-1]
-    return [cell.strip() for cell in line.split("|")]
-
-
-def _is_separator_row(row_line: str) -> bool:
-    line = row_line.strip()
-    if not line.startswith("|"):
-        return False
-    parts = _split_row(line)
-    if not parts:
-        return False
-    return all(re.fullmatch(r":?-{3,}:?", part or "") for part in parts)
-
-
-def _extract_table_blocks(lines: list[str]) -> list[tuple[int, int]]:
-    blocks: list[tuple[int, int]] = []
-    start = None
-
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        is_row = stripped.startswith("|") and "|" in stripped[1:]
-        if is_row:
-            if start is None:
-                start = idx
-        else:
-            if start is not None:
-                if idx - start >= 2:
-                    blocks.append((start, idx - 1))
-                start = None
-
-    if start is not None and len(lines) - start >= 2:
-        blocks.append((start, len(lines) - 1))
-
-    return blocks
 
 
 def _validate_plan_rows(rows: list[list[str]], source_label: str) -> None:
@@ -104,7 +68,7 @@ def _locate_plan_table_block(lines: list[str], markdown_path: Path) -> tuple[int
 
     Wirft RuntimeError, falls keine gültige Planungstabelle gefunden wird.
     """
-    blocks = _extract_table_blocks(lines)
+    blocks = table_blocks(lines)
     if not blocks:
         raise RuntimeError("Keine Markdown-Tabelle in der Datei gefunden.")
 
@@ -112,8 +76,8 @@ def _locate_plan_table_block(lines: list[str], markdown_path: Path) -> tuple[int
     headers: list[str] = []
 
     for start, end in blocks:
-        head = _split_row(lines[start])
-        if start + 1 > end or not _is_separator_row(lines[start + 1]):
+        head = split_table_row(lines[start])
+        if start + 1 > end or not is_separator_row(lines[start + 1]):
             continue
 
         lowered = [cell.lower().strip() for cell in head]
@@ -142,7 +106,7 @@ def load_last_plan_table(markdown_path: Path) -> PlanTableData:
     start, end, headers = _locate_plan_table_block(lines, markdown_path)
 
     body_lines = lines[start + 2 : end + 1]
-    rows = [_split_row(line) for line in body_lines]
+    rows = [split_table_row(line) for line in body_lines]
 
     expected_len = len(headers)
     normalized_rows: list[list[str]] = []
@@ -172,7 +136,8 @@ def load_last_plan_table(markdown_path: Path) -> PlanTableData:
 
 
 def _render_table(table: PlanTableData) -> list[str]:
-    headers = table.headers
+    """Rendert die Planungstabelle; Zellen über `markdown_tables.escape_table_cell` (invers zum Lesen)."""
+    headers = [escape_table_cell(header) for header in table.headers]
     separator = ["---"] * len(headers)
 
     output = [
@@ -181,7 +146,7 @@ def _render_table(table: PlanTableData) -> list[str]:
     ]
 
     for row in table.rows:
-        safe = [cell.replace("\n", " ").strip() for cell in row]
+        safe = [escape_table_cell(cell.replace("\n", " ").strip()) for cell in row]
         output.append("| " + " | ".join(safe) + " |")
 
     return output

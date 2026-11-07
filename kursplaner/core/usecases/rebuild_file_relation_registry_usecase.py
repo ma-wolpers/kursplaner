@@ -11,8 +11,7 @@ from kursplaner.core.domain.file_relation_registry import (
     utc_timestamp,
 )
 from kursplaner.core.domain.sequence_planning import SEQUENCE_DIR_NAME, list_sequence_document_paths
-from kursplaner.core.domain.unterrichtsbesuch_policy import UB_ROOT_RELATIVE_PARTS
-from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_ROOT_RELATIVE_PARTS, ub_link_stem
 from kursplaner.core.ports.repositories import (
     FileRelationRegistryRepository,
     LessonRepository,
@@ -87,7 +86,7 @@ class RebuildFileRelationRegistryUseCase:
                 except Exception:
                     continue
 
-                ub_stem = strip_wiki_link(str(lesson_yaml.data.get("Unterrichtsbesuch", "")).strip())
+                ub_stem = ub_link_stem(lesson_yaml.data)
                 if ub_stem:
                     ub_paths.append(self._ub_path_from_stem(plan_markdown_path=table.markdown_path, ub_stem=ub_stem))
 

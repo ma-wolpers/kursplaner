@@ -51,12 +51,8 @@ from kursplaner.core.domain.content_markers import (
 )
 from kursplaner.core.domain.course_lifecycle import course_archive_root
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, format_rhythm, weekday_token
+from kursplaner.core.domain.markdown_tables import is_separator_row, split_table_row, table_blocks
 from kursplaner.core.domain.plan_table import parse_plan_row_date
-from kursplaner.infrastructure.repositories.plan_table_markdown_io import (
-    _extract_table_blocks,
-    _is_separator_row,
-    _split_row,
-)
 
 LEGACY_HEADER = ["datum", "stunden", "inhalt", "thema/ausfall"]
 NEW_HEADER = ["Datum", "Inhalt", "Thema/Ausfall"]
@@ -70,9 +66,9 @@ def _locate_table_by_header(lines: list[str], expected_lower: list[str]) -> tupl
     zu duplizieren; nur die Header-Erwartung unterscheidet sich hier vom
     produktiven, strikt-neuen Loader.
     """
-    for start, end in _extract_table_blocks(lines):
-        head = _split_row(lines[start])
-        if start + 1 > end or not _is_separator_row(lines[start + 1]):
+    for start, end in table_blocks(lines):
+        head = split_table_row(lines[start])
+        if start + 1 > end or not is_separator_row(lines[start + 1]):
             continue
         if [cell.lower().strip() for cell in head] == expected_lower:
             return start, end, head
@@ -176,7 +172,7 @@ def migrate_plan(plan_path: Path, *, dry_run: bool) -> str:
 
     table_start, table_end, _header = legacy
     body_lines = lines[table_start + 2 : table_end + 1]
-    old_rows = [_split_row(line) for line in body_lines]
+    old_rows = [split_table_row(line) for line in body_lines]
 
     try:
         rhythm = _derive_rhythm(old_rows)

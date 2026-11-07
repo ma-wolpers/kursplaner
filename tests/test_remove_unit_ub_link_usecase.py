@@ -2,6 +2,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.remove_unit_ub_link_usecase import RemoveUnitUbLinkUseCase
+from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
 from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository
 
@@ -56,9 +57,7 @@ def test_remove_unit_ub_link_clears_lesson_reference_and_keeps_ub_file(tmp_path)
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
         },
-        reflection_text="",
-        professional_steps=[],
-        usable_resources=[],
+        body=new_ub_body("", [], []),
     )
 
     table = _table(plan_dir / "Mathe Kurs.md", lesson_path.stem)
@@ -98,9 +97,7 @@ def test_remove_unit_ub_link_can_delete_ub_file(tmp_path):
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
         },
-        reflection_text="",
-        professional_steps=[],
-        usable_resources=[],
+        body=new_ub_body("", [], []),
     )
 
     table = _table(plan_dir / "Mathe Kurs.md", lesson_path.stem)

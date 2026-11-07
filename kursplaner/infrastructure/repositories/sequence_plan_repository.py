@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.list_cell_text import raise_on_violation
 from kursplaner.core.domain.markdown_sections import find_heading_line_index
+from kursplaner.core.domain.markdown_tables import is_separator_row, table_blocks
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.sequence_ladder import SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LADDER_HEADING, format_ablage_section, parse_ablage_section
@@ -46,46 +46,19 @@ class FileSystemSequencePlanRepository:
         return yaml_double_quote(str(value or ""))
 
     @staticmethod
-    def _is_separator_row(row_line: str) -> bool:
-        text = str(row_line or "").strip()
-        if not text.startswith("|"):
-            return False
-        cells = [cell.strip() for cell in text.strip("|").split("|")]
-        if not cells:
-            return False
-        return all(re.fullmatch(r":?-{3,}:?", cell or "") for cell in cells)
-
-    @classmethod
-    def _extract_table_blocks(cls, lines: list[str]) -> list[tuple[int, int]]:
-        blocks: list[tuple[int, int]] = []
-        start: int | None = None
-
-        for index, line in enumerate(lines):
-            stripped = line.strip()
-            is_row = stripped.startswith("|") and "|" in stripped[1:]
-            if is_row:
-                if start is None:
-                    start = index
-            else:
-                if start is not None:
-                    if index - start >= 2 and cls._is_separator_row(lines[start + 1]):
-                        blocks.append((start, index - 1))
-                    start = None
-
-        if start is not None and len(lines) - start >= 2 and cls._is_separator_row(lines[start + 1]):
-            blocks.append((start, len(lines) - 1))
-        return blocks
+    def _table_blocks(lines: list[str]) -> list[tuple[int, int]]:
+        """Echte Tabellen (Kopf + Trennzeile) über die eine Tabellenregel `markdown_tables`."""
+        return [(start, end) for start, end in table_blocks(lines) if is_separator_row(lines[start + 1])]
 
     @staticmethod
-    def _find_heading_line(lines: list[str], heading: str) -> int:
-        """Duenner Wrapper um `markdown_sections.py::find_heading_line_index()`.
+    def _section_name(heading: str) -> str:
+        """Überschriftstext ohne ``#`` (die Klassenkonstanten tragen das ``## ``-Präfix)."""
+        return heading.strip().lstrip("#").strip()
 
-        `heading` traegt hier (Klassenkonstanten `_BRAINSTORMING_HEADING`/`_EXPORT_HEADING`)
-        weiterhin das `## `-Praefix eingebettet -- wird vor der Weitergabe entfernt, da
-        `find_heading_line_index()` die Ebene ueber `target_level` separat erwartet.
-        """
-        heading_text = heading.strip().lstrip("#").strip()
-        return find_heading_line_index(lines, heading_text, target_level=2)
+    @classmethod
+    def _find_heading_line(cls, lines: list[str], heading: str) -> int:
+        """Duenner Wrapper um `markdown_sections.py::find_heading_line_index()` (Ebene 2)."""
+        return find_heading_line_index(lines, cls._section_name(heading), target_level=2)
 
     def resolve_sequence_path(self, *, table: PlanTableData, sequence_name: str) -> Path:
         """Resolve canonical sequence markdown path for one plan and sequence name."""
@@ -149,53 +122,24 @@ class FileSystemSequencePlanRepository:
         return self._coerce_frontmatter_text(data.get("Sequenzname", ""))
 
     def read_brainstorming(self, sequence_path: Path) -> str:
-        """Read the editable brainstorming section from a sequence markdown file."""
-        path = sequence_path.expanduser().resolve()
-        text = path.read_text(encoding="utf-8")
-        lines = text.splitlines()
-
-        start = self._find_heading_line(lines, self._BRAINSTORMING_HEADING)
-        if start < 0:
-            return ""
-
-        end = len(lines)
-        for index in range(start + 1, len(lines)):
-            if lines[index].strip().startswith("## "):
-                end = index
-                break
-
-        section_lines = lines[start + 1 : end]
-        while section_lines and not section_lines[0].strip():
-            section_lines.pop(0)
-        while section_lines and not section_lines[-1].strip():
-            section_lines.pop()
-        return "\n".join(section_lines)
+        """Read the editable brainstorming section (indentation kept, outer blank lines dropped)."""
+        lines = read_body_section(sequence_path.expanduser().resolve(), self._section_name(self._BRAINSTORMING_HEADING))
+        return "\n".join(lines) if lines else ""
 
     def write_brainstorming(self, *, sequence_path: Path, brainstorming_text: str) -> None:
-        """Update only the brainstorming section while preserving the rest of the document."""
-        path = sequence_path.expanduser().resolve()
-        lines = path.read_text(encoding="utf-8").splitlines()
+        """Update only the brainstorming section (before ``## Export``); the heading stays when empty.
 
+        Über `markdown_section_files`: Frontmatter byte-genau, Rest unverändert,
+        unveränderter Inhalt wird nicht geschrieben.
+        """
         normalized = str(brainstorming_text or "").replace("\r\n", "\n").replace("\r", "\n")
-        content_lines = normalized.split("\n") if normalized else []
-
-        start = self._find_heading_line(lines, self._BRAINSTORMING_HEADING)
-        export_line = self._find_heading_line(lines, self._EXPORT_HEADING)
-
-        if start < 0:
-            insert_at = export_line if export_line >= 0 else len(lines)
-            block = [self._BRAINSTORMING_HEADING, ""] + content_lines + [""]
-            lines = lines[:insert_at] + block + lines[insert_at:]
-        else:
-            end = len(lines)
-            for index in range(start + 1, len(lines)):
-                if lines[index].strip().startswith("## "):
-                    end = index
-                    break
-            replacement = [""] + content_lines + [""]
-            lines = lines[: start + 1] + replacement + lines[end:]
-
-        atomic_write_text(path, "\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        write_body_section(
+            sequence_path.expanduser().resolve(),
+            self._section_name(self._BRAINSTORMING_HEADING),
+            normalized.split("\n") if normalized else [],
+            insert_before=self._section_name(self._EXPORT_HEADING),
+            remove_when_empty=False,
+        )
 
     def replace_trailing_table(self, *, sequence_path: Path, table_lines: list[str]) -> None:
         """Replace only the trailing markdown table while preserving all other content.
@@ -214,7 +158,7 @@ class FileSystemSequencePlanRepository:
         path = sequence_path.expanduser().resolve()
         original_text = path.read_text(encoding="utf-8")
         lines = original_text.splitlines()
-        blocks = self._extract_table_blocks(lines)
+        blocks = self._table_blocks(lines)
 
         if blocks:
             start, end = blocks[-1]
@@ -366,7 +310,7 @@ class FileSystemSequencePlanRepository:
             LadderFormatError: Der Abschnitt weicht vom Format ab (§37); nichts wird umgedeutet.
         """
         section = read_body_section(sequence_path.expanduser().resolve(), LADDER_HEADING)
-        return parse_ablage_section(section) if section else SequenceLadder()
+        return parse_ablage_section("\n".join(section)) if section else SequenceLadder()
 
     def write_ladder_ablage(self, *, sequence_path: Path, ablage: SequenceLadder) -> None:
         """Schreibt nur den Ablage-Abschnitt (vor ``## Export``); eine leere Ablage entfernt ihn.
@@ -379,7 +323,7 @@ class FileSystemSequencePlanRepository:
             sequence_path.expanduser().resolve(),
             LADDER_HEADING,
             format_ablage_section(ablage),
-            insert_before=self._EXPORT_HEADING.lstrip("#").strip(),
+            insert_before=self._section_name(self._EXPORT_HEADING),
         )
 
     def is_trivial(self, sequence_path: Path) -> bool:
@@ -404,13 +348,13 @@ class FileSystemSequencePlanRepository:
             return False
         if self.read_brainstorming(path).strip():
             return False
-        if (read_body_section(path, LADDER_HEADING) or "").strip():
+        if any(line.strip() for line in read_body_section(path, LADDER_HEADING) or ()):
             return False
         sequenzziel, leitkompetenzen = self.read_goal_and_focus_competencies(path)
         if sequenzziel.strip() or leitkompetenzen:
             return False
         lines = path.read_text(encoding="utf-8").splitlines()
-        blocks = self._extract_table_blocks(lines)
+        blocks = self._table_blocks(lines)
         if blocks:
             start, end = blocks[-1]
             if end - start + 1 > 2:  # mehr als Header- + Trennzeile

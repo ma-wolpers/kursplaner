@@ -175,11 +175,29 @@ def test_write_plan_metadata_persists_competency_fields(tmp_path):
     assert 'Stundenziel: "I 2.2 entwerfen Algorithmen und stellen diese geeignet dar"' in text
 
 
-def test_single_wiki_link_splits_target_and_alias_of_a_whole_entry_only():
-    from kursplaner.core.domain.wiki_links import single_wiki_link
+def test_whole_wiki_link_splits_target_and_alias_of_a_whole_entry_only():
+    from kursplaner.core.domain.wiki_links import whole_wiki_link
 
-    assert single_wiki_link("[[Mat-RF-14|Terme]]") == ("Mat-RF-14", "Terme")
-    assert single_wiki_link("[[Einheiten/ab12.md]]") == ("ab12", None)
-    assert single_wiki_link("[[a|]]") == ("a", None)
-    assert single_wiki_link("Tafelbild [[Skizze]]") is None
-    assert single_wiki_link("[[a]] [[b]]") is None
+    assert whole_wiki_link("[[Mat-RF-14|Terme]]") == ("Mat-RF-14", "Terme")
+    assert whole_wiki_link("[[Einheiten/ab12.md]]") == ("Einheiten/ab12.md", None)
+    assert whole_wiki_link("[[a|]]") == ("a", None)
+    assert whole_wiki_link("Tafelbild [[Skizze]]") is None
+    assert whole_wiki_link("[[a]] [[b]]") is None
+
+
+def test_link_operations_share_one_rule():
+    from kursplaner.core.domain.wiki_links import (
+        first_wiki_link,
+        first_wiki_link_label,
+        remove_wiki_links,
+        replace_first_wiki_link,
+        unwrap_wiki_links,
+    )
+
+    assert first_wiki_link("vor [[Ordner/x|Alias]] und [[y]]") == ("Ordner/x", "Alias")
+    assert first_wiki_link("kein Link") is None
+    assert first_wiki_link_label("- [[Thema|Anzeige]] mehr") == "Anzeige"
+    assert first_wiki_link_label("- [[Thema]]") == "Thema"
+    assert unwrap_wiki_links("HO [[gruppe a|A]] [[b]]") == "HO A b"
+    assert remove_wiki_links("X [[gruppe]] krank") == "X  krank"
+    assert replace_first_wiki_link("a [[x]] b [[y]]", "Z") == "a Z b [[y]]"

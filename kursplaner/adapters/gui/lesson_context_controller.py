@@ -12,6 +12,7 @@ from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import sanitize_hour_title
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 from kursplaner.core.domain.wiki_links import strip_wiki_link
+from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
 
 
 class MainWindowLessonContextController:
@@ -72,17 +73,7 @@ class MainWindowLessonContextController:
                 return self._expected_horizon_status_text(day, yaml_data)
             return str(yaml_data.get(field_key, "")).strip()
 
-        if field_key in {
-            "Kompetenzen",
-            "Teilziele",
-            "Sonderziele",
-            "Material",
-            "Vertretungsmaterial",
-            "Ressourcen",
-            "Baustellen",
-            "Professionalisierungsschritte",
-            "Nutzbare Ressourcen",
-        }:
+        if field_key in RowDisplayModeUseCase.list_like_fields():
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""

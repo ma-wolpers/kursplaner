@@ -315,8 +315,8 @@ def body_after_frontmatter(raw_text: str) -> str:
     """Liefert den Markdown-Body nach dem YAML-Frontmatter (ohne `---`-Block).
 
     Zentrale Ablösung der zuvor 3x unabhängig duplizierten Hand-Roll-Logik
-    (`plan_table_file_repository.py::save_linked_lesson_yaml`/
-    `.set_lesson_markdown_sections`, `ub_repository.py::load_ub_markdown`).
+    (`plan_table_file_repository.py::save_linked_lesson_yaml`,
+    `ub_repository.py::load_ub_markdown`).
     Reine Funktion auf bereits eingelesenem Text — komponierbar mit
     `parse_yaml_frontmatter`s vorhandenem `(data, text)`-Rückgabewert
     (`body_after_frontmatter(parse_yaml_frontmatter(...)[1])`) oder direkt auf

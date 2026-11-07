@@ -11,7 +11,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     ub_date_counts_as_past,
 )
 from kursplaner.core.ports.repositories import UbRepository
-from kursplaner.core.usecases.ub_markdown_sections import parse_list_section
+from kursplaner.core.usecases.ub_markdown_sections import parse_development_lists
 
 
 @dataclass(frozen=True)
@@ -86,10 +86,7 @@ class LoadLastUbInsightsUseCase:
             bereiche = self._list(yaml_data.get(UB_YAML_KEY_BEREICH, []))
             if domain_name not in bereiche:
                 continue
-            return (
-                parse_list_section(body, "Professionalisierungsschritte"),
-                parse_list_section(body, "Nutzbare Ressourcen"),
-            )
+            return parse_development_lists(body)
         return ([], [])
 
     def _latest_sections(self, workspace_root: Path) -> tuple[UbInsightSection, ...]:
@@ -116,8 +113,7 @@ class LoadLastUbInsightsUseCase:
             if not bereiche:
                 continue
 
-            steps = parse_list_section(body, "Professionalisierungsschritte")
-            resources = parse_list_section(body, "Nutzbare Ressourcen")
+            steps, resources = parse_development_lists(body)
 
             for domain_name in bereiche:
                 if domain_name in sections_by_domain:

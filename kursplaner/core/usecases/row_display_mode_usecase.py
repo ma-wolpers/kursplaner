@@ -5,7 +5,12 @@ from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS
-from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
+from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_DEVELOPMENT_FIELDS,
+    UB_RESOURCES_FIELD,
+    UB_STEPS_FIELD,
+    ub_link_stem,
+)
 
 RowDef = tuple[str, str]
 
@@ -36,8 +41,8 @@ class RowDisplayModeUseCase:
         ("Sonderziele", "Welche Sonderziele"),
         ("Kompetenzen", "Welche Kompetenzen"),
         ("Material", "Welche Materialien"),
-        ("Professionalisierungsschritte", "Welche Professionalisierungsschritte"),
-        ("Nutzbare Ressourcen", "Welche nutzbaren Ressourcen"),
+        (UB_STEPS_FIELD, "Welche Professionalisierungsschritte"),
+        (UB_RESOURCES_FIELD, "Welche nutzbaren Ressourcen"),
     )
 
     LZK_ROWS: tuple[RowDef, ...] = (
@@ -178,7 +183,7 @@ class RowDisplayModeUseCase:
         if field_key in UB_DEVELOPMENT_FIELDS:
             if mode != self.MODE_UNTERRICHT:
                 return False
-            ub_link = str(day.yaml.get("Unterrichtsbesuch", "")).strip()
+            ub_link = ub_link_stem(day.yaml)
             return bool(ub_link)
         return mode in self.effective_modes_for_field(field_key, settings)
 

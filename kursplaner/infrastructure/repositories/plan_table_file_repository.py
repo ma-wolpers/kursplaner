@@ -17,7 +17,6 @@ from kursplaner.core.domain.lesson_yaml_policy import (
     canonicalize_lesson_yaml,
     infer_stundentyp,
 )
-from kursplaner.core.domain.markdown_lists import render_markdown_bullet_section
 from kursplaner.core.domain.oberthema_values import (
     OBERTHEMA_KEY,
     ensure_oberthema_write_allowed,
@@ -30,7 +29,7 @@ from kursplaner.core.domain.plan_table import (
     PlanTableData,
     sanitize_hour_title,
 )
-from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, build_wiki_link, strip_wiki_link
+from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, strip_wiki_link
 from kursplaner.core.domain.yaml_registry import (
     LESSON_SCHEMA,
     body_after_frontmatter,
@@ -53,7 +52,6 @@ __all__ = [
     "load_raw_linked_lesson_frontmatter",
     "create_linked_lesson_file",
     "sync_thema_ausfall_to_plan_row",
-    "set_lesson_markdown_sections",
     "get_row_link_path",
     "validate_managed_markdown_yaml",
 ]
@@ -325,30 +323,3 @@ def sync_thema_ausfall_to_plan_row(
         row[idx_thema_ausfall] = f"LZK [[{seq_stem}]]"
     else:
         row[idx_thema_ausfall] = f"[[{seq_stem}]]"
-
-
-def set_lesson_markdown_sections(
-    lesson_path: Path,
-    inhalte_refs: list[str],
-    methodik_refs: list[str],
-):
-    text = lesson_path.read_text(encoding="utf-8") if lesson_path.exists() else ""
-    body = body_after_frontmatter(text)
-
-    cleaned_body = body.strip()
-    sections: list[str] = []
-
-    if inhalte_refs:
-        sections.append(render_markdown_bullet_section("Inhalte", [build_wiki_link(ref) for ref in inhalte_refs]))
-
-    if methodik_refs:
-        sections.append(render_markdown_bullet_section("Methodik", [build_wiki_link(ref) for ref in methodik_refs]))
-
-    composed = cleaned_body
-    if sections:
-        suffix = "\n\n".join(sections)
-        composed = f"{cleaned_body}\n\n{suffix}".strip() if cleaned_body else suffix
-
-    frontmatter = _render_yaml_frontmatter(load_linked_lesson_yaml(lesson_path).data)
-    output = frontmatter + (composed + "\n" if composed else "")
-    atomic_write_text(lesson_path, output, encoding="utf-8")
