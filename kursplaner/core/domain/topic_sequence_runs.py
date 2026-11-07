@@ -32,33 +32,6 @@ EXPORTABLE_LESSON_TYPES = frozenset({"Unterricht", "LZK"})
 """Stundentypen, die als eigene Zeile in der Sequenz-Export-Tabelle erscheinen."""
 
 
-def row_lesson_type(day: DayColumn) -> str:
-    """Liest den Stundentyp einer Tages-Spalte.
-
-    Bevorzugt `day.stundentyp` (YAML-Typ der verlinkten Stundendatei).
-    Ausfall-Tage haben jedoch nie eine verlinkte Datei und werden stattdessen
-    über `day.is_cancel()` erkannt; Hospitation kann ebenso ohne Link
-    vorkommen (`day.is_hospitation()`). Dieser Fallback spiegelt exakt die
-    Ableitung aus `RowDisplayModeUseCase.infer_day_mode()`, damit beide
-    Stellen für dieselbe Spalte immer denselben Typ ermitteln.
-
-    Args:
-        day: Eintrag aus einer Tagesliste (z. B. `raw_day_columns`), wie sie
-            vom Grid und von Export-Use-Cases konsumiert wird.
-
-    Returns:
-        Der Stundentyp-Text (z. B. ``"Unterricht"``) oder ein leerer String,
-        wenn die Spalte keinem bekannten Typ zugeordnet werden kann.
-    """
-    if day.is_cancel():
-        return "Ausfall"
-    if day.is_hospitation():
-        return "Hospitation"
-    if day.is_lzk():
-        return "LZK"
-    return day.stundentyp
-
-
 def row_oberthema(day: DayColumn) -> str:
     """Liest das Oberthema einer Tages-Spalte (siehe `DayColumn.oberthema`).
 
@@ -135,7 +108,7 @@ def compute_topic_sequence_runs(raw_day_columns: list[DayColumn]) -> list[TopicS
             current_oberthema, current_members = None, []
             continue
 
-        lesson_type = row_lesson_type(day)
+        lesson_type = day.lesson_type()
         if lesson_type in SKIPPED_SEQUENCE_TYPES:
             continue
         if lesson_type not in ELIGIBLE_SEQUENCE_TYPES:
@@ -240,7 +213,7 @@ def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRu
             continue
         if day.row_index not in member_row_indices:
             continue
-        if row_lesson_type(day) not in EXPORTABLE_LESSON_TYPES:
+        if day.lesson_type() not in EXPORTABLE_LESSON_TYPES:
             continue
 
         rows.append(

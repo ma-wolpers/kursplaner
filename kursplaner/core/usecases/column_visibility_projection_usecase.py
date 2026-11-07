@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain import lesson_kinds
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.topic_sequence_runs import row_oberthema
 
@@ -32,10 +33,10 @@ class ColumnVisibilityProjectionResult:
 class ColumnVisibilityProjectionUseCase:
     """Projiziert geladene Tages-Spalten anhand von Sichtbarkeitsregeln."""
 
-    KIND_UNTERRICHT = "unterricht"
-    KIND_LZK = "lzk"
-    KIND_AUSFALL = "ausfall"
-    KIND_HOSPITATION = "hospitation"
+    KIND_UNTERRICHT = lesson_kinds.KIND_UNTERRICHT
+    KIND_LZK = lesson_kinds.KIND_LZK
+    KIND_AUSFALL = lesson_kinds.KIND_AUSFALL
+    KIND_HOSPITATION = lesson_kinds.KIND_HOSPITATION
     KIND_LEER = "leer"
 
     def project(
@@ -62,15 +63,10 @@ class ColumnVisibilityProjectionUseCase:
 
     @classmethod
     def _kind_for_day(cls, day: DayColumn) -> str:
-        if day.is_cancel():
-            return cls.KIND_AUSFALL
-        if day.is_hospitation():
-            return cls.KIND_HOSPITATION
-        if day.is_lzk():
-            return cls.KIND_LZK
-        if cls._is_empty_day(day):
+        kind = day.lesson_kind()
+        if kind == cls.KIND_UNTERRICHT and cls._is_empty_day(day):
             return cls.KIND_LEER
-        return cls.KIND_UNTERRICHT
+        return kind
 
     @staticmethod
     def _is_empty_day(day: DayColumn) -> bool:

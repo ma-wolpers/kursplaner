@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, KIND_UNTERRICHT
 from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_DEVELOPMENT_FIELDS,
@@ -65,10 +66,10 @@ class RowDisplayModeUseCase:
         ("Baustellen", "Welche Baustellen"),
     )
 
-    MODE_UNTERRICHT = "unterricht"
-    MODE_LZK = "lzk"
-    MODE_AUSFALL = "ausfall"
-    MODE_HOSPITATION = "hospitation"
+    MODE_UNTERRICHT = KIND_UNTERRICHT
+    MODE_LZK = KIND_LZK
+    MODE_AUSFALL = KIND_AUSFALL
+    MODE_HOSPITATION = KIND_HOSPITATION
 
     def __init__(self) -> None:
         """Initialisiert die statischen Modusdefinitionen."""
@@ -142,16 +143,10 @@ class RowDisplayModeUseCase:
 
     @staticmethod
     def infer_day_mode(day: DayColumn | None) -> str:
-        """Leitet den fachlich passenden Modus aus einer Tages-Spalte ab."""
+        """Modus einer Tages-Spalte = ihre Terminart (`DayColumn.lesson_kind`)."""
         if not isinstance(day, DayColumn):
             return RowDisplayModeUseCase.MODE_UNTERRICHT
-        if day.is_cancel():
-            return RowDisplayModeUseCase.MODE_AUSFALL
-        if day.is_hospitation():
-            return RowDisplayModeUseCase.MODE_HOSPITATION
-        if day.is_lzk():
-            return RowDisplayModeUseCase.MODE_LZK
-        return RowDisplayModeUseCase.MODE_UNTERRICHT
+        return day.lesson_kind()
 
     def mode_for_selection(
         self,

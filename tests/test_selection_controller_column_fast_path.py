@@ -52,9 +52,9 @@ def test_set_single_column_selection_only_restyles_the_newly_selected_header():
 
     controller.set_single_column_selection(1)
 
-    assert app.header_labels[1].configure_calls  # neu selektiert -> gestylt
-    assert not app.header_labels[0].configure_calls  # unberuehrt
-    assert not app.header_labels[2].configure_calls  # unberuehrt
+    assert 1 in app.grid_renderer.header_style_calls  # neu selektiert -> gestylt
+    assert 0 not in app.grid_renderer.header_style_calls  # unberuehrt
+    assert 2 not in app.grid_renderer.header_style_calls  # unberuehrt
     assert app.refresh_calls == 0  # kein voller Grid-Sweep
 
 
@@ -62,14 +62,13 @@ def test_set_single_column_selection_restyles_both_old_and_new_header():
     app = _app_with_headers(3)
     controller = MainWindowSelectionController(app)
     controller.set_single_column_selection(0)
-    for label in app.header_labels.values():
-        label.configure_calls.clear()
+    app.grid_renderer.header_style_calls.clear()
 
     controller.set_single_column_selection(2)
 
-    assert app.header_labels[0].configure_calls  # abgewaehlt -> muss zurueckgestylt werden
-    assert app.header_labels[2].configure_calls  # neu ausgewaehlt
-    assert not app.header_labels[1].configure_calls  # nie beteiligt
+    assert 0 in app.grid_renderer.header_style_calls  # abgewaehlt -> muss zurueckgestylt werden
+    assert 2 in app.grid_renderer.header_style_calls  # neu ausgewaehlt
+    assert 1 not in app.grid_renderer.header_style_calls  # nie beteiligt
     assert app.refresh_calls == 0
 
 
@@ -78,13 +77,13 @@ def test_toggle_column_selection_only_restyles_the_toggled_header():
     controller = MainWindowSelectionController(app)
 
     controller.toggle_column_selection(0)  # an
-    assert app.header_labels[0].configure_calls
-    app.header_labels[0].configure_calls.clear()
+    assert 0 in app.grid_renderer.header_style_calls
+    app.grid_renderer.header_style_calls.clear()
 
     controller.toggle_column_selection(0)  # wieder aus
 
-    assert app.header_labels[0].configure_calls
-    assert not app.header_labels[1].configure_calls
+    assert 0 in app.grid_renderer.header_style_calls
+    assert 1 not in app.grid_renderer.header_style_calls
     assert app.refresh_calls == 0
 
 
@@ -144,9 +143,9 @@ def test_column_selection_takes_fast_path_even_when_cell_widgets_empty():
 
     controller.set_single_column_selection(1)
 
-    assert app.header_labels[1].configure_calls  # neu selektiert -> gestylt
-    assert not app.header_labels[0].configure_calls  # unberuehrt -- kein voller Sweep
-    assert not app.header_labels[2].configure_calls  # unberuehrt -- kein voller Sweep
+    assert 1 in app.grid_renderer.header_style_calls  # neu selektiert -> gestylt
+    assert 0 not in app.grid_renderer.header_style_calls  # unberuehrt -- kein voller Sweep
+    assert 2 not in app.grid_renderer.header_style_calls  # unberuehrt -- kein voller Sweep
 
 
 def test_column_selection_falls_back_to_full_refresh_when_rebuilding():

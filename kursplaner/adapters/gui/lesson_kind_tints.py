@@ -14,10 +14,9 @@ from typing import Any
 from bw_gui.theming import canvas_tinted_fill, theme_label_tinted, theme_text_tinted
 
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
+from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK
 
-KIND_AUSFALL = "ausfall"
-KIND_LZK = "lzk"
-KIND_HOSPITATION = "hospitation"
+__all__ = ["KIND_AUSFALL", "KIND_HOSPITATION", "KIND_LZK", "LESSON_KIND_TINTS", "LessonKindTint"]
 
 
 @dataclass(frozen=True)

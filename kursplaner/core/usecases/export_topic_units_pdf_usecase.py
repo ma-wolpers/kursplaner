@@ -26,7 +26,6 @@ from kursplaner.core.domain.topic_sequence_runs import (
     build_export_rows_for_run,
     compute_topic_sequence_runs,
     find_run_for_row_index,
-    row_lesson_type,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.sequence_export import ExportTableRow
@@ -146,7 +145,7 @@ class ExportTopicUnitsPdfUseCase:
         if selected_day is None:
             raise RuntimeError("Es ist keine gueltige Einheit ausgewaehlt.")
 
-        selected_type = row_lesson_type(selected_day)
+        selected_type = selected_day.lesson_type()
         if selected_type not in EXPORTABLE_LESSON_TYPES:
             raise RuntimeError("Der Export ist nur fuer Unterrichts- oder LZK-Einheiten verfuegbar.")
 

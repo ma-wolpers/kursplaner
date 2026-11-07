@@ -1,7 +1,6 @@
 from kursplaner.core.domain.topic_sequence_runs import (
     compute_topic_sequence_runs,
     find_run_for_row_index,
-    row_lesson_type,
 )
 from tests.day_column_factory import make_day_column
 
@@ -92,10 +91,10 @@ def test_two_consecutive_ausfall_days_are_both_skipped():
     assert runs[0].member_row_indices == (0, 3)
 
 
-def test_row_lesson_type_recognizes_linkless_ausfall_via_marker():
+def test_lesson_type_recognizes_linkless_ausfall_via_marker():
     """Regressionstest: Ausfall-Tage ohne verlinkte Stundendatei (yaml={}) müssen
     trotzdem als "Ausfall" erkannt werden, nicht als leerer/unbekannter Typ."""
-    assert row_lesson_type(make_day_column(thema_ausfall="X Krank")) == "Ausfall"
+    assert make_day_column(thema_ausfall="X Krank").lesson_type() == "Ausfall"
 
 
 def test_hospitation_counts_as_chain_member():

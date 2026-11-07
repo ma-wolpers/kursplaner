@@ -42,9 +42,13 @@ class _GridRendererStub:
     def __init__(self):
         self.style_calls: list[tuple[str, int]] = []
         self.row_index_by_field: dict[str, int] = {}
+        self.header_style_calls: list[int] = []
 
     def _apply_cell_selection_style(self, _widget, *, field_key: str, day_index: int):
         self.style_calls.append((field_key, day_index))
+
+    def apply_header_style(self, day_index: int) -> None:
+        self.header_style_calls.append(day_index)
 
     def _row_index_for_field(self, field_key: str) -> int | None:
         return self.row_index_by_field.get(field_key)

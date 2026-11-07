@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Union
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, KIND_UNTERRICHT
 from kursplaner.core.domain.lesson_yaml_policy import LessonType, lesson_list_entries
 from kursplaner.core.domain.sequence_ladder import (
     LadderBlock,
@@ -40,7 +41,6 @@ from kursplaner.core.domain.sequence_ladder import (
     locked_message,
 )
 from kursplaner.core.domain.sequence_ladder_entries import block_from_entry, entry_from_block
-from kursplaner.core.domain.topic_sequence_runs import row_lesson_type
 
 IDEEN_HEADING = "Ideen"
 """Überschrift (Ebene 2) des Ideen-Abschnitts im Body einer Einheit."""
@@ -49,19 +49,16 @@ IDEEN_HEADING = "Ideen"
 class RungKind(str, Enum):
     """Art des Termins einer Sprosse (steuert Speicherort und Markierung)."""
 
-    UNTERRICHT = "unterricht"
-    LZK = "lzk"
-    HOSPITATION = "hospitation"
-    AUSFALL = "ausfall"
+    UNTERRICHT = KIND_UNTERRICHT
+    LZK = KIND_LZK
+    HOSPITATION = KIND_HOSPITATION
+    AUSFALL = KIND_AUSFALL
     OFFEN = "offen"
 
 
-_KIND_BY_LESSON_TYPE = {"Ausfall": RungKind.AUSFALL, "LZK": RungKind.LZK, "Hospitation": RungKind.HOSPITATION}
-
-
 def rung_kind(day: DayColumn) -> RungKind:
-    """Terminart einer Tagesspalte – übersetzt nur `topic_sequence_runs.row_lesson_type` (dort die Regel)."""
-    return _KIND_BY_LESSON_TYPE.get(row_lesson_type(day), RungKind.UNTERRICHT)
+    """Terminart einer Tagesspalte – übersetzt nur `DayColumn.lesson_kind` (dort die Regel)."""
+    return RungKind(day.lesson_kind())
 
 
 @dataclass(frozen=True)
@@ -121,7 +118,7 @@ def ladder_homes(term_days: Sequence[DayColumn]) -> LadderHomes:
     for day in term_days:
         kind = rung_kind(day)
         link = day.link
-        if row_lesson_type(day) == UNIT_LESSON_TYPE and isinstance(link, Path):
+        if day.lesson_type() == UNIT_LESSON_TYPE and isinstance(link, Path):
             if link not in seen:
                 seen.add(link)
                 terms.append(UnitHome(link))

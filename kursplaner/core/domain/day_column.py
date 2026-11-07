@@ -39,7 +39,7 @@ from kursplaner.core.domain.content_markers import (
 )
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm, hours_for_date, start_time_for_date
 from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
-from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.lesson_yaml_policy import LessonType, infer_stundentyp
 from kursplaner.core.domain.list_cell_text import format_list_cell, list_entry_violation
 from kursplaner.core.domain.oberthema_values import (
     OBERTHEMA_INVALID_MARKER,
@@ -148,7 +148,7 @@ class DayColumn:
         return is_valid_unterricht_link(self.link)
 
     @cached_property
-    def stundentyp(self) -> str:
+    def stundentyp(self) -> LessonType:
         """Stundentyp aus der verlinkten YAML (`infer_stundentyp`), ``"Unterricht"`` ohne gültigen Link.
 
         `@cached_property` aus demselben Grund wie `is_valid_unterricht_file`
@@ -185,6 +185,26 @@ class DayColumn:
         if is_ausfall_marker(self.thema_ausfall):
             return True
         return str(self.yaml.get("Stundentyp", "")).strip() == "Ausfall"
+
+    def lesson_type(self) -> LessonType:
+        """Terminart der Spalte – die **einzige** Rangfolge im Kursplaner.
+
+        Ausfall (Marker oder YAML) vor Hospitation (YAML oder ``HO``-Marker) vor
+        LZK, sonst der YAML-Typ (`stundentyp`). Zeilenmodus, Tageslog-Status,
+        Spalten-Shortcut, Spaltenkopf, Spaltenausblendung, Sequenzläufe, Exporte
+        und Sequenzleiter lesen die Art nur hierüber (bzw. über `lesson_kind`).
+        """
+        if self.is_cancel():
+            return "Ausfall"
+        if self.is_hospitation():
+            return "Hospitation"
+        if self.is_lzk():
+            return "LZK"
+        return self.stundentyp
+
+    def lesson_kind(self) -> str:
+        """`lesson_type` als Schlüssel (`lesson_kinds.KIND_*`, kleingeschrieben)."""
+        return self.lesson_type().lower()
 
     def _has_link_ref(self) -> bool:
         stripped = self.inhalt.strip()

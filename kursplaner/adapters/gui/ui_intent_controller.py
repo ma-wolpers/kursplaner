@@ -10,6 +10,7 @@ from bw_libs.ui_contract.hsm import build_ui_hsm_contract
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack
 from kursplaner.adapters.gui.ui_intents import UiIntent
+from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK
 
 
 def _known_ui_intents() -> tuple[str, ...]:
@@ -518,18 +519,13 @@ class MainWindowUiIntentController:
         if selected_index < 0 or selected_index >= len(day_columns):
             return None
 
-        day = day_columns[selected_index]
-        if day.is_cancel():
-            self.app.lesson_conversion_controller.convert_selected_to_ausfall(from_column_shortcut=True)
-            return EventResult.HANDLED
-        if day.is_hospitation():
-            self.app.lesson_conversion_controller.convert_selected_to_hospitation(from_column_shortcut=True)
-            return EventResult.HANDLED
-        if day.is_lzk():
-            self.app.lesson_conversion_controller.convert_selected_to_lzk(from_column_shortcut=True)
-            return EventResult.HANDLED
-
-        self.app.lesson_conversion_controller.convert_selected_to_unterricht(from_column_shortcut=True)
+        conversion = self.app.lesson_conversion_controller
+        convert = {
+            KIND_AUSFALL: conversion.convert_selected_to_ausfall,
+            KIND_HOSPITATION: conversion.convert_selected_to_hospitation,
+            KIND_LZK: conversion.convert_selected_to_lzk,
+        }.get(day_columns[selected_index].lesson_kind(), conversion.convert_selected_to_unterricht)
+        convert(from_column_shortcut=True)
         return EventResult.HANDLED
 
     def intent_grid_enter(self):

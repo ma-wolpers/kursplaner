@@ -78,20 +78,14 @@ class DailyCourseLogUseCase:
 
     @staticmethod
     def _status_for_unit(day: DayColumn) -> str:
-        """Klassifiziert den Status einer Einheit anhand der `DayColumn`-Ableitungen.
+        """Status einer Einheit = ihre Terminart (`DayColumn.lesson_kind`).
 
         Ferien tragen weiterhin den Status ``"ausfall"`` (kein eigener
         Statuswert, um das bestehende JSON-Format kompatibel zu halten);
         ihre Ferien-Eigenschaft steht separat im Feld ``is_ferien`` (siehe
         :meth:`_units_for_table`).
         """
-        if day.is_cancel():
-            return "ausfall"
-        if day.is_hospitation():
-            return "hospitation"
-        if day.is_lzk():
-            return "lzk"
-        return day.stundentyp.lower()
+        return day.lesson_kind()
 
     @classmethod
     def _cells_for_unit(cls, day: DayColumn) -> dict[str, str | list[str]]:

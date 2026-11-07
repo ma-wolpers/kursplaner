@@ -2,16 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from bw_gui.theming import theme_label_token
-
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.adapters.gui.lesson_kind_tints import (
-    KIND_AUSFALL,
-    KIND_HOSPITATION,
-    KIND_LZK,
-    LESSON_KIND_TINTS,
-    apply_label_tint,
-)
 from kursplaner.core.domain.day_column import DayColumn
 
 
@@ -193,42 +184,8 @@ class MainWindowSelectionController:
         return True
 
     def _apply_single_header_style(self, day_index: int) -> None:
-        """Wendet selektions-/zustandsabhängige Header-Farbe auf genau eine Spalte an.
-
-        Entspricht der If/Elif-Kette in `refresh_header_styles()`, beschränkt sich
-        aber auf einen einzigen Header-Label. Wird vom Fast Path in `set_selected_cell()`
-        genutzt, um nicht alle Header neu zu stylen, wenn nur zwei Spalten betroffen sind.
-
-        Args:
-            day_index: Index des Spalten-Headers in `header_labels`/`day_columns`.
-        """
-        label = self.app.header_labels.get(day_index)
-        if label is None or day_index >= len(self.app.day_columns):
-            return
-        day = self.app.day_columns[day_index]
-        is_selected = day_index in self.app.selected_day_indices
-        is_cancel = day.is_cancel()
-        is_unresolved_link = day.is_unresolved_link()
-        is_hospitation = day.is_hospitation()
-        is_lzk = day.is_lzk()
-        if is_selected:
-            label.configure(borderwidth=2, relief="raised")
-            theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
-        elif is_cancel:
-            label.configure(borderwidth=1, relief="solid")
-            apply_label_tint(label, LESSON_KIND_TINTS[KIND_AUSFALL])
-        elif is_hospitation:
-            label.configure(borderwidth=1, relief="solid")
-            apply_label_tint(label, LESSON_KIND_TINTS[KIND_HOSPITATION])
-        elif is_unresolved_link:
-            label.configure(borderwidth=1, relief="solid")
-            theme_label_token(label, bg_token="warning_soft")
-        elif is_lzk:
-            label.configure(borderwidth=1, relief="solid")
-            apply_label_tint(label, LESSON_KIND_TINTS[KIND_LZK])
-        else:
-            label.configure(borderwidth=1, relief="solid")
-            theme_label_token(label, bg_token="panel_strong")
+        """Stylt genau einen Spaltenkopf (Fast Path in `set_selected_cell()`), über `GridRenderer.apply_header_style`."""
+        self.app.grid_renderer.apply_header_style(day_index)
 
     def select_first_editable_in_selected_column(self) -> bool:
         """Markiert die erste editierbare, sichtbare Zelle der aktuell ausgewählten Spalte."""
@@ -498,34 +455,9 @@ class MainWindowSelectionController:
         return f"{weekday} {parsed.day:02d}.{parsed.month:02d}.".strip()
 
     def refresh_header_styles(self):
-        """Wendet selektions-/zustandsabhängige Header-Farben auf alle Spalten an."""
-        for day_index, label in self.app.header_labels.items():
-            if day_index >= len(self.app.day_columns):
-                continue
-            day = self.app.day_columns[day_index]
-            is_selected = day_index in self.app.selected_day_indices
-            is_cancel = day.is_cancel()
-            is_unresolved_link = day.is_unresolved_link()
-            is_hospitation = day.is_hospitation()
-            is_lzk = day.is_lzk()
-            if is_selected:
-                label.configure(borderwidth=2, relief="raised")
-                theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
-            elif is_cancel:
-                label.configure(borderwidth=1, relief="solid")
-                apply_label_tint(label, LESSON_KIND_TINTS[KIND_AUSFALL])
-            elif is_hospitation:
-                label.configure(borderwidth=1, relief="solid")
-                apply_label_tint(label, LESSON_KIND_TINTS[KIND_HOSPITATION])
-            elif is_unresolved_link:
-                label.configure(borderwidth=1, relief="solid")
-                theme_label_token(label, bg_token="warning_soft")
-            elif is_lzk:
-                label.configure(borderwidth=1, relief="solid")
-                apply_label_tint(label, LESSON_KIND_TINTS[KIND_LZK])
-            else:
-                label.configure(borderwidth=1, relief="solid")
-                theme_label_token(label, bg_token="panel_strong")
+        """Stylt alle Spaltenköpfe über `GridRenderer.apply_header_style`."""
+        for day_index in list(self.app.header_labels):
+            self.app.grid_renderer.apply_header_style(day_index)
 
     def selected_indices_sorted(self) -> list[int]:
         """Liefert gültige selektierte Spaltenindizes in stabiler Reihenfolge."""

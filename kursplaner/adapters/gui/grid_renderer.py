@@ -66,13 +66,9 @@ class GridRenderer:
 
     def _apply_marker_kind_fill(self, canvas: ui.Canvas, item_id: int, kind: str) -> None:
         """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
-        normalized = str(kind).strip().lower()
-        if normalized == "ausfall":
-            apply_canvas_tint(canvas, item_id, LESSON_KIND_TINTS[KIND_AUSFALL])
-        elif normalized == "lzk":
-            apply_canvas_tint(canvas, item_id, LESSON_KIND_TINTS[KIND_LZK])
-        elif normalized == "hospitation":
-            apply_canvas_tint(canvas, item_id, LESSON_KIND_TINTS[KIND_HOSPITATION])
+        tint = LESSON_KIND_TINTS.get(str(kind).strip().lower())
+        if tint is not None:
+            apply_canvas_tint(canvas, item_id, tint)
         else:
             canvas_fill(canvas, item_id, token="panel_strong")
 
@@ -118,8 +114,9 @@ class GridRenderer:
         """Liefert Header-Text und Spalten-Zustandsschlüssel für eine Tages-Spalte.
 
         Returns:
-            (date_text, col_type) — col_type ∈ {'normal', 'cancel', 'hospitation',
-            'lzk', 'unresolved', 'next_unit'}. Pass both to ``_apply_header_color``.
+            (date_text, col_type) — col_type ist die Terminart (`DayColumn.lesson_kind`,
+            außer Unterricht) oder 'unresolved', 'next_unit', 'normal'.
+            Angewendet über `apply_header_style` (einziger Stilweg eines Kopfs).
 
         Die "nächste Einheit"-Markierung (persistente, spaltenkopf-only
         Kennzeichnung, unabhängig von der aktuellen Zellauswahl und vom
@@ -137,12 +134,9 @@ class GridRenderer:
         is_next_unit = day_index == self._next_unit_index
         next_unit_marker = " ▶" if is_next_unit else ""
 
-        if day.is_cancel():
-            return f"{date_text}{next_unit_marker}", "cancel"
-        if day.is_hospitation():
-            return f"{date_text}{next_unit_marker}", "hospitation"
-        if day.is_lzk():
-            return f"{date_text}{next_unit_marker}", "lzk"
+        kind = day.lesson_kind()
+        if kind in LESSON_KIND_TINTS:
+            return f"{date_text}{next_unit_marker}", kind
         if day.is_unresolved_link():
             return f"{date_text} ⚠{next_unit_marker}", "unresolved"
         if is_next_unit:
@@ -151,12 +145,8 @@ class GridRenderer:
 
     def _apply_header_color(self, label: ui.Label, col_type: str) -> None:
         """Wendet Spalten-Typ-Farben auf ein Header-Label an (kein Hex-Wert im Consumer)."""
-        if col_type == "cancel":
-            apply_label_tint(label, LESSON_KIND_TINTS[KIND_AUSFALL])
-        elif col_type == "hospitation":
-            apply_label_tint(label, LESSON_KIND_TINTS[KIND_HOSPITATION])
-        elif col_type == "lzk":
-            apply_label_tint(label, LESSON_KIND_TINTS[KIND_LZK])
+        if col_type in LESSON_KIND_TINTS:
+            apply_label_tint(label, LESSON_KIND_TINTS[col_type])
         elif col_type == "unresolved":
             theme_label_token(label, bg_token="warning_soft")
         elif col_type == "next_unit":
@@ -881,12 +871,27 @@ class GridRenderer:
         self._reconcile_column_mounts()
 
     def update_header(self, day_index: int):
-        """Aktualisiert Text/Basisfarbe eines existierenden Tages-Headers."""
+        """Aktualisiert einen existierenden Tages-Header (siehe `apply_header_style`)."""
+        self.apply_header_style(day_index)
+
+    def apply_header_style(self, day_index: int) -> None:
+        """Einziger Stilweg eines Spaltenkopfs: Text, Zustandsfarbe, Rahmen, Auswahl.
+
+        Eine ausgewählte Spalte trägt die Auswahlfarbe (erhabener 2px-Rahmen);
+        sonst gelten Terminart-/``next_unit``-Farbe aus `_header_visual_state` und
+        der UB-/Datumslos-Rahmen. Aufbau, Text-Update und Auswahlwechsel
+        (`SelectionController`) laufen alle hierüber, damit kein Weg die
+        ``next_unit``-Tönung oder den Akzentrahmen eines anderen überschreibt.
+        """
         label = self.app.header_labels.get(day_index)
-        if label is None:
+        if label is None or day_index >= len(self.app.day_columns):
             return
         text, col_type = self._header_visual_state(day_index)
-        label.configure(text=text, borderwidth=self._border_thickness(day_index))
+        if day_index in self.app.selected_day_indices:
+            label.configure(text=text, borderwidth=2, relief="raised")
+            theme_label_token(label, bg_token="selection_bg", fg_token="selection_fg")
+            return
+        label.configure(text=text, borderwidth=self._border_thickness(day_index), relief="solid")
         self._apply_header_color(label, col_type)
         self._apply_ub_border(label, day_index)
 

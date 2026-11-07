@@ -5,7 +5,7 @@ Aufruf, keine Zeit-/Policy-Logik) — er liest ausschließlich den zuvor per
 `set_next_unit_index()` gesetzten Wert. Diese Tests decken `_header_visual_state()`
 ab: die Markierung nutzt zwei getrennte Kanäle (eigener Hintergrund-`col_type`
 "next_unit" im Normalfall, angehängtes Glyph als Fallback wenn der Hintergrund
-bereits durch cancel/hospitation/lzk/unresolved belegt ist) und kollidiert
+bereits durch Ausfall/Hospitation/LZK/unresolved belegt ist) und kollidiert
 dadurch nie mit dem bestehenden UB-/Datumslos-Rahmen (`_apply_ub_border`,
 unverändert, hier nicht getestet).
 """
@@ -50,14 +50,14 @@ def test_normal_column_as_next_unit_uses_dedicated_col_type_without_glyph():
 def test_cancelled_column_not_next_unit_keeps_cancel_col_type_no_glyph():
     columns = [make_day_column(row_index=0, datum="18-02-26", thema_ausfall="X Grund")]
     text, col_type = _visual_state(columns, next_unit_index=None)
-    assert col_type == "cancel"
+    assert col_type == "ausfall"
     assert "▶" not in text
 
 
 def test_cancelled_column_as_next_unit_keeps_cancel_background_but_adds_glyph():
     columns = [make_day_column(row_index=0, datum="18-02-26", thema_ausfall="X Grund")]
     text, col_type = _visual_state(columns, next_unit_index=0)
-    assert col_type == "cancel"  # Hintergrund bleibt cancel, next_unit ueberschreibt nicht
+    assert col_type == "ausfall"  # Hintergrund bleibt cancel, next_unit ueberschreibt nicht
     assert text.endswith("▶")
 
 
@@ -93,3 +93,47 @@ def test_out_of_range_day_index_returns_normal_regardless_of_next_unit_index():
     text, col_type = _visual_state(columns, next_unit_index=5, day_index=5)
     assert text == ""
     assert col_type == "normal"
+
+
+class _LabelStub:
+    def __init__(self) -> None:
+        self.config: dict = {}
+
+    def configure(self, **kwargs) -> None:
+        self.config.update(kwargs)
+
+
+def _styled(monkeypatch, *, selected: set[int], next_unit_index, day):
+    """Wendet `apply_header_style` an und protokolliert die gesetzten Theme-Aufrufe."""
+    import kursplaner.adapters.gui.grid_renderer as module
+
+    calls: list[tuple] = []
+    monkeypatch.setattr(module, "theme_label_token", lambda _l, **kw: calls.append(("token", kw.get("bg_token"))))
+    monkeypatch.setattr(module, "theme_label_tinted", lambda _l, tint, **_kw: calls.append(("tinted", tint)))
+    monkeypatch.setattr(module, "apply_label_tint", lambda _l, tint: calls.append(("kind", tint.label)))
+    monkeypatch.setattr(module, "theme_widget_border", lambda _w, **kw: calls.append(("border", kw["thickness"])))
+    label = _LabelStub()
+    renderer = object.__new__(GridRenderer)
+    renderer.app = SimpleNamespace(day_columns=[day], header_labels={0: label}, selected_day_indices=selected)
+    renderer._next_unit_index = next_unit_index
+    renderer.apply_header_style(0)
+    return label, calls
+
+
+def test_deselected_next_unit_header_gets_its_tint_back(monkeypatch):
+    """Regressionstest: Auswahlwechsel überschrieb die next_unit-Tönung mit der Grundfarbe."""
+    day = make_day_column(row_index=0, datum="18-02-26")
+    label, calls = _styled(monkeypatch, selected=set(), next_unit_index=0, day=day)
+    assert ("tinted", "info_soft") in calls and label.config["relief"] == "solid"
+
+
+def test_selected_header_uses_selection_style(monkeypatch):
+    day = make_day_column(row_index=0, datum="18-02-26")
+    label, calls = _styled(monkeypatch, selected={0}, next_unit_index=0, day=day)
+    assert calls == [("token", "selection_bg")] and label.config["relief"] == "raised"
+
+
+def test_cancel_header_uses_the_lesson_kind_tint(monkeypatch):
+    day = make_day_column(row_index=0, datum="18-02-26", thema_ausfall="X Grund")
+    _label, calls = _styled(monkeypatch, selected=set(), next_unit_index=None, day=day)
+    assert ("kind", "Ausfall") in calls
