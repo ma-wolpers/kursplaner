@@ -299,3 +299,11 @@ def test_expected_horizon_shows_title_of_net_linked_goals(tmp_path):
         "... Struktogramme lesen",
         "... Freitext-Ziel",
     ]
+
+
+def test_pipe_inside_a_goal_stays_one_goal():
+    """Listenfelder kommen kanonisch als Liste; ein „|“ im Ziel wird nicht mehr aufgetrennt."""
+    goals = ExportExpectedHorizonUseCase._goals_for_day(
+        {"Stundenziel": "Ziel", "Teilziele": ["Terme a | b vergleichen"], "Sonderziele": []}
+    )
+    assert [text for text, _kind in goals] == ["... Ziel", "... Terme a | b vergleichen"]

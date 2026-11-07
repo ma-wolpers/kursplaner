@@ -8,6 +8,7 @@ from bw_libs.app_paths import atomic_write_json
 from kursplaner.core.config.path_store import serialize_workspace_relative_path
 from kursplaner.core.config.settings import SCRIPT_DIR
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date, read_yaml_oberthema
 from kursplaner.core.domain.wiki_links import wiki_link_display_text
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository
@@ -104,15 +105,7 @@ class DailyCourseLogUseCase:
                 # Anzeigetext tragen, siehe `plan_table.read_yaml_oberthema`.
                 cells[field] = read_yaml_oberthema(yaml_data, day.group_name)
                 continue
-            value = cls._normalize_value(
-                yaml_data.get(
-                    field,
-                    []
-                    if field
-                    in {"Kompetenzen", "Teilziele", "Material", "Vertretungsmaterial", "Ressourcen", "Baustellen"}
-                    else "",
-                )
-            )
+            value = cls._normalize_value(yaml_data.get(field, [] if field in LIST_FIELDS else ""))
             if field in cls._LINK_DISPLAY_FIELDS:
                 value = (
                     [wiki_link_display_text(item) for item in value]

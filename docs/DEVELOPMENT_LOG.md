@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+- SSOT-Altfunde, Teil D: Listenfelder in Kompetenzhorizont und Tageslog (2026-11-07).
+  - `ExportExpectedHorizonUseCase._parse_text_list` entfernt: Teil-/Sonderziele über `lesson_list_entries` (Tagesspalten sind über `LoadPlanDetailUseCase` kanonisiert, Listenfelder also immer `list[str]`). Die alte Zerlegung an „|“/Zeilenumbruch griff nur für Text und hätte ein „|“ in einem Ziel zerteilt.
+  - `DailyCourseLogUseCase._cells_for_unit`: eigene Listenfeld-Menge durch `lesson_yaml_policy.LIST_FIELDS` ersetzt (gleiches Ergebnis für die Felder des Tageslogs).
+  - Test: „|“ im Teilziel bleibt ein Ziel. 1670 grün, mypy 156.
 - SSOT-Altfunde, Teil C: Terminart und Spaltenkopf aus je einer Quelle (2026-11-07).
   - **Terminart:** Die Rangfolge Ausfall > Hospitation > LZK > YAML-Typ stand achtmal im Code (`topic_sequence_runs.row_lesson_type`, `RowDisplayModeUseCase.infer_day_mode`, `DailyCourseLogUseCase._status_for_unit`, `UiIntentController.intent_commit_column`, `GridRenderer._header_visual_state`, `ColumnVisibilityProjectionUseCase._kind_for_day`, zweimal `SelectionController`). Jetzt nur `DayColumn.lesson_type()` (+ `lesson_kind()`); `row_lesson_type` entfernt (Aufrufer: Sequenzläufe, Sequenz-Export, PDF-Export, Sequenzleiter). Schlüssel nur in `core/domain/lesson_kinds.py`; `MODE_*`, `ColumnVisibilityProjectionUseCase.KIND_*`, `lesson_kind_tints.KIND_*` und `RungKind` verweisen darauf (`_KIND_BY_LESSON_TYPE` entfernt). Typfarben-Ketten im Renderer (Kopf, ausgeblendete-Spalten-Marker) über `LESSON_KIND_TINTS[kind]`. `DayColumn.stundentyp` als `LessonType` annotiert (war `str`).
   - Verhaltensneutral geprüft (nur Zählung): bei allen 140 lesbaren echten Einheiten stimmen roher und abgeleiteter Stundentyp überein; die Unterschiede der alten Kopien (z. B. `Stundentyp: a`) kommen im Bestand nicht vor. Tageslog-Status bleibt `stundentyp.lower()`.

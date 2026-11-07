@@ -12,6 +12,7 @@ from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
 from kursplaner.core.domain.expected_horizon_files import default_adhoc_horizon_filename
 from kursplaner.core.domain.expected_horizon_pdf_layout import ExpectedHorizonPdfLayout
 from kursplaner.core.domain.expected_horizon_reconciliation import ReconciledHorizon, reconcile
+from kursplaner.core.domain.lesson_yaml_policy import lesson_list_entries
 from kursplaner.core.domain.oberthema_values import normalize_oberthemen
 from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
 from kursplaner.core.domain.wiki_links import strip_wiki_link, wiki_link_display_text
@@ -143,17 +144,6 @@ class ExportExpectedHorizonUseCase:
         end_year_short = (year_short + 1) % 100
         return f"{start_year}/{end_year_short:02d}"
 
-    @staticmethod
-    def _parse_text_list(value: object) -> list[str]:
-        if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
-        text = str(value or "").strip()
-        if not text:
-            return []
-        normalized = text.replace("\r\n", "\n").replace("|", "\n")
-        parts = [part.strip() for part in normalized.split("\n")]
-        return [part for part in parts if part]
-
     @classmethod
     def _strip_competency_prefix(cls, text: str) -> str:
         return cls._COMPETENCY_PREFIX_RE.sub("", str(text or "").strip()).strip()
@@ -169,12 +159,9 @@ class ExportExpectedHorizonUseCase:
         lesson_goal = cls._goal_text(yaml_data.get("Stundenziel", ""))
         if lesson_goal:
             goals.append((lesson_goal, GoalKind.STUNDENZIEL))
+        goals.extend((cls._goal_text(item), GoalKind.TEILZIEL) for item in lesson_list_entries(yaml_data, "Teilziele"))
         goals.extend(
-            (cls._goal_text(item), GoalKind.TEILZIEL) for item in cls._parse_text_list(yaml_data.get("Teilziele", []))
-        )
-        goals.extend(
-            (cls._goal_text(item), GoalKind.SONDERZIEL)
-            for item in cls._parse_text_list(yaml_data.get("Sonderziele", []))
+            (cls._goal_text(item), GoalKind.SONDERZIEL) for item in lesson_list_entries(yaml_data, "Sonderziele")
         )
         goals = [(text, kind) for text, kind in goals if text]
         if not goals:
