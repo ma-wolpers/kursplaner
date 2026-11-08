@@ -23,8 +23,8 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     board_cell,
     card_key,
     cell_slot,
+    drop_move,
     initial_cursor,
-    ladder_slot,
     rung_index,
     view_hints,
 )
@@ -43,7 +43,6 @@ from kursplaner.core.domain.sequence_ladder_homes import locked_reason
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
     LadderOperation,
-    MoveBlock,
     RemoveBlock,
     RenameBlock,
     SetIdeas,
@@ -347,7 +346,7 @@ class SequenceLadderController:
 
     def drop(self, key: str, slot: BoardSlot) -> None:
         """Drag & Drop: Baustein (Kartenschlüssel *key*) an die angezeigte Einfügelinie verschieben."""
-        self._run(MoveBlock(block_ref(key), ladder_slot(slot)), key)
+        self._run(drop_move(self.ladder, key, slot), key)
 
     def commit_ideas(self, cell: BoardCell, text: str) -> None:
         """Ideenfeld einer Sprosse übernehmen (ein Undo-Schritt)."""

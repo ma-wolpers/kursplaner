@@ -16,6 +16,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     board_rows,
     can_drop,
     card_key,
+    drop_move,
     initial_cursor,
     ladder_slot,
     rung_key,
@@ -85,6 +86,23 @@ def test_no_drop_line_where_the_right_rung_already_holds_the_block():
     assert not can_drop(ladder, NETZ, BoardSlot(rung_key(1), LANE_PROZESS, 0))
     assert can_drop(ladder, NETZ, BoardSlot(rung_key(2), LANE_PROZESS, 0))
     assert can_drop(ladder, NETZ, BoardSlot(rung_key(0), LANE_PROZESS, 0))
+
+
+def test_drop_index_counts_the_dragged_card_only_below_it_in_its_own_cell():
+    """Board zählt die gezogene Karte mit, `MoveBlock` nicht (Index nach dem Herausnehmen)."""
+    ladder = LADDER.with_rung(0, LadderRung((LadderBlock("A"), LadderBlock("B"), LadderBlock("C"))))
+    ref = BlockRef(0, LadderSide.INHALT, "A")
+
+    def target(row, index):
+        return drop_move(ladder, card_key(ref), BoardSlot(rung_key(row), LANE_INHALT, index)).target
+
+    assert target(0, 0) == LadderSlot(0, LadderSide.INHALT, 0)  # über sich selbst: bleibt
+    assert target(0, 1) == LadderSlot(0, LadderSide.INHALT, 0)  # unter sich selbst: bleibt
+    assert target(0, 2) == LadderSlot(0, LadderSide.INHALT, 1)  # zwischen B und C
+    assert target(0, 3) == LadderSlot(0, LadderSide.INHALT, 2)  # ans Ende
+    assert target(1, 1) == LadderSlot(1, LadderSide.INHALT, 1)  # andere Sprosse: unverändert
+    below = drop_move(ladder, card_key(BlockRef(0, LadderSide.INHALT, "C")), BoardSlot(rung_key(0), LANE_INHALT, 1))
+    assert below.target == LadderSlot(0, LadderSide.INHALT, 1)  # nach oben: unverändert
 
 
 def test_slot_translation_and_initial_cursor():

@@ -149,6 +149,18 @@ def test_step_and_drop_keep_the_selection(make):
     assert _inhalt(controller, 3) == ["A"] and controller.cursor == _key("A", 3)
 
 
+def test_drop_lands_exactly_at_the_shown_line_within_the_rung(make):
+    """Regression: nach unten in derselben Sprosse landete der Baustein eine Position zu tief."""
+    controller, dialogs, *_ = make()
+    dialogs.answers = ["A", "B", "C"]
+    for _ in range(3):
+        controller.add(BoardCell(rung_key(0), LANE_INHALT))
+    controller.drop(_key("A"), BoardSlot(rung_key(0), LANE_INHALT, 2))  # Linie zwischen B und C
+    assert _inhalt(controller) == ["B", "A", "C"]
+    controller.drop(_key("C"), BoardSlot(rung_key(0), LANE_INHALT, 0))  # Linie über B
+    assert _inhalt(controller) == ["C", "B", "A"]
+
+
 def test_ideas_commit_is_one_step(make):
     controller, _dialogs, _renders, _writes, history = make()
     controller.commit_ideas(BoardCell(rung_key(1), LANE_IDEEN), "Plakat\nPizza")

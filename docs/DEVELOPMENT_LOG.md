@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+- Leiter Drag & Drop: Baustein landete beim Runterziehen in derselben Sprosse eine Position unter der Einfügelinie (2026-11-08, Meldung der Nutzerin).
+  - Ursache: zwei Index-Verträge – bw-gui `BoardSlot.index` zählt die gezogene Karte mit, `MoveBlock.target.index` gilt nach dem Herausnehmen (Strg+↓ hält sich daran); `ladder_slot` reichte den Board-Index ungeändert durch. Zusätzlich wurde `MoveBlock(block_ref(key), ladder_slot(slot))` doppelt gebaut (`can_drop`, `controller.drop`).
+  - Lösung: `sequence_ladder_board_mapping.drop_move(ladder, key, slot)` als einzige Übersetzung (Index − 1, wenn die Linie in derselben Zelle unterhalb des Bausteins liegt; Grundlage ist die angezeigte Leiter `controller.ladder`, auf der die Linie berechnet wurde). `can_drop` und `controller.drop` nutzen sie. §37-GUI-Absatz ergänzt.
+  - Tests: `test_drop_index_counts_the_dragged_card_only_below_it_in_its_own_cell`, `test_drop_lands_exactly_at_the_shown_line_within_the_rung`.
 - Listenzellen-Vertrag: Escape `\;` für Semikolons (2026-11-08, Wunsch der Nutzerin: Mat-GF-28 als Teilziel warf „Ungültiger Listeneintrag“).
   - Ursache: Netz-Titel mit `;` landen über die Leiter als `[[ID|Titel]]` in `Teilziele`; `list_entry_violation` verbot `;` (§33 „bewusst keine Escape-Regel“), die Einheit wurde an der Ladegrenze unladbar.
   - Lösung nur in `list_cell_text` (einzige Quelle): `;`-Regel aus der Invariante entfernt; `format_list_cell` maskiert `;` als `ESCAPED_QUICK_SEPARATOR` (`\;`), `parse_list_cell` trennt per `_QUICK_SPLIT_RE` nur an nicht maskierten `;` und löst danach auf. Andere Backslashes bleiben wörtlich (kein `\\`-Escape nötig, Rundweg trotzdem verlustfrei, auch für wörtliches `\;`). Leiter (`block_text_error`), Ladegrenzen und Prüftool erben die Änderung über `list_entry_violation`. §33 und Grid-Hilfetext angepasst.

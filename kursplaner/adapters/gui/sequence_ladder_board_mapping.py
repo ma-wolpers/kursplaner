@@ -201,6 +201,29 @@ def initial_cursor(ladder: SequenceLadder) -> str | BoardCell:
     return card_key(BlockRef(0, LadderSide.INHALT, blocks[0].text)) if blocks else BoardCell(rung_key(0), LANE_INHALT)
 
 
+def drop_move(ladder: SequenceLadder, key: str, slot: BoardSlot) -> MoveBlock:
+    """Board-Drop → `MoveBlock`: einzige Übersetzung der Einfügelinie in den Domain-Index.
+
+    Das Board zählt die gezogene Karte in ihrer Zelle mit (`BoardSlot.index` =
+    „vor der Karte an *index*“ der angezeigten Zelle), `MoveBlock` zählt nach dem
+    Herausnehmen. Liegt die Linie in derselben Zelle unterhalb des Bausteins,
+    rückt der Index daher um eins nach oben – sonst landet der Baustein eine
+    Position unter der Linie.
+
+    Args:
+        ladder: Die angezeigte Leiter (auf ihr wurde die Linie berechnet).
+        key: Kartenschlüssel des gezogenen Bausteins.
+        slot: Einfügeposition des Boards (nur Bausteinspalten).
+    """
+    ref, target = block_ref(key), ladder_slot(slot)
+    found = ladder.find(ref)
+    if found is not None:
+        source, _block = found
+        if (source.rung, source.side) == (target.rung, target.side) and source.index < target.index:
+            target = LadderSlot(target.rung, target.side, target.index - 1)
+    return MoveBlock(ref, target)
+
+
 def can_drop(ladder: SequenceLadder, key: str, slot: BoardSlot) -> bool:
     """Ablegen nur, wo es auch gelingt (§37): fragt die Domain, ob `MoveBlock` gelingen würde.
 
@@ -211,7 +234,7 @@ def can_drop(ladder: SequenceLadder, key: str, slot: BoardSlot) -> bool:
     if slot.lane_key not in SIDE_BY_LANE:
         return False
     try:
-        apply_ladder_operation(ladder, MoveBlock(block_ref(key), ladder_slot(slot)))
+        apply_ladder_operation(ladder, drop_move(ladder, key, slot))
     except LadderRuleError:
         return False
     return True
