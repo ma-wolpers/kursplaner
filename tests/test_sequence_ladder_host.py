@@ -11,6 +11,7 @@ from kursplaner.adapters.gui import sequence_ladder_host as host_module
 from kursplaner.adapters.gui.detail_surface import DetailSurface
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import rung_cursor
 from kursplaner.adapters.gui.sequence_ladder_host import SequenceLadderHost
+from kursplaner.core.domain.sequence_ladder import LadderSide
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungInfo, RungKind
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
@@ -105,8 +106,11 @@ def test_free_target_asks_for_the_sequence_then_imports(monkeypatch):
     host = SequenceLadderHost(_app())
     calls = []
     monkeypatch.setattr(host, "choose_sequence", lambda **kw: B)
-    monkeypatch.setattr(host, "import_into", lambda path, snapshot, ids: calls.append((path, list(ids))))
+    monkeypatch.setattr(
+        host, "import_into", lambda path, snapshot, ids, side=None: calls.append((path, list(ids), side))
+    )
     target = host.free_import_target()
     assert target.button_label(2) == "Zu einer Sequenz hinzufügen… (2)"
     target.import_ids(["Mat-1", "Mat-2"], snapshot=None)
-    assert calls == [(B, ["Mat-1", "Mat-2"])]
+    target.import_ids(["Mat-3"], snapshot=None, mixed_side=LadderSide.PROZESS)
+    assert calls == [(B, ["Mat-1", "Mat-2"], None), (B, ["Mat-3"], LadderSide.PROZESS)]

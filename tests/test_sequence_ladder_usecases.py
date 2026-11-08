@@ -218,6 +218,28 @@ def test_import_lands_on_the_first_open_rung_above_the_highest_occupied(tmp_path
     assert [e.label for e in env.history.undo_stack] == ["Kompetenzen übernehmen"]
 
 
+def test_mixed_competences_go_to_the_chosen_column_and_semicolon_titles_stay_loadable(tmp_path):
+    """Inhalt+Prozess → gewählte Spalte; Titel mit ';' (Mat-GF-28) als Teilziel bleibt ladbar."""
+    env = make_ladder_env(tmp_path, "UU", u0={"ziel": "Z"})
+    bereiche = [make_bereich("I-Funktionen", kind="inhaltsbereich"), make_bereich("P-Lösen", kind="prozessbereich")]
+    nodes = [
+        make_node(f"Mat-GF-{n}", primarer_bereich_id="I-Funktionen", prozessbereich_ids=("P-Lösen",), title=title)
+        for n, title in ((28, "f(x)=x^n; n∈ℤ\\{0}"), (29, "Globalverhalten"))
+    ]
+    result = env.edit.import_competences(
+        sequence_path=env.sequence_path,
+        runs=env.runs,
+        day_columns=env.days,
+        snapshot=build_kompetenz_graph_snapshot(nodes, bereiche),
+        kompetenz_ids=["Mat-GF-28", "Mat-GF-29"],
+        mixed_side=INH,
+    )
+    assert result.applied
+    assert _yaml(env.units[1])["Stundenziel"] == "[[Mat-GF-28|f(x)=x^n; n∈ℤ\\{0}]]"
+    assert _yaml(env.units[1])["Teilziele"] == ["[[Mat-GF-29|Globalverhalten]]"]
+    assert [b.kompetenz_id for b in env.view().ladder.rung(1).inhalt] == ["Mat-GF-28", "Mat-GF-29"]
+
+
 def test_grid_edits_of_a_unit_show_up_on_the_next_load(tmp_path):
     env = make_ladder_env(tmp_path, "U")
     LessonEditUseCase(FileSystemLessonRepository()).set_lesson_field(

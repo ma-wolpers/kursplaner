@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+- Kompetenznetz → Leiter: Spalte wählbar für Kompetenzen mit Inhalts- und Prozessbereich (2026-11-08, Wunsch der Nutzerin; im Vault 214 Kompetenzen mit `I-`-Primärbereich plus `prozessbereiche`).
+  - Domain (`sequence_ladder_import`): `has_both_sides` als einzige Stelle der Regel (Bereichsarten aller `referenced_bereich_ids` decken beide `LadderSide` ab), `mixed_side_ids` (übernehmbare IDs, für die gefragt wird), `competence_import_items(..., mixed_side=)` (nur für solche Kompetenzen; sonst Primärbereich). `ladder_import_problem` (Markierbarkeit, Hauptkompetenz-Sperre) bleibt unverändert.
+  - Durchreichung `mixed_side` (Default `None` = bisheriges Verhalten): `CompetenceImportTarget.import_ids` → `_LadderTarget`/`_ChooserTarget` → `SequenceLadderHost.import_into` → `SequenceLadderController.import_competences` → `EditSequenceLadderUseCase.import_competences`.
+  - GUI: `KompetenzGraphImportBar.do_import` fragt per `ask_mixed_side` (bw-gui `ChoiceDialogService`) einmal vor der Sequenzwahl; Abbrechen übernimmt nichts. Optionstitel aus `sequence_ladder_board_mapping.side_title` (liest `LANES`, keine zweite Spaltenbeschriftung). Tooltip `import_marked` ergänzt.
+  - Tests: `test_kompetenzgraph_import_bar.py` (neu, Tk-frei), Domain-Tests in `test_sequence_ladder_import.py`, Host-Durchreichung, Use-Case-Test (gemischte Kompetenzen links, Titel mit `;` als Teilziel ladbar).
 - Leiter Drag & Drop: Baustein landete beim Runterziehen in derselben Sprosse eine Position unter der Einfügelinie (2026-11-08, Meldung der Nutzerin).
   - Ursache: zwei Index-Verträge – bw-gui `BoardSlot.index` zählt die gezogene Karte mit, `MoveBlock.target.index` gilt nach dem Herausnehmen (Strg+↓ hält sich daran); `ladder_slot` reichte den Board-Index ungeändert durch. Zusätzlich wurde `MoveBlock(block_ref(key), ladder_slot(slot))` doppelt gebaut (`can_drop`, `controller.drop`).
   - Lösung: `sequence_ladder_board_mapping.drop_move(ladder, key, slot)` als einzige Übersetzung (Index − 1, wenn die Linie in derselben Zelle unterhalb des Bausteins liegt; Grundlage ist die angezeigte Leiter `controller.ladder`, auf der die Linie berechnet wurde). `can_drop` und `controller.drop` nutzen sie. §37-GUI-Absatz ergänzt.

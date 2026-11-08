@@ -23,7 +23,7 @@ from pathlib import Path
 from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
-from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, LadderSide, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
 from kursplaner.core.domain.sequence_ladder_homes import LadderSplit, split_ladder
 from kursplaner.core.domain.sequence_ladder_import import competence_import_items
@@ -143,14 +143,17 @@ class EditSequenceLadderUseCase:
         snapshot: KompetenzGraphSnapshot,
         kompetenz_ids: Iterable[str],
         kc_context: CourseKcContext = CourseKcContext(),
+        mixed_side: LadderSide | None = None,
     ) -> EditSequenceLadderResult:
         """Übernimmt Kompetenzen aus dem Netz als ein Undo-Schritt (Spalte aus der Bereichsart).
 
+        *mixed_side* ist die gewählte Spalte für Kompetenzen mit Inhalts- und
+        Prozessbereich (`sequence_ladder_import.has_both_sides`), ``None`` = Primärbereich.
         Nicht übernehmbare IDs (unbekannt, ohne Primärbereich, inhaltsbezogene
         Hauptkompetenz im *kc_context* des Kurses) und übersprungene Duplikate
         stehen in ``notes``.
         """
-        items, problems = competence_import_items(snapshot, kompetenz_ids, kc_context)
+        items, problems = competence_import_items(snapshot, kompetenz_ids, kc_context, mixed_side)
         if not items:
             return EditSequenceLadderResult(False, None, "Keine übernehmbaren Kompetenzen markiert.", problems)
         return self.execute(

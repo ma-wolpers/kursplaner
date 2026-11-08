@@ -146,7 +146,8 @@ KOMPETENZGRAPH_HELP: dict[str, str] = {
     ),
     "import_marked": (
         "Übernimmt die markierten Kompetenzen als Bausteine in eine Sequenzleiter: Inhaltsbereiche links, "
-        "Prozessbereiche rechts, jeweils in die Sprosse über der höchsten belegten."
+        "Prozessbereiche rechts, jeweils in die Sprosse über der höchsten belegten. Gehört eine markierte "
+        "Kompetenz zu einem Inhalts- und einem Prozessbereich, wird vorher gefragt, in welche Spalte sie kommt."
     ),
     "subjects": "Fach-Mehrfachauswahl: mehrere angehakte Fächer werden ODER-verknüpft angezeigt.",
     "kontexttiefe": (

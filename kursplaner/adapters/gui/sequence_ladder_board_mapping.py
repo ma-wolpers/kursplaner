@@ -55,6 +55,11 @@ SIDE_BY_LANE: dict[str, LadderSide] = {LANE_INHALT: LadderSide.INHALT, LANE_PROZ
 LANE_BY_SIDE: dict[LadderSide, str] = {side: lane for lane, side in SIDE_BY_LANE.items()}
 
 
+def side_title(side: LadderSide) -> str:
+    """Spaltentitel einer Bausteinspalte (aus `LANES`, auch für Dialoge außerhalb des Boards)."""
+    return next(lane.title for lane in LANES if lane.key == LANE_BY_SIDE[side])
+
+
 def _kind_tint(kind: RungKind) -> LessonKindTint | None:
     """Farbton einer Sprossenart: `RungKind`-Werte sind die Terminart-Schlüssel (`lesson_kinds`)."""
     return LESSON_KIND_TINTS.get(kind.value)

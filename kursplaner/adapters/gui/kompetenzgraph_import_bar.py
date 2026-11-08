@@ -7,6 +7,10 @@ fragt es die Sequenz in der Sequenzübersicht ab (beides in
 umgebunden, Filter und Markierung bleiben erhalten. Markierbar ist nur, was in
 eine Leiter des Ziel-Kurses übernommen werden kann (`ladder_import_problem` mit
 dem KC-Kontext des Ziels) – inhaltsbezogene Hauptkompetenzen werden übergangen.
+
+Sind Kompetenzen mit Inhalts- **und** Prozessbereich markiert
+(`sequence_ladder_import.mixed_side_ids`), fragt „Übernehmen“ vorher, in welche
+Spalte diese kommen (`ask_mixed_side`); die übrigen folgen ihrem Primärbereich.
 """
 
 from __future__ import annotations
@@ -14,16 +18,44 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Protocol
 
+from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 from bw_gui.runtime import widgets
 from bw_gui.widgets import HoverTooltip
 
 from kursplaner.adapters.gui.help_catalog import KOMPETENZGRAPH_HELP
 from kursplaner.adapters.gui.kompetenzgraph_marking import clear_marks, mark_visible, toggle_mark
 from kursplaner.adapters.gui.kompetenzgraph_ui_state import KompetenzGraphUiState
+from kursplaner.adapters.gui.sequence_ladder_board_mapping import side_title
 from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
-from kursplaner.core.domain.sequence_ladder_import import ladder_import_problem
+from kursplaner.core.domain.sequence_ladder import LadderSide
+from kursplaner.core.domain.sequence_ladder_import import ladder_import_problem, mixed_side_ids
+
+
+def ask_mixed_side(parent, mixed: int, total: int) -> LadderSide | None:
+    """Fragt die Spalte für *mixed* von *total* markierten Kompetenzen mit Inhalts- und Prozessbereich.
+
+    Returns:
+        Die gewählte Spalte oder ``None`` bei Abbruch (dann wird nichts übernommen).
+    """
+    which = (
+        "Alle markierten Kompetenzen gehören"
+        if mixed == total
+        else f"{mixed} der {total} markierten Kompetenzen gehören"
+    )
+    rest = "" if mixed == total else " Die übrigen kommen wie gewohnt in die Spalte ihres Bereichs."
+    options = [
+        ChoiceOption(side.value, side_title(side), f"Spalte {number}")
+        for number, side in enumerate(LadderSide, start=1)
+    ]
+    key = ChoiceDialogService().askchoice(
+        "Spalte wählen",
+        f"{which} zu einem Inhalts- und einem Prozessbereich. In welche Spalte sollen sie?{rest}",
+        options,
+        parent=parent,
+    )
+    return LadderSide(key) if key else None
 
 
 class CompetenceImportTarget(Protocol):
@@ -33,8 +65,14 @@ class CompetenceImportTarget(Protocol):
         """Beschriftung des Übernahme-Knopfs für *count* markierte Kompetenzen."""
         ...
 
-    def import_ids(self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot) -> None:
-        """Übernimmt die Kompetenzen (ein Undo-Schritt in der Ziel-Leiter)."""
+    def import_ids(
+        self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot, mixed_side: LadderSide | None = None
+    ) -> None:
+        """Übernimmt die Kompetenzen (ein Undo-Schritt in der Ziel-Leiter).
+
+        *mixed_side*: gewählte Spalte für Kompetenzen mit Inhalts- und Prozessbereich
+        (``None`` = Spalte des Primärbereichs).
+        """
         ...
 
     def kc_context(self) -> CourseKcContext:
@@ -68,7 +106,7 @@ class KompetenzGraphImportBar:
         self._state, self._snapshot = state, snapshot
         self._current_view, self._on_marks_changed = current_view, on_marks_changed
         self._target = target
-        frame = widgets.Frame(parent)
+        self._frame = frame = widgets.Frame(parent)
         frame.pack(side="right")
         self._import_button = widgets.Button(frame, text="", command=self.do_import)
         self._import_button.pack(side="right", padx=(6, 0))
@@ -109,9 +147,19 @@ class KompetenzGraphImportBar:
         self._changed()
 
     def do_import(self) -> None:
-        """Übernimmt die Markierung ins Ziel (Reihenfolge nach ID, deterministisch)."""
-        if self._target is not None and self._state.marked_ids:
-            self._target.import_ids(sorted(self._state.marked_ids), self._snapshot)
+        """Übernimmt die Markierung ins Ziel (Reihenfolge nach ID, deterministisch).
+
+        Bei Kompetenzen mit Inhalts- und Prozessbereich wird vorher die Spalte
+        erfragt; Abbrechen übernimmt nichts.
+        """
+        if self._target is None or not self._state.marked_ids:
+            return
+        ids = sorted(self._state.marked_ids)
+        mixed = mixed_side_ids(self._snapshot, ids, self._target.kc_context())
+        side = ask_mixed_side(self._frame, len(mixed), len(ids)) if mixed else None
+        if mixed and side is None:
+            return
+        self._target.import_ids(ids, self._snapshot, side)
 
     def _changed(self) -> None:
         self.refresh()

@@ -34,6 +34,7 @@ from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapsho
 from kursplaner.core.domain.sequence_ladder import (
     BlockRef,
     LadderBlock,
+    LadderSide,
     LadderSlot,
     SequenceLadder,
     block_text_error,
@@ -357,8 +358,12 @@ class SequenceLadderController:
         snapshot: KompetenzGraphSnapshot,
         kompetenz_ids: Iterable[str],
         kc_context: CourseKcContext = CourseKcContext(),
+        mixed_side: LadderSide | None = None,
     ) -> None:
-        """Markierte Netz-Kompetenzen übernehmen (ein Undo-Schritt; *kc_context* = Kurs der Sequenz)."""
+        """Markierte Netz-Kompetenzen übernehmen (ein Undo-Schritt; *kc_context* = Kurs der Sequenz).
+
+        *mixed_side*: gewählte Spalte für Kompetenzen mit Inhalts- und Prozessbereich (``None`` = Primärbereich).
+        """
         context = self._writable_context()
         if context is None:
             return
@@ -370,5 +375,6 @@ class SequenceLadderController:
             snapshot=snapshot,
             kompetenz_ids=kompetenz_ids,
             kc_context=kc_context,
+            mixed_side=mixed_side,
         )
         self._finish(result, self.cursor)

@@ -32,6 +32,7 @@ from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_panel import SequenceLadderPanel
 from kursplaner.core.domain.course_kc_context import CourseKcContext, course_kc_context
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
+from kursplaner.core.domain.sequence_ladder import LadderSide
 from kursplaner.core.usecases.load_sequence_ladder_usecase import sequence_term_days
 
 _NO_SEQUENCE = (
@@ -213,11 +214,17 @@ class SequenceLadderHost:
         table = getattr(self.app, "current_table", None)
         return course_kc_context(table.metadata) if table is not None else CourseKcContext()
 
-    def import_into(self, path: Path, snapshot: KompetenzGraphSnapshot, kompetenz_ids: Iterable[str]) -> None:
-        """Übernimmt Kompetenzen in die Leiter von *path* und zeigt sie."""
+    def import_into(
+        self,
+        path: Path,
+        snapshot: KompetenzGraphSnapshot,
+        kompetenz_ids: Iterable[str],
+        mixed_side: LadderSide | None = None,
+    ) -> None:
+        """Übernimmt Kompetenzen in die Leiter von *path* und zeigt sie (*mixed_side* siehe `CompetenceImportTarget`)."""
         controller = self.show_for_sequence(path)
         if controller is not None:
-            controller.import_competences(snapshot, list(kompetenz_ids), self.kc_context())
+            controller.import_competences(snapshot, list(kompetenz_ids), self.kc_context(), mixed_side)
 
 
 class _LadderTarget:
@@ -234,9 +241,11 @@ class _LadderTarget:
         """KC-Kontext des Kurses dieser Leiter."""
         return self._host.kc_context()
 
-    def import_ids(self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot) -> None:
+    def import_ids(
+        self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot, mixed_side: LadderSide | None = None
+    ) -> None:
         """Übernimmt die markierten Kompetenzen in diese Leiter."""
-        self._host.import_into(self._path, snapshot, kompetenz_ids)
+        self._host.import_into(self._path, snapshot, kompetenz_ids, mixed_side)
 
 
 class _ChooserTarget:
@@ -253,8 +262,10 @@ class _ChooserTarget:
         """KC-Kontext des geöffneten Kurses (nur dessen Sequenzen sind wählbar)."""
         return self._host.kc_context()
 
-    def import_ids(self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot) -> None:
+    def import_ids(
+        self, kompetenz_ids: Iterable[str], snapshot: KompetenzGraphSnapshot, mixed_side: LadderSide | None = None
+    ) -> None:
         """Fragt die Ziel-Sequenz ab und übernimmt dorthin."""
         path = self._host.choose_sequence(title="Zu einer Sequenz hinzufügen")
         if path is not None:
-            self._host.import_into(path, snapshot, kompetenz_ids)
+            self._host.import_into(path, snapshot, kompetenz_ids, mixed_side)
