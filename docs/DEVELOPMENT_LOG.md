@@ -8,6 +8,7 @@ Regel:
 
 ## [Unreleased]
 
+- Leiter-Ansicht, Vorarbeit 0e: `MainWindowSelectionController.select_row(row_index, field_key=, ensure_visible=)` als einziger Weg „Plan-Zeile → Spaltenauswahl“ (2026-11-08); `restore_plan_view` nutzt ihn, die Leiter-Sync folgt in Schritt 3. SSOT-Prüfung: übrige `set_single_column_selection`-Aufrufer arbeiten mit Positionen (Navigation, Suche), keine weitere Zeilen-Suche. `test_plan_view_state` prüft den echten `select_row`.
 - Leiter-Ansicht, Vorarbeit 0d: Tasten in Menüs, Tooltips und Kürzelübersicht nur aus der Bindung (2026-11-08, bw-gui `8be53b2`).
   - Entscheidung der Nutzerin: intern englische `KeySpec`-Notation, Anzeige automatisch deutsch (bw-gui `humanize_shortcut`, eine Übersetzungstabelle). `shortcut_guide.json` verliert `display_shortcut` (29 Einträge; vorher per Skript geprüft: der Formatierer ergibt für alle exakt den bisherigen Text); `ShortcutGuideEntry.display_shortcut` ist abgeleitet, `is_ctrl_shortcut` prüft den Modifikator statt des Textpräfixes.
   - Menüs (`_screen_menus`): `_menu_label(text, intent)` über `compose_menu_label` + Registry (`shortcut_for_intent`), keine Tasten-Literale mehr; Kopieren/Einfügen zeigen die Taste der Kürzel-Intents. Neu sichtbar (Nutzerin: Aussehen darf sich angleichen): „Markdown finden…“, „Einheit leeren“, „Einheit umbenennen…“, „Als Hospitation markieren“ tragen jetzt ihre vorhandene Taste. `RUNTIME_DEBUG_INTENT` als Konstante (Bindung + Menü).

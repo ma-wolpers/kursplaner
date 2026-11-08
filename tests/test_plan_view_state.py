@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from kursplaner.adapters.gui.action_controller import MainWindowActionController
 from kursplaner.adapters.gui.overview_controller import MainWindowOverviewController
 from kursplaner.adapters.gui.plan_view_state import PlanViewState, capture_plan_view, restore_plan_view
+from kursplaner.adapters.gui.selection_controller import MainWindowSelectionController
 from kursplaner.adapters.gui.ui_intent_controller import MainWindowUiIntentController
 from kursplaner.adapters.gui.ui_intents import UiIntent
 from kursplaner.adapters.gui.ui_state import MainWindowUiState
@@ -20,10 +21,12 @@ from tests.day_column_factory import make_day_column
 class _Selection:
     """Zeichnet Auswahlaufrufe auf; `editable` steuert, ob die Zelle gewählt werden kann."""
 
+    select_row = MainWindowSelectionController.select_row  # der echte Weg Zeile → Spalte
+
     def __init__(self, app, *, editable=True):
         self.app, self.editable = app, editable
 
-    def set_single_column_selection(self, day_index):
+    def set_single_column_selection(self, day_index, *, ensure_visible=False):
         self.app.selected_day_indices = {day_index}
 
     def set_selected_cell(self, field_key, day_index):

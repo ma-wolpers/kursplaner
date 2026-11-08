@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, day_index_for_row
 
 
 class MainWindowSelectionController:
@@ -55,6 +55,24 @@ class MainWindowSelectionController:
         self.app.action_controller.update_action_controls()
         if ensure_visible:
             self.ensure_column_visible(day_index)
+
+    def select_row(self, row_index: int, *, field_key: str | None = None, ensure_visible: bool = False) -> bool:
+        """Markiert die Spalte der Plan-Zeile *row_index* (optional dazu die Zelle *field_key*).
+
+        Einziger Weg „Plan-Zeile → Spaltenauswahl“ (Neuladen mit gemerkter Sicht,
+        Sequenzleiter-Cursor). Die Spalte wird über `day_index_for_row` gefunden.
+
+        Returns:
+            ``False``, wenn die Zeile im Grid nicht sichtbar ist (ausgeblendet oder fehlt);
+            die Auswahl bleibt dann unverändert.
+        """
+        day_index = day_index_for_row(self.app.day_columns, row_index)
+        if day_index is None:
+            return False
+        self.set_single_column_selection(day_index, ensure_visible=ensure_visible)
+        if field_key is not None:
+            self.set_selected_cell(field_key, day_index)
+        return True
 
     def _restyle_headers_for_selection_change(self, old_selected: set[int], new_selected: set[int]) -> None:
         """Stylt nur die Header neu, deren Selektionszugehörigkeit sich geändert hat.
