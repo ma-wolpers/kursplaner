@@ -21,6 +21,8 @@ _VALID_ENTRY_SETS = [
     ["Größen ändern ß", "a  b mit doppeltem Leerzeichen"],
     ["A | B ist kein Trenner"],
     ["---x", "x---"],
+    ["f(x)=x^n; n∈ℤ\\{0}", "K1;K2"],
+    ["wörtlich a\\;b", "endet mit \\", "\\;", ";"],
 ]
 
 
@@ -41,6 +43,14 @@ def test_lines_of_two_or_more_dashes_separate(separator):
 
 def test_semicolon_is_quick_separator():
     assert parse_list_cell("K1; K2;K3") == ["K1", "K2", "K3"]
+
+
+def test_escaped_semicolon_is_literal_and_other_backslashes_stay():
+    """Mat-GF-28: Netz-Titel mit ';' und '\\' überstehen Anzeige und Eingabe."""
+    title = "[[Mat-GF-28|Beschreiben … f(x)=x^n; n∈ℤ\\{0}]]"
+    assert format_list_cell([title, "K2"]) == "[[Mat-GF-28|Beschreiben … f(x)=x^n\\; n∈ℤ\\{0}]]\n--\nK2"
+    assert parse_list_cell("a\\; b; c") == ["a; b", "c"]
+    assert list_entry_violation(title) is None
 
 
 @pytest.mark.parametrize(
@@ -78,7 +88,6 @@ def test_parse_output_always_satisfies_invariant():
         ("x ", "Rand"),
         ("a\nb", "Zeilenumbruch"),
         ("a\rb", "Zeilenumbruch"),
-        ("K1; K2", "';'"),
         ("--", "Strichen"),
         ("----", "Strichen"),
         (42, "kein Text"),
@@ -91,15 +100,15 @@ def test_entry_violations_explain_the_cause(entry, fragment):
     assert fragment in reason
 
 
-@pytest.mark.parametrize("entry", ["", "a;b", "a\nb", "--", " x"])
+@pytest.mark.parametrize("entry", ["", "a\nb", "--", " x"])
 def test_format_refuses_entries_that_would_not_roundtrip(entry):
     with pytest.raises(ValueError):
         format_list_cell(["ok", entry])
 
 
 def test_field_violations_reports_all_in_order():
-    violations = list_field_violations(["ok", "a;b", "", "gut", " x"])
-    assert [entry for entry, _ in violations] == ["a;b", "", " x"]
+    violations = list_field_violations(["ok", "--", "", "a;b", " x"])
+    assert [entry for entry, _ in violations] == ["--", "", " x"]
 
 
 def test_field_violations_accepts_empty_forms():
@@ -116,12 +125,12 @@ def test_field_violations_rejects_non_list_shapes():
 
 def test_raise_on_violation_reports_first_violation_with_context():
     with pytest.raises(ListFieldViolationError) as info:
-        raise_on_violation("Material", ["ok", "a;b", ""], source_label="x/Stunde.md")
+        raise_on_violation("Material", ["ok", "--", ""], source_label="x/Stunde.md")
     message = str(info.value)
     assert "x/Stunde.md" in message
     assert "Material" in message
-    assert "'a;b'" in message
-    assert info.value.reason == list_field_violations(["a;b"])[0][1]
+    assert "'--'" in message
+    assert info.value.reason == list_field_violations(["--"])[0][1]
 
 
 def test_raise_on_violation_returns_entries_unchanged():
@@ -150,3 +159,10 @@ def test_lesson_load_rejects_non_string_entry():
 def test_lesson_load_keeps_valid_entries_verbatim():
     data = {"Stundentyp": "Unterricht", "Dauer": "2", "Stundenthema": "X", "Material": ["[[AB.pdf|AB 1]]", "a  b"]}
     assert canonicalize_lesson_yaml(data)["Material"] == ["[[AB.pdf|AB 1]]", "a  b"]
+
+
+def test_lesson_with_semicolon_in_a_goal_loads():
+    """Ein Netz-Titel mit ';' als Teilziel macht die Stunde nicht mehr unladbar."""
+    goal = "[[Mat-GF-28|f(x)=x^n; n∈ℤ\\{0}]]"
+    data = {"Stundentyp": "Unterricht", "Dauer": "2", "Stundenthema": "X", "Teilziele": [goal]}
+    assert canonicalize_lesson_yaml(data)["Teilziele"] == [goal]

@@ -95,7 +95,8 @@ MAIN_WINDOW_HELP: dict[str, str] = {
         "Nur im Spaltenauswahlmodus: Zifferntasten 0-9 wählen relativ zur markierten nächsten Einheit (0 = diese, 1 = die danach folgende stattfindende, 2 = die übernächste, …; Ausfalltage übersprungen, kein Wrap-around).\n"
         "Maus: 1. Klick auf editierbare Zelle markiert, 2. Klick startet Bearbeitung; Klick außerhalb beendet Bearbeitung; Klick auf Datum markiert die Spalte.\n"
         "Listenzellen (z. B. Kompetenzen, Material, mehrere Oberthemen): Einträge stehen untereinander, getrennt durch eine Zeile '--'. "
-        "Beim Bearbeiten trennen eine Zeile aus mindestens zwei Strichen oder ein ';'; '|' und Leerzeilen trennen nicht."
+        "Beim Bearbeiten trennen eine Zeile aus mindestens zwei Strichen oder ein ';'; '|' und Leerzeilen trennen nicht. "
+        "Ein Semikolon im Eintrag selbst steht als '\\;' da (so auch eintippen)."
     ),
 }
 

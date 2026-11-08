@@ -66,7 +66,7 @@ def test_rule_errors_and_no_ops_create_no_entry(tmp_path):
     assert not result.applied and "bereits" in result.error
     assert not env.execute(StepBlock(BlockRef(0, INH, "A"), up=False)).applied
     assert not env.execute(RenameBlock(BlockRef(0, INH, "A"), "A")).applied
-    assert not env.execute(AddBlock(LadderSlot(0, INH, 0), "K1; K2")).applied  # Listenvertrag
+    assert not env.execute(AddBlock(LadderSlot(0, INH, 0), "---")).applied  # Listenvertrag
     assert len(env.history.undo_stack) == 1
 
 

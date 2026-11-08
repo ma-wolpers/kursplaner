@@ -53,7 +53,7 @@ def test_scalar_focus_competencies_is_invalid_not_reinterpreted(tmp_path):
         FileSystemSequencePlanRepository().read_goal_and_focus_competencies(path)
 
 
-@pytest.mark.parametrize("bad", ['  - "A; B"\n', '  - " A"\n', '  - ""\n'])
+@pytest.mark.parametrize("bad", ['  - "--"\n', '  - " A"\n', '  - ""\n'])
 def test_invalid_entry_is_rejected_with_explanation(tmp_path, bad):
     path = _sequence_file(tmp_path, f'Leitkompetenzen:\n  - "ok"\n{bad}')
 
@@ -70,7 +70,7 @@ def test_write_rejects_invalid_entries_before_touching_the_file(tmp_path):
 
     with pytest.raises(ListFieldViolationError):
         FileSystemSequencePlanRepository().write_goal_and_focus_competencies(
-            sequence_path=path, sequenzziel="Z", leitkompetenzen=("A; B",)
+            sequence_path=path, sequenzziel="Z", leitkompetenzen=("--",)
         )
 
     assert path.read_bytes() == before

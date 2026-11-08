@@ -33,7 +33,7 @@ def _controller(applied: list):
 
 
 def test_each_selected_competence_becomes_its_own_list_entry(monkeypatch):
-    refs = ("P 1.1 zerlegen Problemstellungen", "[[Inf-SM-1|Zerlegen Problemstellungen]]")
+    refs = ("P 1.1 zerlegen Problemstellungen", "[[Inf-SM-1|Zerlegen Problemstellungen]]", "[[Mat-GF-28|x^n; n∈ℤ]]")
     monkeypatch.setattr(
         editor_module, "ask_lesson_kompetenzen_selection", lambda **_kwargs: SimpleNamespace(kompetenzen_refs=refs)
     )
@@ -48,7 +48,7 @@ def test_each_selected_competence_becomes_its_own_list_entry(monkeypatch):
 
 def test_entries_violating_the_list_contract_are_refused_not_merged(monkeypatch):
     monkeypatch.setattr(
-        editor_module, "ask_lesson_kompetenzen_selection", lambda **_kwargs: SimpleNamespace(kompetenzen_refs=("a; b",))
+        editor_module, "ask_lesson_kompetenzen_selection", lambda **_kwargs: SimpleNamespace(kompetenzen_refs=("--",))
     )
     errors: list = []
     monkeypatch.setattr(editor_module.messagebox, "showerror", lambda *args, **kwargs: errors.append(args))

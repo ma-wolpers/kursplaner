@@ -5,18 +5,26 @@ Drei Ebenen, damit die Regeln nicht verwechselt werden:
 * **Datei**: Listenfelder stehen als echte YAML-Liste im Frontmatter (eine
   ``- "…"``-Zeile je Eintrag, Obsidian-nativ). Dieses Modul ändert daran nichts.
 * **Grid-Anzeige**: Einträge werden untereinander, getrennt durch eine Zeile
-  ``--``, dargestellt (`format_list_cell`).
+  ``--``, dargestellt (`format_list_cell`); ein ``;`` im Eintrag erscheint
+  maskiert als ``\\;``.
 * **Grid-Eingabe**: Beim Speichern trennt eine Zeile aus mindestens zwei ``-``
   sowie ein ``;`` (Schnelltrenner, z. B. ``K1; K2``) die Einträge
   (`parse_list_cell`). Ein einzelnes ``-``, eine Leerzeile oder ein ``|``
   trennen **nicht** — ``|`` gehört z. B. zu Alias-Links ``[[ziel|alias]]``.
 
+**Escape-Regel (einzige):** ``\\;`` steht für ein wörtliches Semikolon und
+trennt nicht; jeder andere Backslash bleibt wörtlich (z. B. ``ℤ\\{0}``). Die
+Anzeige setzt vor jedes ``;`` genau einen Backslash, die Eingabe entfernt genau
+diesen — so übersteht auch ein wörtliches ``\\;`` den Rundweg (Anzeige
+``\\\\;``). Die Datei selbst enthält nie ein Escape; das Kompetenznetz liefert
+z. B. Titel wie „f(x)=x^n; n∈ℤ\\{0}“.
+
 Daraus folgt die **Invariante eines gültigen Listeneintrags**: Ein Text, der
-nicht leer ist, keinen führenden/nachgestellten Whitespace hat, einzeilig ist,
-kein ``;`` enthält und nicht nur aus Strichen besteht. Nur für solche Einträge
-ist ``parse_list_cell(format_list_cell(entries)) == entries`` garantiert;
-eine Escape-Regel gibt es bewusst nicht. Verletzungen werden nie still
-korrigiert, sondern mit einer verständlichen Erklärung gemeldet:
+nicht leer ist, keinen führenden/nachgestellten Whitespace hat, einzeilig ist
+und nicht nur aus Strichen besteht. Nur für solche Einträge ist
+``parse_list_cell(format_list_cell(entries)) == entries`` garantiert.
+Verletzungen werden nie still korrigiert, sondern mit einer verständlichen
+Erklärung gemeldet:
 
 * zur Laufzeit hart (`ListFieldViolationError`, siehe `raise_on_violation`),
   z. B. beim Laden einer Stunden-Datei in `canonicalize_lesson_yaml`;
@@ -40,6 +48,10 @@ LIST_CELL_SEPARATOR = "--"
 QUICK_SEPARATOR = ";"
 """Zusätzlicher Eingabe-Trenner innerhalb einer Zeile (``K1; K2``)."""
 
+ESCAPED_QUICK_SEPARATOR = "\\" + QUICK_SEPARATOR
+"""Maskiertes, wörtliches Semikolon in der Grid-Zelle (``\\;``); trennt nicht."""
+
+_QUICK_SPLIT_RE = re.compile(r"(?<!\\)" + re.escape(QUICK_SEPARATOR))
 _SEPARATOR_LINE_RE = re.compile(r"^[ \t]*-{2,}[ \t]*$")
 _ONLY_DASHES_RE = re.compile(r"^-{2,}$")
 
@@ -92,7 +104,8 @@ def list_entry_violation(entry: object) -> str | None:
     Example::
 
         list_entry_violation("Modellieren")       # -> None
-        list_entry_violation("K1; K2")             # -> "Eintrag enthält ';' …"
+        list_entry_violation("x^n; n∈ℤ")           # -> None (';' wird im Grid maskiert)
+        list_entry_violation(" Modellieren")      # -> "Eintrag beginnt oder endet …"
     """
     if not isinstance(entry, str):
         return (
@@ -110,11 +123,6 @@ def list_entry_violation(entry: object) -> str | None:
         )
     if entry != entry.strip():
         return "Eintrag beginnt oder endet mit Leerzeichen. Bitte die Leerzeichen am Rand entfernen."
-    if QUICK_SEPARATOR in entry:
-        return (
-            "Eintrag enthält ';'. Im Kursplaner trennt ';' Listeneinträge — bitte in Obsidian als "
-            "getrennte Listeneinträge anlegen oder das Semikolon entfernen."
-        )
     if _ONLY_DASHES_RE.fullmatch(entry):
         return (
             "Eintrag besteht nur aus Strichen. Eine solche Zeile ist im Kursplaner ein Listentrenner — "
@@ -203,7 +211,8 @@ def format_list_cell(entries: Sequence[str]) -> str:
         entries: Gültige Listeneinträge.
 
     Returns:
-        Die Einträge, verbunden mit ``"\\n--\\n"``; ``""`` bei keiner Eingabe.
+        Die Einträge (``;`` maskiert als ``\\;``), verbunden mit ``"\\n--\\n"``;
+        ``""`` bei keiner Eingabe.
 
     Raises:
         ValueError: Wenn ein Eintrag die Invariante verletzt — sonst würde die
@@ -211,24 +220,25 @@ def format_list_cell(entries: Sequence[str]) -> str:
 
     Example::
 
-        format_list_cell(["Modellieren", "Argumentieren"])
-        # -> "Modellieren\\n--\\nArgumentieren"
+        format_list_cell(["Modellieren", "x^n; n∈ℤ"])
+        # -> "Modellieren\\n--\\nx^n\\\\; n∈ℤ"
     """
     for entry in entries:
         reason = list_entry_violation(entry)
         if reason is not None:
             raise ValueError(f"Listeneintrag {entry!r} kann nicht verlustfrei dargestellt werden: {reason}")
-    return f"\n{LIST_CELL_SEPARATOR}\n".join(entries)
+    escaped = (entry.replace(QUICK_SEPARATOR, ESCAPED_QUICK_SEPARATOR) for entry in entries)
+    return f"\n{LIST_CELL_SEPARATOR}\n".join(escaped)
 
 
 def parse_list_cell(text: str) -> list[str]:
     """Parst den Text einer Grid-Listenzelle in Listeneinträge.
 
     Ablauf: Zeilenenden vereinheitlichen → an Zeilen aus ≥ 2 Strichen trennen
-    → jeden Abschnitt zusätzlich an ``;`` trennen → die Zeilen eines
-    Abschnitts mit einem Leerzeichen verbinden → trimmen, leere verwerfen.
-    Das Ergebnis erfüllt die Invariante per Konstruktion (einzeilig, getrimmt,
-    ohne ``;``, nie nur Striche, weil solche Zeilen Trenner sind).
+    → die Zeilen eines Abschnitts mit einem Leerzeichen verbinden → an jedem
+    nicht maskierten ``;`` trennen → trimmen, leere verwerfen → ``\\;`` zu
+    ``;`` auflösen. Das Ergebnis erfüllt die Invariante per Konstruktion
+    (einzeilig, getrimmt, nie nur Striche, weil solche Zeilen Trenner sind).
 
     Args:
         text: Roher Zelltext aus dem Grid-Editor.
@@ -238,8 +248,8 @@ def parse_list_cell(text: str) -> list[str]:
 
     Example::
 
-        parse_list_cell("K1; K2\\n--\\n[[AB.pdf|AB 1]]")
-        # -> ["K1", "K2", "[[AB.pdf|AB 1]]"]
+        parse_list_cell("K1; K2\\n--\\n[[AB.pdf|AB 1]]\\n--\\nx^n\\\\; n∈ℤ")
+        # -> ["K1", "K2", "[[AB.pdf|AB 1]]", "x^n; n∈ℤ"]
     """
     normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
     chunks: list[list[str]] = [[]]
@@ -252,10 +262,10 @@ def parse_list_cell(text: str) -> list[str]:
     entries: list[str] = []
     for chunk_lines in chunks:
         joined = " ".join(line.strip() for line in chunk_lines if line.strip())
-        for part in joined.split(QUICK_SEPARATOR):
+        for part in _QUICK_SPLIT_RE.split(joined):
             # Nur am Rand trimmen: Leerraum *innerhalb* eines Eintrags bleibt
             # erhalten, sonst wäre der Roundtrip z. B. für "a  b" gebrochen.
-            candidate = part.strip()
+            candidate = part.strip().replace(ESCAPED_QUICK_SEPARATOR, QUICK_SEPARATOR)
             if candidate and not _ONLY_DASHES_RE.fullmatch(candidate):
                 entries.append(candidate)
     return entries

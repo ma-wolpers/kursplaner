@@ -39,13 +39,13 @@ def test_reports_all_violations_of_a_file_not_only_the_first(tmp_path):
     path = _lesson(
         course,
         "s1",
-        'Kompetenzen:\n  - "ok"\n  - "K1; K2"\nMaterial:\n  - " Rand"\n  - "gut"\n  - ""\n',
+        'Kompetenzen:\n  - "ok"\n  - "---"\n  - "K1; K2"\nMaterial:\n  - " Rand"\n  - "gut"\n  - ""\n',
     )
 
     findings = check_lesson_file(path)
 
     assert [(f.field, f.entry) for f in findings] == [
-        ("Kompetenzen", "K1; K2"),
+        ("Kompetenzen", "---"),
         ("Material", " Rand"),
         ("Material", ""),
     ]
@@ -62,7 +62,7 @@ def test_parser_keeps_empty_items_so_they_are_reported(tmp_path):
 def test_messages_are_identical_to_runtime_errors(tmp_path):
     """Gleiche Regelquelle: Tool-Erklärung == Erklärung der Laufzeit-Exception."""
     course = _course(tmp_path)
-    path = _lesson(course, "s1", 'Material:\n  - "a;b"\n')
+    path = _lesson(course, "s1", 'Material:\n  - "--"\n')
 
     [finding] = check_lesson_file(path)
     data, _ = parse_yaml_frontmatter(path.read_text(encoding="utf-8"), LESSON_SCHEMA)
@@ -75,9 +75,7 @@ def test_messages_are_identical_to_runtime_errors(tmp_path):
 def test_ignores_list_fields_the_lesson_type_does_not_use(tmp_path):
     course = _course(tmp_path)
     path = course / "Einheiten" / "a1.md"
-    path.write_text(
-        '---\nStundentyp: Ausfall\nDauer: 2\nStundenthema: X\nMaterial:\n  - "a;b"\n---\n', encoding="utf-8"
-    )
+    path.write_text('---\nStundentyp: Ausfall\nDauer: 2\nStundenthema: X\nMaterial:\n  - "--"\n---\n', encoding="utf-8")
 
     assert check_lesson_file(path) == []
 
@@ -85,7 +83,7 @@ def test_ignores_list_fields_the_lesson_type_does_not_use(tmp_path):
 def test_sequence_focus_competencies_must_be_a_list(tmp_path):
     course = _course(tmp_path)
     scalar = _sequence(course, "s-scalar", 'Leitkompetenzen: "Modellieren"\n')
-    bad_entry = _sequence(course, "s-bad", 'Leitkompetenzen:\n  - "A; B"\n')
+    bad_entry = _sequence(course, "s-bad", 'Leitkompetenzen:\n  - "--"\n')
     ok = _sequence(course, "s-ok", 'Leitkompetenzen:\n  - "Modellieren"\n')
 
     findings = scan(tmp_path, include_archive=False)
@@ -111,14 +109,14 @@ def test_main_exit_codes(tmp_path, capsys):
     _lesson(course, "ok", 'Material:\n  - "AB"\n')
     assert main(["--unterricht-dir", str(tmp_path), "--no-archive"]) == 0
 
-    _lesson(course, "bad", 'Material:\n  - "a;b"\n')
+    _lesson(course, "bad", 'Material:\n  - "--"\n')
     assert main(["--unterricht-dir", str(tmp_path), "--no-archive"]) == 1
-    assert "a;b" in capsys.readouterr().out
+    assert "Strichen" in capsys.readouterr().out
 
 
 def test_tool_never_writes(tmp_path):
     course = _course(tmp_path)
-    path = _lesson(course, "bad", 'Material:\n  - "a;b"\n')
+    path = _lesson(course, "bad", 'Material:\n  - "--"\n')
     before = path.read_bytes()
 
     main(["--unterricht-dir", str(tmp_path), "--no-archive"])

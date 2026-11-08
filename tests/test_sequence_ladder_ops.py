@@ -238,4 +238,5 @@ def test_duplicate_groups_are_connected_over_text_and_competence_id():
 
 
 def test_block_text_follows_the_list_entry_contract():
-    assert "';'" in (block_text_error("K1; K2", SequenceLadder(), side=INH, rung=0) or "")
+    assert "Strichen" in (block_text_error("---", SequenceLadder(), side=INH, rung=0) or "")
+    assert block_text_error("x^n; n∈ℤ\\{0}", SequenceLadder(), side=INH, rung=0) is None

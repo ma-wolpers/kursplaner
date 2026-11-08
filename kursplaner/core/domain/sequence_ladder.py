@@ -286,7 +286,7 @@ def block_text_error(
 
     Regeln: nicht leer, einzeilig, beginnt nicht mit ``[[`` (im Dateiformat für
     Netz-Bausteine reserviert), erfüllt den Listenvertrag der Einheiten-Felder
-    (`list_cell_text.list_entry_violation`, z. B. kein ``;``) und ist in seinem
+    (`list_cell_text.list_entry_violation`, z. B. nicht nur Striche) und ist in seinem
     Eindeutigkeitsbereich (`uniqueness_scope`) eindeutig.
 
     Args:
