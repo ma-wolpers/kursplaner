@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Iterable
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, day_for_row
 from kursplaner.core.domain.expected_horizon_cutoff import HorizonCutoff
 from kursplaner.core.domain.oberthema_values import normalize_oberthemen
 from kursplaner.core.domain.plan_table import parse_plan_row_date
@@ -110,10 +110,10 @@ class ExpectedHorizonTopicQueryUseCase:
 
     @staticmethod
     def _find_anchor(raw_day_columns: list[DayColumn], anchor_row_index: int) -> DayColumn:
-        for day in raw_day_columns:
-            if isinstance(day, DayColumn) and day.row_index == anchor_row_index:
-                return day
-        raise RuntimeError("Es ist keine gültige Einheit ausgewählt.")
+        day = day_for_row(raw_day_columns, anchor_row_index)
+        if day is None:
+            raise RuntimeError("Es ist keine gültige Einheit ausgewählt.")
+        return day
 
     @staticmethod
     def _cutoff_for_anchor(anchor: DayColumn) -> HorizonCutoff:

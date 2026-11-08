@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.domain.day_column import day_index_for_row
+
 
 @dataclass(frozen=True)
 class PlanViewState:
@@ -71,12 +73,11 @@ def restore_plan_view(app, state: PlanViewState) -> None:
         state: Zustand aus :func:`capture_plan_view`.
     """
     app.ui_state.set_selection_level(app.ui_state.SELECTION_LEVEL_COLUMN)
-    for day_index, day in enumerate(app.day_columns):
-        if day.row_index == state.selected_row:
-            app.selection_controller.set_single_column_selection(day_index)
-            if state.selected_field is not None:
-                app.selection_controller.set_selected_cell(state.selected_field, day_index)
-            break
+    day_index = day_index_for_row(app.day_columns, state.selected_row) if state.selected_row is not None else None
+    if day_index is not None:
+        app.selection_controller.set_single_column_selection(day_index)
+        if state.selected_field is not None:
+            app.selection_controller.set_selected_cell(state.selected_field, day_index)
     app.action_controller.update_action_controls()
 
     def _restore_scroll() -> None:

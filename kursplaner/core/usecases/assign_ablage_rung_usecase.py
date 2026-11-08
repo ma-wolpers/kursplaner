@@ -22,7 +22,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, day_for_row
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.sequence_ladder import LadderRung
 from kursplaner.core.domain.sequence_ladder_assign import (
@@ -204,7 +204,7 @@ class AssignAblageRungUseCase:
         content = snapshot.ladder.rung(rung)
         if content.is_empty:
             return "Die Sprosse ist leer – es gibt nichts zuzuordnen."
-        day = next((d for d in day_columns if d.row_index == target_row), None)
+        day = day_for_row(day_columns, target_row)
         if day is None:
             return "Die gewählte Zeile gibt es im Plan nicht (mehr)."
         error = assign_target_error(day)

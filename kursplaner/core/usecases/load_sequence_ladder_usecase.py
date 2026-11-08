@@ -15,7 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, days_by_row
 from kursplaner.core.domain.sequence_ladder import BlockRef, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
 from kursplaner.core.domain.sequence_ladder_homes import RungKind, rung_kind
@@ -76,18 +76,13 @@ def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSeq
         day_columns: Alle Tagesspalten des Plans (unprojiziert, `raw_day_columns`).
         runs: Alle Läufe, die dieselbe Sequenzdatei teilen.
     """
-    by_row = {day.row_index: day for day in day_columns}
+    by_row = days_by_row(day_columns)
     rows: set[int] = set()
     for run in runs:
         if not run.member_row_indices:
             continue
         members = set(run.member_row_indices)
-        first, last = min(members), max(members)
-        rows.update(
-            index
-            for index in range(first, last + 1)
-            if index in by_row and (index in members or by_row[index].is_cancel())
-        )
+        rows.update(index for index in by_row if run.covers(index) and (index in members or by_row[index].is_cancel()))
     return [by_row[index] for index in sorted(rows)]
 
 

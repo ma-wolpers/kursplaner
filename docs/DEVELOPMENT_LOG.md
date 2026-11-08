@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+- Leiter-Ansicht, Vorarbeit 0a/0b: Plan-Zeilen-Suche und Lauf-Spanne aus je einer Quelle (2026-11-08).
+  - `day_column.day_index_for_row`/`day_for_row`/`days_by_row` ersetzen sechs Kopien: `ExportTopicUnitsPdfUseCase._find_day_by_row_index` (entfernt), `AssignAblageRungUseCase`, `ExpectedHorizonTopicQueryUseCase._find_anchor`, `ExportLzkExpectedHorizonUseCase._require_lzk`, `plan_view_state.restore_plan_view`, `{day.row_index: day}` in `sequence_term_days` und `SequenceLadderHost.choose_sequence`.
+  - `TopicSequenceRun.covers(row)` (über `first_row_index`/`last_row_index`, dieselbe Spanne wie die Sequenzfelder im Grid) ersetzt die `min/max(members)`-Nachrechnungen in `sequence_term_days` und `SequenceLadderHost.selected_sequence_path`. Verhalten unverändert (Mitglieder chronologisch, Zeilenindizes steigend).
+  - SSOT-Prüfung des Diffs: Grep auf `row_index ==`, `{… row_index: day}`, `min/max(members)` – verbleibend nur ein Vergleich (`sequence_ladder_assign_flow`) und die Sequenzsuche über die erste Zeile (`editor_controller`, einzige Stelle). Test `test_day_row_lookup.py`.
 - Spaltenkopf „nächste Einheit“: Farbe in jedem Theme, Leiter-Töne aus einer Quelle (2026-11-08, Befund aus dem Sichttest).
   - Ursache: `_apply_header_color` tönte `next_unit` mit `info_soft`, das nur die Kursplaner-Themes Ledger/Blackforge definieren; bw-gui mischte den unbekannten Namen still zu Grau (#6E7074). Seit 2026-08-25 unsichtbar, weil das Auswahl-Styling die Tönung sofort überschrieb (behoben in Teil C). Lösung nach Wahl der Nutzerin: `info`-Tokenfamilie in bw-gui (alle Themes) und `tinted_color` wirft bei unbekannten Tokens (bw-gui `b39a3b3`, zuerst pushen). Kursplaner-Code bleibt bei `info_soft`.
   - `sequence_ladder_board_mapping._TINT_KIND` (RungKind → Farbschlüssel) entfernt: `RungKind`-Werte sind seit Teil C die Terminart-Schlüssel, `_kind_tint` liest `LESSON_KIND_TINTS` direkt.

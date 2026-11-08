@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Sequence
 
 from kursplaner.core.config.path_store import infer_obsidian_vault_root
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, day_for_row
 from kursplaner.core.domain.expected_horizon_files import (
     build_horizon_link,
     default_lzk_horizon_filename,
@@ -134,7 +134,7 @@ class ExportLzkExpectedHorizonUseCase:
 
     @staticmethod
     def _require_lzk(raw_day_columns: list[DayColumn], anchor_row_index: int) -> DayColumn:
-        day = next((d for d in raw_day_columns if isinstance(d, DayColumn) and d.row_index == anchor_row_index), None)
+        day = day_for_row(raw_day_columns, anchor_row_index)
         if day is None or not day.is_lzk():
             raise RuntimeError("Die ausgewählte Spalte ist keine LZK.")
         link = day.link

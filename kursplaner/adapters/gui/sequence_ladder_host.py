@@ -21,6 +21,7 @@ from kursplaner.adapters.gui.sequence_ladder_controller import LadderContext, Se
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
 from kursplaner.core.domain.course_kc_context import CourseKcContext, course_kc_context
+from kursplaner.core.domain.day_column import days_by_row
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.usecases.day_label_format import short_day_label
 from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
@@ -62,8 +63,7 @@ class SequenceLadderHost:
             if 0 <= index < len(self.app.day_columns)
         }
         for view in self.app.topic_sequence_plans:
-            members = view.run.member_row_indices
-            if members and any(min(members) <= row <= max(members) for row in rows):
+            if any(view.run.covers(row) for row in rows):
                 return view.sequence_path
         return None
 
@@ -73,7 +73,7 @@ class SequenceLadderHost:
         if not grouped:
             messagebox.showinfo(title, _NO_SEQUENCE, parent=self.app)
             return None
-        by_row = {day.row_index: day for day in self.app.raw_day_columns}
+        by_row = days_by_row(self.app.raw_day_columns)
         options = []
         for path, views in grouped.items():
             members = sorted(row for view in views for row in view.run.member_row_indices)

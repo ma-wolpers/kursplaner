@@ -73,6 +73,15 @@ class TopicSequenceRun:
         """Zeilenindex der letzten (chronologisch spätesten) Einheit des Laufs."""
         return self.member_row_indices[-1]
 
+    def covers(self, row_index: int) -> bool:
+        """Liegt die Plan-Zeile in der Spanne des Laufs (erste bis letzte Einheit, inkl. Lücken)?
+
+        Einzige Spannen-Regel: dieselbe Spanne zeichnet das Grid für die Sequenzfelder
+        (`first_row_index` … `last_row_index`); Leiter-Termine und „Sequenz der markierten
+        Spalte“ nutzen sie ebenfalls.
+        """
+        return bool(self.member_row_indices) and self.first_row_index <= row_index <= self.last_row_index
+
 
 def compute_topic_sequence_runs(raw_day_columns: list[DayColumn]) -> list[TopicSequenceRun]:
     """Berechnet alle Themen-Sequenz-Läufe innerhalb einer chronologischen Tagesliste.

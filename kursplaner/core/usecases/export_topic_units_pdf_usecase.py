@@ -18,7 +18,7 @@ from datetime import date
 from pathlib import Path
 from typing import Protocol
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, day_for_row
 from kursplaner.core.domain.export_date_formatting import extract_term_token, schoolyear_from_term
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
@@ -104,14 +104,6 @@ class ExportTopicUnitsPdfUseCase:
         self._renderer = renderer
         self._sequence_export_sync = sequence_export_sync
 
-    @staticmethod
-    def _find_day_by_row_index(day_columns: list[DayColumn], row_index: int) -> DayColumn | None:
-        """Sucht die Tages-Spalte mit passendem, stabilem Zeilenindex."""
-        for day in day_columns:
-            if day.row_index == row_index:
-                return day
-        return None
-
     def execute(
         self,
         *,
@@ -141,7 +133,7 @@ class ExportTopicUnitsPdfUseCase:
                 exportierbar ist, kein Oberthema trägt oder die Sequenz keine
                 exportierbaren Zeilen enthält.
         """
-        selected_day = self._find_day_by_row_index(day_columns, selected_row_index)
+        selected_day = day_for_row(day_columns, selected_row_index)
         if selected_day is None:
             raise RuntimeError("Es ist keine gueltige Einheit ausgewaehlt.")
 

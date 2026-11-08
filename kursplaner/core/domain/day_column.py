@@ -25,6 +25,7 @@ werden nirgends im Codebestand nach der Konstruktion in-place mutiert.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from functools import cached_property
@@ -301,3 +302,32 @@ class DayColumn:
             lesson_type = self.lesson_type()
             return "" if lesson_type == "Unterricht" else lesson_type
         return self.content_marker_text() or ""
+
+
+def day_index_for_row(days: Sequence[object], row_index: int) -> int | None:
+    """Position der Tagesspalte mit dem stabilen Zeilenindex *row_index* in *days*.
+
+    Einzige Suche „Plan-Zeile → Tagesspalte“ im Kursplaner; `day_for_row` und
+    `days_by_row` bauen darauf bzw. auf derselben Schlüsselregel auf. Einträge,
+    die keine `DayColumn` sind, werden übersprungen.
+
+    Returns:
+        Die Position, oder ``None``, wenn es die Zeile in *days* nicht gibt (etwa weil
+        die Spalte ausgeblendet ist).
+    """
+    for index, day in enumerate(days):
+        if isinstance(day, DayColumn) and day.row_index == row_index:
+            return index
+    return None
+
+
+def day_for_row(days: Sequence[object], row_index: int) -> DayColumn | None:
+    """Tagesspalte mit dem stabilen Zeilenindex *row_index* (siehe `day_index_for_row`)."""
+    index = day_index_for_row(days, row_index)
+    day = days[index] if index is not None else None
+    return day if isinstance(day, DayColumn) else None
+
+
+def days_by_row(days: Sequence[object]) -> dict[int, DayColumn]:
+    """Tagesspalten nach stabilem Zeilenindex, für viele Abfragen auf einmal."""
+    return {day.row_index: day for day in days if isinstance(day, DayColumn)}
