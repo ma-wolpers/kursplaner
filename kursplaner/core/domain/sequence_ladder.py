@@ -236,6 +236,18 @@ class SequenceLadder:
                 groups.append(tuple(sorted(group, key=lambda r: r.rung)))
         return tuple(groups)
 
+    def without_rung(self, index: int) -> SequenceLadder:
+        """Kopie ohne Sprosse *index*; die Sprossen darüber rücken eine Stufe nach unten.
+
+        Gesperrte Indizes oberhalb rücken mit, der entfernte Index entfällt. Genutzt,
+        wenn eine Ablage-Sprosse einer Einheit zugeordnet wird (`sequence_ladder_assign`).
+        """
+        if not 0 <= index < len(self.rungs):
+            return self
+        rungs = self.rungs[:index] + self.rungs[index + 1 :]
+        locked = frozenset(i - 1 if i > index else i for i in self.locked_rungs if i != index)
+        return replace(self, rungs=rungs, locked_rungs=locked)
+
     def trimmed(self) -> SequenceLadder:
         """Kopie ohne leere Sprossen am oberen Ende (werden nicht gespeichert)."""
         rungs = list(self.rungs)
@@ -255,9 +267,16 @@ def conflict_message(block: LadderBlock, side: LadderSide) -> str:
     return f"Es gibt {where} bereits einen Baustein „{block.text}“."
 
 
-def locked_message(rung: int) -> str:
-    """Nutzerlesbare Meldung: Sprosse *rung* (0-basiert) ist gesperrt."""
-    return f"Sprosse {rung + 1} nimmt keine Bausteine oder Ideen auf (LZK, Hospitation oder Ausfall)."
+def locked_message(rung: int, reason: str = "") -> str:
+    """Nutzerlesbare Meldung: Sprosse *rung* (0-basiert) ist gesperrt.
+
+    Args:
+        rung: Index der Sprosse (0 = unten).
+        reason: Tatsächlicher Grund (`sequence_ladder_homes.locked_reason`); ohne ihn
+            werden alle möglichen Gründe genannt (Aufrufer, die die Terminart nicht kennen).
+    """
+    why = reason or "LZK, Hospitation, Ausfall oder Termin ohne eigene, lesbare Unterrichtsdatei"
+    return f"Sprosse {rung + 1} nimmt keine Bausteine oder Ideen auf ({why})."
 
 
 def block_text_error(

@@ -22,9 +22,9 @@ def _app(tmp_path: Path, calls: list):
         return lambda *a, **k: calls.append(("VERBOTEN", name))
 
     app = SimpleNamespace(
-        current_table=object(),
+        current_table=SimpleNamespace(markdown_path=tmp_path / "Kurs.md"),
         raw_day_columns=days,
-        _collect_day_columns=lambda rows: calls.append(("collect", rows)),
+        _collect_day_columns=lambda rows=None: calls.append(("collect", rows)),
         _refresh_grid_content=lambda: calls.append(("refresh",)),
         _rebuild_grid=forbidden("_rebuild_grid"),
         overview_controller=SimpleNamespace(reload_keeping_view=forbidden("reload_keeping_view")),
@@ -50,6 +50,15 @@ def test_ablage_only_write_leaves_the_grid_alone(tmp_path):
     refresh_after_files_written(app, (tmp_path / "Sequenzen" / "Brüche.md",))
 
     assert calls == [("actions",)]
+
+
+def test_written_plan_file_rederives_all_columns_without_full_reload(tmp_path):
+    calls: list = []
+    app, units = _app(tmp_path, calls)
+
+    refresh_after_files_written(app, (tmp_path / "Kurs.md", units[1]))
+
+    assert calls == [("collect", None), ("refresh",)]
 
 
 def test_rows_linking_resolves_paths(tmp_path):

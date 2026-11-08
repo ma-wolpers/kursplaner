@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor
 
 from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
@@ -38,6 +39,7 @@ from kursplaner.core.domain.sequence_ladder import (
     block_text_error,
     locked_message,
 )
+from kursplaner.core.domain.sequence_ladder_homes import locked_reason
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
     LadderOperation,
@@ -70,6 +72,14 @@ class LadderDialogs(Protocol):
         """Zeigt einen Hinweis."""
         ...
 
+    def choose(self, title: str, prompt: str, options: Sequence[tuple[str, str, str]]) -> str | None:
+        """Eine von *options* ``(key, label, description)`` wählen; ``None`` bei Abbruch."""
+        ...
+
+    def confirm(self, title: str, message: str) -> bool:
+        """Ja/Nein-Rückfrage."""
+        ...
+
 
 class TkLadderDialogs:
     """`LadderDialogs` über die bw-gui-Dialogdienste."""
@@ -90,6 +100,15 @@ class TkLadderDialogs:
         """Hinweis."""
         messagebox.showinfo(title, message, parent=self._parent)
 
+    def choose(self, title: str, prompt: str, options: Sequence[tuple[str, str, str]]) -> str | None:
+        """Auswahl als Knopf-Dialog (bw-gui `askchoice`, ein Knopf je Option)."""
+        choices = [ChoiceOption(key, label, description) for key, label, description in options]
+        return ChoiceDialogService().askchoice(title, prompt, choices, parent=self._parent)
+
+    def confirm(self, title: str, message: str) -> bool:
+        """Ja/Nein-Rückfrage (bw-gui `askyesno`)."""
+        return bool(messagebox.askyesno(title, message, parent=self._parent))
+
 
 class SequenceLadderController:
     """Zustand und Aktionen eines geöffneten Leiter-Editors."""
@@ -104,6 +123,7 @@ class SequenceLadderController:
         dialogs: LadderDialogs,
         render: Callable[[SequenceLadderView, Cursor, str | None], None],
         after_write: Callable[[tuple[Path, ...]], None],
+        assign: Callable[[int, LadderContext], EditSequenceLadderResult | None] | None = None,
     ) -> None:
         """Verdrahtet den Editor; `reload()` lädt die erste Ansicht.
 
@@ -118,10 +138,12 @@ class SequenceLadderController:
                 Hauptfenster **gezielt** aktualisieren (nur Zeilen dieser Einheiten,
                 `plan_partial_refresh`); lädt es dabei die Leiter neu, entfällt das
                 eigene Neuladen.
+            assign: Zuordnen-Ablauf für Ablage-Sprossen (`AssignRungFlow`); ``None`` = nicht verfügbar.
         """
         self.sequence_path = sequence_path
         self._load, self._edit, self._context = load, edit, context
         self._dialogs, self._render, self._after_write = dialogs, render, after_write
+        self._assign = assign
         self._oberthema = sequence_path.stem
         self._missing = False
         self._reload_count = 0
@@ -211,7 +233,11 @@ class SequenceLadderController:
     def _locked(self, slot: LadderSlot) -> bool:
         """Gesperrte Sprosse: Hinweis statt Texteingabe (Regeltext aus der Domain)."""
         if self.ladder.is_locked(slot.rung):
-            self._dialogs.show_info("Sequenzleiter", locked_message(slot.rung))
+            kind = (
+                self.view.rungs[slot.rung].kind if self.view is not None and slot.rung < len(self.view.rungs) else None
+            )
+            reason = locked_reason(kind) if kind is not None else ""
+            self._dialogs.show_info("Sequenzleiter", locked_message(slot.rung, reason))
             return True
         return False
 
@@ -309,6 +335,15 @@ class SequenceLadderController:
         selected = self._selected()
         if selected is not None:
             self._run(StepBlock(selected[0], up), self.cursor)
+
+    def assign_rung(self, row_key: str) -> None:
+        """Zuordnen-Knopf einer Ablage-Sprosse: Ablauf (`AssignRungFlow`) und Abschluss wie jede Aktion."""
+        context = self._writable_context()
+        if context is None or self._assign is None:
+            return
+        result = self._assign(rung_index(row_key), context)
+        if result is not None:
+            self._finish(result, self.cursor)
 
     def drop(self, key: str, slot: BoardSlot) -> None:
         """Drag & Drop: Baustein (Kartenschlüssel *key*) an die angezeigte Einfügelinie verschieben."""

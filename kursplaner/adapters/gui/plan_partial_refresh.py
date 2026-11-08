@@ -14,6 +14,12 @@ Aktion geschrieben hat:
 
 Trifft keine Zeile (z. B. nur die Ablage der Sequenzdatei geändert), bleibt das
 Grid unangetastet; der Aufrufer lädt die Leiter dann selbst.
+
+Ist die Plan-Datei selbst unter den geschriebenen Dateien (Zuordnen einer
+Ablage-Sprosse hat eine Einheit angelegt und verlinkt), werden alle Tagesspalten
+aus der – bereits geänderten – Tabelle im Speicher neu abgeleitet
+(`collect_day_columns()` ohne Zeilen); Kursliste, Ladedialog und Widget-Neuaufbau
+entfallen trotzdem.
 """
 
 from __future__ import annotations
@@ -32,8 +38,14 @@ def refresh_after_files_written(app, paths: Iterable[Path]) -> None:
             ``_collect_day_columns``, ``_refresh_grid_content`` und ``action_controller``).
         paths: Von der Aktion geschriebene Dateien (Einheiten und/oder Sequenzdatei).
     """
+    paths = list(paths)
+    table = app.current_table
+    if table is not None and table.markdown_path.resolve() in {path.resolve() for path in paths}:
+        app._collect_day_columns()
+        app._refresh_grid_content()
+        return
     rows = LoadPlanDetailUseCase.rows_linking(list(getattr(app, "raw_day_columns", ())), paths)
-    if app.current_table is not None and rows:
+    if table is not None and rows:
         app._collect_day_columns(rows)
         app._refresh_grid_content()  # aktualisiert auch die Aktionsknöpfe (Undo)
         return

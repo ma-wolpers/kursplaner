@@ -24,6 +24,7 @@ from kursplaner.core.domain.sequence_ladder_ops import (
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungKind, sequence_term_days
+from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository
 from kursplaner.infrastructure.repositories.plan_table_file_repository import load_linked_lesson_yaml
 
 INH, PRO = LadderSide.INHALT, LadderSide.PROZESS
@@ -219,7 +220,7 @@ def test_import_lands_on_the_first_open_rung_above_the_highest_occupied(tmp_path
 
 def test_grid_edits_of_a_unit_show_up_on_the_next_load(tmp_path):
     env = make_ladder_env(tmp_path, "U")
-    LessonEditUseCase(env.edit._lessons).set_lesson_field(
+    LessonEditUseCase(FileSystemLessonRepository()).set_lesson_field(
         env.units[0], "Kompetenzen", "", list_entries=["Argumentieren"]
     )
     assert [b.text for b in env.view().ladder.rung(0).prozess] == ["Argumentieren"]

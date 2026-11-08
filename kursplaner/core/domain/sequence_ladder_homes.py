@@ -106,24 +106,51 @@ class LadderHomes:
         return tuple(home.lesson_path for home in self.terms if isinstance(home, UnitHome))
 
 
+def term_home(day: DayColumn) -> UnitHome | MarkerHome:
+    """Zuhause eines einzelnen Termins – **einzige** Regel, ob ein Termin Ziele aufnehmen kann.
+
+    Nur ein Unterrichtstermin mit verlinkter Datei wird `UnitHome`; LZK,
+    Hospitation, Ausfall und Termine ohne eigene Unterrichtsdatei werden
+    `MarkerHome` ihrer Art. Genutzt von `ladder_homes` und vom Zuordnen einer
+    Ablage-Sprosse (`sequence_ladder_assign`).
+    """
+    link = day.link
+    if day.lesson_type() == UNIT_LESSON_TYPE and isinstance(link, Path):
+        return UnitHome(link)
+    return MarkerHome(rung_kind(day))
+
+
+_LOCKED_REASONS = {
+    RungKind.LZK: "LZK",
+    RungKind.HOSPITATION: "Hospitation",
+    RungKind.AUSFALL: "Ausfall",
+    RungKind.UNTERRICHT: "Termin ohne eigene, lesbare Unterrichtsdatei",
+}
+
+
+def locked_reason(kind: RungKind) -> str:
+    """Grund, warum eine Sprosse dieser Art gesperrt ist (Text für `locked_message`); leer bei Ablage."""
+    return _LOCKED_REASONS.get(kind, "")
+
+
 def ladder_homes(term_days: Sequence[DayColumn]) -> LadderHomes:
     """Zuhause je Termin (`sequence_term_days`, chronologisch = Sprossen von unten).
 
-    Nur ein Unterrichtstermin mit verlinkter Unterricht-Einheit wird `UnitHome`;
-    alles andere ist gesperrt. Verweisen zwei Termine auf dieselbe Datei, ist
-    nur der erste ihr Zuhause, damit kein Inhalt doppelt erscheint.
+    Je Termin entscheidet `term_home`. Verweisen zwei Termine auf dieselbe Datei,
+    ist nur der erste ihr Zuhause (der zweite wird gesperrt), damit kein Inhalt
+    doppelt erscheint.
     """
     seen: set[Path] = set()
     terms: list[UnitHome | MarkerHome] = []
     for day in term_days:
-        kind = rung_kind(day)
-        link = day.link
-        if day.lesson_type() == UNIT_LESSON_TYPE and isinstance(link, Path):
-            if link not in seen:
-                seen.add(link)
-                terms.append(UnitHome(link))
+        home = term_home(day)
+        if isinstance(home, UnitHome):
+            if home.lesson_path not in seen:
+                seen.add(home.lesson_path)
+                terms.append(home)
                 continue
-        terms.append(MarkerHome(kind))
+            home = MarkerHome(rung_kind(day))
+        terms.append(home)
     return LadderHomes(tuple(terms))
 
 

@@ -319,6 +319,7 @@ class LessonRepository(Protocol):
         row_index: int,
         lesson_topic: str,
         default_hours: int,
+        lesson_path: Path | None = None,
     ) -> Path:
         """Erzeugt eine neue Stunden-Datei und verlinkt sie in der Planungstabelle.
 
@@ -327,6 +328,9 @@ class LessonRepository(Protocol):
             row_index: Tabellenzeile, die verlinkt wird.
             lesson_topic: Anfangsthema für die neue Stunde (leer bleibt leer).
             default_hours: Initiale Dauer der Stunde.
+            lesson_path: Vorab über `new_lesson_path` vergebener Pfad (damit eine
+                undo-fähige Aktion die noch nicht existierende Datei erfassen kann);
+                ``None`` vergibt einen neuen.
 
         Returns:
             Pfad der erzeugten Stunden-Datei.

@@ -32,6 +32,7 @@ __all__ = [
     "RungInfo",
     "RungKind",
     "SequenceLadderView",
+    "rung_info",
     "rung_infos",
     "sequence_term_days",
 ]
@@ -90,13 +91,15 @@ def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSeq
     return [by_row[index] for index in sorted(rows)]
 
 
+def rung_info(day: DayColumn) -> RungInfo:
+    """Kurzdatum und Terminart einer Tagesspalte (auch für die Zielauswahl beim Zuordnen)."""
+    return RungInfo(short_day_label(day.datum), rung_kind(day))
+
+
 def rung_infos(days: Sequence[DayColumn], rung_count: int) -> tuple[RungInfo, ...]:
     """Termin je Sprosse (Index 0 = unten); ohne Termin ``??``/`OFFEN`."""
     return tuple(
-        RungInfo(short_day_label(days[i].datum), rung_kind(days[i]))
-        if i < len(days)
-        else RungInfo(UNKNOWN_DATE_LABEL, RungKind.OFFEN)
-        for i in range(rung_count)
+        rung_info(days[i]) if i < len(days) else RungInfo(UNKNOWN_DATE_LABEL, RungKind.OFFEN) for i in range(rung_count)
     )
 
 

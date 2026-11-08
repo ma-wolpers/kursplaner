@@ -27,6 +27,7 @@ from kursplaner.core.usecases.apply_school_wide_cancellations_to_new_rows_usecas
 from kursplaner.core.usecases.apply_timetable_change_usecase import ApplyTimetableChangeUseCase
 from kursplaner.core.usecases.archive_former_courses_usecase import ArchiveFormerCoursesUseCase
 from kursplaner.core.usecases.archive_past_lesson_files_usecase import ArchivePastLessonFilesUseCase
+from kursplaner.core.usecases.assign_ablage_rung_usecase import AssignAblageRungUseCase
 from kursplaner.core.usecases.bulk_cancellation_coordinator import BulkCancellationCoordinator
 from kursplaner.core.usecases.cleanup_lzk_expected_horizon_links_usecase import CleanupLzkExpectedHorizonLinksUseCase
 from kursplaner.core.usecases.clear_selected_lesson_usecase import ClearSelectedLessonUseCase
@@ -199,6 +200,7 @@ class GuiDependencies:
     update_sequence_goal_field_usecase: UpdateSequenceGoalFieldUseCase
     load_sequence_ladder_usecase: LoadSequenceLadderUseCase
     edit_sequence_ladder_usecase: EditSequenceLadderUseCase
+    assign_ablage_rung_usecase: AssignAblageRungUseCase
     file_relation_registry_repo: FileSystemFileRelationRegistryRepository
     rebuild_file_relation_registry_usecase: RebuildFileRelationRegistryUseCase
     grid_cell_policy_usecase: GridCellPolicyUseCase
@@ -456,6 +458,14 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         lesson_edit=lesson_edit,
         tracked_write=tracked_write_usecase,
     )
+    assign_ablage_rung_usecase = AssignAblageRungUseCase(
+        source=sequence_ladder_source,
+        sequence_plan_repo=sequence_plan_repo,
+        lesson_repo=lesson_repo,
+        lesson_edit=lesson_edit,
+        plan_repo=plan_repo,
+        tracked_write=tracked_write_usecase,
+    )
     # `reportlab` ist eine optionale Laufzeitabhaengigkeit (siehe requirements.txt):
     # fehlt sie, bleiben nur die drei PDF-/LZK-Exportwege deaktiviert (GUI zeigt
     # dann einen Hinweis statt abzustuerzen), der Rest der App startet normal.
@@ -577,6 +587,7 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         update_sequence_goal_field_usecase=update_sequence_goal_field_usecase,
         load_sequence_ladder_usecase=load_sequence_ladder_usecase,
         edit_sequence_ladder_usecase=edit_sequence_ladder_usecase,
+        assign_ablage_rung_usecase=assign_ablage_rung_usecase,
         file_relation_registry_repo=file_relation_registry_repo,
         rebuild_file_relation_registry_usecase=rebuild_file_relation_registry_usecase,
         grid_cell_policy_usecase=grid_cell_policy_usecase,

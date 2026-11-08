@@ -16,6 +16,7 @@ from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_files_written
+from kursplaner.adapters.gui.sequence_ladder_assign_flow import AssignRungFlow
 from kursplaner.adapters.gui.sequence_ladder_controller import LadderContext, SequenceLadderController, TkLadderDialogs
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
@@ -108,14 +109,21 @@ class SequenceLadderHost:
         window = SequenceLadderWindow(
             self.app, theme_key=self.app.theme_var.get(), on_import_click=self.open_competence_picker
         )
+        dialogs = TkLadderDialogs(window)
         controller = SequenceLadderController(
             sequence_path=path,
             load=deps.load_sequence_ladder_usecase,
             edit=deps.edit_sequence_ladder_usecase,
             context=lambda: self._context(path),
-            dialogs=TkLadderDialogs(window),
+            dialogs=dialogs,
             render=window.render,
             after_write=lambda written: refresh_after_files_written(self.app, written),
+            assign=AssignRungFlow(
+                usecase=deps.assign_ablage_rung_usecase,
+                dialogs=dialogs,
+                sequence_path=path,
+                table=lambda: getattr(self.app, "current_table", None),
+            ),
         )
         window.attach(controller)
         bind_ladder_keys(window, window.board, controller, undo=self._undo, redo=self._redo)

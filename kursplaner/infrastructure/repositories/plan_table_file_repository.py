@@ -220,10 +220,12 @@ def create_linked_lesson_file(
     row_index: int,
     lesson_topic: str,
     default_hours: int,
+    lesson_path: Path | None = None,
 ) -> Path:
     """Legt eine neue Stundendatei mit Zufallsstem an und verknüpft sie in der Plantabelle.
 
-    Der Dateiname kommt aus `new_lesson_path`.
+    Der Dateiname kommt aus `new_lesson_path` – oder ist *lesson_path*, wenn der
+    Aufrufer ihn vorher dort geholt hat (damit Undo die neue Datei erfassen kann).
 
     Args:
         plan_table: Planungstabelle, in die der Link eingetragen wird.
@@ -231,11 +233,12 @@ def create_linked_lesson_file(
         lesson_topic: Fachlicher Stundenthemen-Titel (wird unverändert ins YAML
             geschrieben; leer bleibt leer, es gibt keinen Platzhalter).
         default_hours: Stundenzahl als Standardwert im YAML-Feld ``Dauer``.
+        lesson_path: Vorab vergebener Pfad aus `new_lesson_path`; ``None`` vergibt einen.
 
     Returns:
         Pfad der neu angelegten Stundendatei.
     """
-    candidate = new_lesson_path(plan_table.markdown_path.parent)
+    candidate = lesson_path if lesson_path is not None else new_lesson_path(plan_table.markdown_path.parent)
 
     initial: dict[str, object] = {
         "Stundentyp": "Unterricht",

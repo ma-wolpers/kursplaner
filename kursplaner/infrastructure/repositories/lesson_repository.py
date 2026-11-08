@@ -108,14 +108,20 @@ class FileSystemLessonRepository:
         self._lesson_yaml_cache.pop(lesson.lesson_path.resolve(), None)
 
     def create_linked_lesson_file(
-        self, plan_table: PlanTableData, row_index: int, lesson_topic: str, default_hours: int
+        self,
+        plan_table: PlanTableData,
+        row_index: int,
+        lesson_topic: str,
+        default_hours: int,
+        lesson_path: Path | None = None,
     ) -> Path:
-        """Erzeugt und verlinkt eine neue Stunden-Datei für eine Planzeile."""
+        """Erzeugt und verlinkt eine neue Stunden-Datei für eine Planzeile (optional unter *lesson_path*)."""
         return create_linked_lesson_file(
             plan_table=plan_table,
             row_index=row_index,
             lesson_topic=lesson_topic,
             default_hours=default_hours,
+            lesson_path=lesson_path,
         )
 
     def new_lesson_path(self, plan_table: PlanTableData, suffix: str = ".md") -> Path:

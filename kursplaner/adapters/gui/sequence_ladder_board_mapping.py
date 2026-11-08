@@ -29,9 +29,16 @@ from bw_gui.widgets.card_board import (
 )
 
 from kursplaner.adapters.gui.lesson_kind_tints import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, LESSON_KIND_TINTS
-from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, LadderSide, LadderSlot, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import (
+    BlockRef,
+    LadderRuleError,
+    LadderRung,
+    LadderSide,
+    LadderSlot,
+    SequenceLadder,
+)
 from kursplaner.core.domain.sequence_ladder_ops import MoveBlock, apply_ladder_operation
-from kursplaner.core.usecases.load_sequence_ladder_usecase import RungKind, SequenceLadderView
+from kursplaner.core.usecases.load_sequence_ladder_usecase import RungInfo, RungKind, SequenceLadderView
 
 LANE_INHALT = "inhalt"
 LANE_PROZESS = "prozess"
@@ -74,11 +81,25 @@ def block_ref(key: str) -> BlockRef:
     return BlockRef(int(rung), LadderSide(side), text)
 
 
-def _row_label(index: int, view: SequenceLadderView) -> str:
-    info = view.rungs[index]
+ASSIGN_ACTION_TEXT = "→ Einheit"
+"""Knopftext an Ablage-Sprossen mit Inhalt: Sprosse einer Plan-Zeile zuordnen."""
+
+
+def term_label(info: RungInfo) -> str:
+    """Termin-Text: Kurzdatum, bei LZK/Hospitation/Ausfall mit Art (Sprossen-Label und Zielauswahl)."""
     tint_kind = _TINT_KIND.get(info.kind)
     suffix = f" · {LESSON_KIND_TINTS[tint_kind].label}" if tint_kind else ""
-    return f"Sprosse {index + 1}\n{info.date_label}{suffix}"
+    return f"{info.date_label}{suffix}"
+
+
+def _row_label(index: int, view: SequenceLadderView) -> str:
+    return f"Sprosse {index + 1}\n{term_label(view.rungs[index])}"
+
+
+def _row_action(index: int, rung: LadderRung, view: SequenceLadderView) -> str | None:
+    """Zuordnen-Knopf nur an Ablage-Sprossen („??“) mit Inhalt einer lesbaren Leiter."""
+    assignable = view.ladder is not None and view.rungs[index].kind is RungKind.OFFEN and not rung.is_empty
+    return ASSIGN_ACTION_TEXT if assignable else None
 
 
 def _row_tint(index: int, view: SequenceLadderView) -> RowTint | None:
@@ -122,6 +143,7 @@ def board_rows(view: SequenceLadderView) -> list[BoardRow]:
                 {LANE_IDEEN: "\n".join(rung.ideen)},
                 _row_tint(index, view),
                 locked=locked,
+                action=_row_action(index, rung, view),
             )
         )
     return rows

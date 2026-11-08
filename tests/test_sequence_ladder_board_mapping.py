@@ -8,6 +8,7 @@ from bw_gui.widgets.card_board import BoardCell, BoardSlot, CardTone
 
 from kursplaner.adapters.gui.lesson_kind_tints import LESSON_KIND_TINTS
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
+    ASSIGN_ACTION_TEXT,
     LANE_IDEEN,
     LANE_INHALT,
     LANE_PROZESS,
@@ -18,6 +19,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     initial_cursor,
     ladder_slot,
     rung_key,
+    term_label,
     view_hints,
 )
 from kursplaner.core.domain.sequence_ladder import (
@@ -121,3 +123,18 @@ def test_legacy_duplicates_get_the_warning_tone_and_a_hint():
         "Sprosse 9: Hinweis",
         "Lernziel „A“ steht mehrfach (Sprossen 1 und 3) – bitte zusammenführen.",
     )
+
+
+def test_assign_button_only_on_filled_ablage_rungs_of_a_readable_ladder():
+    with_ablage = SequenceLadder(LADDER.rungs + (LadderRung((LadderBlock("C"),)),))
+    view = _view(with_ablage)
+    actions = {row.key: row.action for row in board_rows(view)}
+    assert actions == {rung_key(2): ASSIGN_ACTION_TEXT, rung_key(1): None, rung_key(0): None}
+    assert all(row.action is None for row in board_rows(_view()))  # „??“-Sprosse leer
+    unreadable = SequenceLadderView(Path("x.md"), "Brüche", None, view.rungs)
+    assert all(row.action is None for row in board_rows(unreadable))
+
+
+def test_term_label_is_shared_by_row_label_and_target_choice():
+    assert term_label(RungInfo("Di 03.11.", RungKind.LZK)) == f"Di 03.11. · {LESSON_KIND_TINTS['lzk'].label}"
+    assert term_label(RungInfo("Mo 02.11.", RungKind.UNTERRICHT)) == "Mo 02.11."

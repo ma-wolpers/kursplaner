@@ -16,9 +16,8 @@ Regel-, Format- und Lesefehler schreiben nichts und erzeugen keinen Eintrag.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 
 from kursplaner.core.domain.course_kc_context import CourseKcContext
@@ -26,13 +25,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.sequence_ladder import BlockRef, LadderRuleError, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
-from kursplaner.core.domain.sequence_ladder_homes import (
-    IDEEN_HEADING,
-    UNIT_LESSON_TYPE,
-    LadderSplit,
-    split_ladder,
-    unit_goal_fields,
-)
+from kursplaner.core.domain.sequence_ladder_homes import LadderSplit, split_ladder
 from kursplaner.core.domain.sequence_ladder_import import competence_import_items
 from kursplaner.core.domain.sequence_ladder_ops import (
     ImportCompetences,
@@ -45,6 +38,7 @@ from kursplaner.core.ports.repositories import LessonRepository, SequencePlanRep
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.load_sequence_ladder_usecase import sequence_term_days
 from kursplaner.core.usecases.sequence_ladder_source import LadderSnapshot, SequenceLadderSource
+from kursplaner.core.usecases.sequence_ladder_writes import LadderWrite, LadderWriters, ladder_writes
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 
 
@@ -69,12 +63,6 @@ class EditSequenceLadderResult:
     written: tuple[Path, ...] = ()
 
 
-@dataclass(frozen=True)
-class _Write:
-    path: Path
-    run: Callable[[], object]
-
-
 class EditSequenceLadderUseCase:
     """Wendet Leiter-Operationen an und schreibt sie undo-fähig in Einheiten und Sequenzdatei."""
 
@@ -89,9 +77,7 @@ class EditSequenceLadderUseCase:
     ) -> None:
         """Initialisiert den Use Case mit Lesequelle, Schreibwegen und Undo-Orchestrierung."""
         self._source = source
-        self._sequences = sequence_plan_repo
-        self._lessons = lesson_repo
-        self._lesson_edit = lesson_edit
+        self._writers = LadderWriters(lesson_edit=lesson_edit, lessons=lesson_repo, sequences=sequence_plan_repo)
         self._tracked_write = tracked_write
 
     def execute(
@@ -137,25 +123,16 @@ class EditSequenceLadderUseCase:
             return EditSequenceLadderResult(False, snapshot.ladder, error, all_notes)
         return EditSequenceLadderResult(True, result.ladder, None, all_notes, result.focus, tuple(paths))
 
-    def _writes(self, sequence_path: Path, snapshot: LadderSnapshot, split: LadderSplit) -> list[_Write]:
-        """Geplante Schreibvorgänge, nur für tatsächlich geänderte Teile."""
-        writes: list[_Write] = []
-        for path, new in split.units.items():
-            old = snapshot.units[path]
-            fields = unit_goal_fields(new)
-            if fields != unit_goal_fields(old):
-                write_fields = partial(self._lesson_edit.set_lesson_fields, path, fields, require_type=UNIT_LESSON_TYPE)
-                writes.append(_Write(path, write_fields))
-            if new.ideen != old.ideen:
-                writes.append(_Write(path, partial(self._lessons.write_lesson_section, path, IDEEN_HEADING, new.ideen)))
-        if split.ablage != snapshot.ablage.trimmed():
-            writes.append(
-                _Write(
-                    sequence_path,
-                    lambda: self._sequences.write_ladder_ablage(sequence_path=sequence_path, ablage=split.ablage),
-                )
-            )
-        return writes
+    def _writes(self, sequence_path: Path, snapshot: LadderSnapshot, split: LadderSplit) -> list[LadderWrite]:
+        """Geplante Schreibvorgänge, nur für tatsächlich geänderte Teile (`ladder_writes`)."""
+        return ladder_writes(
+            self._writers,
+            sequence_path=sequence_path,
+            old_units=snapshot.units,
+            new_units=split.units,
+            old_ablage=snapshot.ablage.trimmed(),
+            new_ablage=split.ablage,
+        )
 
     def import_competences(
         self,

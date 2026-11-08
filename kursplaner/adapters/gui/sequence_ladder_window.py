@@ -65,6 +65,7 @@ class SequenceLadderWindow(ScrollablePopupWindow):
             can_drop=self._can_drop,
             on_drop=lambda key, slot: self._call(lambda c: c.drop(key, slot)),
             on_text_commit=lambda cell, text: self._call(lambda c: c.commit_ideas(cell, text)),
+            on_row_action=lambda row_key: self._call(lambda c: c.assign_rung(row_key)),
         )
         self.board.frame.pack(fill="both", expand=True)
         self.board.set_lanes(LANES)
