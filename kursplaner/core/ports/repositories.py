@@ -325,11 +325,26 @@ class LessonRepository(Protocol):
         Args:
             plan_table: Zielplanung, in der der Link gesetzt wird.
             row_index: Tabellenzeile, die verlinkt wird.
-            lesson_topic: Anfangsthema für die neue Stunde.
+            lesson_topic: Anfangsthema für die neue Stunde (leer bleibt leer).
             default_hours: Initiale Dauer der Stunde.
 
         Returns:
             Pfad der erzeugten Stunden-Datei.
+        """
+        ...
+
+    def new_lesson_path(self, plan_table: PlanTableData, suffix: str = ".md") -> Path:
+        """Kollisionsfreier Pfad für eine neue Einheit (Zufallscode), ohne die Datei anzulegen.
+
+        Einzige Namensvergabe für neue Einheiten: dieselbe Regel wie beim Anlegen
+        (`create_linked_lesson_file`), auch für eingefügte Kopien.
+
+        Args:
+            plan_table: Planung, in deren Einheitenverzeichnis die Datei liegen soll.
+            suffix: Endung (``.md`` oder ``.ebw``).
+
+        Returns:
+            Pfad im Einheitenverzeichnis der Planung.
         """
         ...
 

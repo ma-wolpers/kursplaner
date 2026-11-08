@@ -142,11 +142,9 @@ class MainWindowEditorController:
         row_index = day.row_index
         default_hours = day.stunden()
 
-        topic = preferred_topic.strip() or "Unterrichtseinheit"
-
-        # Use the lesson_commands use case to create and link a new lesson file.
+        # Neues Thema = Eingabe; leer bleibt leer (kein Platzhalter, `Stundenthema` ist optional).
         new_path = self.lesson_commands.create_regular_lesson_link(
-            self.app.current_table, row_index, topic, default_hours
+            self.app.current_table, row_index, preferred_topic.strip(), default_hours
         )
         return new_path
 

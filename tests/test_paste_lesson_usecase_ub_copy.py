@@ -36,9 +36,7 @@ class _LessonTransferStub:
         self.lesson_repo = lesson_repo
         self.source_ub_link = source_ub_link
 
-    def write_pasted_lesson(
-        self, target_path: Path, content: str, source_stem: str, *, clear_ub_link: bool = True
-    ) -> Path:
+    def write_pasted_lesson(self, target_path: Path, content: str, *, clear_ub_link: bool = True) -> Path:
         lesson_data = {
             "Stundenthema": target_path.stem,
             "Unterrichtsbesuch": "" if clear_ub_link else self.source_ub_link,
@@ -54,8 +52,8 @@ class _LessonTransferStub:
     def delete_lesson_file(self, path: Path) -> None:
         path.unlink(missing_ok=True)
 
-    def next_unique_stem_path(self, target_dir: Path, preferred_stem: str) -> Path:
-        return target_dir / f"{preferred_stem}.md"
+    def new_pasted_lesson_path(self, table: PlanTableData, suffix: str = ".md") -> Path:
+        return table.markdown_path.parent / "Einheiten" / f"ab12cd{suffix}"
 
     def lesson_dir_for_table(self, table: PlanTableData) -> Path:
         return table.markdown_path.parent / "Einheiten"
@@ -115,7 +113,6 @@ def test_paste_usecase_copies_linked_ub_when_requested(tmp_path):
         allow_delete=False,
         target_path=target_path,
         content="---\nStundenthema: Demo\n---\n",
-        source_stem="Kurs C 01-01 Thema",
         ub_copy_mode="copy",
     )
 

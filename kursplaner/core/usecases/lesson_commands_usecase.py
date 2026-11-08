@@ -5,7 +5,7 @@ from pathlib import Path
 from kursplaner.core.domain.markdown_lists import markdown_bullet_lines
 from kursplaner.core.domain.markdown_sections import extract_bullet_items
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY, distinct_raw_entries, read_oberthema_state
-from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
+from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.wiki_links import build_wiki_link, first_wiki_link_label
 from kursplaner.core.ports.repositories import LessonRepository
 
@@ -41,7 +41,8 @@ class LessonCommandsUseCase:
         Args:
             table: Planungstabelle.
             row_index: Zielzeile.
-            title: Titel für die anzulegende Stunde.
+            title: Stundenthema der neuen Stunde, roh (normalisiert wird beim
+                Speichern in `canonicalize_lesson_yaml`; leer bleibt leer).
             default_hours: Initiale Stundenanzahl.
 
         Returns:
@@ -50,7 +51,7 @@ class LessonCommandsUseCase:
         link = self.lesson_repo.create_linked_lesson_file(table, row_index, title, default_hours)
         lesson = self.lesson_repo.load_lesson_yaml(link)
         lesson.data["Stundentyp"] = "LZK"
-        lesson.data["Stundenthema"] = sanitize_hour_title(title) or "LZK"
+        lesson.data["Stundenthema"] = title
         lesson.data.setdefault(OBERTHEMA_KEY, [])
         self.lesson_repo.save_lesson_yaml(lesson)
         return link
@@ -89,7 +90,7 @@ class LessonCommandsUseCase:
 
         Args:
             lesson_path: Pfad zur Stunden-Datei.
-            topic: Neues Stundenthema.
+            topic: Neues Stundenthema, roh (leer bleibt leer).
             oberthema_input: Optionaler Oberthemawert.
             was_lzk: Kennzeichen, ob die Stunde vorher als LZK geführt wurde.
             content_before: Vorheriger Tabelleninhalt für Fallbacks.
@@ -102,7 +103,7 @@ class LessonCommandsUseCase:
         """
         lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
         lesson.data["Stundentyp"] = "Unterricht"
-        lesson.data["Stundenthema"] = sanitize_hour_title(topic)
+        lesson.data["Stundenthema"] = topic
         repair = False
         if oberthema_input:
             lesson.data[OBERTHEMA_KEY] = oberthema_input

@@ -38,9 +38,7 @@ class _LessonTransferStub:
     def __init__(self, lesson_repo: _LessonRepoStub):
         self.lesson_repo = lesson_repo
 
-    def write_pasted_lesson(
-        self, target_path: Path, content: str, source_stem: str, *, clear_ub_link: bool = True
-    ) -> Path:
+    def write_pasted_lesson(self, target_path: Path, content: str, *, clear_ub_link: bool = True) -> Path:
         self.lesson_repo.save_lesson_yaml(
             LessonYamlData(
                 lesson_path=target_path,
@@ -60,8 +58,8 @@ class _LessonTransferStub:
     def delete_lesson_file(self, path: Path) -> None:
         path.unlink(missing_ok=True)
 
-    def next_unique_stem_path(self, target_dir: Path, preferred_stem: str) -> Path:
-        return target_dir / f"{preferred_stem}.md"
+    def new_pasted_lesson_path(self, table: PlanTableData, suffix: str = ".md") -> Path:
+        return table.markdown_path.parent / "Einheiten" / f"ab12cd{suffix}"
 
     def lesson_dir_for_table(self, table: PlanTableData) -> Path:
         return table.markdown_path.parent / "Einheiten"
@@ -131,7 +129,6 @@ def test_paste_conflict_delete_removes_existing_target_ub_and_updates_overview(t
         allow_delete=True,
         target_path=plan_dir / "Einheiten" / "Kurs D 01-02 Neu.md",
         content="---\nStundenthema: Neu\n---\n",
-        source_stem="Kurs D 01-00 Quelle",
         ub_copy_mode="none",
     )
 
@@ -181,7 +178,6 @@ def test_paste_conflict_delete_is_blocked_without_confirmation(tmp_path):
         allow_delete=False,
         target_path=plan_dir / "Einheiten" / "Kurs E 01-02 Neu.md",
         content="---\nStundenthema: Neu\n---\n",
-        source_stem="Kurs E 01-00 Quelle",
         ub_copy_mode="none",
     )
 

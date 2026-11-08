@@ -15,11 +15,14 @@ Ziel: Verhindern, dass nur ein Teil (z. B. nur README oder nur Code) geaendert w
 1. YAML-Feldmenge pro Typ:
 `kursplaner/core/domain/lesson_yaml_policy.py`
 
-2. Erforderliche YAML-Mindestvalidierung beim Parsen:
-`kursplaner/core/domain/yaml_registry.py`
+2. Erforderliche YAML-Mindestvalidierung beim Parsen (Pflicht: `Stundentyp`, `Dauer`;
+`Stundenthema` ist optional und darf leer sein, es gibt keinen Platzhalter):
+`kursplaner/core/domain/yaml_registry.py` → `LESSON_SCHEMA`
 
 3. Dateibenennung (6-stelliger Zufallscode `[a-z0-9]{6}`, z. B. `ab12cd`):
-`kursplaner/core/domain/lesson_naming.py` → `generate_random_lesson_stem()`
+`kursplaner/core/domain/lesson_naming.py` → `generate_random_lesson_stem()`, Formatpruefung `is_random_lesson_stem()`;
+Pfadvergabe fuer neue Einheiten (Anlegen **und** Einfuegen) nur ueber
+`plan_table_file_repository.new_lesson_path()` (Port `LessonRepository.new_lesson_path`)
 
 3b. Dateiendungen von Stundendateien (`.md`, Blattwerk-Kurzentwurf `.ebw`) und durchgereichter Blattwerk-Marker `document_type`:
 `kursplaner/core/domain/lesson_files.py`
@@ -79,8 +82,11 @@ Wenn einer dieser Punkte fehlt, ist die Aenderung nicht done.
 Vor Commit ausfuehren:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\tools\ci\check_einheiten_schema_consistency.ps1
+python tools/ci/check_einheiten_schema.py
 ```
 
 Der Check bricht mit Exit-Code 1 ab, wenn eine Einheitendatei gegen Naming- oder YAML-Regeln verstoesst.
+Er fuehrt **keine eigenen Regeln**: Namensformat (`lesson_naming.is_random_lesson_stem`), Endungen,
+Pflichtfelder (`yaml_registry.LESSON_SCHEMA`) und erlaubte Felder (`lesson_yaml_policy`) werden
+importiert. Eine Schema-Aenderung im Code gilt damit automatisch auch fuer den Check.
 

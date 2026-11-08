@@ -11,6 +11,7 @@ from kursplaner.infrastructure.repositories.plan_table_file_repository import (
     get_row_link_path,
     load_linked_lesson_yaml,
     load_raw_linked_lesson_frontmatter,
+    new_lesson_path,
     save_linked_lesson_yaml,
 )
 
@@ -116,6 +117,10 @@ class FileSystemLessonRepository:
             lesson_topic=lesson_topic,
             default_hours=default_hours,
         )
+
+    def new_lesson_path(self, plan_table: PlanTableData, suffix: str = ".md") -> Path:
+        """Kollisionsfreier Zufallspfad für eine neue Einheit (`plan_table_file_repository.new_lesson_path`)."""
+        return new_lesson_path(plan_table.markdown_path.parent, suffix)
 
     def read_lesson_section(self, lesson_path: Path, heading: str) -> tuple[str, ...]:
         """Zeilen eines ``##``-Abschnitts im Body (immer frisch von der Platte; `markdown_section_files`)."""

@@ -26,7 +26,6 @@ from kursplaner.core.domain.plan_table import (
     COLUMN_THEMA_AUSFALL,
     LessonYamlData,
     PlanTableData,
-    sanitize_hour_title,
 )
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, first_wiki_link, strip_wiki_link
 from kursplaner.core.domain.yaml_registry import (
@@ -50,6 +49,7 @@ __all__ = [
     "save_linked_lesson_yaml",
     "load_raw_linked_lesson_frontmatter",
     "create_linked_lesson_file",
+    "new_lesson_path",
     "sync_thema_ausfall_to_plan_row",
     "get_row_link_path",
     "validate_managed_markdown_yaml",
@@ -153,7 +153,7 @@ def get_row_link_path(table: PlanTableData, row_index: int) -> Path | None:
 
 def load_linked_lesson_yaml(path: Path) -> LessonYamlData:
     data, _ = _parse_yaml_frontmatter(path)
-    normalized = canonicalize_lesson_yaml(data, topic_hint=path.stem, source_label=str(path))
+    normalized = canonicalize_lesson_yaml(data, source_label=str(path))
     return LessonYamlData(lesson_path=path, data=normalized)
 
 
@@ -183,7 +183,7 @@ def save_linked_lesson_yaml(lesson: LessonYamlData, *, repair_oberthema: bool = 
             on_disk_data, parsed_raw = parsed
             body = body_after_frontmatter(parsed_raw)
 
-    normalized = canonicalize_lesson_yaml(lesson.data, topic_hint=lesson.lesson_path.stem)
+    normalized = canonicalize_lesson_yaml(lesson.data)
     ensure_oberthema_write_allowed(
         on_disk_data.get(OBERTHEMA_KEY),
         normalized.get(OBERTHEMA_KEY),
@@ -191,6 +191,28 @@ def save_linked_lesson_yaml(lesson: LessonYamlData, *, repair_oberthema: bool = 
     )
     frontmatter = _render_yaml_frontmatter(normalized, blattwerk_marker=on_disk_data.get(BLATTWERK_MARKER_KEY))
     atomic_write_text(lesson.lesson_path, frontmatter + body, encoding="utf-8")
+
+
+def new_lesson_path(plan_dir: Path, suffix: str = ".md") -> Path:
+    """Pfad für eine neue Einheit – **einzige** Stelle, die neue Einheiten-Dateinamen vergibt.
+
+    Der Stem ist ein 6-stelliger Zufallscode aus ``[a-z0-9]`` (z. B. ``md38md``),
+    eindeutig über beide Einheitenordner (``Einheiten/`` und ``Alteinheiten/``)
+    und über beide Endungen (``.md``/``.ebw``: gleicher Stem = gleicher Link).
+    Anlegen (`create_linked_lesson_file`) und Einfügen einer kopierten Einheit
+    nutzen beide diese Funktion. Die Datei selbst wird nicht angelegt, nur das
+    Einheitenverzeichnis.
+
+    Args:
+        plan_dir: Ordner der Plan-Datei.
+        suffix: Endung der neuen Datei (``.md`` oder ``.ebw`` einer eingefügten Kopie).
+
+    Returns:
+        Kollisionsfreier Pfad im Einheitenverzeichnis.
+    """
+    stunden_dir = resolve_lesson_dir(plan_dir, create_if_missing=True)
+    existing_stems = lesson_stems(stunden_dir) | lesson_stems(plan_dir / LESSON_DIR_ARCHIVE)
+    return stunden_dir / f"{generate_random_lesson_stem(existing_stems)}{suffix}"
 
 
 def create_linked_lesson_file(
@@ -201,33 +223,24 @@ def create_linked_lesson_file(
 ) -> Path:
     """Legt eine neue Stundendatei mit Zufallsstem an und verknüpft sie in der Plantabelle.
 
-    Der Dateiname besteht aus einem eindeutigen 6-stelligen Zufallscode aus
-    ``[a-z0-9]`` (z. B. ``md38md.md``), der global über beide Einheitenordner
-    (``Einheiten/`` und ``Alteinheiten/``) eindeutig ist.
+    Der Dateiname kommt aus `new_lesson_path`.
 
     Args:
         plan_table: Planungstabelle, in die der Link eingetragen wird.
         row_index: Index der Tabellenzeile, die den Link erhalten soll.
-        lesson_topic: Fachlicher Stundenthemen-Titel (wird ins YAML geschrieben).
+        lesson_topic: Fachlicher Stundenthemen-Titel (wird unverändert ins YAML
+            geschrieben; leer bleibt leer, es gibt keinen Platzhalter).
         default_hours: Stundenzahl als Standardwert im YAML-Feld ``Dauer``.
 
     Returns:
         Pfad der neu angelegten Stundendatei.
     """
-    plan_dir = plan_table.markdown_path.parent
-    stunden_dir = resolve_lesson_dir(plan_dir, create_if_missing=True)
-
-    # Kollisionsfrei auch gegenüber `.ebw`-Stunden (gleicher Stem = gleicher Link).
-    existing_stems = lesson_stems(stunden_dir) | lesson_stems(plan_dir / LESSON_DIR_ARCHIVE)
-
-    new_stem = generate_random_lesson_stem(existing_stems)
-    candidate = stunden_dir / f"{new_stem}.md"
-    title = sanitize_hour_title(lesson_topic) or "einheit"
+    candidate = new_lesson_path(plan_table.markdown_path.parent)
 
     initial: dict[str, object] = {
         "Stundentyp": "Unterricht",
         "Dauer": str(default_hours),
-        "Stundenthema": title,
+        "Stundenthema": str(lesson_topic or "").strip(),
         "Oberthema": "",
         "Stundenziel": "",
         "Teilziele": [],

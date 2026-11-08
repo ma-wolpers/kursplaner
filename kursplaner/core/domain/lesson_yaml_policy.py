@@ -185,9 +185,16 @@ def _normalize_scalar(value: object) -> str:
     return str(value or "").strip()
 
 
-def default_yaml_for_type(stundentyp: LessonType, *, topic: str, duration: int | str = 2) -> dict[str, object]:
-    """Erzeugt typspezifische YAML-Defaults mit exakt erlaubten Schluesseln."""
-    topic_text = str(topic or "").strip() or "Neue Stunde"
+def default_yaml_for_type(stundentyp: LessonType, *, topic: str = "", duration: int | str = 2) -> dict[str, object]:
+    """Erzeugt typspezifische YAML-Defaults mit exakt erlaubten Schluesseln.
+
+    Args:
+        stundentyp: Stundentyp der Einheit; bestimmt den Schlüsselsatz.
+        topic: Stundenthema. Leer bleibt leer – es gibt keinen Platzhalter
+            (``Stundenthema`` ist optional, siehe `yaml_registry.LESSON_SCHEMA`).
+        duration: Unterrichtsdauer; leer wird ``"2"``.
+    """
+    topic_text = str(topic or "").strip()
     duration_text = str(duration or "").strip() or "2"
 
     defaults: dict[str, object] = {
@@ -239,7 +246,6 @@ def canonicalize_lesson_yaml(
     data: dict[str, object] | None,
     *,
     forced_type: LessonType | None = None,
-    topic_hint: str = "",
     duration_hint: int | str = 2,
     source_label: str = "",
 ) -> dict[str, object]:
@@ -252,7 +258,6 @@ def canonicalize_lesson_yaml(
     Args:
         data: Rohes Frontmatter-Dict (oder ``None``).
         forced_type: Erzwingt einen Stundentyp statt ihn abzuleiten.
-        topic_hint: Ersatz-Stundenthema, falls keines gesetzt ist.
         duration_hint: Ersatz-Dauer, falls keine gesetzt ist.
         source_label: Datei bzw. Herkunft, erscheint in Fehlermeldungen zu
             ungültigen Listeneinträgen (z. B. der Pfad der Stunden-Datei).
@@ -260,9 +265,7 @@ def canonicalize_lesson_yaml(
     source = data if isinstance(data, dict) else {}
     stundentyp = forced_type if forced_type is not None else infer_stundentyp(source)
 
-    hint_topic = str(topic_hint or "").strip()
-    source_topic = _normalize_scalar(source.get("Stundenthema", ""))
-    topic = source_topic or hint_topic or "Neue Stunde"
+    topic = _normalize_scalar(source.get("Stundenthema", ""))
 
     source_duration = _normalize_scalar(source.get("Dauer", ""))
     duration = source_duration or str(duration_hint or "2")
@@ -281,10 +284,6 @@ def canonicalize_lesson_yaml(
             continue
         if key in LIST_FIELDS:
             normalized[key] = _normalize_list(key, source[key], source_label=source_label)
-            continue
-        if key == "Stundenthema":
-            text = _normalize_scalar(source[key])
-            normalized[key] = text or topic
             continue
         if key == "Dauer":
             text = _normalize_scalar(source[key])

@@ -128,8 +128,8 @@ class PlanRegularLessonUseCase:
             date_label=date_label,
             link=link,
             has_existing_link=has_existing_link,
-            title_initial=(current_topic or "Unterrichtseinheit"),
-            topic_initial=(current_topic or "Unterrichtseinheit"),
+            title_initial=current_topic,
+            topic_initial=current_topic,
             oberthema_initial=oberthema_initial,
             kompetenzen_options=[],
             inhalte_options=inhalte_options,
@@ -159,19 +159,6 @@ class PlanRegularLessonUseCase:
             Verlinkter Stundenpfad oder ``None``.
         """
         return self.lesson_repo.resolve_row_link_path(table, row_index)
-
-    @staticmethod
-    def topic_initial(current_topic: str, content_before: str) -> str:
-        """Ermittelt ein Startthema aus Eingabe oder Altinhalt.
-
-        Args:
-            current_topic: Aktuell eingegebener Themenwert.
-            content_before: Vorheriger Inhaltswert der Planzeile.
-
-        Returns:
-            Thema für die anzulegende oder zu aktualisierende Stunde.
-        """
-        return current_topic or "Unterrichtseinheit"
 
     def ensure_link(self, table: PlanTableData, row_index: int, topic: str, default_hours: int) -> Path:
         """Stellt sicher, dass die Zielzeile auf eine Stunden-Datei verlinkt ist.

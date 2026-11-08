@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
 from kursplaner.core.domain.plan_table import PlanTableData, sanitize_hour_title
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_LESSON_KEY, ub_link_stem
 from kursplaner.core.domain.wiki_links import (
@@ -39,8 +40,11 @@ class LessonTransferUseCase:
         self.lesson_repo.load_lesson_yaml(source)
 
     def lesson_dir_for_table(self, table: PlanTableData) -> Path:
-        """Liefert das standardisierte Zielverzeichnis ``Einheiten`` für eine Planung."""
-        return table.markdown_path.parent / "Einheiten"
+        """Liefert das standardisierte Zielverzeichnis ``Einheiten`` für eine Planung.
+
+        Einzige Regel dafür ist `lesson_directory.resolve_lesson_dir` (kein eigenes Literal).
+        """
+        return resolve_lesson_dir(table.markdown_path.parent)
 
     def ensure_directory(self, path: Path) -> None:
         """Stellt sicher, dass ein Verzeichnis über den Datei-Port existiert."""
@@ -113,50 +117,42 @@ class LessonTransferUseCase:
         prefix = current.strip()
         table.set_inhalt(row_index, f"{prefix} {link}".strip() if prefix else link)
 
-    def next_unique_stem_path(self, target_dir: Path, preferred_stem: str, suffix: str = ".md") -> Path:
-        """Erzeugt einen kollisionsfreien Zielpfad aus einem bevorzugten Titelstem.
+    def new_pasted_lesson_path(self, table: PlanTableData, suffix: str = ".md") -> Path:
+        """Zielpfad einer eingefügten Kopie: neuer Zufallscode wie jede neue Einheit.
+
+        Nutzt dieselbe Namensvergabe wie das Anlegen (`LessonRepository.new_lesson_path`),
+        damit Kopien nie ``<quellcode> 2`` heißen.
 
         Args:
-            target_dir: Zielverzeichnis.
-            preferred_stem: Wunsch-Stem.
+            table: Planung, in die eingefügt wird.
             suffix: Endung der Quelle (``.md``/``.ebw``), damit eine eingefügte
                 Kurzentwurf-Stunde ``.ebw`` bleibt.
         """
-        stem_base = sanitize_hour_title(preferred_stem) or "Stunde"
-        return self.lesson_file_repo.unique_markdown_path(target_dir, stem_base, suffix=suffix)
+        return self.lesson_repo.new_lesson_path(table, suffix)
 
     def write_pasted_lesson(
         self,
         target_path: Path,
         content: str,
-        source_stem: str,
         *,
         clear_ub_link: bool = True,
     ) -> Path:
-        """Schreibt eingefügte Stundeninhalte und synchronisiert ggf. das Stundenthema."""
+        """Schreibt eingefügte Stundeninhalte; das Stundenthema bleibt unverändert.
+
+        Args:
+            target_path: Neuer Pfad der Kopie (`new_pasted_lesson_path`).
+            content: Rohinhalt der Quelle.
+            clear_ub_link: Verweis auf einen Unterrichtsbesuch entfernen.
+        """
         self.lesson_file_repo.write_file_content(target_path, content)
 
-        pasted_lesson = self.lesson_repo.load_lesson_yaml(target_path)
-        lesson_data = pasted_lesson.data if isinstance(pasted_lesson.data, dict) else {}
-        should_save_yaml = False
-
-        if clear_ub_link and ub_link_stem(lesson_data):
-            lesson_data[UB_LESSON_KEY] = ""
-            should_save_yaml = True
-
-        if target_path.stem != source_stem:
-            topic_before = str(lesson_data.get("Stundenthema", "")).strip()
-            suffix_match = re.search(r"\s(\d+)$", target_path.stem)
-            if suffix_match and topic_before:
-                suffix = suffix_match.group(1)
-                lesson_data["Stundenthema"] = re.sub(r"\s\d+$", "", topic_before).strip() + f" {suffix}"
-            else:
-                lesson_data["Stundenthema"] = target_path.stem
-            should_save_yaml = True
-
-        if should_save_yaml:
-            pasted_lesson.data = lesson_data
-            self.lesson_repo.save_lesson_yaml(pasted_lesson)
+        if clear_ub_link:
+            pasted_lesson = self.lesson_repo.load_lesson_yaml(target_path)
+            lesson_data = pasted_lesson.data if isinstance(pasted_lesson.data, dict) else {}
+            if ub_link_stem(lesson_data):
+                lesson_data[UB_LESSON_KEY] = ""
+                pasted_lesson.data = lesson_data
+                self.lesson_repo.save_lesson_yaml(pasted_lesson)
 
         return target_path
 

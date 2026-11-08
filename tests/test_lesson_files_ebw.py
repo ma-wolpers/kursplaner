@@ -102,14 +102,15 @@ def test_save_without_marker_adds_none(tmp_path):
     assert "document_type" not in path.read_text(encoding="utf-8")
 
 
-def test_rename_and_unique_path_keep_ebw_suffix(tmp_path):
+def test_rename_and_paste_path_keep_ebw_suffix(tmp_path):
     link = _lesson(tmp_path, "ab12cd.ebw")
     _lesson(tmp_path, "Brüche.ebw")
     transfer = LessonTransferUseCase(FileSystemLessonRepository(), FileSystemLessonFileRepository())
+    table = _table(tmp_path / "Kurs", "")
 
     assert transfer.compute_rename_target(link, "Brüche").name == "Brüche 2.ebw"
-    assert transfer.next_unique_stem_path(tmp_path, "Neu", ".ebw").name == "Neu.ebw"
-    assert transfer.next_unique_stem_path(tmp_path, "Neu").name == "Neu.md"
+    assert transfer.new_pasted_lesson_path(table, ".ebw").suffix == ".ebw"
+    assert transfer.new_pasted_lesson_path(table).suffix == ".md"
     transfer.validate_lesson_markdown(link)
 
 

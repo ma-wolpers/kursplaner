@@ -59,8 +59,7 @@ class ConvertToHospitationUseCase:
                     proceed=False,
                     error_message="Hospitations-Stunden-Datei wurde nicht angelegt.",
                 )
-            topic = "Hospitation"
-            link = self.lesson_commands.create_regular_lesson_link(table, row_index, topic, max(1, int(default_hours)))
+            link = self.lesson_commands.create_regular_lesson_link(table, row_index, "", max(1, int(default_hours)))
 
         if not isinstance(link, Path):
             return ConvertToHospitationWriteResult(
@@ -83,8 +82,6 @@ class ConvertToHospitationUseCase:
             data = {}
             lesson.data = data
 
-        if not str(data.get("Stundenthema", "")).strip():
-            data["Stundenthema"] = "Hospitation"
         data["Stundentyp"] = "Hospitation"
         data["Beobachtungsschwerpunkte"] = str(focus_text or "").strip()
         data.setdefault("Ressourcen", [])

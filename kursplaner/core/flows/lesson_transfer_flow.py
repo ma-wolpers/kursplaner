@@ -21,7 +21,6 @@ class LessonTransferFlowWriteRequest:
     allow_delete: bool
     target_path: Path
     content: str
-    source_stem: str
     ub_copy_mode: str = "none"
 
 
@@ -44,11 +43,9 @@ class LessonTransferFlow:
         """Liefert den aktuell verlinkten Zielpfad für Konfliktdialoge."""
         return self._paste_lesson.resolve_existing_target_link(table, row_index)
 
-    def build_execution_plan(
-        self, table: PlanTableData, preferred_stem: str, suffix: str = ".md"
-    ) -> PasteExecutionPlan:
-        """Berechnet den konfliktfreien Zielpfad fürs Einfügen (Endung `suffix` der Quelle bleibt erhalten)."""
-        return self._paste_lesson.build_execution_plan(table, preferred_stem, suffix)
+    def build_execution_plan(self, table: PlanTableData, suffix: str = ".md") -> PasteExecutionPlan:
+        """Berechnet den Zielpfad fürs Einfügen: neuer Zufallscode, Endung `suffix` der Quelle bleibt."""
+        return self._paste_lesson.build_execution_plan(table, suffix)
 
     def execute_write(self, request: LessonTransferFlowWriteRequest) -> PasteWriteResult:
         """Führt den vollständigen Paste-Write-Flow aus."""
@@ -59,6 +56,5 @@ class LessonTransferFlow:
             allow_delete=request.allow_delete,
             target_path=request.target_path,
             content=request.content,
-            source_stem=request.source_stem,
             ub_copy_mode=request.ub_copy_mode,
         )

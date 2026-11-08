@@ -48,7 +48,8 @@ class _LessonTransferStub:
         return None
 
 
-def test_execute_write_uses_plain_hospitation_title_and_link_only(tmp_path):
+def test_execute_write_creates_hospitation_without_placeholder_topic(tmp_path):
+    """Das Thema bleibt leer (kein Platzhalter \"Hospitation\"); der Typ steht im Stundentyp."""
     plan_path = tmp_path / "Inf lila-5 26-2.md"
     plan_path.write_text("", encoding="utf-8")
 
@@ -90,12 +91,12 @@ def test_execute_write_uses_plain_hospitation_title_and_link_only(tmp_path):
     )
 
     assert result.proceed is True
-    assert lesson_commands.created_topic == "Hospitation"
+    assert lesson_commands.created_topic == ""
     assert table.rows[0][1] == '`= link("lila-5 04-21 Hospitation", [[lila-5 04-21 Hospitation]].Stundenthema)`'
     assert "HO " not in table.rows[0][1]
     assert plan_repo.saved is True
 
     assert lesson_repo.saved_lesson is not None
-    assert lesson_repo.saved_lesson.data["Stundenthema"] == "Hospitation"
+    assert "Stundenthema" not in lesson_repo.saved_lesson.data
     assert lesson_repo.saved_lesson.data["Stundentyp"] == "Hospitation"
     assert lesson_repo.saved_lesson.data["Beobachtungsschwerpunkte"] == "Sozialverhalten"

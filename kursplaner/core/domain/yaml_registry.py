@@ -154,14 +154,22 @@ den KC-Kontext des Kurses, siehe :mod:`kursplaner.core.domain.course_kc_context`
 
 LESSON_SCHEMA = YamlSchema(
     label="Stunden-Datei",
-    required_keys=("Stundentyp", "Dauer", "Stundenthema"),
-    non_empty_keys=("Stundentyp", "Dauer", "Stundenthema"),
+    required_keys=("Stundentyp", "Dauer"),
+    non_empty_keys=("Stundentyp", "Dauer"),
     value_validators={
         "Stundentyp": _is_valid_stundentyp,
         "Dauer": _is_valid_dauer,
     },
     preserve_raw_block_keys=("Oberthema",),
 )
+"""Schema für Einheiten-Dateien (`Einheiten/*.md`, `.ebw`).
+
+Pflicht sind nur ``Stundentyp`` und ``Dauer``. ``Stundenthema`` ist optional
+und darf leer sein: Seit Einheiten zufällige Dateinamen tragen, hängt nichts
+mehr am Thema (der Plan liest es per Dataview-Link live). Fehlt der Schlüssel,
+ergänzt ihn `lesson_yaml_policy.canonicalize_lesson_yaml` beim nächsten
+Speichern als leeren Wert – ein leeres Thema wird nie still ersetzt.
+"""
 
 SEQUENCE_PLAN_SCHEMA = YamlSchema(
     label="Sequenz-Datei",

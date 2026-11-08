@@ -10,11 +10,7 @@ from kursplaner.core.domain.lesson_directory import is_valid_unterricht_link
 from kursplaner.core.domain.lesson_yaml_policy import canonicalize_lesson_yaml
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import UB_RESOURCES_FIELD, UB_STEPS_FIELD, ub_link_stem
-from kursplaner.core.domain.wiki_links import (
-    extract_wiki_link_target,
-    first_wiki_link_label,
-    strip_wiki_link,
-)
+from kursplaner.core.domain.wiki_links import first_wiki_link_label, strip_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, UbRepository
 from kursplaner.core.usecases.ub_files import load_development_lists
 
@@ -74,7 +70,7 @@ class LoadPlanDetailUseCase:
             return link_target, True
         return raw, False
 
-    def _ensure_valid_lesson_yaml(self, lesson_path: Path, topic: str) -> LessonYamlData:
+    def _ensure_valid_lesson_yaml(self, lesson_path: Path) -> LessonYamlData:
         """Lädt und validiert YAML einer Stunden-Datei und ergänzt fehlende Keys.
 
         Bei komplett fehlendem Frontmatter wird kein stilles Auto-Fix ausgeführt,
@@ -82,7 +78,8 @@ class LoadPlanDetailUseCase:
         damit die GUI eine Nutzerentscheidung zur Art-Auswahl anbieten kann.
 
         Für vorhandenes Frontmatter ergänzt der Use Case fehlende Schlüssel nur
-        in-memory und gibt ein normiertes `LessonYamlData` zurück.
+        in-memory und gibt ein normiertes `LessonYamlData` zurück. Ein leeres
+        oder fehlendes ``Stundenthema`` bleibt leer (kein Ersatz aus dem Link).
         """
         try:
             lesson = self.lesson_repo.load_lesson_yaml(lesson_path)
@@ -94,14 +91,8 @@ class LoadPlanDetailUseCase:
 
         merged_data = canonicalize_lesson_yaml(
             lesson.data if isinstance(lesson.data, dict) else {},
-            topic_hint=topic,
             source_label=str(lesson.lesson_path),
         )
-
-        topic_now = str(merged_data.get("Stundenthema", "")).strip()
-        if not topic_now and topic.strip():
-            merged_data["Stundenthema"] = topic.strip()
-
         return LessonYamlData(lesson_path=lesson.lesson_path, data=merged_data)
 
     def execute(self, markdown_path: Path) -> PlanDetailResult:
@@ -146,15 +137,10 @@ class LoadPlanDetailUseCase:
         thema_ausfall = row[idx_thema_ausfall] if idx_thema_ausfall is not None and idx_thema_ausfall < len(row) else ""
 
         link = self.lesson_repo.resolve_row_link_path(table, row_index)
-        link_target = extract_wiki_link_target(inhalt)
 
         yaml_data: dict[str, object] = {}
         if is_valid_unterricht_link(link) and isinstance(link, Path):
-            extracted_topic = link_target
-            split = link_target.split(" ", 1)
-            if len(split) == 2:
-                extracted_topic = split[1].strip() or link_target
-            lesson = self._ensure_valid_lesson_yaml(link, topic=extracted_topic)
+            lesson = self._ensure_valid_lesson_yaml(link)
             yaml_data = lesson.data if isinstance(lesson.data, dict) else {}
             if self.ub_repo is not None and ub_link_stem(yaml_data):
                 steps, resources = load_development_lists(

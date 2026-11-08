@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from kursplaner.core.domain.lesson_yaml_policy import default_yaml_for_type, normalize_stundentyp
-from kursplaner.core.domain.plan_table import LessonYamlData, sanitize_hour_title
+from kursplaner.core.domain.plan_table import LessonYamlData
 from kursplaner.core.ports.repositories import LessonRepository
 
 
@@ -31,19 +31,19 @@ class RepairLessonYamlFrontmatterUseCase:
         resolved = normalize_stundentyp(kind)
         return resolved.lower()
 
-    def _defaults_for_kind(self, *, kind: str, lesson_path: Path) -> dict[str, object]:
+    def _defaults_for_kind(self, *, kind: str) -> dict[str, object]:
         """Leitet typspezifische YAML-Defaults für Unterricht, LZK oder Hospitation ab.
+
+        Das Stundenthema bleibt leer: Es wird nie aus dem Dateinamen (Zufallscode)
+        abgeleitet, ``Stundenthema`` ist optional.
 
         Args:
             kind: Kanonischer Typ (`unterricht`, `lzk`, `hospitation`).
-            lesson_path: Zielpfad der Stunden-Datei zur Themenableitung.
 
         Returns:
-            Vollständige YAML-Defaults mit typabhängig angepasstem Stundenthema.
+            Vollständige YAML-Defaults des Typs.
         """
-        stem_topic = sanitize_hour_title(lesson_path.stem) or lesson_path.stem or "Neue Stunde"
-        canonical_kind = normalize_stundentyp(kind)
-        return default_yaml_for_type(canonical_kind, topic=stem_topic)
+        return default_yaml_for_type(normalize_stundentyp(kind))
 
     def execute(self, *, lesson_path: Path, kind: str) -> RepairLessonYamlFrontmatterResult:
         """Schreibt ein neues YAML-Frontmatter in eine bestehende Stunden-Datei."""
@@ -54,7 +54,7 @@ class RepairLessonYamlFrontmatterUseCase:
 
         lesson = LessonYamlData(
             lesson_path=resolved,
-            data=self._defaults_for_kind(kind=normalized_kind, lesson_path=resolved),
+            data=self._defaults_for_kind(kind=normalized_kind),
         )
         self.lesson_repo.save_lesson_yaml(lesson)
         return RepairLessonYamlFrontmatterResult(lesson_path=resolved, kind=normalized_kind)

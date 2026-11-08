@@ -38,59 +38,39 @@ class _LessonFileRepoStub:
         target_path.write_text(content, encoding="utf-8")
 
 
-def test_write_pasted_lesson_clears_unterrichtsbesuch_even_when_stem_unchanged(tmp_path):
-    target = tmp_path / "Einheiten" / "gruen-6 02-06 Fach-Diagnose.md"
+def _pasted(tmp_path: Path, data: dict[str, object], *, clear_ub_link: bool = True) -> _LessonRepoStub:
+    """Fügt eine Kopie mit *data* als YAML unter einem Zufallscode ein; liefert den Repo-Stub."""
+    target = tmp_path / "Einheiten" / "ab12cd.md"
     lesson_repo = _LessonRepoStub()
-    lesson_repo.loaded[target] = LessonYamlData(
-        lesson_path=target,
-        data={
-            "Stundenthema": "Fach-Diagnose",
-            "Unterrichtsbesuch": "[[UB 26-02-06 Fach-Diagnose]]",
-        },
-    )
-
+    lesson_repo.loaded[target] = LessonYamlData(lesson_path=target, data=data)
     usecase = LessonTransferUseCase(
         lesson_repo=cast(Any, lesson_repo),
         lesson_file_repo=cast(Any, _LessonFileRepoStub()),
     )
-
-    created = usecase.write_pasted_lesson(
-        target_path=target,
-        content="---\nStundenthema: Fach-Diagnose\n---\n",
-        source_stem=target.stem,
-    )
-
+    created = usecase.write_pasted_lesson(target_path=target, content="---\n---\n", clear_ub_link=clear_ub_link)
     assert created == target
-    assert len(lesson_repo.saved) == 1
-    assert lesson_repo.saved[0].data.get("Unterrichtsbesuch") == ""
+    return lesson_repo
 
 
-def test_write_pasted_lesson_updates_topic_and_clears_unterrichtsbesuch_on_rename(tmp_path):
-    target = tmp_path / "Einheiten" / "gruen-6 02-13 Fach-Diagnose 2.md"
-    lesson_repo = _LessonRepoStub()
-    lesson_repo.loaded[target] = LessonYamlData(
-        lesson_path=target,
-        data={
-            "Stundenthema": "Fach-Diagnose 1",
-            "Unterrichtsbesuch": "[[UB 26-02-06 Fach-Diagnose]]",
-        },
-    )
+def test_write_pasted_lesson_clears_unterrichtsbesuch_and_keeps_topic(tmp_path):
+    repo = _pasted(tmp_path, {"Stundenthema": "Fach-Diagnose 1", "Unterrichtsbesuch": "[[UB 26-02-06 Fach-Diagnose]]"})
 
-    usecase = LessonTransferUseCase(
-        lesson_repo=cast(Any, lesson_repo),
-        lesson_file_repo=cast(Any, _LessonFileRepoStub()),
-    )
+    assert len(repo.saved) == 1
+    assert repo.saved[0].data.get("Unterrichtsbesuch") == ""
+    assert repo.saved[0].data.get("Stundenthema") == "Fach-Diagnose 1"
 
-    usecase.write_pasted_lesson(
-        target_path=target,
-        content="---\nStundenthema: Fach-Diagnose 1\n---\n",
-        source_stem="gruen-6 02-06 Fach-Diagnose",
-    )
 
-    assert len(lesson_repo.saved) == 1
-    saved_data = lesson_repo.saved[0].data
-    assert saved_data.get("Stundenthema") == "Fach-Diagnose 2"
-    assert saved_data.get("Unterrichtsbesuch") == ""
+def test_write_pasted_lesson_never_touches_topic_even_when_empty(tmp_path):
+    """Früher wurde ein leeres Thema beim Einfügen durch den Dateinamen ersetzt."""
+    repo = _pasted(tmp_path, {"Stundenthema": ""})
+
+    assert repo.saved == []
+
+
+def test_write_pasted_lesson_keeps_ub_link_when_copying_it(tmp_path):
+    repo = _pasted(tmp_path, {"Stundenthema": "", "Unterrichtsbesuch": "[[UB x]]"}, clear_ub_link=False)
+
+    assert repo.saved == []
 
 
 def _usecase() -> LessonTransferUseCase:

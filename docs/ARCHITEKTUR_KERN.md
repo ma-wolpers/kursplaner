@@ -27,6 +27,8 @@ Verbindliche Kernregel Datenvalidierung:
 - Zentrale Daten werden strikt validiert, nicht heuristisch "gerettet".
 - Pflichtfelder mit festen Standards sind harte Invarianten (z. B. `Kursfach`, `Stufe`, `Stundentyp`, `Dauer`).
 - Bei Verstoß wird der Ablauf mit klarer Fehlermeldung abgebrochen; es gibt keine stillen Alias-/Fallback-Umdeutungen.
+- Optionale Felder sind wirklich optional: ``Stundenthema`` ist kein Pflichtfeld (`yaml_registry.LESSON_SCHEMA`) und wird nie
+  durch Platzhalter oder den Dateinamen ersetzt – weder beim Laden, Speichern, Anlegen, Reparieren noch Einfügen.
 - Validierung sitzt im Kern (Domain/Application/Infrastructure), nicht nur in der GUI.
 
 Nicht zum Kern gehören:
@@ -1096,6 +1098,9 @@ Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einhei
 
 - Stundendateien sind `.md` oder `.ebw` (Blattwerk-Kurzentwurf; Blattwerk erkennt den Typ nur an der Endung). Einzige Regel: `core/domain/lesson_files.py`; kein `glob("*.md")` und kein fest angehängtes `.md` für Stunden außerhalb davon.
 - Linkauflösung ohne Endung: `.md` vor `.ebw`. Neue Stunden: `.md` (`DEFAULT_LESSON_SUFFIX`). Umbenennen/Verschieben/Einfügen erhalten die Endung der Quelle.
+- Pfade neuer Einheiten (Zufallscode, eindeutig über `.md`/`.ebw` und `Einheiten`/`Alteinheiten`) vergibt nur
+  `plan_table_file_repository.new_lesson_path` (Port `LessonRepository.new_lesson_path`) – für Anlegen und Einfügen.
+  `unique_markdown_path` (Nummern-Suffix) dient nur noch „Einheit umbenennen“.
 - Frontmatter-Kanonisierung bleibt exakt je Stundentyp; einzige Ausnahme ist `document_type` (Blattwerk-Konsistenzmarker), der beim Speichern unverändert von der Platte durchgereicht wird.
 
 ## 33) Listenzellen-Vertrag (verbindlich)

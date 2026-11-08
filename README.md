@@ -202,9 +202,9 @@ Beim Erstellen einer neuen Stunde über **Stunde erstellen** öffnet sich ein Ba
 
 Ausgewählte Inhalte/Methodiken werden als Wiki-Links unter `## Inhalte` und `## Methodik` in die neue Stunden-Datei geschrieben.
 
-Dateiname für neue Stunde: **Lerngruppe + `mm-dd` + Stundenthema** (z. B. `grün-6 03-14 Rechnerlogik`).
+Dateiname für neue Stunde: ein **6-stelliger Zufallscode** aus `[a-z0-9]` (z. B. `ab12cd.md`). Das gilt auch für eingefügte Kopien; das Stundenthema steht nur im YAML und wird im Plan per Dataview-Link live angezeigt.
 
-Pflichtfeld im Stunden-YAML: `Stundentyp` mit einem der Werte `Unterricht`, `LZK`, `Ausfall`, `Hospitation`.
+Pflichtfelder im Stunden-YAML: `Stundentyp` mit einem der Werte `Unterricht`, `LZK`, `Ausfall`, `Hospitation` und `Dauer`. Das `Stundenthema` ist optional und darf leer bleiben – es wird nie durch einen Platzhalter oder den Dateinamen ersetzt.
 
 ### Governance fuer Schema/Naming
 
@@ -220,12 +220,12 @@ Verbindliche Dokumentation und Aenderungs-Checkliste:
 Single Source of Truth im Code:
 
 - YAML pro `Stundentyp`: `kursplaner/core/domain/lesson_yaml_policy.py`
-- Dateiname (`Lerngruppe mm-dd Titel`): `kursplaner/core/domain/lesson_naming.py`
+- Dateiname (Zufallscode `[a-z0-9]{6}`): `kursplaner/core/domain/lesson_naming.py`
 - Mindestvalidierung: `kursplaner/core/domain/yaml_registry.py`
 
 Empfohlener Pre-Commit-Check:
 
-- `powershell -ExecutionPolicy Bypass -File .\\tools\\ci\\check_einheiten_schema_consistency.ps1`
+- `python tools/ci/check_einheiten_schema.py` (Regeln kommen aus dem Code; ohne Argument wird `10 Unterricht` im Vault geprüft)
 
 ### Maussteuerung in der Detailtabelle
 

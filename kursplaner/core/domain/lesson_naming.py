@@ -39,6 +39,22 @@ def row_mmdd(table: PlanTableData, row_index: int) -> str:
     return parse_mmdd(row[idx_datum])
 
 
+def is_random_lesson_stem(stem: str) -> bool:
+    """Prüft, ob *stem* das Format neuer Einheiten-Dateinamen hat (einzige Formatregel).
+
+    Format: genau ``_RANDOM_STEM_LENGTH`` Zeichen aus ``_RANDOM_STEM_ALPHABET``
+    (``[a-z0-9]{6}``), wie `generate_random_lesson_stem` sie erzeugt. Genutzt vom
+    Schema-Check ``tools/ci/check_einheiten_schema.py`` und von Tests.
+
+    Args:
+        stem: Dateiname ohne Endung.
+
+    Returns:
+        ``True`` bei gültigem Zufallscode.
+    """
+    return len(stem) == _RANDOM_STEM_LENGTH and all(char in _RANDOM_STEM_ALPHABET for char in stem)
+
+
 def generate_random_lesson_stem(existing_stems: set[str]) -> str:
     """Erzeugt einen eindeutigen 6-stelligen Zufalls-Stem für eine Stundendatei.
 

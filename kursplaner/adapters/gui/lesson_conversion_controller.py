@@ -250,8 +250,7 @@ class MainWindowLessonConversionController:
         return cleaned
 
     def _unterricht_prefill_values(self, *, day: DayColumn, row_index: int) -> dict[str, object]:
-        current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
-        topic_initial = current_topic or "Unterrichtseinheit"
+        topic_initial = str(self.app._field_value(day, "Stundenthema") or "").strip()
         oberthema_initial = day.oberthema() or self.last_oberthema_before_row(row_index)
         stundenziel_initial = ""
         kompetenzen_initial: list[str] = []
@@ -333,14 +332,7 @@ class MainWindowLessonConversionController:
         day = self.app.day_columns[selected_index]
         row_index = day.row_index
         was_lzk = self.app._is_lzk_row(row_index)
-        current_topic = str(self.app._field_value(day, "Stundenthema") or "").strip()
         content_before = day.inhalt.strip()
-        topic = current_topic or "Unterrichtseinheit"
-        oberthema_input = ""
-        stundenziel_input = ""
-        kompetenzen_refs: list[str] = []
-        inhalte_refs: list[str] = []
-        methodik_refs: list[str] = []
 
         existing_link = self.plan_regular_lesson.resolve_existing_link(self.app.current_table, row_index)
         should_open_builder = from_column_shortcut or not self.plan_regular_lesson.has_existing_link(existing_link)
@@ -396,7 +388,7 @@ class MainWindowLessonConversionController:
                 initialvalue=topic,
                 parent=self.app,
             )
-            if topic_input is None or not topic_input.strip():
+            if topic_input is None:  # Abbrechen; ein leeres Thema ist erlaubt
                 return
             topic = topic_input.strip()
 

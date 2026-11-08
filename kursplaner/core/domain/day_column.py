@@ -282,7 +282,14 @@ class DayColumn:
         return topics[0] if topics else ""
 
     def header_content(self) -> str:
-        """Anzeigetext für die Spalten-Kopfzeile (bevorzugt `Stundenthema`, sonst Ausfallgrund/Marker)."""
+        """Anzeigetext für die Spalten-Kopfzeile.
+
+        Reihenfolge: `Stundenthema`; bei Ausfall der Grund (sonst „Ausfall“); bei
+        einer Spalte mit Einheiten-Datei, aber leerem Thema (``Stundenthema`` ist
+        optional) die Terminart aus `lesson_type` – leer bei Unterricht. Der
+        `Inhalt`-Text (Dataview-Link mit dem Dateicode) erscheint nur bei Spalten
+        **ohne** Einheiten-Datei, z. B. als Marker-Text.
+        """
         stundenthema = str(self.yaml.get("Stundenthema", "")).strip()
         if stundenthema:
             return stundenthema
@@ -290,4 +297,7 @@ class DayColumn:
         if self.is_cancel():
             reason = thema_text[2:].strip() if thema_text.upper().startswith("X ") else thema_text
             return reason or "Ausfall"
+        if self.is_valid_unterricht_file:
+            lesson_type = self.lesson_type()
+            return "" if lesson_type == "Unterricht" else lesson_type
         return self.content_marker_text() or ""

@@ -225,21 +225,20 @@ class PasteLessonUseCase:
 
         raise RuntimeError(f"Unbekannte Konfliktentscheidung: {decision}")
 
-    def build_execution_plan(
-        self, table: PlanTableData, preferred_stem: str, suffix: str = ".md"
-    ) -> PasteExecutionPlan:
+    def build_execution_plan(self, table: PlanTableData, suffix: str = ".md") -> PasteExecutionPlan:
         """Berechnet den konkreten Zielpfad und den neuen Link-Stem fürs Einfügen.
+
+        Die Kopie bekommt einen neuen Zufallscode wie jede neue Einheit
+        (`LessonTransferUseCase.new_pasted_lesson_path`).
 
         Args:
             table: Planungstabelle.
-            preferred_stem: Wunsch-Stem für die neue Datei.
             suffix: Endung der kopierten Quelle (``.md``/``.ebw``).
 
         Returns:
             Ausführungsplan mit konfliktfreiem Zielpfad.
         """
-        stunden_dir = self.lesson_transfer.lesson_dir_for_table(table)
-        candidate = self.lesson_transfer.next_unique_stem_path(stunden_dir, preferred_stem, suffix)
+        candidate = self.lesson_transfer.new_pasted_lesson_path(table, suffix)
         return PasteExecutionPlan(target_path=candidate, relink_stem=candidate.stem)
 
     def apply_paste(
@@ -248,7 +247,6 @@ class PasteLessonUseCase:
         row_index: int,
         target_path: Path,
         content: str,
-        source_stem: str,
         ub_copy_mode: str,
     ) -> tuple[Path, Path | None, Path | None]:
         """Schreibt die kopierte Stunde und verlinkt die Zielzeile auf den neuen Stem.
@@ -257,8 +255,8 @@ class PasteLessonUseCase:
             table: Planungstabelle.
             row_index: Zielzeile.
             target_path: Zielpfad der einzufügenden Datei.
-            content: Inhalt der kopierten Quellstunde.
-            source_stem: Ursprünglicher Stem der Quelle.
+            content: Inhalt der kopierten Quellstunde (Thema bleibt unverändert).
+            ub_copy_mode: ``"copy"`` übernimmt den Unterrichtsbesuch, sonst wird er gelöst.
 
         Returns:
             Pfad der neu angelegten Stunden-Datei.
@@ -267,7 +265,6 @@ class PasteLessonUseCase:
         created = self.lesson_transfer.write_pasted_lesson(
             target_path=target_path,
             content=content,
-            source_stem=source_stem,
             clear_ub_link=normalized_ub_mode != "copy",
         )
         self.lesson_transfer.relink_row_to_stem(table, row_index, created.stem, preserve_alias=False)
@@ -291,7 +288,6 @@ class PasteLessonUseCase:
         allow_delete: bool,
         target_path: Path,
         content: str,
-        source_stem: str,
         ub_copy_mode: str = "none",
     ) -> PasteWriteResult:
         """Führt den vollständigen Paste-Write-Flow als eine Transaktion aus."""
@@ -331,7 +327,6 @@ class PasteLessonUseCase:
             row_index=row_index,
             target_path=target_path,
             content=content,
-            source_stem=source_stem,
             ub_copy_mode=ub_copy_mode,
         )
         self.plan_repo.save_plan_table(table)

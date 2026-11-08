@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import ui, widgets
 
-from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.help_catalog import LESSON_BUILDER_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.lesson_dialog_keys import LessonDialogKeysMixin
@@ -362,11 +361,12 @@ class LessonBuilderDialog(LessonDialogKeysMixin, ScrollablePopupWindow):
         self._render_methodik_chips()
 
     def _accept(self):
-        """Validiert die Eingabe und übernimmt das Ergebnis in `self.result`."""
+        """Validiert die Eingabe und übernimmt das Ergebnis in `self.result`.
+
+        Das Stundenthema ist optional (`yaml_registry.LESSON_SCHEMA`); ein leeres
+        Feld wird als leeres Thema übernommen.
+        """
         topic = self.topic_field.get()
-        if not topic:
-            messagebox.showerror("Einheit planen", "Bitte ein Stundenthema eingeben.", parent=self)
-            return
 
         stundenziel = self.stundenziel_field.get() if self.stundenziel_field is not None else ""
 

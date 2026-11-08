@@ -1571,9 +1571,7 @@ class MainWindowActionController:
         try:
             self._lesson_transfer_flow.validate_source(copied)
             content = self._lesson_transfer_flow.read_source_content(copied)
-            plan = self._lesson_transfer_flow.build_execution_plan(
-                self.app.current_table, copied.stem, copied.suffix or ".md"
-            )
+            plan = self._lesson_transfer_flow.build_execution_plan(self.app.current_table, copied.suffix or ".md")
         except Exception as exc:
             messagebox.showerror("Einfügen", str(exc), parent=self.app)
             return
@@ -1634,7 +1632,6 @@ class MainWindowActionController:
                     allow_delete=allow_delete,
                     target_path=plan.target_path,
                     content=content,
-                    source_stem=copied.stem,
                     ub_copy_mode=ub_copy_mode,
                 )
             )

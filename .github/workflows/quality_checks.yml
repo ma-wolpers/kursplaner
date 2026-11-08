@@ -58,7 +58,5 @@ jobs:
         run: python tools/ci/check_ai_guardrails.py
 
       - name: Run Einheiten schema consistency check
-        shell: pwsh
-        run: |
-          ./tools/ci/check_einheiten_schema_consistency.ps1
+        run: python tools/ci/check_einheiten_schema.py
 
