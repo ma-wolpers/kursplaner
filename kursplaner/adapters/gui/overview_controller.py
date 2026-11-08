@@ -16,6 +16,7 @@ from kursplaner.core.config.ui_preferences_store import (
 )
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.next_unit_policy import unit_counts_as_upcoming
+from kursplaner.core.domain.warning_marker import WARNING_GLYPH, warning_text
 from kursplaner.core.usecases.load_plan_detail_usecase import MissingLessonYamlFrontmatterError
 from kursplaner.core.usecases.reconcile_ub_overview_usecase import UbReconcileAction, UbReconcileConflict
 
@@ -323,7 +324,7 @@ class MainWindowOverviewController:
             name = lesson.folder_name
             tags: tuple[str, ...] = tuple()
             if lesson.load_error:
-                name = f"⚠ {name}"
+                name = warning_text(name)
                 tags = ("load_error",)
                 self.app.lesson_load_errors[iid] = lesson.load_error
             elif self._is_soon_upcoming(lesson, days_window=highlight_days):
@@ -350,7 +351,7 @@ class MainWindowOverviewController:
             messagebox.showwarning(
                 "Markierte Einträge",
                 "Einige Kurse konnten nicht vollständig berechnet werden.\n"
-                "Sie sind in der Übersicht mit ⚠ markiert und bleiben sichtbar.",
+                f"Sie sind in der Übersicht mit {WARNING_GLYPH} markiert und bleiben sichtbar.",
                 parent=self.app,
             )
 

@@ -30,6 +30,7 @@ from kursplaner.adapters.gui.sequence_field_grid_renderer import (
     compute_row_index_to_grid_col,
 )
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.warning_marker import WARNING_GLYPH
 from kursplaner.core.usecases.day_label_format import short_day_label
 
 
@@ -138,7 +139,7 @@ class GridRenderer:
         if kind in LESSON_KIND_TINTS:
             return f"{date_text}{next_unit_marker}", kind
         if day.is_unresolved_link():
-            return f"{date_text} ⚠{next_unit_marker}", "unresolved"
+            return f"{date_text} {WARNING_GLYPH}{next_unit_marker}", "unresolved"
         if is_next_unit:
             return date_text, "next_unit"
         return date_text, "normal"

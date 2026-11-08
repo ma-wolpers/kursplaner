@@ -10,9 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from bw_gui.runtime import ui, widgets
+from bw_gui.runtime import widgets
 from bw_gui.runtime.overlay_stack import OverlayCategory
-from bw_gui.theming import theme_label_token
 from bw_gui.widgets import HoverTooltip
 from bw_gui.widgets.card_board import BoardCell, BoardSlot, CardBoard, Cursor
 
@@ -20,6 +19,7 @@ from kursplaner.adapters.gui.help_catalog import SEQUENCE_LADDER_HELP
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import LANES, board_rows, can_drop
 from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
+from kursplaner.adapters.gui.warning_banner import WarningBanner
 from kursplaner.core.usecases.load_sequence_ladder_usecase import SequenceLadderView
 
 
@@ -56,7 +56,6 @@ class SequenceLadderWindow(ScrollablePopupWindow):
             HoverTooltip(import_button, SEQUENCE_LADDER_HELP["import"]),
             HoverTooltip(self._title, SEQUENCE_LADDER_HELP["keys"]),
         ]
-        self._banner = ui.Label(root, justify="left", anchor="w", wraplength=1000, padx=10, pady=6)
         self.board = CardBoard(
             root,
             on_cursor_change=self._on_cursor,
@@ -68,6 +67,7 @@ class SequenceLadderWindow(ScrollablePopupWindow):
             on_row_action=lambda row_key: self._call(lambda c: c.assign_rung(row_key)),
         )
         self.board.frame.pack(fill="both", expand=True)
+        self._banner = WarningBanner(root, wraplength=1000, before=self.board.frame, pady=(0, 6))
         self.board.set_lanes(LANES)
         self.apply_theme()
 
@@ -102,12 +102,7 @@ class SequenceLadderWindow(ScrollablePopupWindow):
         self._title.configure(text=f"Sequenzleiter – {view.oberthema}")
         self.board.set_rows(board_rows(view))
         self.board.set_cursor(cursor)
-        if banner:
-            self._banner.configure(text="⚠ " + banner)
-            theme_label_token(self._banner, bg_token="warning_soft", fg_token="fg_primary")
-            self._banner.pack(fill="x", side="top", before=self.board.frame, pady=(0, 6))
-        else:
-            self._banner.pack_forget()
+        self._banner.show(banner)
 
     def focus_board(self, cell: BoardCell | None = None) -> None:
         """Fokus aufs Board (Tastatursteuerung sofort aktiv)."""

@@ -84,6 +84,6 @@ def test_banner_appears_for_a_malformed_ladder(ladder):
     )
     controller.reload()
     window.update()
-    assert window._banner.winfo_manager() == "pack"
-    assert "Zeile 1" in window._banner.cget("text")
+    assert window._banner.label.winfo_manager() == "pack"
+    assert "Zeile 1" in window._banner.label.cget("text")
     assert controller.read_only

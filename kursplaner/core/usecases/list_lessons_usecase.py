@@ -4,9 +4,13 @@ from pathlib import Path
 
 from kursplaner.core.domain.course_lifecycle import is_archived_course_path
 from kursplaner.core.domain.models import LessonOverviewItem, ListLessonsResult
+from kursplaner.core.domain.warning_marker import warning_text
 from kursplaner.core.domain.yaml_registry import parse_stufe
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
+
+NOT_LOADED_TOPIC = warning_text("nicht geladen")
+"""Kursliste: „nächstes Thema“ eines Kurses, dessen Plan nicht geladen werden konnte."""
 
 
 class ListLessonsUseCase:
@@ -49,7 +53,7 @@ class ListLessonsUseCase:
                         folder_name=markdown.parent.name,
                         folder_path=markdown.parent,
                         markdown_path=markdown,
-                        next_topic="⚠ nicht geladen",
+                        next_topic=NOT_LOADED_TOPIC,
                         remaining_hours=0,
                         next_lzk="—",
                         next_ub="",
@@ -86,7 +90,7 @@ class ListLessonsUseCase:
                         folder_name=folder_name,
                         folder_path=folder_path,
                         markdown_path=markdown,
-                        next_topic="⚠ nicht geladen",
+                        next_topic=NOT_LOADED_TOPIC,
                         remaining_hours=0,
                         next_lzk="—",
                         next_ub="",

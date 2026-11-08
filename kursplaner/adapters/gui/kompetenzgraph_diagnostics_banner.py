@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from bw_gui.runtime import ui
-from bw_gui.theming import theme_label_token
-
+from kursplaner.adapters.gui.warning_banner import WarningBanner
 from kursplaner.core.usecases.kompetenzgraph_load_usecase import KompetenzGraphLoadResult
 
 _MAX_CYCLE_LINES = 5
@@ -40,8 +38,8 @@ class KompetenzGraphDiagnosticsBanner:
     """
 
     def __init__(self, parent):
-        """Baut das (zunächst verborgene) Banner auf."""
-        self._label = ui.Label(parent, justify="left", anchor="w", wraplength=900, padx=10, pady=6)
+        """Baut das (zunächst verborgene) Banner auf (Darstellung: `WarningBanner`)."""
+        self._banner = WarningBanner(parent, wraplength=900)
 
     def update(self, load_result: KompetenzGraphLoadResult) -> None:
         """Zeigt das Banner mit einer Zusammenfassung, oder verbirgt es, wenn es nichts zu melden gibt."""
@@ -70,10 +68,4 @@ class KompetenzGraphDiagnosticsBanner:
                 f"{duplicate_count} doppelt vergebene ID(s) gefunden -- jeweils eine Version wurde ignoriert."
             )
 
-        if not messages:
-            self._label.pack_forget()
-            return
-
-        self._label.configure(text="⚠ " + "\n⚠ ".join(messages))
-        theme_label_token(self._label, bg_token="warning_soft", fg_token="fg_primary")
-        self._label.pack(fill="x", side="top")
+        self._banner.show(messages)

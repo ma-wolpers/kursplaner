@@ -12,6 +12,7 @@ from kursplaner.adapters.gui.grade_group_selector import GradeGroupSelector
 from kursplaner.adapters.gui.help_catalog import SCHOOL_WIDE_CANCELLATION_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.warning_banner import WarningBanner
 from kursplaner.core.domain.school_wide_cancellation import SchoolWideCancellationEntry
 from kursplaner.core.flows.school_wide_cancellation_flow import SchoolWideCancellationFlow
 from kursplaner.core.ports.repositories import ConflictContext, ConflictResolution
@@ -108,15 +109,12 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
         outer = widgets.Frame(self.content, padding=8)
         outer.pack(fill="both", expand=True)
 
-        self._diagnostics_var = ui.StringVar(value="")
-        diagnostics_label = widgets.Label(
-            outer, textvariable=self._diagnostics_var, wraplength=1050, justify="left", foreground="#B04A4A"
-        )
-        diagnostics_label.pack(fill="x", pady=(0, 6))
-        self._tooltips.append(HoverTooltip(diagnostics_label, SCHOOL_WIDE_CANCELLATION_HELP["diagnostics"]))
-
         pane = widgets.Panedwindow(outer, orient="horizontal")
         pane.pack(fill="both", expand=True)
+        self._diagnostics_banner = WarningBanner(outer, wraplength=1050, before=pane, pady=(0, 6))
+        self._tooltips.append(
+            HoverTooltip(self._diagnostics_banner.label, SCHOOL_WIDE_CANCELLATION_HELP["diagnostics"])
+        )
 
         left_frame = widgets.Frame(pane)
         right_frame = widgets.Frame(pane)
@@ -229,11 +227,11 @@ class SchoolWideCancellationDialog(ScrollablePopupWindow):
     def _run_diagnostics(self) -> None:
         issues = self._diagnostics_uc.diagnose(self._entries)
         if not issues:
-            self._diagnostics_var.set("")
+            self._diagnostics_banner.show(None)
             return
         summary = "; ".join(f"{issue.course_label}: {issue.description}" for issue in issues[:5])
         more = f" (+{len(issues) - 5} weitere)" if len(issues) > 5 else ""
-        self._diagnostics_var.set(f"⚠ {len(issues)} Abweichung(en) erkannt: {summary}{more}")
+        self._diagnostics_banner.show(f"{len(issues)} Abweichung(en) erkannt: {summary}{more}")
 
     def _on_entry_selected(self, _event=None) -> None:
         selection = self._entry_tree.selection()

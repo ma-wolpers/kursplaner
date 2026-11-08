@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+- Leiter-Ansicht, Vorarbeit 0c: ein Warnbanner, ein Warnzeichen (2026-11-08).
+  - `adapters/gui/warning_banner.py` (`WarningBanner.show(messages)`, „⚠“ je Zeile auf `warning_soft`, ohne Meldung verborgen) ersetzt vier Eigenbauten: `KompetenzGraphDiagnosticsBanner`, Leiter-Fenster, Warnzeilen in `expected_horizon_topic_dialog` und die Diagnosezeile in `school_wide_cancellation_dialog` (dort fester Hexwert `#B04A4A` statt Theme-Token entfernt). Die letzten beiden ändern nur ihr Aussehen (Freigabe der Nutzerin: „solange sich nur das Aussehen ändert, gerne mitaktualisieren“).
+  - Behoben (vorbestehend): Banner behielten nach einem Theme-Wechsel die alte Farbe, weil `theme_label_token` nur einmal färbt – `WarningBanner` hängt an `register_theme_listener`.
+  - `core/domain/warning_marker.py` (`WARNING_GLYPH`, `warning_text`) als einzige Quelle des Zeichens: Banner, `OBERTHEMA_INVALID_MARKER`, `list_lessons_usecase.NOT_LOADED_TOPIC` (vorher zweimal als Literal), Kursliste (`overview_controller`), Spaltenkopf bei unaufgelöstem Link (`grid_renderer`). Texte unverändert.
+  - SSOT-Prüfung des Diffs: Grep auf „⚠“ – nur noch Docstrings; übrige `warning_soft`-Färbungen sind Grid-Zellen/-Köpfe. Test `test_warning_banner_tk.py` (Zeilen, Verbergen, Theme-Wechsel).
 - Leiter-Ansicht, Vorarbeit 0a/0b: Plan-Zeilen-Suche und Lauf-Spanne aus je einer Quelle (2026-11-08).
   - `day_column.day_index_for_row`/`day_for_row`/`days_by_row` ersetzen sechs Kopien: `ExportTopicUnitsPdfUseCase._find_day_by_row_index` (entfernt), `AssignAblageRungUseCase`, `ExpectedHorizonTopicQueryUseCase._find_anchor`, `ExportLzkExpectedHorizonUseCase._require_lzk`, `plan_view_state.restore_plan_view`, `{day.row_index: day}` in `sequence_term_days` und `SequenceLadderHost.choose_sequence`.
   - `TopicSequenceRun.covers(row)` (über `first_row_index`/`last_row_index`, dieselbe Spanne wie die Sequenzfelder im Grid) ersetzt die `min/max(members)`-Nachrechnungen in `sequence_term_days` und `SequenceLadderHost.selected_sequence_path`. Verhalten unverändert (Mitglieder chronologisch, Zeilenindizes steigend).

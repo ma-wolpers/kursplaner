@@ -19,6 +19,7 @@ from bw_gui.widgets import Checkbox
 
 from kursplaner.adapters.gui.local_keys import DOWN, SPACE, UP, bind_keys
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
+from kursplaner.adapters.gui.warning_banner import WarningBanner
 from kursplaner.core.domain.expected_horizon_pdf_layout import (
     DEFAULT_FONT_SIZE,
     FONT_SIZE_STEP,
@@ -118,8 +119,7 @@ class ExpectedHorizonTopicDialog(ScrollablePopupWindow):
             justify="left",
         ).pack(anchor="w", pady=(0, 8))
 
-        for warning in self._warnings():
-            widgets.Label(frame, text=f"⚠ {warning}", justify="left", wraplength=500).pack(anchor="w", pady=(0, 6))
+        WarningBanner(frame, wraplength=500, pady=(0, 6)).show(self._warnings())
 
         list_frame = widgets.Frame(frame)
         list_frame.pack(fill="x", pady=(4, 0))

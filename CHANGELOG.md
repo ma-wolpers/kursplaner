@@ -41,6 +41,7 @@ The format is based on Keep a Changelog.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
 ### Changed
+- **Für Mitentwickelnde:** Hinweisbanner nur noch über `adapters/gui/warning_banner.WarningBanner`.
 - **Für Mitentwickelnde:** Plan-Zeile → Tagesspalte nur noch über `day_column.day_index_for_row`/`day_for_row`/`days_by_row` (sechs Kopien ersetzt), die Spanne eines Sequenzlaufs nur über `TopicSequenceRun.covers`.
 - **Für Mitentwickelnde:** Sequenzleiter-Farbtöne kommen direkt aus `LESSON_KIND_TINTS` über den Terminart-Schlüssel (`_TINT_KIND` entfernt); `tests/test_tint_tokens_in_all_themes.py` prüft jede Kursplaner-Tönung in jedem Theme (bw-gui wirft jetzt bei unbekannten Tokens).
 - **Einheiten brauchen kein Stundenthema mehr:** Das Thema ist optional. Neue Einheiten (Planen, LZK, Hospitation, „Als Unterricht markieren“) bekommen keinen Platzhalter wie „Unterrichtseinheit“, „Neue Stunde“, „LZK“ oder „Hospitation“ mehr, und der Dialog „Einheit planen“ lässt ein leeres Thema zu. Im Spaltenkopf steht bei einer Einheit ohne Thema die Art (z. B. „LZK“), bei Unterricht bleibt er leer.
@@ -63,6 +64,7 @@ The format is based on Keep a Changelog.
 - **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel. Das Mausrad über der Scrollbar eines scrollbaren Bereichs (z. B. im Einstellungsdialog) scrollt jetzt genau dreimal so weit wie über dem Inhalt (bisher unbeabsichtigt fünfmal).
 
 ### Fixed
+- Hinweisbanner (Kompetenznetz, Sequenzleiter, Kompetenzhorizont-Auswahl, Schulweite Ausfälle) sehen jetzt gleich aus und wechseln ihre Farbe mit dem Farbschema; vorher blieb die alte Farbe stehen, und die Abweichungsmeldung bei Schulweiten Ausfällen war fest rot.
 - **Sequenzleiter: Hinweis bei gesperrten Sprossen nennt den echten Grund** (z. B. „Termin ohne eigene, lesbare Unterrichtsdatei“) statt immer „LZK, Hospitation oder Ausfall“.
 - **Sequenzleiter wieder schnell:** Verschieben, Strg+↑/↓, Umbenennen, Löschen und Ideen-Änderungen luden jedes Mal das ganze Hauptfenster neu (alle Kurse einlesen, Ladefenster, kompletter Tabellen-Neuaufbau). Jetzt werden nur die Spalten der geänderten Einheiten neu gelesen und aktualisiert; das Ladefenster erscheint nicht mehr, und das Hauptfenster flackert nicht.
 - **Kurse mit Einheiten ohne Thema laden wieder:** Hatte eine einzige Einheit ein leeres oder gar kein Stundenthema, ließ sich der ganze Kurs nicht öffnen. Jetzt lädt er normal.

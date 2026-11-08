@@ -36,10 +36,11 @@ import re
 from dataclasses import dataclass
 from typing import Iterable
 
+from kursplaner.core.domain.warning_marker import warning_text
 from kursplaner.core.domain.wiki_links import strip_group_prefixed_link, strip_wiki_link
 
 OBERTHEMA_KEY = "Oberthema"
-OBERTHEMA_INVALID_MARKER = "⚠ ungültiges Oberthema"
+OBERTHEMA_INVALID_MARKER = warning_text("ungültiges Oberthema")
 """Grid-Anzeige für einen nicht unterstützten gespeicherten Oberthema-Wert."""
 
 _FLOW_MAPPING_RE = re.compile(r"^\s*\{.*\}\s*$", re.DOTALL)
