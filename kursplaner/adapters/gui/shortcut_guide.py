@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from bw_gui.contracts import KeySpec
+from bw_gui.contracts import KeySpec, Mod
+from bw_gui.shortcuts import humanize_shortcut
 
 
 @dataclass(frozen=True)
@@ -12,11 +14,11 @@ class ShortcutGuideEntry:
     """Beschreibt einen Shortcut inkl. Intent und Merkhilfen fuer die GUI.
 
     ``key`` ist die Taste als bw-gui-``KeySpec`` (in der JSON kanonische Notation,
-    z. B. ``"Ctrl+Shift+E"``); ``display_shortcut`` bleibt der deutsche Anzeigetext.
+    z. B. ``"Ctrl+Shift+E"``); der deutsche Anzeigetext ``display_shortcut`` wird daraus
+    abgeleitet (bw-gui `humanize_shortcut`), nicht gespeichert.
     """
 
     key: KeySpec
-    display_shortcut: str
     action_label: str
     intent: str
     mnemonic: str
@@ -25,9 +27,23 @@ class ShortcutGuideEntry:
     payload: dict[str, object] = field(default_factory=dict)
 
     @property
+    def display_shortcut(self) -> str:
+        """Anzeigetext der Taste (deutsch, z. B. ``"Strg+Shift+L"``)."""
+        return humanize_shortcut(self.key)
+
+    @property
     def is_ctrl_shortcut(self) -> bool:
         """Kennzeichnet Eintraege, die in die Strg-Uebersicht gehoeren."""
-        return self.display_shortcut.startswith("Strg+")
+        return Mod.CTRL in self.key.modifiers
+
+
+def binding_metadata(payload: Mapping[str, object]) -> dict[str, str]:
+    """Bindungs-Metadaten aus einer Intent-Payload – einzige Übersetzung.
+
+    Guide-Bindungen tragen ihre Payload so als Metadaten; Tooltips und Menüs finden
+    mit derselben Payload die passende Taste (z. B. Spalte nach rechts: ``direction``).
+    """
+    return {str(key): str(value) for key, value in payload.items()}
 
 
 def shortcut_guide_path() -> Path:
@@ -45,7 +61,6 @@ def load_shortcut_guide_entries() -> tuple[ShortcutGuideEntry, ...]:
     entries: list[ShortcutGuideEntry] = []
     required_fields = (
         "key",
-        "display_shortcut",
         "action_label",
         "intent",
         "mnemonic",
@@ -68,7 +83,6 @@ def load_shortcut_guide_entries() -> tuple[ShortcutGuideEntry, ...]:
         entries.append(
             ShortcutGuideEntry(
                 key=_parse_key(item["key"], index),
-                display_shortcut=str(item["display_shortcut"]),
                 action_label=str(item["action_label"]),
                 intent=str(item["intent"]),
                 mnemonic=str(item["mnemonic"]),

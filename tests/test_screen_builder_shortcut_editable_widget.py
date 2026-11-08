@@ -18,7 +18,6 @@ class _IntentSink:
 def _entry(intent: str, *, from_shortcut: bool = True, payload: dict | None = None):
     return SimpleNamespace(
         key=KeySpec.parse("Ctrl+Left"),
-        display_shortcut="Strg+Links",
         action_label="Dummy",
         intent=intent,
         from_shortcut=from_shortcut,

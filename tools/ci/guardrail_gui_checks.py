@@ -70,8 +70,8 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
         "from bw_gui.menu import MenuItem as SharedMenuItem",
         "from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent",
         "from kursplaner.adapters.gui.hover_tooltip import HoverTooltip",
-        "rendered_text = compose_shared_hover_text_for_intent(",
-        "tooltip = HoverTooltip(widget, rendered_text)",
+        "return compose_shared_hover_text_for_intent(",
+        "tooltip = HoverTooltip(widget, self._intent_help_text(base_text, intent, metadata))",
     ):
         _require_substring(screen_builder, snippet, "kursplaner/adapters/gui/screen_builder.py", errors)
 

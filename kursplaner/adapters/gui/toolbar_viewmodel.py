@@ -20,6 +20,14 @@ class ToolbarActionDefinition:
     width: int | None = None
     help_key: str | None = None
     payload: dict[str, Any] = field(default_factory=dict)
+    shortcut_intent: str | None = None
+    """Intent, dessen Bindung die Taste im Tooltip liefert, wenn er vom Knopf-Intent abweicht
+    (Kopieren/Einfügen: `SHORTCUT_COPY`/`SHORTCUT_PASTE`); sonst `intent`."""
+
+    @property
+    def key_intent(self) -> str:
+        """Intent der Bindung, deren Taste der Tooltip zeigt."""
+        return self.shortcut_intent or self.intent
 
 
 @dataclass(frozen=True)
@@ -191,6 +199,7 @@ TOOLBAR_ACTIONS: tuple[ToolbarActionDefinition, ...] = (
         width=4,
         padx=(6, 0),
         help_key="lzk_expected_horizon",
+        shortcut_intent=UiIntent.TOOLBAR_LZK,
     ),
     ToolbarActionDefinition(
         key="mark_ub",
@@ -203,7 +212,13 @@ TOOLBAR_ACTIONS: tuple[ToolbarActionDefinition, ...] = (
         help_key="mark_ub",
     ),
     ToolbarActionDefinition(
-        key="copy", slot_key="copy", text="⎘", intent=UiIntent.TOOLBAR_COPY, width=3, help_key="copy"
+        key="copy",
+        slot_key="copy",
+        text="⎘",
+        intent=UiIntent.TOOLBAR_COPY,
+        width=3,
+        help_key="copy",
+        shortcut_intent=UiIntent.SHORTCUT_COPY,
     ),
     ToolbarActionDefinition(
         key="paste",
@@ -213,6 +228,7 @@ TOOLBAR_ACTIONS: tuple[ToolbarActionDefinition, ...] = (
         width=3,
         padx=(6, 0),
         help_key="paste",
+        shortcut_intent=UiIntent.SHORTCUT_PASTE,
     ),
     ToolbarActionDefinition(
         key="find",

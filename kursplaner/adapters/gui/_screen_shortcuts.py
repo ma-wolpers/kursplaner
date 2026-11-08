@@ -32,10 +32,12 @@ from bw_libs.ui_contract.keybinding import (
 )
 from bw_libs.ui_contract.laufkern import verify_manifest, verify_reachability
 from kursplaner.adapters.gui.laufkern_manifest_provider import build_runtime_shortcut_manifest
-from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
+from kursplaner.adapters.gui.shortcut_guide import binding_metadata, load_shortcut_guide_entries
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
 _k = KeySpec.parse
+RUNTIME_DEBUG_INTENT = "debug.shortcut.runtime"
+"""Intent der Shortcut-Runtime-Debug-Bindung (auch Menütext-Taste)."""
 _P = (UI_MODE_PREVIEW,)
 _PE = (UI_MODE_PREVIEW, UI_MODE_EDITOR)
 _ALL = (UI_MODE_GLOBAL, UI_MODE_PREVIEW, UI_MODE_DIALOG)
@@ -134,7 +136,7 @@ class ScreenShortcutsMixin:
                 _k("Ctrl+Shift+D"),
                 lambda _e: self._open_shortcut_runtime_debug_dialog(),
                 "global.runtime-debug",
-                "debug.shortcut.runtime",
+                RUNTIME_DEBUG_INTENT,
                 _ALL,
                 True,
             ),
@@ -176,6 +178,7 @@ class ScreenShortcutsMixin:
                 self._build_shortcut_handler(entry),
                 binding_id=f"guide.{entry.intent}.{index}",
                 intent=entry.intent,
+                metadata=binding_metadata(entry.payload),
                 modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
                 applies_when=self._event_in_main_window,
             )

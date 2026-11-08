@@ -1290,8 +1290,8 @@ class MainWindowActionController:
                 if 0 <= idx < len(day_columns):
                     day = day_columns[idx]
                     if day.is_cancel():
-                        text = "Nimmt Ausfall zurück und gibt die Einheit wieder frei. - Strg+Q"
-            ausfall_tooltip.text = str(text).strip()
+                        text = MAIN_WINDOW_HELP.get("resume_ausfall", "")
+            self.app.screen_builder.set_intent_help_text(ausfall_tooltip, str(text).strip())
 
     def update_action_controls(self) -> None:
         """Aktualisiert die Aktivierbarkeit der Aktionsbuttons aus fachlicher Zustandslogik."""

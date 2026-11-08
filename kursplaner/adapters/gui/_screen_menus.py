@@ -7,13 +7,19 @@ from __future__ import annotations
 from bw_gui.menu import MenuItem as SharedMenuItem
 from bw_gui.runtime import ui
 from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent
+from bw_gui.shortcuts import compose_menu_label
 
+from bw_libs.ui_contract.keybinding import KeybindingRegistry
+from kursplaner.adapters.gui._screen_shortcuts import RUNTIME_DEBUG_INTENT
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
 
 class ScreenMenusMixin:
     """Menu items, intent emission and hover help of the main window (ScreenBuilder mixin)."""
+
+    _runtime_shortcuts: KeybindingRegistry
+    """Laufzeit-Registry der Kürzel, gesetzt von ``ScreenBuilder.__init__`` (für den Typprüfer deklariert)."""
 
     def _set_theme_from_menu(self, theme_key: str) -> None:
         self.app.theme_var.set(theme_key)
@@ -39,7 +45,9 @@ class ScreenMenusMixin:
     def _menu_items_file(self):
         return (
             SharedMenuItem(
-                type="command", label="Neu (Strg+N)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW)
+                type="command",
+                label=self._menu_label("Neu", UiIntent.TOOLBAR_NEW),
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_NEW),
             ),
             SharedMenuItem(
                 type="command",
@@ -53,10 +61,14 @@ class ScreenMenusMixin:
     def _menu_items_edit(self):
         return (
             SharedMenuItem(
-                type="command", label="Undo (Strg+Z)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO)
+                type="command",
+                label=self._menu_label("Undo", UiIntent.TOOLBAR_UNDO),
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_UNDO),
             ),
             SharedMenuItem(
-                type="command", label="Redo (Strg+Y)", command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO)
+                type="command",
+                label=self._menu_label("Redo", UiIntent.TOOLBAR_REDO),
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_REDO),
             ),
             SharedMenuItem(type="submenu", label="Letzte Änderungen", items=self._recent_changes_menu_items()),
         )
@@ -65,28 +77,34 @@ class ScreenMenusMixin:
         return (
             SharedMenuItem(
                 type="command",
-                label="Einheit kopieren (Strg+C)",
+                label=self._menu_label("Einheit kopieren", UiIntent.SHORTCUT_COPY),
                 command=lambda: self._emit_intent(UiIntent.TOOLBAR_COPY),
             ),
             SharedMenuItem(
                 type="command",
-                label="Einheit einfügen (Strg+V)",
+                label=self._menu_label("Einheit einfügen", UiIntent.SHORTCUT_PASTE),
                 command=lambda: self._emit_intent(UiIntent.TOOLBAR_PASTE),
             ),
             SharedMenuItem(
                 type="command",
-                label="Exportieren als... (Strg+P)",
+                label=self._menu_label("Exportieren als...", UiIntent.TOOLBAR_EXPORT_AS),
                 command=lambda: self._emit_intent(UiIntent.TOOLBAR_EXPORT_AS),
             ),
             SharedMenuItem(
-                type="command", label="Markdown finden…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_FIND)
+                type="command",
+                label=self._menu_label("Markdown finden…", UiIntent.TOOLBAR_FIND),
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_FIND),
             ),
             SharedMenuItem(type="separator"),
             SharedMenuItem(
-                type="command", label="Einheit leeren", command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR)
+                type="command",
+                label=self._menu_label("Einheit leeren", UiIntent.TOOLBAR_CLEAR),
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_CLEAR),
             ),
             SharedMenuItem(
-                type="command", label="Einheit umbenennen…", command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME)
+                type="command",
+                label=self._menu_label("Einheit umbenennen…", UiIntent.TOOLBAR_RENAME),
+                command=lambda: self._emit_intent(UiIntent.TOOLBAR_RENAME),
             ),
             SharedMenuItem(
                 type="command",
@@ -95,12 +113,14 @@ class ScreenMenusMixin:
             ),
             SharedMenuItem(
                 type="command",
-                label="Kontextaktion: UB markieren / Ausfall zurücknehmen (Strg+B)",
+                label=self._menu_label(
+                    "Kontextaktion: UB markieren / Ausfall zurücknehmen", UiIntent.TOGGLE_RESUME_OR_UB
+                ),
                 command=lambda: self._emit_intent(UiIntent.TOGGLE_RESUME_OR_UB),
             ),
             SharedMenuItem(
                 type="command",
-                label="Als Hospitation markieren",
+                label=self._menu_label("Als Hospitation markieren", UiIntent.TOOLBAR_HOSPITATION),
                 command=lambda: self._emit_intent(UiIntent.TOOLBAR_HOSPITATION),
             ),
             SharedMenuItem(type="separator"),
@@ -123,12 +143,12 @@ class ScreenMenusMixin:
             ),
             SharedMenuItem(
                 type="command",
-                label="Spaltenarten anzeigen/verstecken… (Strg+L)",
+                label=self._menu_label("Spaltenarten anzeigen/verstecken…", UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
                 command=lambda: self._emit_intent(UiIntent.OPEN_COLUMN_VISIBILITY_SETTINGS),
             ),
             SharedMenuItem(
                 type="switch",
-                label="Sequenzfelder anzeigen (Strg+Shift+S)",
+                label=self._menu_label("Sequenzfelder anzeigen", UiIntent.TOGGLE_SEQUENCE_FIELDS_VISIBLE),
                 checked=bool(self.app.sequence_fields_visible_var.get()),
                 # The intent flips the variable itself (shared with Strg+Shift+S);
                 # the requested value is always "not checked", so this is equivalent.
@@ -143,31 +163,35 @@ class ScreenMenusMixin:
             SharedMenuItem(type="separator"),
             SharedMenuItem(
                 type="command",
-                label="UB-Übersicht anzeigen (Strg+Shift+U)",
+                label=self._menu_label("UB-Übersicht anzeigen", UiIntent.SHOW_UB_ACHIEVEMENTS),
                 command=lambda: self._emit_intent(UiIntent.SHOW_UB_ACHIEVEMENTS),
             ),
             SharedMenuItem(
                 type="command",
-                label="Shortcut-Übersicht anzeigen (Strg+H)",
+                label=self._menu_label("Shortcut-Übersicht anzeigen", UiIntent.SHOW_SHORTCUT_OVERVIEW),
                 command=lambda: self._emit_intent(UiIntent.SHOW_SHORTCUT_OVERVIEW),
             ),
             SharedMenuItem(
                 type="command",
-                label="Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
+                label=self._menu_label("Shortcut-Runtime-Debug anzeigen", RUNTIME_DEBUG_INTENT),
                 command=self._open_shortcut_runtime_debug_dialog,
             ),
             SharedMenuItem(type="separator"),
             SharedMenuItem(
                 type="command",
-                label="Kompetenznetz anzeigen… (Strg+Shift+K)",
+                label=self._menu_label("Kompetenznetz anzeigen…", UiIntent.SHOW_KOMPETENZGRAPH),
                 command=lambda: self._emit_intent(UiIntent.SHOW_KOMPETENZGRAPH),
             ),
             SharedMenuItem(
                 type="command",
-                label="Sequenzleiter öffnen… (Strg+Shift+L)",
+                label=self._menu_label("Sequenzleiter öffnen…", UiIntent.SHOW_SEQUENCE_LADDER),
                 command=lambda: self._emit_intent(UiIntent.SHOW_SEQUENCE_LADDER),
             ),
         )
+
+    def _menu_label(self, text: str, intent: str) -> str:
+        """Menütext mit der Taste der Bindung von *intent* (Registry, dieselbe Quelle wie die Tooltips)."""
+        return compose_menu_label(text, self._runtime_shortcuts.shortcut_for_intent(intent))
 
     def _set_var_and_emit(self, variable, value: bool, intent: str) -> None:
         """Apply a switch menu row: set the requested value, then let the intent act on it.
@@ -189,35 +213,51 @@ class ScreenMenusMixin:
         if not hasattr(self.app, "hover_tooltips"):
             self.app.hover_tooltips = []
 
-    def _add_help(self, widget: ui.Widget, text: str, *, intent: str | None = None) -> HoverTooltip | None:
-        """Registriert bei Bedarf eine Hover-Hilfe für ein Widget."""
+    def _add_help(
+        self,
+        widget: ui.Widget,
+        text: str,
+        *,
+        intent: str | None = None,
+        metadata: dict[str, str] | None = None,
+    ) -> HoverTooltip | None:
+        """Registriert bei Bedarf eine Hover-Hilfe für ein Widget.
+
+        Mit *intent* hängt die Hilfe die Taste der passenden Bindung an (``metadata``
+        unterscheidet Bindungen desselben Intents, z. B. die Verschieberichtung); der
+        Hilfetext selbst nennt keine Taste.
+        """
         base_text = text.strip()
         if not base_text:
             return None
-
-        rendered_text = base_text
-        if intent:
-            rendered_text = compose_shared_hover_text_for_intent(
-                base_text,
-                intent=intent,
-                shortcuts=self._runtime_shortcuts,
-            )
-
-        tooltip = HoverTooltip(widget, rendered_text)
+        tooltip = HoverTooltip(widget, self._intent_help_text(base_text, intent, metadata))
         if intent is not None:
-            self._intent_help_tooltips.append((tooltip, base_text, intent))
+            self._intent_help_tooltips.append((tooltip, base_text, intent, metadata))
         self.app.hover_tooltips.append(tooltip)
         return tooltip
+
+    def _intent_help_text(self, base_text: str, intent: str | None, metadata: dict[str, str] | None) -> str:
+        """Hilfetext plus Taste der Bindung – einzige Zusammensetzung für Intent-Hilfen."""
+        if not intent:
+            return base_text
+        return compose_shared_hover_text_for_intent(
+            base_text, intent=intent, shortcuts=self._runtime_shortcuts, metadata=metadata
+        )
+
+    def set_intent_help_text(self, tooltip: HoverTooltip, base_text: str) -> None:
+        """Tauscht den Hilfetext einer Intent-Hilfe (z. B. Ausfall ↔ zurücknehmen); die Taste bleibt."""
+        for index, (known, _old_text, intent, metadata) in enumerate(self._intent_help_tooltips):
+            if known is tooltip:
+                self._intent_help_tooltips[index] = (known, base_text, intent, metadata)
+                tooltip.text = self._intent_help_text(base_text, intent, metadata)
+                return
+        tooltip.text = base_text
 
     def _refresh_intent_help_tooltips(self) -> None:
         """Aktualisiert Intent-basierte Hover-Texte nach Shortcut-Registrierung."""
 
-        for tooltip, base_text, intent in list(self._intent_help_tooltips):
+        for tooltip, base_text, intent, metadata in list(self._intent_help_tooltips):
             try:
-                tooltip.text = compose_shared_hover_text_for_intent(
-                    base_text,
-                    intent=intent,
-                    shortcuts=self._runtime_shortcuts,
-                )
+                tooltip.text = self._intent_help_text(base_text, intent, metadata)
             except Exception:
                 continue

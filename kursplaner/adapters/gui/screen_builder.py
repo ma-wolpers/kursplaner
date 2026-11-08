@@ -26,6 +26,7 @@ from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.overview_columns import OVERVIEW_COLUMNS
 from kursplaner.adapters.gui.search_overlay_view import SearchOverlayView
+from kursplaner.adapters.gui.shortcut_guide import binding_metadata
 from kursplaner.adapters.gui.toolbar_viewmodel import (
     TOOLBAR_ACTIONS,
     TOOLBAR_SEPARATOR_SLOTS,
@@ -54,7 +55,7 @@ class ScreenBuilder(
         self.app.shortcut_runtime_debug_context_var = None
         self.app.shortcut_runtime_debug_summary_var = None
         self.app.shortcut_runtime_debug_offline_var = None
-        self._intent_help_tooltips: list[tuple[HoverTooltip, str, str]] = []
+        self._intent_help_tooltips: list[tuple[HoverTooltip, str, str, dict[str, str] | None]] = []
 
     def build_ui(self, frame=None):
         """Erzeugt Widgets und verbindet UI-Events mit Adapter-Delegationspunkten."""
@@ -172,7 +173,12 @@ class ScreenBuilder(
             button.pack(side="left", padx=spec.padx)
             self.app.action_buttons[spec.key] = button
             if spec.help_key is not None:
-                tooltip = self._add_help(button, MAIN_WINDOW_HELP.get(spec.help_key, ""), intent=spec.intent)
+                tooltip = self._add_help(
+                    button,
+                    MAIN_WINDOW_HELP.get(spec.help_key, ""),
+                    intent=spec.key_intent,
+                    metadata=binding_metadata(spec.payload),
+                )
                 if tooltip is not None:
                     self.app.action_help_tooltips[spec.key] = tooltip
 

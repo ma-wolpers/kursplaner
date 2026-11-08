@@ -41,6 +41,7 @@ The format is based on Keep a Changelog.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
 ### Changed
+- **Für Mitentwickelnde:** Tasten in Menüs und Tooltips kommen nur aus der Bindung (`_menu_label`, `_add_help(intent=, metadata=)`, `shortcut_guide.binding_metadata`, `ToolbarActionDefinition.shortcut_intent`); Hilfetexte nennen keine Tasten, `shortcut_guide.json` hat kein `display_shortcut` mehr (bw-gui `8be53b2` zuerst pushen).
 - **Für Mitentwickelnde:** Hinweisbanner nur noch über `adapters/gui/warning_banner.WarningBanner`.
 - **Für Mitentwickelnde:** Plan-Zeile → Tagesspalte nur noch über `day_column.day_index_for_row`/`day_for_row`/`days_by_row` (sechs Kopien ersetzt), die Spanne eines Sequenzlaufs nur über `TopicSequenceRun.covers`.
 - **Für Mitentwickelnde:** Sequenzleiter-Farbtöne kommen direkt aus `LESSON_KIND_TINTS` über den Terminart-Schlüssel (`_TINT_KIND` entfernt); `tests/test_tint_tokens_in_all_themes.py` prüft jede Kursplaner-Tönung in jedem Theme (bw-gui wirft jetzt bei unbekannten Tokens).
@@ -64,6 +65,7 @@ The format is based on Keep a Changelog.
 - **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel. Das Mausrad über der Scrollbar eines scrollbaren Bereichs (z. B. im Einstellungsdialog) scrollt jetzt genau dreimal so weit wie über dem Inhalt (bisher unbeabsichtigt fünfmal).
 
 ### Fixed
+- Tooltips nennen ihre Taste nur noch einmal, und zwar immer die richtige: „Spalte nach rechts verschieben“ zeigte bisher Strg+Links. Alle Tastenhinweise (Tooltips, Menüs, Shortcut-Übersicht) sind jetzt deutsch geschrieben, z. B. „Strg+Shift+L“ statt „Ctrl+Shift+L“; „Markdown finden…“, „Einheit leeren“, „Einheit umbenennen…“ und „Als Hospitation markieren“ zeigen im Menü jetzt ihre Taste.
 - Hinweisbanner (Kompetenznetz, Sequenzleiter, Kompetenzhorizont-Auswahl, Schulweite Ausfälle) sehen jetzt gleich aus und wechseln ihre Farbe mit dem Farbschema; vorher blieb die alte Farbe stehen, und die Abweichungsmeldung bei Schulweiten Ausfällen war fest rot.
 - **Sequenzleiter: Hinweis bei gesperrten Sprossen nennt den echten Grund** (z. B. „Termin ohne eigene, lesbare Unterrichtsdatei“) statt immer „LZK, Hospitation oder Ausfall“.
 - **Sequenzleiter wieder schnell:** Verschieben, Strg+↑/↓, Umbenennen, Löschen und Ideen-Änderungen luden jedes Mal das ganze Hauptfenster neu (alle Kurse einlesen, Ladefenster, kompletter Tabellen-Neuaufbau). Jetzt werden nur die Spalten der geänderten Einheiten neu gelesen und aktualisiert; das Ladefenster erscheint nicht mehr, und das Hauptfenster flackert nicht.
