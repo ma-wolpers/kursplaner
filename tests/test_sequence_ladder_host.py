@@ -53,6 +53,20 @@ def test_overview_offers_each_file_once_with_count_and_span(monkeypatch):
     assert (first.label, first.description) == ("Brüche", "3 Einheiten · Mo 02.11. – Sa 07.11.")
 
 
+def test_undo_and_redo_from_the_ladder_do_not_reload_it_a_second_time():
+    """Der Undo-Weg des Hauptfensters veröffentlicht die Sequenzen und lädt so die Leiter selbst."""
+    calls = []
+    app = _app()
+    app.action_controller = SimpleNamespace(
+        undo_history=lambda: calls.append("undo"), redo_history=lambda: calls.append("redo")
+    )
+    host = SequenceLadderHost(app)
+    host.on_sequence_plans_changed = lambda: calls.append("reload")  # type: ignore[method-assign]
+    host._undo()
+    host._redo()
+    assert calls == ["undo", "redo"]
+
+
 def test_free_target_asks_for_the_sequence_then_imports(monkeypatch):
     host = SequenceLadderHost(_app())
     calls = []

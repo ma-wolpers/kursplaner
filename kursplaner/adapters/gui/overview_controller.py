@@ -636,9 +636,10 @@ class MainWindowOverviewController:
                 Platte liest, statt den gesamten Plan. ``None`` (Standard)
                 bedeutet "unbekannt, evtl. mehr als eine Zeile betroffen"
                 (Spaltentausch, Konvertierungen, …) und bewahrt das bisherige
-                Verhalten eines vollständigen Neuaufbaus — nur die drei
-                bekannten Einzelzell-Edit-Aufrufer in `editor_controller.py`
-                übergeben diesen Parameter.
+                Verhalten eines vollständigen Neuaufbaus — übergeben wird der
+                Parameter nur vom Einzelzell-Edit (`editor_controller.py`) und
+                vom gezielten Refresh nach Leiter-Schreibvorgängen
+                (`plan_partial_refresh.py`).
         """
         if self.app.current_table is None:
             self.app.raw_day_columns = []

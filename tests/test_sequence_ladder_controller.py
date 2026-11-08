@@ -51,7 +51,7 @@ def make(tmp_path):
             context=lambda: None if missing else env.context,
             dialogs=dialogs,
             render=lambda view, cursor, banner: renders.append((view, cursor, banner)),
-            after_write=after_write or (lambda: writes.append(1)),
+            after_write=after_write or writes.append,
         )
         controller.reload()
         return controller, dialogs, renders, writes, env.history
@@ -126,6 +126,19 @@ def test_delete_selects_the_neighbour_or_the_empty_cell(make):
     assert controller.cursor == BoardCell(rung_key(0), LANE_INHALT)
 
 
+def test_delete_reads_the_ladder_only_once(make):
+    """Löschen lud die Leiter früher zweimal (einmal nur, um den Nachbar-Cursor zu zeigen)."""
+    controller, dialogs, renders, *_ = make()
+    dialogs.answers = ["A", "B"]
+    controller.add(BoardCell(rung_key(0), LANE_INHALT))
+    controller.add(BoardCell(rung_key(0), LANE_INHALT))
+    controller.set_cursor(_key("A"))
+    reloads_before = controller._reload_count
+    controller.delete()
+    assert controller._reload_count == reloads_before + 1
+    assert renders[-1][1] == _key("B")
+
+
 def test_step_and_drop_keep_the_selection(make):
     controller, dialogs, *_ = make()
     dialogs.answers = ["A"]
@@ -162,20 +175,21 @@ def test_right_column_names_are_checked_per_rung(make):
     assert same_rung("p") is not None
 
 
-def test_write_reloads_the_main_window_and_the_ladder_exactly_once(make):
+def test_write_refreshes_the_written_files_and_reloads_the_ladder_exactly_once(make):
     reloads = []
     holder = {}
 
-    def after_write():
-        reloads.append("main")
-        holder["controller"].reload()  # wie `_publish_sequence_plans` nach `reload_keeping_view`
+    def after_write(written):
+        reloads.append(written)
+        holder["controller"].reload()  # wie `_publish_sequence_plans` nach dem gezielten Refresh
 
     controller, dialogs, renders, *_ = make("U", after_write=after_write)
     holder["controller"] = controller
     dialogs.answers = ["Ziel"]
     before = len(renders)
     controller.add(BoardCell(rung_key(0), LANE_INHALT))
-    assert reloads == ["main"] and len(renders) == before + 1
+    ((written,),) = reloads
+    assert written.parent.name == "Einheiten" and len(renders) == before + 1
     assert controller.cursor == _key("Ziel")
 
 

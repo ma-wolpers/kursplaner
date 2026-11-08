@@ -32,7 +32,7 @@ def ladder(root, tmp_path):
         context=lambda: env.context,
         dialogs=dialogs,
         render=window.render,
-        after_write=lambda: None,
+        after_write=lambda _written: None,
     )
     window.attach(controller)
     bind_ladder_keys(window, window.board, controller, undo=lambda: undone.append("undo"), redo=lambda: None)

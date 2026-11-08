@@ -103,7 +103,7 @@ class SequenceLadderController:
         context: Callable[[], LadderContext | None],
         dialogs: LadderDialogs,
         render: Callable[[SequenceLadderView, Cursor, str | None], None],
-        after_write: Callable[[], None],
+        after_write: Callable[[tuple[Path, ...]], None],
     ) -> None:
         """Verdrahtet den Editor; `reload()` lädt die erste Ansicht.
 
@@ -114,8 +114,9 @@ class SequenceLadderController:
             context: Liefert Oberthema, Läufe und Tagesspalten des geöffneten Kurses.
             dialogs: Dialog-Adapter.
             render: ``(view, cursor, banner)`` – Anzeige aktualisieren.
-            after_write: Nach jedem Schreibvorgang: Hauptfenster neu laden (Grid zeigt
-                die geänderten Einheiten); lädt es dabei die Leiter neu, entfällt das
+            after_write: Nach jedem Schreibvorgang mit den geschriebenen Dateien:
+                Hauptfenster **gezielt** aktualisieren (nur Zeilen dieser Einheiten,
+                `plan_partial_refresh`); lädt es dabei die Leiter neu, entfällt das
                 eigene Neuladen.
         """
         self.sequence_path = sequence_path
@@ -155,7 +156,12 @@ class SequenceLadderController:
             self.cursor = cursor
         elif self.cursor is None:
             self.cursor = initial_cursor(self.ladder)
-        self._render(self.view, self.cursor, self._banner())
+        self._show()
+
+    def _show(self) -> None:
+        """Zeigt die geladene Ansicht mit dem aktuellen Cursor (ohne neu zu lesen)."""
+        if self.view is not None:
+            self._render(self.view, self.cursor, self._banner())
 
     def _banner(self) -> str | None:
         if self.view is not None and self.view.error:
@@ -197,7 +203,7 @@ class SequenceLadderController:
             return result
         self.cursor = card_key(result.focus) if result.focus is not None else cursor_after
         reloads_before = self._reload_count
-        self._after_write()
+        self._after_write(result.written)
         if self._reload_count == reloads_before:
             self.reload()
         return result
@@ -283,7 +289,7 @@ class SequenceLadderController:
             count = len(self.ladder.rung(slot.rung).blocks(slot.side))
             neighbor = self.ladder.ref_at(LadderSlot(slot.rung, slot.side, min(slot.index, count - 1)))
             self.cursor = card_key(neighbor) if neighbor is not None else board_cell(slot)
-            self.reload()
+            self._show()  # Leiter ist nach `_finish` schon frisch; nur den Nachbar-Cursor zeigen
 
     def rename(self) -> None:
         """F2: eigenen Baustein umbenennen (Netz-Bausteine sind gesperrt)."""

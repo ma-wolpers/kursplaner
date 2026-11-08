@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -289,24 +290,18 @@ class LoadPlanDetailUseCase:
             if isinstance(new_link, Path):
                 dirty_paths.add(new_link.resolve())
 
+        # Kein erneutes resolve_row_link_path() (Dateisystemzugriff) fuer die uebrigen
+        # Zeilen noetig: eine nicht in changed_row_indices enthaltene Zeile hat ihre
+        # Inhalt-Zelle per Definition nicht angefasst, ihr Link ist also noch derselbe
+        # wie beim Bau von previous_day_columns (bereits aufgeloest). Externe
+        # Aenderungen an NICHT betroffenen Dateien sind ausserhalb des Scopes dieses
+        # Einzelzeilen-Patches -- ein voller Reload deckt sie ab, dieselbe Grenze wie
+        # beim mtime-Cache.
+        rebuild_rows = set(changed_row_indices) | self.rows_linking(previous_day_columns, dirty_paths)
+
         collected: list[DayColumn] = []
         for row_index in range(len(table.rows)):
-            needs_rebuild = row_index in changed_row_indices
-            if not needs_rebuild and dirty_paths:
-                # Kein erneutes resolve_row_link_path() (Dateisystemzugriff) noetig:
-                # eine nicht in changed_row_indices enthaltene Zeile hat ihre
-                # Inhalt-Zelle per Definition nicht angefasst, ihr Link ist also
-                # noch derselbe wie beim Bau von previous_day_columns[row_index]
-                # (bereits aufgeloest, s. _build_one_day_column). Externe
-                # Aenderungen an NICHT betroffenen Dateien sind ohnehin explizit
-                # ausserhalb des Scopes dieses Einzelzeilen-Patches (siehe
-                # Klassendocstring/DEVELOPMENT_LOG) -- ein voller Reload deckt
-                # sie ab, dieselbe Grenze wie beim mtime-Cache.
-                previous_link = previous_day_columns[row_index].link
-                if isinstance(previous_link, Path) and previous_link in dirty_paths:
-                    needs_rebuild = True
-
-            if needs_rebuild:
+            if row_index in rebuild_rows:
                 collected.append(
                     self._build_one_day_column(
                         table,
@@ -322,3 +317,24 @@ class LoadPlanDetailUseCase:
                 collected.append(previous_day_columns[row_index])
 
         return collected
+
+    @staticmethod
+    def rows_linking(day_columns: Sequence[DayColumn], paths: Iterable[Path]) -> set[int]:
+        """Tabellenzeilen, deren verlinkte Datei eine von *paths* ist (einzige Vergleichsregel).
+
+        `DayColumn.link` ist beim Bau bereits aufgelöst; *paths* werden hier aufgelöst,
+        damit relative/abweichend geschriebene Pfade dieselbe Datei treffen. Genutzt
+        vom inkrementellen Neuaufbau (Zeilen mit derselben Datei wie eine geänderte
+        Zeile) und vom gezielten Refresh nach Schreibvorgängen der Sequenzleiter.
+
+        Args:
+            day_columns: Ungefilterte Tagesspalten (`app.raw_day_columns`).
+            paths: Geschriebene bzw. betroffene Dateien.
+
+        Returns:
+            ``DayColumn.row_index`` aller Spalten mit einem dieser Links.
+        """
+        resolved = {path.resolve() for path in paths}
+        if not resolved:
+            return set()
+        return {day.row_index for day in day_columns if isinstance(day.link, Path) and day.link in resolved}

@@ -60,6 +60,7 @@ The format is based on Keep a Changelog.
 - **Schlanke Scrollbars:** Alle Scrollbars sind jetzt die schlanke native Scrollbar statt der mit Pfeilknöpfen; unter Windows werden sie im dunklen Theme dunkel. Das Mausrad über der Scrollbar eines scrollbaren Bereichs (z. B. im Einstellungsdialog) scrollt jetzt genau dreimal so weit wie über dem Inhalt (bisher unbeabsichtigt fünfmal).
 
 ### Fixed
+- **Sequenzleiter wieder schnell:** Verschieben, Strg+↑/↓, Umbenennen, Löschen und Ideen-Änderungen luden jedes Mal das ganze Hauptfenster neu (alle Kurse einlesen, Ladefenster, kompletter Tabellen-Neuaufbau). Jetzt werden nur die Spalten der geänderten Einheiten neu gelesen und aktualisiert; das Ladefenster erscheint nicht mehr, und das Hauptfenster flackert nicht.
 - **Kurse mit Einheiten ohne Thema laden wieder:** Hatte eine einzige Einheit ein leeres oder gar kein Stundenthema, ließ sich der ganze Kurs nicht öffnen. Jetzt lädt er normal.
 - **Ein geleertes Thema bleibt leer:** Wer in einer Einheit das Stundenthema löschte, bekam nach dem Speichern den Dateicode (z. B. `ab12cd`) als Thema. Das passiert nicht mehr – auch nicht beim Einfügen oder beim Reparieren einer Einheit ohne Kopfdaten.
 - Der Spaltenkopf der nächsten Einheit behält seine blaue Markierung und UB-/datumslose Spalten behalten ihren verstärkten Rahmen – auch direkt nach dem Laden und nachdem du eine Spalte wieder abwählst (vorher wurden beide vom Auswahl-Styling überschrieben).

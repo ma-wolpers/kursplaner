@@ -15,6 +15,7 @@ from pathlib import Path
 from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 
 from kursplaner.adapters.gui.dialog_services import messagebox
+from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_files_written
 from kursplaner.adapters.gui.sequence_ladder_controller import LadderContext, SequenceLadderController, TkLadderDialogs
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
@@ -114,7 +115,7 @@ class SequenceLadderHost:
             context=lambda: self._context(path),
             dialogs=TkLadderDialogs(window),
             render=window.render,
-            after_write=self.app.action_controller.refresh_after_file_write,
+            after_write=lambda written: refresh_after_files_written(self.app, written),
         )
         window.attach(controller)
         bind_ladder_keys(window, window.board, controller, undo=self._undo, redo=self._redo)
@@ -124,12 +125,13 @@ class SequenceLadderHost:
         return controller
 
     def _undo(self) -> None:
+        """Strg+Z in der Leiter: der Undo-Weg des Hauptfensters veröffentlicht die Sequenzen neu
+        und lädt dadurch die Leiter (`on_sequence_plans_changed`) – kein zweites Neuladen hier."""
         self.app.action_controller.undo_history()
-        self.on_sequence_plans_changed()
 
     def _redo(self) -> None:
+        """Strg+Y in der Leiter: wie `_undo`."""
         self.app.action_controller.redo_history()
-        self.on_sequence_plans_changed()
 
     def on_sequence_plans_changed(self) -> None:
         """Sequenzen wurden neu berechnet: offene Leiter neu laden (Termine, Datei, Schreibschutz)."""

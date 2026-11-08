@@ -1364,10 +1364,11 @@ class MainWindowActionController:
         return bool(str(clipboard_value).strip())
 
     def refresh_after_file_write(self) -> None:
-        """Zeigt den Stand nach einem Dateischreibvorgang außerhalb des Grids (Undo/Redo, Sequenzleiter).
+        """Zeigt den Stand nach Undo/Redo: Plan neu laden, ohne dass der Nutzer seinen Platz verliert.
 
-        Einziger Weg dafür: Plan neu laden, ohne dass der Nutzer seinen Platz verliert
-        (`reload_keeping_view`); das veröffentlicht auch die Sequenzen neu.
+        Läuft über `reload_keeping_view` (veröffentlicht auch die Sequenzen neu). Die
+        Sequenzleiter kennt ihre geschriebenen Dateien und nutzt stattdessen den
+        gezielten Weg `plan_partial_refresh.refresh_after_files_written`.
         """
         self.app.overview_controller.reload_keeping_view()
         self.update_action_controls()
