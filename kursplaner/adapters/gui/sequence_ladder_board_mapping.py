@@ -28,7 +28,7 @@ from bw_gui.widgets.card_board import (
     RowTint,
 )
 
-from kursplaner.adapters.gui.lesson_kind_tints import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, LESSON_KIND_TINTS
+from kursplaner.adapters.gui.lesson_kind_tints import LESSON_KIND_TINTS, LessonKindTint
 from kursplaner.core.domain.sequence_ladder import (
     BlockRef,
     LadderRuleError,
@@ -53,7 +53,10 @@ LANES: tuple[BoardLane, ...] = (
 SIDE_BY_LANE: dict[str, LadderSide] = {LANE_INHALT: LadderSide.INHALT, LANE_PROZESS: LadderSide.PROZESS}
 LANE_BY_SIDE: dict[LadderSide, str] = {side: lane for lane, side in SIDE_BY_LANE.items()}
 
-_TINT_KIND = {RungKind.LZK: KIND_LZK, RungKind.HOSPITATION: KIND_HOSPITATION, RungKind.AUSFALL: KIND_AUSFALL}
+
+def _kind_tint(kind: RungKind) -> LessonKindTint | None:
+    """Farbton einer Sprossenart: `RungKind`-Werte sind die Terminart-Schlüssel (`lesson_kinds`)."""
+    return LESSON_KIND_TINTS.get(kind.value)
 
 
 def rung_key(index: int) -> str:
@@ -87,8 +90,8 @@ ASSIGN_ACTION_TEXT = "→ Einheit"
 
 def term_label(info: RungInfo) -> str:
     """Termin-Text: Kurzdatum, bei LZK/Hospitation/Ausfall mit Art (Sprossen-Label und Zielauswahl)."""
-    tint_kind = _TINT_KIND.get(info.kind)
-    suffix = f" · {LESSON_KIND_TINTS[tint_kind].label}" if tint_kind else ""
+    tint = _kind_tint(info.kind)
+    suffix = f" · {tint.label}" if tint is not None else ""
     return f"{info.date_label}{suffix}"
 
 
@@ -103,10 +106,9 @@ def _row_action(index: int, rung: LadderRung, view: SequenceLadderView) -> str |
 
 
 def _row_tint(index: int, view: SequenceLadderView) -> RowTint | None:
-    tint_kind = _TINT_KIND.get(view.rungs[index].kind)
-    if tint_kind is None:
+    tint = _kind_tint(view.rungs[index].kind)
+    if tint is None:
         return None
-    tint = LESSON_KIND_TINTS[tint_kind]
     return RowTint(tint.color_tint, tint.degree, tint.base_token)
 
 
