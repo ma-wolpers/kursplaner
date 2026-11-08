@@ -40,10 +40,15 @@ __all__ = [
 
 @dataclass(frozen=True)
 class RungInfo:
-    """Termin einer Sprosse: Kurzdatum (oder ``??``) und Terminart."""
+    """Termin einer Sprosse: Kurzdatum (oder ``??``), Terminart und Plan-Zeile.
+
+    ``row_index`` ist die stabile Plan-Zeile des Termins (``None`` für „??“-Sprossen) –
+    einzige Verbindung Sprosse ↔ Grid-Spalte (Auswahl-Sync der Leiter-Ansicht).
+    """
 
     date_label: str
     kind: RungKind
+    row_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -88,7 +93,7 @@ def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSeq
 
 def rung_info(day: DayColumn) -> RungInfo:
     """Kurzdatum und Terminart einer Tagesspalte (auch für die Zielauswahl beim Zuordnen)."""
-    return RungInfo(short_day_label(day.datum), rung_kind(day))
+    return RungInfo(short_day_label(day.datum), rung_kind(day), day.row_index)
 
 
 def rung_infos(days: Sequence[DayColumn], rung_count: int) -> tuple[RungInfo, ...]:

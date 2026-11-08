@@ -41,6 +41,7 @@ The format is based on Keep a Changelog.
   - Betroffen: `core/domain/{grade_groups,plan_row_placement,school_wide_cancellation,row_identity}.py`, `core/config/{school_wide_cancellations_store,ui_preferences_store}.py`, `core/usecases/school_wide_cancellation_{preview,apply,revert,overlap_query,diagnostics}_usecase.py`, `core/usecases/{bulk_cancellation_coordinator,apply_school_wide_cancellations_to_new_rows_usecase}.py`, `core/flows/school_wide_cancellation_flow.py`, `adapters/gui/{grade_group_selector,school_wide_cancellation_dialog,conflict_decision_dialog,settings_window}.py`.
 
 ### Changed
+- **Für Mitentwickelnde:** Sequenzliste eines Kurses nur über `adapters/gui/sequence_choices`; Sprossen kennen ihre Plan-Zeile (`RungInfo.row_index`).
 - **Für Mitentwickelnde:** Eine Plan-Zeile wird nur über `MainWindowSelectionController.select_row` markiert.
 - **Für Mitentwickelnde:** Tasten in Menüs und Tooltips kommen nur aus der Bindung (`_menu_label`, `_add_help(intent=, metadata=)`, `shortcut_guide.binding_metadata`, `ToolbarActionDefinition.shortcut_intent`); Hilfetexte nennen keine Tasten, `shortcut_guide.json` hat kein `display_shortcut` mehr (bw-gui `8be53b2` zuerst pushen).
 - **Für Mitentwickelnde:** Hinweisbanner nur noch über `adapters/gui/warning_banner.WarningBanner`.

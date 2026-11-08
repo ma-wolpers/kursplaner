@@ -16,15 +16,13 @@ from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_files_written
+from kursplaner.adapters.gui.sequence_choices import SequenceChoice, sequence_choices, views_by_path
 from kursplaner.adapters.gui.sequence_ladder_assign_flow import AssignRungFlow
 from kursplaner.adapters.gui.sequence_ladder_controller import LadderContext, SequenceLadderController, TkLadderDialogs
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_window import SequenceLadderWindow
 from kursplaner.core.domain.course_kc_context import CourseKcContext, course_kc_context
-from kursplaner.core.domain.day_column import days_by_row
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
-from kursplaner.core.usecases.day_label_format import short_day_label
-from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 
 _NO_SEQUENCE = (
     "Im geöffneten Kurs gibt es noch keine Sequenz – sie entsteht, sobald mindestens zwei "
@@ -43,14 +41,12 @@ class SequenceLadderHost:
 
     # -- Sequenzen des Kurses ----------------------------------------------------
 
-    def _views_by_path(self) -> dict[Path, list[TopicSequencePlanView]]:
-        grouped: dict[Path, list[TopicSequencePlanView]] = {}
-        for view in self.app.topic_sequence_plans:
-            grouped.setdefault(view.sequence_path, []).append(view)
-        return grouped
+    def sequence_choices(self) -> list[SequenceChoice]:
+        """Sequenzen des geöffneten Kurses (Dialog und Auswahlliste lesen nur hier)."""
+        return sequence_choices(self.app.topic_sequence_plans, self.app.raw_day_columns)
 
     def _context(self, path: Path) -> LadderContext | None:
-        views = self._views_by_path().get(path)
+        views = views_by_path(self.app.topic_sequence_plans).get(path)
         if not views:
             return None
         return views[0].run.oberthema, [view.run for view in views], list(self.app.raw_day_columns)
@@ -69,17 +65,11 @@ class SequenceLadderHost:
 
     def choose_sequence(self, *, title: str = "Sequenz wählen") -> Path | None:
         """Sequenzübersicht des geöffneten Kurses; ``None`` bei Abbruch oder ohne Sequenz."""
-        grouped = self._views_by_path()
-        if not grouped:
+        choices = self.sequence_choices()
+        if not choices:
             messagebox.showinfo(title, _NO_SEQUENCE, parent=self.app)
             return None
-        by_row = days_by_row(self.app.raw_day_columns)
-        options = []
-        for path, views in grouped.items():
-            members = sorted(row for view in views for row in view.run.member_row_indices)
-            dates = [short_day_label(by_row[row].datum) for row in (members[0], members[-1]) if row in by_row]
-            span = f" · {dates[0]} – {dates[-1]}" if dates else ""
-            options.append(ChoiceOption(str(path), views[0].run.oberthema, f"{len(members)} Einheiten{span}"))
+        options = [ChoiceOption(str(choice.path), choice.title, choice.detail) for choice in choices]
         key = ChoiceDialogService().askchoice(title, "Welche Sequenz?", options, parent=self.app)
         return Path(key) if key else None
 
