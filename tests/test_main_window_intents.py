@@ -137,6 +137,9 @@ class _SelectionControllerSpy:
     def selected_indices_sorted(self) -> list[int]:
         return list(self.selected_indices)
 
+    def single_selected(self) -> int | None:
+        return self.selected_indices[0] if len(self.selected_indices) == 1 else None
+
     def ensure_column_visible(self, day_index: int):
         self.ensure_column_calls.append(day_index)
 

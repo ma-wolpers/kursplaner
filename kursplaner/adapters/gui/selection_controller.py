@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from kursplaner.adapters.gui.dialog_services import messagebox
-from kursplaner.core.domain.day_column import DayColumn, day_index_for_row
+from kursplaner.core.domain.day_column import DayColumn, day_index_for_row, single_selection, valid_selection
 
 
 class MainWindowSelectionController:
@@ -207,10 +207,9 @@ class MainWindowSelectionController:
 
     def select_first_editable_in_selected_column(self) -> bool:
         """Markiert die erste editierbare, sichtbare Zelle der aktuell ausgewählten Spalte."""
-        selected = self.selected_indices_sorted()
-        if len(selected) != 1:
+        day_index = self.single_selected()
+        if day_index is None:
             return False
-        day_index = selected[0]
         for field_key, _label in self.app.row_defs:
             if self.app.row_display_mode_usecase.is_editable(
                 field_key, self.app.day_columns[day_index], self.app.row_filter_settings
@@ -479,7 +478,11 @@ class MainWindowSelectionController:
 
     def selected_indices_sorted(self) -> list[int]:
         """Liefert gültige selektierte Spaltenindizes in stabiler Reihenfolge."""
-        return sorted(idx for idx in self.app.selected_day_indices if 0 <= idx < len(self.app.day_columns))
+        return valid_selection(self.app.selected_day_indices, self.app.day_columns)
+
+    def single_selected(self) -> int | None:
+        """Position der einen gültig markierten Spalte; ``None`` bei keiner oder mehreren."""
+        return single_selection(self.app.selected_day_indices, self.app.day_columns)
 
     def collect_selected_or_warn(self) -> list[int]:
         """Gibt selektierte Indizes zurück oder zeigt einen Hinweis bei leerer Auswahl."""
@@ -490,12 +493,11 @@ class MainWindowSelectionController:
 
     def get_single_selected_or_warn(self) -> int | None:
         """Liefert genau einen Selektionsindex oder zeigt einen UI-Hinweis."""
-        selected = self.selected_indices_sorted()
-        if len(selected) != 1:
+        day_index = self.single_selected()
+        if day_index is None:
             messagebox.showinfo(
                 "Bitte genau eine Spalte auswählen",
                 "Diese Aktion ist nur mit genau einer ausgewählten Spalte möglich.",
                 parent=self.app,
             )
-            return None
-        return selected[0]
+        return day_index

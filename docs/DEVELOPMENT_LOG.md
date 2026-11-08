@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+- Altfund (Freigabe der Nutzerin „Zusammenführen“): Auswahlregel aus einer Quelle (2026-11-08).
+  - `day_column.valid_selection` (gültige markierte Positionen, aufsteigend) und `single_selection` (genau eine) ersetzen sieben Kopien: `selection_controller.selected_indices_sorted`, `select_first_editable_in_selected_column`, `get_single_selected_or_warn` (neu `single_selected()`), `ui_intent_controller` (Klick auf die markierte Spalte), `ActionButtonStateUseCase._selected_index`, `TrackedWriteUseCase`, `RowDisplayModeUseCase.mode_for_selection`, dazu Ausfall-Kontexttooltip (`action_controller`) und Toolbar-Icons (`toolbar_icon_styler`). Die letzten beiden zählten vorher auch veraltete Positionen mit; jetzt fallen sie wie überall weg (nur bei veralteter Auswahl anders, sonst gleich).
+  - Befund für einen eigenen Auftrag (Nutzerin: „später“): Kartograph und vermutlich weitere Apps schreiben Tasten als Text in Menüeinträge (z. B. „Dokumentationssicht (Strg+Shift+D)“) – Umstellung auf `compose_menu_label` + Registry; der Kartograph bindet eine eigene bw-gui-Kopie ein und bekommt die deutsche Tastenanzeige erst nach deren Aktualisierung.
+  - Test `test_day_row_lookup.py::test_selection_rules_drop_stale_positions`. 1754 grün, mypy 156.
 - Leiter-Ansicht, Schritt 2+3: Sequenzleiter als Oberfläche der Detailansicht statt Popup (2026-11-08, Wunsch der Nutzerin: Wechsel wie Tisch-/Dokuansicht im Kartograph; Entscheidungen: Grid ↔ Leiter im geöffneten Kurs, Sequenz der markierten Spalte + Auswahlliste, eigene Toolbar).
   - Zustand: `MainWindowUiState.detail_surface` (`adapters/gui/detail_surface.py`, `DetailSurface.GRID/LADDER`), gemerkt über Kurswechsel und Neuladen; `is_detail_view` bleibt „Kurs offen“ (Kartograph-Modell mit zwei unabhängigen Quellen statt eines dritten Felds).
   - Tor: `LADDER_SURFACE_INTENTS` (Positivliste) + `intent_allowed`, geprüft zuerst in `MainWindowUiIntentController.handle_intent` – alle Kürzel/Menüs/Knöpfe laufen dort durch, die ~25 einzelnen `is_detail_view`-Prüfungen bleiben unberührt; neue Intents sind in der Leiter automatisch gesperrt.

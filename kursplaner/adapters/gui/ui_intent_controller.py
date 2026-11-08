@@ -597,10 +597,8 @@ class MainWindowUiIntentController:
             if not self._leave_edit_mode_to_cell(set_grid_focus=True):
                 return EventResult.HANDLED
 
-        selected = self.app.selection_controller.selected_indices_sorted()
         is_same_selected_column = (
-            len(selected) == 1
-            and selected[0] == day_index
+            self.app.selection_controller.single_selected() == day_index
             and self.app.ui_state.selection_level == self.app.ui_state.SELECTION_LEVEL_COLUMN
         )
         if is_same_selected_column:

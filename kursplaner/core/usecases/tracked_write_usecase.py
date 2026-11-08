@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, TypeVar
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, valid_selection
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
 
@@ -49,8 +49,7 @@ class TrackedWriteUseCase:
         files: list[Path] = []
         if table is not None:
             files.append(table.markdown_path.resolve())
-            selected = sorted(idx for idx in selected_day_indices if 0 <= idx < len(day_columns))
-            for idx in selected:
+            for idx in valid_selection(selected_day_indices, day_columns):
                 link = day_columns[idx].link
                 if isinstance(link, Path):
                     files.append(link.resolve())

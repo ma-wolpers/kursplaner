@@ -7,7 +7,7 @@ from bw_gui.theming import icon_button, recolor_photo, recolor_photo_token, reta
 
 from kursplaner.adapters.gui.toolbar_viewmodel import TOOLBAR_ACTIONS
 from kursplaner.adapters.gui.ui_theme import HOSPITATION_SEED
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, single_selection
 from kursplaner.core.domain.unterrichtsbesuch_policy import ub_link_stem
 
 # Maps ttk style name → bw_gui color_tint seed for icon recoloring.
@@ -151,15 +151,12 @@ class ToolbarIconStyler:
 
         mark_ub_remove_mode = False
         ausfall_resume_mode = False
-        selected = sorted(int(i) for i in getattr(self.app, "selected_day_indices", set()))
-        if len(selected) == 1:
-            day_columns = list(getattr(self.app, "day_columns", []))
-            idx = selected[0]
-            if 0 <= idx < len(day_columns):
-                day = day_columns[idx]
-                if isinstance(day, DayColumn):
-                    mark_ub_remove_mode = bool(ub_link_stem(day.yaml))
-                    ausfall_resume_mode = day.is_cancel()
+        day_columns = list(getattr(self.app, "day_columns", []))
+        idx = single_selection(getattr(self.app, "selected_day_indices", set()), day_columns)
+        day = day_columns[idx] if idx is not None else None
+        if isinstance(day, DayColumn):
+            mark_ub_remove_mode = bool(ub_link_stem(day.yaml))
+            ausfall_resume_mode = day.is_cancel()
 
         for spec in TOOLBAR_ACTIONS:
             button = buttons.get(spec.key)

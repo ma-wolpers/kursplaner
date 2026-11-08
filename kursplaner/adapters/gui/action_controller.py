@@ -54,7 +54,7 @@ from kursplaner.core.config.path_store import (
     infer_workspace_root_from_path,
     resolve_path_value,
 )
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, single_selection
 from kursplaner.core.domain.kompetenzgraph_filter import build_initial_kompetenz_graph_filter
 from kursplaner.core.domain.lesson_directory import resolve_lesson_dir
 from kursplaner.core.domain.lesson_files import list_lesson_files
@@ -1283,14 +1283,10 @@ class MainWindowActionController:
         ausfall_tooltip = tooltips.get("ausfall")
         if ausfall_tooltip is not None:
             text = MAIN_WINDOW_HELP.get("as_ausfall", "")
-            selected_indices = sorted(int(idx) for idx in getattr(self.app, "selected_day_indices", set()))
-            if len(selected_indices) == 1:
-                day_columns = list(getattr(self.app, "day_columns", []))
-                idx = selected_indices[0]
-                if 0 <= idx < len(day_columns):
-                    day = day_columns[idx]
-                    if day.is_cancel():
-                        text = MAIN_WINDOW_HELP.get("resume_ausfall", "")
+            day_columns = list(getattr(self.app, "day_columns", []))
+            idx = single_selection(getattr(self.app, "selected_day_indices", set()), day_columns)
+            if idx is not None and day_columns[idx].is_cancel():
+                text = MAIN_WINDOW_HELP.get("resume_ausfall", "")
             self.app.screen_builder.set_intent_help_text(ausfall_tooltip, str(text).strip())
 
     def update_action_controls(self) -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, single_selection
 from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, KIND_UNTERRICHT
 from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
@@ -156,10 +156,10 @@ class RowDisplayModeUseCase:
         fallback_mode: str | None,
     ) -> str:
         """Bestimmt den passenden Modus anhand der aktuellen Selektion."""
-        selected = sorted(index for index in selected_day_indices if 0 <= index < len(day_columns))
-        if len(selected) != 1:
+        selected = single_selection(selected_day_indices, day_columns)
+        if selected is None:
             return self.normalize_mode(fallback_mode)
-        return self.infer_day_mode(day_columns[selected[0]])
+        return self.infer_day_mode(day_columns[selected])
 
     @staticmethod
     def list_like_fields() -> set[str]:

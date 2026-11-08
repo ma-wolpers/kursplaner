@@ -19,3 +19,12 @@ def test_run_span_includes_gaps_between_first_and_last_member():
     run = TopicSequenceRun(oberthema="Algorithmen", member_row_indices=(2, 3, 6))
     assert [row for row in range(1, 8) if run.covers(row)] == [2, 3, 4, 5, 6]
     assert not TopicSequenceRun(oberthema="leer", member_row_indices=()).covers(0)
+
+
+def test_selection_rules_drop_stale_positions():
+    from kursplaner.core.domain.day_column import single_selection, valid_selection
+
+    days = [make_day_column(row_index=row) for row in range(3)]
+    assert valid_selection({2, 0, 7}, days) == [0, 2]
+    assert single_selection({1, 9}, days) == 1
+    assert single_selection({0, 1}, days) is None and single_selection(set(), days) is None

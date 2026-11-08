@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.day_column import DayColumn, single_selection
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.move_selected_columns_usecase import MoveSelectedColumnsUseCase
 
@@ -41,11 +41,8 @@ class ActionButtonStateUseCase:
 
     @staticmethod
     def _selected_index(selected_day_indices: set[int], day_columns: list[DayColumn]) -> int | None:
-        """Liefert den Index bei genau einer gültigen Selektion, sonst `None`."""
-        selected = sorted(idx for idx in selected_day_indices if 0 <= idx < len(day_columns))
-        if len(selected) != 1:
-            return None
-        return selected[0]
+        """Liefert den Index bei genau einer gültigen Selektion, sonst `None` (`single_selection`)."""
+        return single_selection(selected_day_indices, day_columns)
 
     def compute(
         self,

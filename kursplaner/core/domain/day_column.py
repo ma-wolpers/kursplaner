@@ -25,7 +25,7 @@ werden nirgends im Codebestand nach der Konstruktion in-place mutiert.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from functools import cached_property
@@ -331,3 +331,17 @@ def day_for_row(days: Sequence[object], row_index: int) -> DayColumn | None:
 def days_by_row(days: Sequence[object]) -> dict[int, DayColumn]:
     """Tagesspalten nach stabilem Zeilenindex, für viele Abfragen auf einmal."""
     return {day.row_index: day for day in days if isinstance(day, DayColumn)}
+
+
+def valid_selection(selected: Iterable[int], days: Sequence[object]) -> list[int]:
+    """Gültige markierte Spaltenpositionen in *days*, aufsteigend – einzige Regel dafür.
+
+    Veraltete Positionen (z. B. nach dem Ausblenden von Spalten) fallen weg.
+    """
+    return sorted(index for index in selected if 0 <= index < len(days))
+
+
+def single_selection(selected: Iterable[int], days: Sequence[object]) -> int | None:
+    """Position der einen gültig markierten Spalte; ``None`` bei keiner oder mehreren."""
+    valid = valid_selection(selected, days)
+    return valid[0] if len(valid) == 1 else None
