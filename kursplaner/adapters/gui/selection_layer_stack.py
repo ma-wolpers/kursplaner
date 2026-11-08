@@ -5,6 +5,8 @@ from typing import Protocol
 from bw_gui.contracts import EventResult
 from bw_gui.runtime import ui
 
+from kursplaner.adapters.gui.detail_surface import DetailSurface
+
 
 class SelectionLayer(Protocol):
     """Eine der fünf Auswahlebenen (COURSE/COLUMN/CELL/EDIT/SEARCH), aus Sicht von Enter/Escape."""
@@ -118,6 +120,27 @@ class _SearchLayer:
         return EventResult.HANDLED
 
 
+class _LadderLayer:
+    """Sequenzleiter-Ansicht (`detail_surface is LADDER`): Escape führt zurück ins Grid.
+
+    Enter und die Pfeiltasten bindet das Board selbst (`sequence_ladder_keys`); das
+    Ideen-Textfeld verwirft mit Escape seine Eingabe, bevor die Taste hier ankommt.
+    """
+
+    def __init__(self, controller):
+        self._controller = controller
+
+    def on_enter(self) -> EventResult | None:
+        return None
+
+    def on_escape(self) -> EventResult | None:
+        self._controller.app.main_view_switcher.show_surface(DetailSurface.GRID)
+        return EventResult.HANDLED
+
+    def on_find_previous(self) -> EventResult | None:
+        return None
+
+
 class SelectionLayerStack:
     """Einzige Quelle der Wahrheit, welche Auswahlebene Enter/Escape/Umschalt+Enter aktuell erhält.
 
@@ -145,6 +168,7 @@ class SelectionLayerStack:
         self._cell = _CellLayer(controller)
         self._edit = _EditLayer(controller)
         self._search = _SearchLayer(controller)
+        self._ladder = _LadderLayer(controller)
 
     def top(self) -> SelectionLayer:
         """Liefert die aktuell aktive Auswahlebene -- die einzige Stelle, die das entscheidet."""
@@ -154,6 +178,8 @@ class SelectionLayerStack:
             return self._search
         if not bool(getattr(app, "is_detail_view", False)):
             return self._course
+        if app.ui_state.detail_surface is DetailSurface.LADDER:
+            return self._ladder
         level = app.ui_state.selection_level
         if level == app.ui_state.SELECTION_LEVEL_EDIT or isinstance(app.focus_get(), ui.Text):
             return self._edit

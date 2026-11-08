@@ -13,6 +13,7 @@ from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.grid_viewport_sync import GridViewportSync, HorizontalViewportSync
 from kursplaner.adapters.gui.lesson_context_controller import MainWindowLessonContextController
 from kursplaner.adapters.gui.lesson_conversion_controller import MainWindowLessonConversionController
+from kursplaner.adapters.gui.main_view_switcher import MainViewSwitcher
 from kursplaner.adapters.gui.main_window_plan_delegation import KursplanerPlanDelegationMixin
 from kursplaner.adapters.gui.main_window_row_mode import KursplanerRowModeMixin
 from kursplaner.adapters.gui.overview_controller import MainWindowOverviewController
@@ -184,6 +185,7 @@ class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBas
         self.grid_renderer = GridRenderer(self)
         self.action_controller = MainWindowActionController(self)
         self.sequence_ladder_host = SequenceLadderHost(self)
+        self.main_view_switcher = MainViewSwitcher(self)
 
         self.screen_builder.build_ui(frame)
         self.screen_builder._bind_shortcuts()

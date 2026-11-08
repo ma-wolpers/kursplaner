@@ -14,6 +14,7 @@ from bw_gui.contracts import KeySpec
 from kursplaner.adapters.gui._screen_menus import ScreenMenusMixin
 from kursplaner.adapters.gui._screen_shortcuts import RUNTIME_DEBUG_INTENT
 from kursplaner.adapters.gui.shortcut_guide import load_shortcut_guide_entries
+from kursplaner.adapters.gui.ui_state import MainWindowUiState
 
 
 class _Var:
@@ -47,6 +48,7 @@ def _menus():
         auto_scroll_next_unit_var=_Var(),
         action_controller=SimpleNamespace(list_recent_change_labels=lambda limit: []),
         destroy=lambda: None,
+        ui_state=MainWindowUiState(),
     )
     return menus
 
@@ -80,7 +82,7 @@ def test_menu_labels_take_keys_from_bindings():
         "Shortcut-Übersicht anzeigen (Strg+H)",
         "Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
         "Kompetenznetz anzeigen… (Strg+Shift+K)",
-        "Sequenzleiter öffnen… (Strg+Shift+L)",
+        "Sequenzleiter (Strg+Shift+L)",
     ]
 
 

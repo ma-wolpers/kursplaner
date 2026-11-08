@@ -11,6 +11,7 @@ from bw_gui.shortcuts import compose_menu_label
 
 from bw_libs.ui_contract.keybinding import KeybindingRegistry
 from kursplaner.adapters.gui._screen_shortcuts import RUNTIME_DEBUG_INTENT
+from kursplaner.adapters.gui.detail_surface import DetailSurface
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.ui_intents import UiIntent
 
@@ -183,9 +184,11 @@ class ScreenMenusMixin:
                 command=lambda: self._emit_intent(UiIntent.SHOW_KOMPETENZGRAPH),
             ),
             SharedMenuItem(
-                type="command",
-                label=self._menu_label("Sequenzleiter öffnen…", UiIntent.SHOW_SEQUENCE_LADDER),
-                command=lambda: self._emit_intent(UiIntent.SHOW_SEQUENCE_LADDER),
+                type="switch",
+                label=self._menu_label("Sequenzleiter", UiIntent.TOGGLE_SEQUENCE_LADDER_VIEW),
+                checked=self.app.ui_state.detail_surface is DetailSurface.LADDER,
+                # Der Intent schaltet selbst um; der angefragte Wert ist immer „nicht gesetzt“.
+                on_toggle=lambda _on: self._emit_intent(UiIntent.TOGGLE_SEQUENCE_LADDER_VIEW),
             ),
         )
 

@@ -7,6 +7,7 @@ from bw_gui.contracts.pointer import ClickEvent, DragEvent
 from bw_gui.runtime import ui, widgets
 
 from bw_libs.ui_contract.hsm import build_ui_hsm_contract
+from kursplaner.adapters.gui.detail_surface import DetailSurface, intent_allowed
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.selection_layer_stack import SelectionLayerStack
 from kursplaner.adapters.gui.ui_intents import UiIntent
@@ -39,6 +40,10 @@ class MainWindowUiIntentController:
         intent_ok, _intent_reason = self._hsm_contract.validate_intent(intent)
         if not intent_ok:
             return None
+        if bool(getattr(self.app, "is_detail_view", False)):
+            surface = getattr(getattr(self.app, "ui_state", None), "detail_surface", DetailSurface.GRID)
+            if not intent_allowed(surface, intent):
+                return None
 
         if ScrollablePopupWindow.has_active_popup() and intent != UiIntent.SHORTCUT_ESCAPE:
             return EventResult.HANDLED
@@ -260,9 +265,10 @@ class MainWindowUiIntentController:
         if intent == UiIntent.SHOW_KOMPETENZGRAPH:
             self.app.action_controller.show_kompetenzgraph()
             return None
-        if intent == UiIntent.SHOW_SEQUENCE_LADDER:
-            self.app.sequence_ladder_host.show_for_selection()
-            return None
+        if intent == UiIntent.TOGGLE_SEQUENCE_LADDER_VIEW:
+            if bool(getattr(self.app, "is_detail_view", False)):
+                self.app.main_view_switcher.toggle_ladder()
+            return EventResult.HANDLED
         if intent == UiIntent.OPEN_ROW_FILTER_SETTINGS:
             self.app.action_controller.open_row_filter_settings()
             return None

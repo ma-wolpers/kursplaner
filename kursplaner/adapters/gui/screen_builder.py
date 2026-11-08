@@ -26,6 +26,7 @@ from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
 from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.overview_columns import OVERVIEW_COLUMNS
 from kursplaner.adapters.gui.search_overlay_view import SearchOverlayView
+from kursplaner.adapters.gui.sequence_ladder_panel import SequenceLadderPanel
 from kursplaner.adapters.gui.shortcut_guide import binding_metadata
 from kursplaner.adapters.gui.toolbar_viewmodel import (
     TOOLBAR_ACTIONS,
@@ -140,8 +141,11 @@ class ScreenBuilder(
 
         widgets.Label(left, textvariable=self.app.count_var, style="Toolbar.TLabel").pack(anchor="e", pady=(0, 6))
 
-        detail_toolbar = widgets.Frame(right, style="Toolbar.TFrame")
-        detail_toolbar.pack(fill="x", pady=(0, 2))
+        # Zwei Plätze der Detailansicht (Toolbar über, Inhalt unter der gemeinsamen Kopfzeile);
+        # Grid und Sequenzleiter belegen sie abwechselnd (`MainViewSwitcher`).
+        toolbar_slot = widgets.Frame(right)
+        toolbar_slot.pack(fill="x")
+        detail_toolbar = widgets.Frame(toolbar_slot, style="Toolbar.TFrame")
         self.app.toolbar_frame = detail_toolbar
         for slot_key in TOOLBAR_SLOT_ORDER:
             slot = widgets.Frame(detail_toolbar, style="Toolbar.TFrame")
@@ -242,7 +246,20 @@ class ScreenBuilder(
         self._add_help(close_button, MAIN_WINDOW_HELP.get("detail_navigation", ""))
         self._add_help(selected_column_label, MAIN_WINDOW_HELP.get("detail_navigation", ""))
 
-        mode_bar = widgets.Frame(right)
+        body_slot = widgets.Frame(right)
+        body_slot.pack(fill="both", expand=True)
+        self.app.grid_body = widgets.Frame(body_slot)
+        self.app.sequence_ladder_panel = SequenceLadderPanel(
+            toolbar_slot,
+            body_slot,
+            add_help=self._add_help,
+            on_import_click=self.app.sequence_ladder_host.open_competence_picker,
+            on_sequence_chosen=self.app.sequence_ladder_host.show_for_sequence,
+            on_cursor_moved=self.app.sequence_ladder_host.move_cursor,
+        )
+        self.app.sequence_ladder_host.attach_panel(self.app.sequence_ladder_panel)
+
+        mode_bar = widgets.Frame(self.app.grid_body)
         mode_bar.pack(fill="x", pady=(0, 6))
         widgets.Label(mode_bar, text="Ansicht:").pack(side="left")
         for mode_key, label in (
@@ -304,7 +321,7 @@ class ScreenBuilder(
 
         self.app._refresh_row_mode_button_styles()
 
-        editor_frame = widgets.Frame(right)
+        editor_frame = widgets.Frame(self.app.grid_body)
         editor_frame.pack(fill="both", expand=True)
 
         self.app.fixed_header_frame = ui.Frame(editor_frame, highlightthickness=0, width=220)
@@ -349,4 +366,4 @@ class ScreenBuilder(
             bind_wheel(canvas, self.app._on_grid_mousewheel)
 
         self.refresh_course_overview_toolbar()
-        self.show_course_overview()
+        self.app.main_view_switcher.show_overview()

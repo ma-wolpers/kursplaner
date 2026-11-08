@@ -24,6 +24,7 @@ from bw_gui.widgets.card_board import (
     BoardRow,
     BoardSlot,
     CardTone,
+    Cursor,
     LaneKind,
     RowTint,
 )
@@ -82,6 +83,20 @@ def block_ref(key: str) -> BlockRef:
     """Baustein-Verweis zu einem Board-Kartenschlüssel (Umkehrung von `card_key`)."""
     rung, side, text = key.split(_KEY_SEPARATOR, 2)
     return BlockRef(int(rung), LadderSide(side), text)
+
+
+def cursor_rung(cursor: Cursor) -> int | None:
+    """Sprossen-Index unter dem Board-Cursor (Zelle oder Baustein); ``None`` ohne Cursor."""
+    if isinstance(cursor, BoardCell):
+        return rung_index(cursor.row_key)
+    if isinstance(cursor, str):
+        return block_ref(cursor).rung
+    return None
+
+
+def rung_cursor(index: int) -> BoardCell:
+    """Cursor auf die Inhaltszelle einer Sprosse (Einstieg beim Umschalten aus dem Grid)."""
+    return BoardCell(rung_key(index), LANE_INHALT)
 
 
 ASSIGN_ACTION_TEXT = "→ Einheit"

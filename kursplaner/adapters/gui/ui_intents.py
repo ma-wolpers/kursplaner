@@ -75,7 +75,7 @@ class UiIntent:
     OPEN_ROW_FILTER_SETTINGS = "detail.open_row_filter_settings"
     OPEN_TIMETABLE_CHANGE = "detail.open_timetable_change"
     SHOW_KOMPETENZGRAPH = "detail.show_kompetenzgraph"
-    SHOW_SEQUENCE_LADDER = "detail.show_sequence_ladder"
+    TOGGLE_SEQUENCE_LADDER_VIEW = "detail.toggle_sequence_ladder_view"
 
     # Global shortcut and pointer intents
     SHORTCUT_DETAIL_LEFT = "shortcut.detail_left"

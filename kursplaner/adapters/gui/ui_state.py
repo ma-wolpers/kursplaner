@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from kursplaner.adapters.gui.detail_surface import DetailSurface
+
 
 @dataclass(frozen=True)
 class ActiveEditorState:
@@ -34,6 +36,8 @@ class MainWindowUiState:
     selected_cell: SelectedCellState | None = None
     selection_level: str = SELECTION_LEVEL_COURSE
     visible_toolbar_actions: set[str] = field(default_factory=set)
+    detail_surface: DetailSurface = DetailSurface.GRID
+    """Oberfläche eines geöffneten Kurses (Grid/Leiter); umgeschaltet nur in `MainViewSwitcher`."""
 
     def set_active_editor(self, field_key: str, day_index: int) -> None:
         self.active_editor = ActiveEditorState(field_key=field_key, day_index=day_index)

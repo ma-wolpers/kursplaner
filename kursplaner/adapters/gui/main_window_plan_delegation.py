@@ -52,12 +52,12 @@ class KursplanerPlanDelegationMixin:
         self.overview_controller.close_detail_view()
 
     def _show_course_overview(self):
-        """Zeigt die Kursliste als alleinige Hauptansicht."""
-        self.screen_builder.show_course_overview()
+        """Zeigt die Kursliste als alleinige Hauptansicht (`MainViewSwitcher`)."""
+        self.main_view_switcher.show_overview()
 
     def _show_course_detail(self):
-        """Zeigt die Einheitenansicht als alleinige Hauptansicht."""
-        self.screen_builder.show_course_detail()
+        """Zeigt die Detailansicht mit der zuletzt gewählten Oberfläche (`MainViewSwitcher`)."""
+        self.main_view_switcher.show_detail()
 
     def _collect_day_columns(self, changed_row_indices: set[int] | None = None) -> None:
         """Aktualisiert die Grid-Projektion (`day_columns`) aus der geladenen Tabelle.

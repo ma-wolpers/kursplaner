@@ -1,6 +1,7 @@
-"""Toolbar layout, course views and theme application of the main window (ScreenBuilder mixin).
+"""Toolbar layout and theme application of the main window (ScreenBuilder mixin).
 
-Split out of screen_builder.py (file-size rule); method bodies unchanged."""
+Split out of screen_builder.py (file-size rule). Switching between course list, grid and
+sequence ladder lives in `main_view_switcher.MainViewSwitcher` (one place)."""
 
 from __future__ import annotations
 
@@ -127,36 +128,6 @@ class ScreenToolbarMixin:
             return
         self._last_toolbar_wrap_width = width
         self._layout_toolbar_slots()
-
-    def show_course_overview(self):
-        """Zeigt nur die Kursübersicht und blendet die Detailansicht aus."""
-        pane = self.app.main_paned
-        panes = set(str(item) for item in pane.panes())
-        detail = str(self.app.detail_panel)
-        course = str(self.app.course_panel)
-        if detail in panes:
-            pane.forget(self.app.detail_panel)
-        panes = set(str(item) for item in pane.panes())
-        if course not in panes:
-            pane.add(self.app.course_panel, weight=1)
-        self.app.is_detail_view = False
-        self.refresh_course_overview_toolbar()
-        self.app.overview_controller.ensure_course_selected(prefer_first=True)
-        self.app.after_idle(self.app.lesson_tree.focus_set)
-
-    def show_course_detail(self):
-        """Zeigt nur die Detailansicht und blendet die Kursliste aus."""
-        pane = self.app.main_paned
-        panes = set(str(item) for item in pane.panes())
-        course = str(self.app.course_panel)
-        detail = str(self.app.detail_panel)
-        if course in panes:
-            pane.forget(self.app.course_panel)
-        panes = set(str(item) for item in pane.panes())
-        if detail not in panes:
-            pane.add(self.app.detail_panel, weight=1)
-        self.app.is_detail_view = True
-        self.app.after_idle(self.app.grid_canvas.focus_set)
 
     def _apply_theme(self):
         """Wendet das ausgewählte Theme auf Fenster und Grid-Canvas an."""

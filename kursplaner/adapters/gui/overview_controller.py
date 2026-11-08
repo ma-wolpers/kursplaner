@@ -271,7 +271,7 @@ class MainWindowOverviewController:
     def _show_reloaded_overview(self, *, preferred_iid: str = ""):
         """Zeigt die frisch geladene Kursliste.
 
-        Der bevorzugte Kurs wird vor dem Ansichtswechsel fokussiert: `show_course_overview`
+        Der bevorzugte Kurs wird vor dem Ansichtswechsel fokussiert: `MainViewSwitcher.show_overview`
         wählt über `ensure_course_selected` nur dann den ersten Kurs, wenn keiner fokussiert ist.
 
         Args:
@@ -661,7 +661,7 @@ class MainWindowOverviewController:
         """Einzige Stelle, die `app.topic_sequence_plans` setzt; benachrichtigt danach die Sequenzleiter.
 
         Deckt jede Neuberechnung ab (Laden, Grid-Edit, Undo/Redo, Kurswechsel, Schließen),
-        damit ein offenes Leiter-Fenster Termine und Schreibschutz immer aktuell zeigt.
+        damit eine sichtbare Leiter-Ansicht Termine und Schreibschutz immer aktuell zeigt.
         """
         self.app.topic_sequence_plans = views
         host = getattr(self.app, "sequence_ladder_host", None)

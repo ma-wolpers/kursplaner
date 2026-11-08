@@ -146,7 +146,7 @@ class TestReloadKeepingView:
         app.lesson_tree = _Tree(items, focused)
 
         def _show_overview():
-            """Wie `show_course_overview`: Ohne fokussierten Kurs wird der erste gewählt."""
+            """Wie `MainViewSwitcher.show_overview`: Ohne fokussierten Kurs wird der erste gewählt."""
             calls.append("overview")
             controller.ensure_course_selected(prefer_first=True)
 
