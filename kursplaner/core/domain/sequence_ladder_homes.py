@@ -3,19 +3,20 @@
 Die Leiter ist eine **Sicht auf die Einheiten** – jede Information hat genau einen
 Speicherort, es gibt keine Kopie, die synchron gehalten werden müsste:
 
-| Sprosse | Zuhause | links | rechts | Ideen |
-|---|---|---|---|---|
-| Termin mit Unterricht-Einheit | `UnitHome` | ``Stundenziel`` + ``Teilziele`` | ``Kompetenzen`` | ``## Ideen`` im Body |
-| LZK / Hospitation / Ausfall | `MarkerHome` | gesperrt | gesperrt | gesperrt |
-| jenseits der Termine („??“) | `AblageHome` | Sequenzdatei | Sequenzdatei | Sequenzdatei |
+| Sprosse | Zuhause | links | rechts | Material | Ideen |
+|---|---|---|---|---|---|
+| Termin mit Unterricht-Einheit | `UnitHome` | ``Stundenziel`` + ``Teilziele`` | ``Kompetenzen`` | ``Material`` | ``## Ideen`` im Body |
+| LZK / Hospitation / Ausfall | `MarkerHome` | gesperrt | gesperrt | gesperrt | gesperrt |
+| jenseits der Termine („??“) | `AblageHome` | Sequenzdatei | Sequenzdatei | Sequenzdatei | Sequenzdatei |
 
 **Positionsregel** (nur hier): der oberste linke Baustein einer Einheit ist ihr
 ``Stundenziel``, die übrigen sind ``Teilziele`` (`goals_from_left`). Wird das
-Stundenziel gelöscht oder verschoben, rückt der nächste Baustein nach.
+Stundenziel gelöscht oder verschoben, rückt der nächste Baustein nach. Welches
+Einheiten-Feld zu welcher Seite gehört, beantwortet allein `unit_entries`.
 
 `compose_ladder` setzt die Leiter aus Einheiten und Ablage zusammen,
 `split_ladder` verteilt eine geänderte Leiter zurück. Beim Zurückverteilen wird
-je Einheit und Teil (links, rechts, Ideen) verglichen: unveränderte Teile
+je Einheit und Teil (links, rechts, Material, Ideen) verglichen: unveränderte Teile
 bleiben wörtlich, wie sie gespeichert sind, und unveränderte Bausteine behalten
 ihren gespeicherten Eintragstext. Einträge übersetzt `sequence_ladder_entries`.
 """
@@ -23,7 +24,7 @@ ihren gespeicherten Eintragstext. Einträge übersetzt `sequence_ladder_entries`
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Union
@@ -32,6 +33,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, KIND_UNTERRICHT
 from kursplaner.core.domain.lesson_yaml_policy import LessonType, lesson_list_entries
 from kursplaner.core.domain.sequence_ladder import (
+    SIDE_RULES,
     LadderBlock,
     LadderRuleError,
     LadderRung,
@@ -156,16 +158,20 @@ def ladder_homes(term_days: Sequence[DayColumn]) -> LadderHomes:
 
 @dataclass(frozen=True)
 class UnitContent:
-    """Leiter-relevanter Inhalt einer Einheit, wie gespeichert (Einträge roh)."""
+    """Leiter-relevanter Inhalt einer Einheit, wie gespeichert (Einträge roh).
+
+    ``material`` steht als letztes Feld, damit positionale Aufrufe ohne Material gültig bleiben.
+    """
 
     stundenziel: str = ""
     teilziele: tuple[str, ...] = ()
     kompetenzen: tuple[str, ...] = ()
     ideen: tuple[str, ...] = ()
+    material: tuple[str, ...] = ()
 
 
 UNIT_LESSON_TYPE: LessonType = "Unterricht"
-"""Nur dieser Stundentyp trägt Ziele und Kompetenzen (`lesson_yaml_policy`)."""
+"""Nur dieser Stundentyp trägt Ziele, Kompetenzen und Leiter-Material (`lesson_yaml_policy`)."""
 
 
 def unit_content_from_yaml(data: Mapping[str, object], ideen: Sequence[str]) -> UnitContent:
@@ -175,12 +181,18 @@ def unit_content_from_yaml(data: Mapping[str, object], ideen: Sequence[str]) -> 
         teilziele=lesson_list_entries(data, "Teilziele"),
         kompetenzen=lesson_list_entries(data, "Kompetenzen"),
         ideen=tuple(ideen),
+        material=lesson_list_entries(data, "Material"),
     )
 
 
-def unit_goal_fields(unit: UnitContent) -> dict[str, object]:
+def unit_ladder_fields(unit: UnitContent) -> dict[str, object]:
     """YAML-Felder, in die die Bausteine einer Einheit geschrieben werden (Gegenstück zum Lesen)."""
-    return {"Stundenziel": unit.stundenziel, "Teilziele": list(unit.teilziele), "Kompetenzen": list(unit.kompetenzen)}
+    return {
+        "Stundenziel": unit.stundenziel,
+        "Teilziele": list(unit.teilziele),
+        "Kompetenzen": list(unit.kompetenzen),
+        "Material": list(unit.material),
+    }
 
 
 def left_entries(unit: UnitContent) -> tuple[str, ...]:
@@ -189,25 +201,41 @@ def left_entries(unit: UnitContent) -> tuple[str, ...]:
     return ((ziel,) if ziel else ()) + tuple(unit.teilziele)
 
 
+def unit_entries(unit: UnitContent, side: LadderSide) -> tuple[str, ...]:
+    """Gespeicherte Einträge einer Seite oben → unten – einzige Zuordnung Seite ↔ Einheiten-Feld."""
+    if side is LadderSide.INHALT:
+        return left_entries(unit)
+    return tuple(unit.kompetenzen) if side is LadderSide.PROZESS else tuple(unit.material)
+
+
 def goals_from_left(entries: Sequence[str]) -> tuple[str, tuple[str, ...]]:
     """Positionsregel: oberster Eintrag = Stundenziel, Rest = Teilziele."""
     return (entries[0], tuple(entries[1:])) if entries else ("", ())
 
 
+def unit_with_entries(unit: UnitContent, side: LadderSide, entries: Sequence[str]) -> UnitContent:
+    """Kopie von *unit* mit neuen Einträgen einer Seite (Gegenstück zu `unit_entries`, links per Positionsregel)."""
+    if side is LadderSide.INHALT:
+        stundenziel, teilziele = goals_from_left(tuple(entries))
+        return replace(unit, stundenziel=stundenziel, teilziele=teilziele)
+    field_name = "kompetenzen" if side is LadderSide.PROZESS else "material"
+    return replace(unit, **{field_name: tuple(entries)})
+
+
 def _unrepresentable(unit: UnitContent) -> str | None:
-    for entry in left_entries(unit) + tuple(unit.kompetenzen):
-        if "\n" in entry or "\r" in entry:
-            return "mehrzeiliges Ziel bzw. mehrzeilige Kompetenz"
+    for side in LadderSide:
+        if any("\n" in entry or "\r" in entry for entry in unit_entries(unit, side)):
+            return f"mehrzeiliger Eintrag ({SIDE_RULES[side].noun})"
     return None
 
 
-def _cell_blocks(entries: Sequence[str]) -> tuple[tuple[LadderBlock, ...], bool]:
+def _cell_blocks(entries: Sequence[str], side: LadderSide) -> tuple[tuple[LadderBlock, ...], bool]:
     """Bausteine einer Zelle; doppelte Einträge derselben Zelle werden einmal gezeigt (zweiter Wert)."""
     blocks: list[LadderBlock] = []
     keys: set[tuple[str, str]] = set()
     dropped = False
     for entry in entries:
-        block = block_from_entry(entry)
+        block = block_from_entry(entry, side)
         own = collision_keys(block)
         if own & keys:
             dropped = True
@@ -246,11 +274,13 @@ def compose_ladder(homes: LadderHomes, units: Mapping[Path, UnitContent], ablage
             locked.add(index)
             rungs.append(LadderRung())
             continue
-        left, left_dropped = _cell_blocks(left_entries(unit))
-        right, right_dropped = _cell_blocks(unit.kompetenzen)
-        if left_dropped or right_dropped:
+        rung, dropped = LadderRung(ideen=tuple(unit.ideen)), False
+        for side in LadderSide:
+            blocks, side_dropped = _cell_blocks(unit_entries(unit, side), side)
+            rung, dropped = rung.with_blocks(side, blocks), dropped or side_dropped
+        if dropped:
             notes.append(f"Sprosse {index + 1}: doppelter Eintrag in der Einheit wird nur einmal gezeigt.")
-        rungs.append(LadderRung(left, right, tuple(unit.ideen)))
+        rungs.append(rung)
     rungs.extend(ablage.trimmed().rungs)
     return ComposedLadder(SequenceLadder(tuple(rungs), frozenset(locked)).trimmed(), tuple(notes))
 
@@ -267,9 +297,8 @@ def _raw_entries(units: Mapping[Path, UnitContent], side: LadderSide) -> dict[La
     """Gespeicherter Eintragstext je (unverändertem) Baustein über alle Einheiten (erster gewinnt)."""
     raw: dict[LadderBlock, str] = {}
     for unit in units.values():
-        entries = left_entries(unit) if side is LadderSide.INHALT else tuple(unit.kompetenzen)
-        for entry in entries:
-            raw.setdefault(block_from_entry(entry), entry.strip())
+        for entry in unit_entries(unit, side):
+            raw.setdefault(block_from_entry(entry, side), entry.strip())
     return raw
 
 
@@ -281,14 +310,11 @@ def _unit_from_rung(
     rung: LadderRung, old: UnitContent, raw: Mapping[LadderSide, Mapping[LadderBlock, str]]
 ) -> UnitContent:
     """Neuer Inhalt einer Einheit; unveränderte Teile bleiben wörtlich erhalten."""
-    stundenziel, teilziele = old.stundenziel, old.teilziele
-    if rung.inhalt != _cell_blocks(left_entries(old))[0]:
-        stundenziel, teilziele = goals_from_left(_entries(rung.inhalt, raw[LadderSide.INHALT]))
-    kompetenzen = old.kompetenzen
-    if rung.prozess != _cell_blocks(old.kompetenzen)[0]:
-        kompetenzen = _entries(rung.prozess, raw[LadderSide.PROZESS])
-    ideen = old.ideen if rung.ideen == tuple(old.ideen) else rung.ideen
-    return UnitContent(stundenziel, tuple(teilziele), tuple(kompetenzen), tuple(ideen))
+    new = old
+    for side in LadderSide:
+        if rung.blocks(side) != _cell_blocks(unit_entries(old, side), side)[0]:
+            new = unit_with_entries(new, side, _entries(rung.blocks(side), raw[side]))
+    return new if rung.ideen == tuple(old.ideen) else replace(new, ideen=tuple(rung.ideen))
 
 
 def split_ladder(ladder: SequenceLadder, homes: LadderHomes, units: Mapping[Path, UnitContent]) -> LadderSplit:

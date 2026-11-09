@@ -19,14 +19,15 @@ Baustein seinen Eindeutigkeitsbereich wechselt – so bleiben Altbestand-Doppelu
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from typing import Callable, Union
 
 from kursplaner.core.domain.sequence_ladder import (
+    COMPETENCE_SIDES,
     BlockRef,
     LadderBlock,
     LadderRuleError,
-    LadderRung,
     LadderSide,
     LadderSlot,
     SequenceLadder,
@@ -222,7 +223,7 @@ def _step(ladder: SequenceLadder, op: StepBlock) -> LadderApplyResult:
 def _import(ladder: SequenceLadder, op: ImportCompetences) -> LadderApplyResult:
     """Je Spalte in die erste offene Sprosse über der höchsten belegten."""
     notes: list[str] = []
-    targets = {side: _next_open(ladder, ladder.highest_occupied(side) + 1, 1) for side in LadderSide}
+    targets = {side: _next_open(ladder, ladder.highest_occupied(side) + 1, 1) for side in COMPETENCE_SIDES}
     for item in op.items:
         rung = targets[item.side]
         clash = ladder.conflict(item.side, rung, item.text, kompetenz_id=item.kompetenz_id)
@@ -234,13 +235,52 @@ def _import(ladder: SequenceLadder, op: ImportCompetences) -> LadderApplyResult:
     return LadderApplyResult(ladder, tuple(notes))
 
 
+MATERIAL_PREFIX = "+ "
+"""Beginnt eine der ersten Zeilen des Ideenfelds damit, wird sie beim Übernehmen ein Material-Baustein."""
+
+
+def split_material_lines(lines: Sequence[str]) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
+    """Trennt die führenden ``+ ``-Zeilen des Ideenfelds ab – die einzige Stelle dieser Regel.
+
+    Nur der Block am Anfang zählt (Leerraum vor dem ``+`` ist erlaubt); die erste
+    andere Zeile beendet ihn, spätere ``+ ``-Zeilen bleiben Ideen.
+
+    Returns:
+        ``(material, rest)`` – ``material`` als ``(Zeile wie getippt, Material-Text)``,
+        ``rest`` die übrigen Zeilen in Reihenfolge.
+    """
+    count = 0
+    while count < len(lines) and lines[count].lstrip().startswith(MATERIAL_PREFIX):
+        count += 1
+    material = tuple((line, line.lstrip()[len(MATERIAL_PREFIX) :].strip()) for line in lines[:count])
+    return material, tuple(lines[count:])
+
+
 def _ideas(ladder: SequenceLadder, op: SetIdeas) -> LadderApplyResult:
+    """Ideenfeld übernehmen; führende ``+ ``-Zeilen werden Material unten im Stapel (direkt über den Ideen).
+
+    Eine ``+ ``-Zeile, deren Text kein gültiger Material-Baustein ist (`block_text_error`,
+    z. B. schon vorhanden), bleibt wörtlich im Ideenfeld und erzeugt einen Hinweis – nichts
+    geht still verloren.
+    """
     _require_open(ladder, op.rung)
-    lines = tuple(line.rstrip() for line in op.lines)
+    material, rest = split_material_lines(op.lines)
+    kept: list[str] = []
+    notes: list[str] = []
+    side = LadderSide.MATERIAL
+    for line, text in material:
+        error = block_text_error(text, ladder, side=side, rung=op.rung)
+        if error:
+            kept.append(line)
+            notes.append(f"„{line.strip()}“ bleibt im Ideenfeld: {error}")
+            continue
+        end = len(ladder.rung(op.rung).blocks(side))
+        ladder = _insert(ladder, LadderSlot(op.rung, side, end), LadderBlock(text))
+    lines = tuple(line.rstrip() for line in (*kept, *rest))
     while lines and not lines[-1]:
         lines = lines[:-1]
     rung = ladder.rung(op.rung)
-    return LadderApplyResult(ladder.with_rung(op.rung, LadderRung(rung.inhalt, rung.prozess, lines)))
+    return LadderApplyResult(ladder.with_rung(op.rung, replace(rung, ideen=lines)), tuple(notes))
 
 
 _REGISTRY: dict[type, tuple[Callable[..., LadderApplyResult], str]] = {
@@ -269,4 +309,6 @@ def operation_label(op: LadderOperation) -> str:
     """Undo-Beschriftung einer Operation (höchstens vier Wörter)."""
     if isinstance(op, AddBlock) and op.pasted:
         return "Baustein einfügen"
+    if isinstance(op, SetIdeas) and split_material_lines(op.lines)[0]:
+        return "Ideen/Material bearbeiten"
     return _REGISTRY[type(op)][1]

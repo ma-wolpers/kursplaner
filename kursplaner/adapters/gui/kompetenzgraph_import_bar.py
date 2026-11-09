@@ -29,7 +29,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import side_title
 from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.kompetenzgraph_view import KompetenzGraphView
-from kursplaner.core.domain.sequence_ladder import LadderSide
+from kursplaner.core.domain.sequence_ladder import COMPETENCE_SIDES, LadderSide
 from kursplaner.core.domain.sequence_ladder_import import ladder_import_problem, mixed_side_ids
 
 
@@ -47,7 +47,7 @@ def ask_mixed_side(parent, mixed: int, total: int) -> LadderSide | None:
     rest = "" if mixed == total else " Die übrigen kommen wie gewohnt in die Spalte ihres Bereichs."
     options = [
         ChoiceOption(side.value, side_title(side), f"Spalte {number}")
-        for number, side in enumerate(LadderSide, start=1)
+        for number, side in enumerate(COMPETENCE_SIDES, start=1)
     ]
     key = ChoiceDialogService().askchoice(
         "Spalte wählen",

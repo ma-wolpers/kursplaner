@@ -9,8 +9,12 @@ der ersten Ablage-Sprosse über dem letzten Termin (1) nach oben::
       - Inhalt: Eigener Baustein
       - Inhalt: [[Mat-RF-14|Titel der Kompetenz]]
       - Prozess: [[Mat-DA-2|Titel der Kompetenz]]
+      - Material: [[Material/AB Brüche.pdf|AB 1]]
       - Idee: eine Zeile des Ideenfelds
     - Ablage 2
+
+Die Bausteinlabels sind die Werte von `LadderSide` (eine Zeile je Baustein, in
+Seiten-Reihenfolge), ``Idee`` ist eine Zeile des Ideenfelds.
 
 Gelesen und geschrieben wird die Ablage als `SequenceLadder`, deren Sprosse 0
 „Ablage 1“ ist. Einträge übersetzt ausschließlich `sequence_ladder_entries`.
@@ -24,6 +28,7 @@ from __future__ import annotations
 import re
 
 from kursplaner.core.domain.sequence_ladder import (
+    SIDE_RULES,
     LadderBlock,
     LadderRung,
     LadderSide,
@@ -65,12 +70,16 @@ def format_ablage_section(ablage: SequenceLadder) -> list[str]:
     return lines
 
 
-def _parse_block(value: str, line_no: int) -> LadderBlock:
-    if value.startswith("[[") and whole_wiki_link(value) is None:
+def _parse_block(value: str, side: LadderSide, line_no: int) -> LadderBlock:
+    if SIDE_RULES[side].network and value.startswith("[[") and whole_wiki_link(value) is None:
         raise LadderFormatError(line_no, "Ein Netz-Baustein muss genau ein Wiki-Link sein.")
     if not value:
         raise LadderFormatError(line_no, "Baustein ohne Beschreibung.")
-    return block_from_entry(value)
+    return block_from_entry(value, side)
+
+
+_LABELS = (*(side.value for side in LadderSide), _IDEA_LABEL)
+"""Erlaubte Eintragslabels einer Ablage-Sprosse (Fehlermeldung und Parser)."""
 
 
 def parse_ablage_section(body: str) -> SequenceLadder:
@@ -89,7 +98,7 @@ def parse_ablage_section(body: str) -> SequenceLadder:
         if rung_match is not None:
             if int(rung_match.group(1)) != len(rungs) + 1:
                 raise LadderFormatError(line_no, f"Erwartet „{_RUNG_LABEL} {len(rungs) + 1}“.")
-            rungs.append({LadderSide.INHALT.value: [], LadderSide.PROZESS.value: [], _IDEA_LABEL: []})
+            rungs.append({label: [] for label in _LABELS})
             continue
         entry = _ENTRY_RE.match(line)
         if entry is None:
@@ -98,11 +107,12 @@ def parse_ablage_section(body: str) -> SequenceLadder:
             raise LadderFormatError(line_no, "Eintrag vor der ersten Ablage-Sprosse.")
         label, value = entry.group(1), (entry.group(2) or "").strip()
         if label not in rungs[-1]:
-            raise LadderFormatError(line_no, f"Unbekannte Spalte „{label}“ (erlaubt: Inhalt, Prozess, Idee).")
+            raise LadderFormatError(line_no, f"Unbekannte Spalte „{label}“ (erlaubt: {', '.join(_LABELS)}).")
         if label == _IDEA_LABEL:
             rungs[-1][label].append(value)
             continue
-        block, side = _parse_block(value, line_no), LadderSide(label)
+        side = LadderSide(label)
+        block = _parse_block(value, side, line_no)
         clash = _build(rungs).conflict(side, len(rungs) - 1, block.text, kompetenz_id=block.kompetenz_id)
         if clash is not None:
             raise LadderFormatError(line_no, conflict_message(clash, side))
@@ -111,11 +121,10 @@ def parse_ablage_section(body: str) -> SequenceLadder:
 
 
 def _build(rungs: list[dict[str, list]]) -> SequenceLadder:
-    return SequenceLadder(
-        tuple(
-            LadderRung(
-                tuple(rung[LadderSide.INHALT.value]), tuple(rung[LadderSide.PROZESS.value]), tuple(rung[_IDEA_LABEL])
-            )
-            for rung in rungs
-        )
-    )
+    built: list[LadderRung] = []
+    for entries in rungs:
+        rung = LadderRung(ideen=tuple(entries[_IDEA_LABEL]))
+        for side in LadderSide:
+            rung = rung.with_blocks(side, tuple(entries[side.value]))
+        built.append(rung)
+    return SequenceLadder(tuple(built))

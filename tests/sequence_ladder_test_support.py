@@ -35,6 +35,7 @@ def write_unit(
     ziel: str = "",
     teilziele: tuple[str, ...] = (),
     kompetenzen: tuple[str, ...] = (),
+    material: tuple[str, ...] = (),
     body: str = "# Verlauf\n\nEinstieg\n",
 ) -> None:
     """Schreibt eine Unterrichts-Einheit über den echten Kursplaner-Schreibweg (``.ebw`` mit Marker)."""
@@ -46,6 +47,7 @@ def write_unit(
         "Stundenziel": ziel,
         "Teilziele": list(teilziele),
         "Kompetenzen": list(kompetenzen),
+        "Material": list(material),
     }
     LessonEditUseCase(FileSystemLessonRepository()).set_lesson_fields(path, fields)
 

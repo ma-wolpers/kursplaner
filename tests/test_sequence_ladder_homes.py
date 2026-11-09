@@ -147,5 +147,11 @@ def test_split_refuses_content_on_a_locked_rung():
     ],
 )
 def test_entries_and_blocks_translate_both_ways(entry, block):
-    assert block_from_entry(entry) == block
+    assert block_from_entry(entry, LadderSide.INHALT) == block
     assert entry_from_block(block) == entry
+
+
+def test_material_entry_is_never_a_network_block():
+    entry = "[[Material/AB Brüche.pdf|AB 1]]"
+    assert block_from_entry(entry, LadderSide.MATERIAL) == LadderBlock(entry)
+    assert block_from_entry(entry, LadderSide.PROZESS).is_network

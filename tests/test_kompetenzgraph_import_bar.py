@@ -67,7 +67,7 @@ def test_cancelling_the_column_question_imports_nothing(monkeypatch):
 
 
 def test_column_titles_come_from_the_board_lanes():
-    assert [side_title(side) for side in LadderSide] == [lane.title for lane in LANES[:2]]
+    assert [side_title(side) for side in LadderSide] == [lane.title for lane in LANES]
 
 
 def test_question_offers_both_columns_and_maps_the_answer(monkeypatch):

@@ -31,6 +31,7 @@ from bw_gui.widgets.card_board import (
 
 from kursplaner.adapters.gui.lesson_kind_tints import LESSON_KIND_TINTS, LessonKindTint
 from kursplaner.core.domain.sequence_ladder import (
+    SIDE_RULES,
     BlockRef,
     LadderRuleError,
     LadderRung,
@@ -38,6 +39,7 @@ from kursplaner.core.domain.sequence_ladder import (
     LadderSlot,
     SequenceLadder,
 )
+from kursplaner.core.domain.sequence_ladder_entries import block_display_text
 from kursplaner.core.domain.sequence_ladder_ops import MoveBlock, apply_ladder_operation
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungInfo, RungKind, SequenceLadderView
 
@@ -48,10 +50,20 @@ LANE_IDEEN = "ideen"
 LANES: tuple[BoardLane, ...] = (
     BoardLane(LANE_INHALT, "Inhaltsbezogen – Stunden- und Teilziele"),
     BoardLane(LANE_PROZESS, "Prozessbezogen – vorrangig geförderte Kompetenzen"),
-    BoardLane(LANE_IDEEN, "Ideen zur Umsetzung", LaneKind.TEXT, weight=0.8, placeholder="Ideen …"),
+    BoardLane(
+        LANE_IDEEN,
+        "Material und Ideen zur Umsetzung",
+        LaneKind.CARDS_TEXT,
+        weight=0.8,
+        placeholder="Ideen … (erste Zeilen mit „+ “ werden Material)",
+    ),
 )
 
-SIDE_BY_LANE: dict[str, LadderSide] = {LANE_INHALT: LadderSide.INHALT, LANE_PROZESS: LadderSide.PROZESS}
+SIDE_BY_LANE: dict[str, LadderSide] = {
+    LANE_INHALT: LadderSide.INHALT,
+    LANE_PROZESS: LadderSide.PROZESS,
+    LANE_IDEEN: LadderSide.MATERIAL,
+}
 LANE_BY_SIDE: dict[LadderSide, str] = {side: lane for lane, side in SIDE_BY_LANE.items()}
 
 
@@ -149,7 +161,7 @@ def board_rows(view: SequenceLadderView) -> list[BoardRow]:
             LANE_BY_SIDE[side]: tuple(
                 BoardCard(
                     card_key(ref := BlockRef(index, side, block.text)),
-                    block.text,
+                    block_display_text(block, side),
                     block.kompetenz_id,
                     _tone(view, ref, position, locked),
                 )
@@ -179,7 +191,7 @@ def view_hints(view: SequenceLadderView) -> tuple[str, ...]:
     lines = list(view.notes)
     for group in view.duplicates:
         rungs = " und ".join(str(rung + 1) for rung in sorted({ref.rung for ref in group}))
-        what = "Lernziel" if group[0].side is LadderSide.INHALT else "Kompetenz"
+        what = SIDE_RULES[group[0].side].noun
         lines.append(f"{what} „{group[0].text}“ steht mehrfach (Sprossen {rungs}) – bitte zusammenführen.")
     return tuple(lines)
 

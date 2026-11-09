@@ -17,7 +17,12 @@ from functools import partial
 from pathlib import Path
 
 from kursplaner.core.domain.sequence_ladder import SequenceLadder
-from kursplaner.core.domain.sequence_ladder_homes import IDEEN_HEADING, UNIT_LESSON_TYPE, UnitContent, unit_goal_fields
+from kursplaner.core.domain.sequence_ladder_homes import (
+    IDEEN_HEADING,
+    UNIT_LESSON_TYPE,
+    UnitContent,
+    unit_ladder_fields,
+)
 from kursplaner.core.ports.repositories import LessonRepository, SequencePlanRepository
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 
@@ -61,8 +66,8 @@ def ladder_writes(
     writes: list[LadderWrite] = []
     for path, new in new_units.items():
         old = old_units.get(path, UnitContent())
-        fields = unit_goal_fields(new)
-        if fields != unit_goal_fields(old):
+        fields = unit_ladder_fields(new)
+        if fields != unit_ladder_fields(old):
             set_fields = partial(writers.lesson_edit.set_lesson_fields, path, fields, require_type=UNIT_LESSON_TYPE)
             writes.append(LadderWrite(path, set_fields))
         if new.ideen != old.ideen:

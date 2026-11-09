@@ -23,7 +23,7 @@ from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzgraph_ebene import is_hauptkompetenz
 from kursplaner.core.domain.kompetenzgraph_node import BEREICH_KIND_INHALT, BEREICH_KIND_PROZESS, KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
-from kursplaner.core.domain.sequence_ladder import LadderSide
+from kursplaner.core.domain.sequence_ladder import COMPETENCE_SIDES, LadderSide
 from kursplaner.core.domain.sequence_ladder_entries import network_block_text
 from kursplaner.core.domain.sequence_ladder_ops import ImportedCompetence
 
@@ -46,7 +46,7 @@ def has_both_sides(snapshot: KompetenzGraphSnapshot, node: KompetenzNode) -> boo
     steht ein Prozessbereich. Nur für solche Kompetenzen ist die Spalte wählbar.
     """
     sides = {_bereich_side(snapshot, bereich_id) for bereich_id in node.referenced_bereich_ids}
-    return set(LadderSide) <= sides
+    return set(COMPETENCE_SIDES) <= sides
 
 
 def ladder_import_problem(

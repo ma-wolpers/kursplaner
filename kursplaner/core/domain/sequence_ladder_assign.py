@@ -10,27 +10,30 @@ die reinen Regeln, der Use Case `assign_ablage_rung_usecase` liest und schreibt:
 | Unterricht mit Datei | Inhalt übernehmen; vorher warnen, was überschrieben wird |
 | Termin ohne Datei | Unterrichtsdatei anlegen, dann übernehmen |
 
-**Übernahme** (`merge_rung_into_unit`): Eine Seite (links Ziele, rechts
+**Übernahme** (`merge_rung_into_unit`): Eine Kompetenz-Seite (links Ziele, rechts
 Kompetenzen) wird nur ersetzt, wenn die Sprosse dort Bausteine hat – dann
 vollständig, mit der Positionsregel (oberster linker Baustein = Stundenziel).
-Ideen werden **angehängt**. Das Oberthema der Einheit wird das der Sequenz.
+Material und Ideen werden **angehängt** (Material ohne Doppelte nach
+`collision_keys`). Das Oberthema der Einheit wird das der Sequenz.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.sequence_ladder import LadderRung, LadderSide
-from kursplaner.core.domain.sequence_ladder_entries import entry_from_block
+from kursplaner.core.domain.sequence_ladder import COMPETENCE_SIDES, LadderRung, LadderSide, collision_keys
+from kursplaner.core.domain.sequence_ladder_entries import block_from_entry, entry_from_block
 from kursplaner.core.domain.sequence_ladder_homes import (
     MarkerHome,
     RungKind,
     UnitContent,
-    goals_from_left,
     left_entries,
     locked_reason,
     term_home,
+    unit_entries,
+    unit_with_entries,
 )
 
 BLOCKED_TARGET_KINDS = frozenset({RungKind.LZK, RungKind.HOSPITATION, RungKind.AUSFALL})
@@ -62,11 +65,24 @@ def merge_rung_into_unit(rung: LadderRung, old: UnitContent) -> UnitContent:
         rung: Die Ablage-Sprosse.
         old: Bisheriger Inhalt der Einheit (leer bei neu angelegter Einheit).
     """
-    stundenziel, teilziele = old.stundenziel, old.teilziele
-    if rung.inhalt:
-        stundenziel, teilziele = goals_from_left(_entries(rung, LadderSide.INHALT))
-    kompetenzen = _entries(rung, LadderSide.PROZESS) if rung.prozess else old.kompetenzen
-    return UnitContent(stundenziel, tuple(teilziele), tuple(kompetenzen), tuple(old.ideen) + tuple(rung.ideen))
+    merged = old
+    for side in COMPETENCE_SIDES:
+        if rung.blocks(side):
+            merged = unit_with_entries(merged, side, _entries(rung, side))
+    merged = unit_with_entries(merged, LadderSide.MATERIAL, _appended_material(rung, old))
+    return replace(merged, ideen=tuple(old.ideen) + tuple(rung.ideen))
+
+
+def _appended_material(rung: LadderRung, old: UnitContent) -> tuple[str, ...]:
+    """Material der Einheit, dahinter das der Sprosse, das dort noch nicht steht."""
+    side = LadderSide.MATERIAL
+    entries = list(unit_entries(old, side))
+    seen = set().union(*(collision_keys(block_from_entry(entry, side)) for entry in entries))
+    for block in rung.blocks(side):
+        if not collision_keys(block) & seen:
+            entries.append(entry_from_block(block))
+            seen |= collision_keys(block)
+    return tuple(entries)
 
 
 def overwrite_warnings(rung: LadderRung, old: UnitContent, old_oberthema: str, oberthema: str) -> tuple[str, ...]:
@@ -85,6 +101,8 @@ def overwrite_warnings(rung: LadderRung, old: UnitContent, old_oberthema: str, o
         warnings.append(_listed("Stunden-/Teilziele werden ersetzt", left_entries(old)))
     if rung.prozess and old.kompetenzen:
         warnings.append(_listed("Kompetenzen werden ersetzt", old.kompetenzen))
+    if rung.material and old.material:
+        warnings.append("Das Material der Sprosse wird an das vorhandene Material angehängt.")
     if rung.ideen and old.ideen:
         warnings.append("Die Ideen der Sprosse werden an die vorhandenen Ideen angehängt.")
     if old_oberthema.strip() and old_oberthema.strip() != oberthema.strip():

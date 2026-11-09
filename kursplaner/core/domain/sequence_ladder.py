@@ -1,17 +1,20 @@
 """Sequenzleiter: reines Modell und Regeln (kein Dateizugriff, keine GUI).
 
 Eine Leiter besteht aus Sprossen (Index 0 = unterste Sprosse = erste Einheit
-der Sequenz). Jede Sprosse hat zwei Bausteinspalten (inhaltsbezogen links,
-prozessbezogen rechts) und ein Ideenfeld. Innerhalb einer Zelle ist Index 0 der
-oberste Baustein.
+der Sequenz). Jede Sprosse hat drei Bausteinseiten – inhaltsbezogen links,
+prozessbezogen rechts, Material über dem Ideenfeld – und das Ideenfeld. Innerhalb
+einer Zelle ist Index 0 der oberste Baustein.
 
-Der Baustein-Text ist innerhalb seines Eindeutigkeitsbereichs Schlüssel
-(verglichen nach Trimmen und ohne Groß-/Kleinschreibung, `block_key`): links
-(Stunden-/Teilziele) über die ganze Spalte, rechts (geförderte Kompetenzen) nur
-innerhalb einer Sprosse – dieselbe Prozesskompetenz darf in mehreren Sprossen
-stehen. Die Regel steht allein in `uniqueness_scope`; ein Baustein wird daher
-über `BlockRef` (Sprosse, Spalte, Text) angesprochen. Bausteine aus dem
-Kompetenznetz tragen zusätzlich die Kompetenz-ID und sind nicht umbenennbar.
+Was eine Seite ausmacht, steht allein in der Regeltabelle `SIDE_RULES`
+(Speicherfeld der Sprosse, Eindeutigkeitsbereich, Netz-Bausteine erlaubt,
+Nomen für Meldungen). Der Baustein-Text ist innerhalb seines
+Eindeutigkeitsbereichs Schlüssel (verglichen nach Trimmen und ohne
+Groß-/Kleinschreibung, `block_key`): links (Stunden-/Teilziele) über die ganze
+Spalte, rechts (geförderte Kompetenzen) und beim Material nur innerhalb einer
+Sprosse – dieselbe Prozesskompetenz oder dasselbe Material darf in mehreren
+Sprossen stehen. Ein Baustein wird daher über `BlockRef` (Sprosse, Seite, Text)
+angesprochen. Bausteine aus dem Kompetenznetz (nur Inhalt/Prozess) tragen
+zusätzlich die Kompetenz-ID und sind nicht umbenennbar.
 
 Gesperrte Sprossen (`SequenceLadder.locked_rungs`, z. B. LZK/Hospitation/Ausfall)
 nehmen keine Bausteine und keine Ideen auf; die Sperre wird aus den Terminen
@@ -29,10 +32,39 @@ from kursplaner.core.domain.list_cell_text import list_entry_violation
 
 
 class LadderSide(str, Enum):
-    """Bausteinspalte einer Sprosse; der Wert ist das Label im Dateiformat."""
+    """Bausteinseite einer Sprosse; der Wert ist das Label im Dateiformat der Ablage."""
 
     INHALT = "Inhalt"
     PROZESS = "Prozess"
+    MATERIAL = "Material"
+
+
+@dataclass(frozen=True)
+class SideRules:
+    """Regeln einer Bausteinseite (eine Zeile von `SIDE_RULES`).
+
+    Attributes:
+        field: Attribut von `LadderRung`, das die Bausteine der Seite hält.
+        per_rung: Eindeutigkeit je Sprosse (``True``) oder über die ganze Spalte.
+        network: Die Seite nimmt Netz-Bausteine (``[[ID|Titel]]``) auf.
+        noun: Was ein Baustein dieser Seite für die Nutzerin ist (Meldungen).
+    """
+
+    field: str
+    per_rung: bool
+    network: bool
+    noun: str
+
+
+SIDE_RULES: dict[LadderSide, SideRules] = {
+    LadderSide.INHALT: SideRules("inhalt", per_rung=False, network=True, noun="Lernziel"),
+    LadderSide.PROZESS: SideRules("prozess", per_rung=True, network=True, noun="Kompetenz"),
+    LadderSide.MATERIAL: SideRules("material", per_rung=True, network=False, noun="Material"),
+}
+"""Einzige Tabelle der Seitenregeln; alle Abfragen unten und in den Nachbarmodulen lesen sie."""
+
+COMPETENCE_SIDES: tuple[LadderSide, ...] = tuple(side for side, rules in SIDE_RULES.items() if rules.network)
+"""Seiten, die Kompetenzen aus dem Netz aufnehmen (Inhalt, Prozess) – Ziel von Import und Bereichswahl."""
 
 
 class LadderRuleError(ValueError):
@@ -60,24 +92,28 @@ class LadderBlock:
 
 @dataclass(frozen=True)
 class LadderRung:
-    """Eine Sprosse: Bausteine je Spalte (oben → unten) und die Zeilen des Ideenfelds."""
+    """Eine Sprosse: Bausteine je Seite (oben → unten) und die Zeilen des Ideenfelds.
+
+    ``material`` steht als letztes Feld, damit ``LadderRung(inhalt, prozess, ideen)`` gültig bleibt.
+    """
 
     inhalt: tuple[LadderBlock, ...] = ()
     prozess: tuple[LadderBlock, ...] = ()
     ideen: tuple[str, ...] = ()
+    material: tuple[LadderBlock, ...] = ()
 
     def blocks(self, side: LadderSide) -> tuple[LadderBlock, ...]:
-        """Bausteine einer Spalte."""
-        return self.inhalt if side is LadderSide.INHALT else self.prozess
+        """Bausteine einer Seite (Feld aus `SIDE_RULES`)."""
+        return getattr(self, SIDE_RULES[side].field)
 
     def with_blocks(self, side: LadderSide, blocks: tuple[LadderBlock, ...]) -> LadderRung:
-        """Kopie mit neuen Bausteinen in einer Spalte."""
-        return replace(self, inhalt=blocks) if side is LadderSide.INHALT else replace(self, prozess=blocks)
+        """Kopie mit neuen Bausteinen auf einer Seite."""
+        return replace(self, **{SIDE_RULES[side].field: tuple(blocks)})
 
     @property
     def is_empty(self) -> bool:
         """Keine Bausteine und kein nicht-leerer Ideentext."""
-        return not self.inhalt and not self.prozess and not any(line.strip() for line in self.ideen)
+        return not any(self.blocks(side) for side in LadderSide) and not any(line.strip() for line in self.ideen)
 
 
 @dataclass(frozen=True)
@@ -115,14 +151,14 @@ def collision_keys(block: LadderBlock) -> frozenset[tuple[str, str]]:
 
 
 def uniqueness_scope(side: LadderSide, rung: int) -> tuple[object, ...]:
-    """Eindeutigkeitsbereich eines Bausteins – die einzige Stelle dieser Regel.
+    """Eindeutigkeitsbereich eines Bausteins (aus `SIDE_RULES`, sonst nirgends abgefragt).
 
     Links (Stunden-/Teilziele) ist die ganze Spalte ein Bereich, rechts
-    (vorrangig geförderte Kompetenzen) jede Sprosse für sich. Zwei Bausteine
-    kollidieren genau dann, wenn ihr Bereich gleich ist und Text oder
-    Kompetenz-ID übereinstimmen.
+    (vorrangig geförderte Kompetenzen) und beim Material jede Sprosse für sich.
+    Zwei Bausteine kollidieren genau dann, wenn ihr Bereich gleich ist und Text
+    oder Kompetenz-ID übereinstimmen.
     """
-    return (side,) if side is LadderSide.INHALT else (side, rung)
+    return (side, rung) if SIDE_RULES[side].per_rung else (side,)
 
 
 @dataclass(frozen=True)
@@ -263,7 +299,7 @@ class SequenceLadder:
 
 def conflict_message(block: LadderBlock, side: LadderSide) -> str:
     """Nutzerlesbare Meldung zu einer Kollision im Eindeutigkeitsbereich von *side*."""
-    where = "in dieser Spalte" if side is LadderSide.INHALT else "in dieser Sprosse"
+    where = "in dieser Sprosse" if SIDE_RULES[side].per_rung else "in dieser Spalte"
     return f"Es gibt {where} bereits einen Baustein „{block.text}“."
 
 
@@ -284,15 +320,16 @@ def block_text_error(
 ) -> str | None:
     """Prüft den Text eines eigenen Bausteins; liefert eine Fehlermeldung oder ``None``.
 
-    Regeln: nicht leer, einzeilig, beginnt nicht mit ``[[`` (im Dateiformat für
-    Netz-Bausteine reserviert), erfüllt den Listenvertrag der Einheiten-Felder
+    Regeln: nicht leer, einzeilig, auf Netz-Seiten (`SIDE_RULES`) nicht mit ``[[``
+    beginnend (dort im Dateiformat für Netz-Bausteine reserviert; Material darf ein
+    Wiki-Link sein), erfüllt den Listenvertrag der Einheiten-Felder
     (`list_cell_text.list_entry_violation`, z. B. nicht nur Striche) und ist in seinem
     Eindeutigkeitsbereich (`uniqueness_scope`) eindeutig.
 
     Args:
         text: Gewünschter Text.
         ladder: Aktuelle Leiter.
-        side: Spalte, in der der Baustein liegen soll.
+        side: Seite, auf der der Baustein liegen soll.
         rung: Sprosse, in der der Baustein liegen soll.
         ignore: Baustein, der beim Eindeutigkeitsvergleich nicht zählt
             (der umzubenennende Baustein selbst).
@@ -302,7 +339,7 @@ def block_text_error(
         return "Der Baustein braucht eine Beschreibung."
     if "\n" in stripped or "\r" in stripped:
         return "Die Beschreibung muss einzeilig sein."
-    if stripped.startswith("[["):
+    if SIDE_RULES[side].network and stripped.startswith("[["):
         return "Eigene Bausteine dürfen nicht mit „[[“ beginnen (reserviert für Kompetenzen aus dem Netz)."
     violation = list_entry_violation(stripped)
     if violation:
