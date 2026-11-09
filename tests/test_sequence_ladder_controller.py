@@ -18,17 +18,25 @@ from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide
 
 
 class FakeDialogs:
+    """`LadderDialogs` und `BlockTextInput` zugleich: Antworten der Namenseingabe stehen in ``answers``.
+
+    Wie der Inline-Editor des Boards: ``None`` bricht ab, ein abgelehnter Text (``validate``)
+    bleibt in der Eingabe stehen – beides ruft ``done`` nicht auf.
+    """
+
     def __init__(self):
         self.answers: list[str | None] = []
-        self.asked: list[tuple[str, str]] = []
+        self.asked: list[tuple[object, str]] = []
         self.validators = []
         self.infos: list[str] = []
         self.errors: list[str] = []
 
-    def ask_text(self, title, prompt, *, initial, validate):
-        self.asked.append((title, initial))
+    def request(self, target, *, initial, validate, done):
+        self.asked.append((target, initial))
         self.validators.append(validate)
-        return self.answers.pop(0)
+        answer = self.answers.pop(0)
+        if answer is not None and validate(answer) is None:
+            done(answer)
 
     def show_error(self, title, message):
         self.errors.append(message)
@@ -50,6 +58,7 @@ def make(tmp_path):
             edit=env.edit,
             context=lambda: None if missing else env.context,
             dialogs=dialogs,
+            text_input=dialogs,
             render=lambda view, cursor, banner: renders.append((view, cursor, banner)),
             after_write=after_write or writes.append,
         )
@@ -86,7 +95,7 @@ def test_copy_paste_inserts_above_with_prefilled_name(make):
     controller.copy()
     controller.set_cursor(_key("B"))
     controller.paste()
-    assert dialogs.asked[-1] == ("Kopie benennen", "A")
+    assert dialogs.asked[-1] == (BoardSlot(rung_key(0), LANE_INHALT, 1), "A")  # Entwurf über „B“
     assert _inhalt(controller) == ["A", "A2", "B"]
 
 

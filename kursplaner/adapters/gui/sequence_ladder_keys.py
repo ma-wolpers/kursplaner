@@ -45,8 +45,11 @@ def bind_ladder_keys(
         return _handler
 
     def activate(current: SequenceLadderController) -> None:
+        """Enter: Baustein umbenennen, Ideenfeld bearbeiten oder in einer Bausteinzelle anlegen."""
         cursor = current.cursor
-        if isinstance(cursor, BoardCell):
+        if isinstance(cursor, str):
+            current.rename()
+        elif isinstance(cursor, BoardCell):
             if cursor.lane_key == LANE_IDEEN:
                 board.edit_text(cursor)
             else:

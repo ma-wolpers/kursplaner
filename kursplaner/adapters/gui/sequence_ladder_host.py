@@ -150,6 +150,7 @@ class SequenceLadderHost:
             edit=deps.edit_sequence_ladder_usecase,
             context=lambda: self._context(path),
             dialogs=dialogs,
+            text_input=panel,
             render=panel.render,
             after_write=lambda written: refresh_after_files_written(self.app, written),
             assign=AssignRungFlow(

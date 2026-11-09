@@ -2,9 +2,11 @@
 
 Jede Nutzeraktion wird hier zu genau einer Operation (`sequence_ladder_ops`) und
 geht über `EditSequenceLadderUseCase` – dem einzigen Schreibweg, der pro Aktion
-einen Undo-Eintrag erzeugt (§37). Der Controller kennt kein Tk: Dialoge laufen
-über das `LadderDialogs`-Protocol (Adapter `TkLadderDialogs`), die Anzeige über
-den `render`-Callback des Fensters. Cursor-Werte sind Board-Cursor (Kartenschlüssel
+einen Undo-Eintrag erzeugt (§37). Der Controller kennt kein Tk: Baustein-Namen
+werden **im Board** eingegeben (`BlockTextInput`, umgesetzt vom Panel über den
+Inline-Editor des CardBoards – kein Popup), Hinweise und Rückfragen laufen über das
+`LadderDialogs`-Protocol (Adapter `TkLadderDialogs`), die Anzeige über den
+`render`-Callback des Fensters. Cursor-Werte sind Board-Cursor (Kartenschlüssel
 eines `BlockRef` oder Board-Zelle, siehe `sequence_ladder_board_mapping`).
 """
 
@@ -12,15 +14,16 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, Union
 
 from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor
 
-from kursplaner.adapters.gui.dialog_services import messagebox, simpledialog
+from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     block_ref,
     board_cell,
+    board_slot,
     card_key,
     cell_slot,
     drop_move,
@@ -57,12 +60,25 @@ LadderContext = tuple[str, Sequence[TopicSequenceRun], Sequence[DayColumn]]
 """(Oberthema, Läufe mit dieser Datei, alle Tagesspalten) – ``None``, wenn die Sequenz im Kurs fehlt."""
 
 
+TextTarget = Union[str, BoardSlot]
+"""Ort einer Namenseingabe: Kartenschlüssel (umbenennen) oder Board-Slot (neuer Baustein)."""
+
+
+class BlockTextInput(Protocol):
+    """Namenseingabe direkt im Board (Tk-frei testbar; umgesetzt von `SequenceLadderPanel`)."""
+
+    def request(
+        self, target: TextTarget, *, initial: str, validate: Callable[[str], str | None], done: Callable[[str], None]
+    ) -> None:
+        """Öffnet die Eingabe an *target*; *done* erhält den angenommenen Text, nie bei Abbruch.
+
+        *validate* liefert eine Fehlermeldung (die Eingabe bleibt offen und zeigt sie) oder ``None``.
+        """
+        ...
+
+
 class LadderDialogs(Protocol):
     """Dialoge, die der Editor braucht (Tk-frei testbar)."""
-
-    def ask_text(self, title: str, prompt: str, *, initial: str, validate: Callable[[str], str | None]) -> str | None:
-        """Fragt einen Text ab; ``None`` bei Abbruch. *validate* hält den Dialog bei Fehlern offen."""
-        ...
 
     def show_error(self, title: str, message: str) -> None:
         """Zeigt einen Fehler."""
@@ -87,10 +103,6 @@ class TkLadderDialogs:
     def __init__(self, parent: Any) -> None:
         """Bindet die Dialoge an ihr Elternfenster."""
         self._parent = parent
-
-    def ask_text(self, title: str, prompt: str, *, initial: str, validate: Callable[[str], str | None]) -> str | None:
-        """Textabfrage mit Validierung (bw-gui `askstring(validate=...)`)."""
-        return simpledialog.askstring(title, prompt, initialvalue=initial, validate=validate, parent=self._parent)
 
     def show_error(self, title: str, message: str) -> None:
         """Fehlermeldung."""
@@ -121,6 +133,7 @@ class SequenceLadderController:
         edit: EditSequenceLadderUseCase,
         context: Callable[[], LadderContext | None],
         dialogs: LadderDialogs,
+        text_input: BlockTextInput,
         render: Callable[[SequenceLadderView, Cursor, str | None], None],
         after_write: Callable[[tuple[Path, ...]], None],
         assign: Callable[[int, LadderContext], EditSequenceLadderResult | None] | None = None,
@@ -132,7 +145,8 @@ class SequenceLadderController:
             load: Lade-Use-Case.
             edit: Einziger Schreibweg.
             context: Liefert Oberthema, Läufe und Tagesspalten des geöffneten Kurses.
-            dialogs: Dialog-Adapter.
+            dialogs: Dialog-Adapter (Hinweise, Fehler, Rückfragen).
+            text_input: Namenseingabe im Board (anlegen, einfügen, umbenennen).
             render: ``(view, cursor, banner)`` – Anzeige aktualisieren.
             after_write: Nach jedem Schreibvorgang mit den geschriebenen Dateien:
                 Hauptfenster **gezielt** aktualisieren (nur Zeilen dieser Einheiten,
@@ -143,7 +157,7 @@ class SequenceLadderController:
         self.sequence_path = sequence_path
         self._load, self._edit, self._context = load, edit, context
         self._dialogs, self._render, self._after_write = dialogs, render, after_write
-        self._assign = assign
+        self._text_input, self._assign = text_input, assign
         self._oberthema = sequence_path.stem
         self._missing = False
         self._reload_count = 0
@@ -241,15 +255,27 @@ class SequenceLadderController:
             return True
         return False
 
-    def _ask(self, title: str, slot: LadderSlot, initial: str = "", ignore: BlockRef | None = None) -> str | None:
+    def _ask(
+        self,
+        slot: LadderSlot,
+        then: Callable[[str], object],
+        *,
+        rename: BlockRef | None = None,
+        initial: str = "",
+    ) -> None:
+        """Namenseingabe im Board: über dem Baustein *rename* oder als neuer Baustein an *slot*.
+
+        Geprüft wird mit derselben Regel wie beim Anwenden (`block_text_error`), sodass die
+        Eingabe nur einen Text annimmt, den die Operation auch akzeptiert; *then* erhält ihn
+        getrimmt. Abbrechen ruft nichts auf.
+        """
         ladder = self.ladder
-        text = self._dialogs.ask_text(
-            title,
-            "Beschreibung des Bausteins:",
+        self._text_input.request(
+            card_key(rename) if rename is not None else board_slot(slot),
             initial=initial,
-            validate=lambda t: block_text_error(t, ladder, side=slot.side, rung=slot.rung, ignore=ignore),
+            validate=lambda t: block_text_error(t, ladder, side=slot.side, rung=slot.rung, ignore=rename),
+            done=lambda text: then(text.strip()),
         )
-        return text.strip() if text is not None else None
 
     def _selected(self) -> tuple[BlockRef, LadderSlot, LadderBlock] | None:
         """Gewählter Baustein mit Position, ``None`` ohne Baustein-Auswahl."""
@@ -260,20 +286,18 @@ class SequenceLadderController:
         return (ref, found[0], found[1]) if found is not None else None
 
     def _end_slot(self, cell: BoardCell) -> LadderSlot | None:
-        """Position unter dem letzten Baustein einer Zelle; ``None`` für die Ideen-Spalte."""
+        """Position unter dem letzten Baustein einer Zelle (Ideen-Spalte: unter dem letzten Material)."""
         probe = cell_slot(cell, 0)
         if probe is None:
             return None
         return LadderSlot(probe.rung, probe.side, len(self.ladder.rung(probe.rung).blocks(probe.side)))
 
     def add(self, cell: BoardCell) -> None:
-        """ "+" in einer Zelle: neuen eigenen Baustein unten in der Zelle anlegen."""
+        """ "+" in einer Zelle: neuen eigenen Baustein unten in der Zelle anlegen (Name im Board)."""
         slot = self._end_slot(cell)
         if slot is None or self.read_only or self._locked(slot):
             return
-        text = self._ask("Neuer Baustein", slot)
-        if text:
-            self._run(AddBlock(slot, text))
+        self._ask(slot, lambda text: self._run(AddBlock(slot, text)))
 
     def copy(self) -> None:
         """Strg+C: den gewählten Baustein merken."""
@@ -292,9 +316,7 @@ class SequenceLadderController:
             return
         if self._locked(slot):
             return
-        text = self._ask("Kopie benennen", slot, initial=self.clipboard)
-        if text:
-            self._run(AddBlock(slot, text, pasted=True))
+        self._ask(slot, lambda text: self._run(AddBlock(slot, text, pasted=True)), initial=self.clipboard)
 
     def _paste_slot(self) -> LadderSlot | None:
         if isinstance(self.cursor, str):
@@ -318,7 +340,7 @@ class SequenceLadderController:
             self._show()  # Leiter ist nach `_finish` schon frisch; nur den Nachbar-Cursor zeigen
 
     def rename(self) -> None:
-        """F2: eigenen Baustein umbenennen (Netz-Bausteine sind gesperrt)."""
+        """F2/Enter/Doppelklick: eigenen Baustein direkt auf der Karte umbenennen (Netz-Bausteine gesperrt)."""
         selected = self._selected()
         if selected is None or self.read_only:
             return
@@ -326,9 +348,12 @@ class SequenceLadderController:
         if block.is_network:
             self._dialogs.show_info("Umbenennen", "Bausteine aus dem Kompetenznetz können nicht umbenannt werden.")
             return
-        text = self._ask("Baustein umbenennen", slot, initial=block.text, ignore=ref)
-        if text and text != block.text:
-            self._run(RenameBlock(ref, text))
+
+        def renamed(text: str) -> None:
+            if text and text != block.text:
+                self._run(RenameBlock(ref, text))
+
+        self._ask(slot, renamed, rename=ref, initial=block.text)
 
     def step(self, up: bool) -> None:
         """Strg+↑/↓: eine Position höher/tiefer (über Sprossengrenzen)."""

@@ -108,6 +108,7 @@ def test_controller_finishes_an_assignment_like_every_other_action(tmp_path):
         edit=env.edit,
         context=lambda: env.context,
         dialogs=SimpleNamespace(),
+        text_input=SimpleNamespace(),
         render=lambda *args: None,
         after_write=written.append,
         assign=assign,

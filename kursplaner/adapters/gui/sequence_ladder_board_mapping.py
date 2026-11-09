@@ -201,8 +201,13 @@ def ladder_slot(slot: BoardSlot) -> LadderSlot:
     return LadderSlot(rung_index(slot.row_key), SIDE_BY_LANE[slot.lane_key], slot.index)
 
 
+def board_slot(slot: LadderSlot) -> BoardSlot:
+    """Leiter-Position → Board-Einfügeposition (Umkehrung von `ladder_slot`; Ort eines neuen Bausteins)."""
+    return BoardSlot(rung_key(slot.rung), LANE_BY_SIDE[slot.side], slot.index)
+
+
 def cell_slot(cell: BoardCell, index: int) -> LadderSlot | None:
-    """Leiter-Position in einer Board-Zelle; ``None`` für die Ideen-Spalte."""
+    """Leiter-Position in einer Board-Zelle (die Ideen-Spalte hält Material); ``None`` für unbekannte Spalten."""
     side = SIDE_BY_LANE.get(cell.lane_key)
     return LadderSlot(rung_index(cell.row_key), side, index) if side is not None else None
 

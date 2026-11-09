@@ -127,13 +127,16 @@ SEQUENCE_LADDER_HELP: dict[str, str] = {
     ),
     "keys": (
         "Jede Sprosse mit Unterrichtstermin zeigt ihre Einheit: der oberste linke Baustein ist das Stundenziel "
-        "(hervorgehoben), darunter die Teilziele, rechts die Kompetenzen, Ideen unter „## Ideen“ – Änderungen "
-        "landen direkt in der Einheit. LZK, Hospitation und Ausfall sind gesperrt; „??“-Sprossen sind die Ablage "
-        "der Sequenzdatei. „→ Einheit“ an einer gefüllten „??“-Sprosse ordnet sie einer Plan-Zeile zu (leere "
-        "Zeile: neue Unterrichtsdatei; vorhandene Ziele/Kompetenzen nach Rückfrage ersetzt, Ideen angehängt). "
+        "(hervorgehoben), darunter die Teilziele, rechts die Kompetenzen, ganz rechts das Material (YAML "
+        "„Material“) als Bausteine über den Ideen („## Ideen“) – Änderungen landen direkt in der Einheit. "
+        "Die ersten Zeilen des Ideenfelds, die mit „+ “ beginnen, werden beim Übernehmen Material-Bausteine. "
+        "LZK, Hospitation und Ausfall sind gesperrt; „??“-Sprossen sind die Ablage der Sequenzdatei. "
+        "„→ Einheit“ an einer gefüllten „??“-Sprosse ordnet sie einer Plan-Zeile zu (leere Zeile: neue "
+        "Unterrichtsdatei; vorhandene Ziele/Kompetenzen nach Rückfrage ersetzt, Material und Ideen angehängt). "
+        "Namen tippst du direkt im Board (Enter übernimmt, Esc bricht ab). "
         "Pfeile: wählen · Strg+↑/↓: Baustein höher/tiefer (über Sprossen hinweg) · "
-        "Strg+C/Strg+V: kopieren/darüber einfügen mit neuem Namen · Entf: löschen · F2 oder Doppelklick: "
-        "umbenennen (nur eigene) · Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · "
+        "Strg+C/Strg+V: kopieren/darüber einfügen mit neuem Namen · Entf: löschen · F2, Enter oder "
+        "Doppelklick: umbenennen (nur eigene) · Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · "
         "Strg+Z/Strg+Y: rückgängig/wiederholen."
     ),
 }

@@ -18,7 +18,7 @@ from bw_gui.widgets.card_board import BoardCell, BoardSlot, CardBoard, Cursor
 from kursplaner.adapters.gui.help_catalog import SEQUENCE_LADDER_HELP
 from kursplaner.adapters.gui.sequence_choices import SequenceChoice
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import LANES, board_rows, can_drop
-from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
+from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController, TextTarget
 from kursplaner.adapters.gui.warning_banner import WarningBanner
 from kursplaner.core.usecases.load_sequence_ladder_usecase import SequenceLadderView
 
@@ -97,6 +97,20 @@ class SequenceLadderPanel:
         if controller is not None:
             controller.set_cursor(card_key)
             controller.rename()
+
+    def request(
+        self, target: TextTarget, *, initial: str, validate: Callable[[str], str | None], done: Callable[[str], None]
+    ) -> None:
+        """`BlockTextInput`: Namenseingabe direkt im Board statt im Popup.
+
+        Ein Kartenschlüssel öffnet den Inline-Editor über der Karte (umbenennen), ein
+        Board-Slot einen Entwurfsplatz für einen neuen Baustein. Enter übernimmt, Escape
+        bricht ab; Validierungsfehler stehen unter dem Feld (bw-gui `CardBoard`).
+        """
+        if isinstance(target, BoardSlot):
+            self.board.draft_card(target, on_done=done, initial=initial, validate=validate)
+        else:
+            self.board.edit_card(target, on_done=done, initial=initial, validate=validate)
 
     def _can_drop(self, card_key: str, slot: BoardSlot) -> bool:
         controller = self._controller

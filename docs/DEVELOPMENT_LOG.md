@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+- Sequenzleiter: Baustein-Namen direkt im Board statt im Popup (2026-11-09, Wunsch der Nutzerin: „winzige Texteditor-Popups“; dazu bw-gui `askstring` allgemein geräumiger, Fehler inline).
+  - `sequence_ladder_controller`: `LadderDialogs.ask_text` (synchron, `simpledialog.askstring`) ersetzt durch das Protocol `BlockTextInput.request(target, *, initial, validate, done)` (`TextTarget` = Kartenschlüssel oder `BoardSlot`); `_ask` baut Ziel und Prüfung (`block_text_error`, dieselbe Regel wie beim Anwenden) einmal für Anlegen, Einfügen, Umbenennen. `TkLadderDialogs` behält Hinweis/Fehler/Auswahl/Rückfrage.
+  - `SequenceLadderPanel.request`: Kartenschlüssel → `CardBoard.edit_card`, Slot → `CardBoard.draft_card` (bw-gui, Entwurfsplatz an der Einfügeposition). `sequence_ladder_board_mapping.board_slot` (Umkehrung von `ladder_slot`) als einzige Übersetzung Leiter-Position → Board-Slot. Host reicht das Panel als `text_input` durch.
+  - Tasten: Enter auf einem Baustein = umbenennen (`sequence_ladder_keys.activate`); Hilfetext und `SHORTCUT_KONFLIKTMATRIX.md` angepasst.
+  - Tests: `FakeDialogs.request` verhält sich wie der Board-Editor (Abbruch/abgelehnter Text → kein `done`); `test_sequence_ladder_panel_tk.py` tippt in den echten Inline-Editor (Enter → Entwurf, F2 mit Fehler inline, Material per „+“, „+ “-Zeilen).
 - Sequenzleiter: Material als dritte Bausteinseite, „+ “-Zeilen im Ideenfeld (2026-11-09, Wunsch der Nutzerin; Entscheidungen: zusätzlich kleines „+“ über dem Ideenfeld, beim Zuordnen anhängen).
   - Domain: Regeltabelle `sequence_ladder.SIDE_RULES` (Feld der `LadderRung`, `per_rung`, `network`, `noun`) als einzige Quelle der Seitenregeln; `LadderSide.MATERIAL`, `LadderRung.material` (letztes Feld, positionale Altaufrufe gültig), `blocks`/`with_blocks`/`is_empty` über die Tabelle, `COMPETENCE_SIDES`. `uniqueness_scope`, `conflict_message`, `block_text_error` (`[[`-Verbot nur auf Netz-Seiten) lesen sie.
   - Drei versteckte Zwei-Seiten-Annahmen behoben: `has_both_sides` (`set(LadderSide) <= sides` wäre nie mehr wahr), `_import`-Ziele, Spaltenwahl `ask_mixed_side` (bot sonst „Material“ an) – alle auf `COMPETENCE_SIDES`. `_ideas` baute die Sprosse über `LadderRung(inhalt, prozess, lines)` neu und hätte Material verworfen – jetzt `replace(rung, ideen=…)`.

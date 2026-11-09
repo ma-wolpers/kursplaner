@@ -46,15 +46,15 @@ Analog zu `Links`/`Rechts`/`Pos1`/`Ende` (ebenfalls nicht in obiger Tabelle, da 
 
 ## Sequenzleiter-Ansicht (Board-Scope, `adapters/gui/sequence_ladder_keys.py`)
 
-Die Leiter ist eine Oberfläche der Detailansicht (Strg+Shift+L oder Menü „Ansicht → Sequenzleiter“ wechselt Grid ↔ Leiter, Esc führt zurück ins Grid). Gebunden per `WidgetShortcutBinder` am Board: Diese Kürzel gelten, solange das Board den Fokus hat, und gehen den gleichlautenden Hauptfenster-Kürzeln vor (Strg+C/V, Strg+Pfeile, Entf, F2). Jeder Handler meldet `HANDLED`. Undo/Redo und Esc bindet die Leiter nicht selbst: sie laufen über die Hauptfenster-Bindungen, die das Intent-Tor der Leiter-Ansicht (`detail_surface.LADDER_SURFACE_INTENTS`) durchlässt; alle Grid-Kürzel sind dort wirkungslos. `allow_when_text_input=False`: Im Ideen-Textfeld behalten Pfeile und Strg+C/V/Z ihre native Bedeutung (Strg+Enter übernimmt, Esc verwirft – über den bw-gui-`CardBoard`).
+Die Leiter ist eine Oberfläche der Detailansicht (Strg+Shift+L oder Menü „Ansicht → Sequenzleiter“ wechselt Grid ↔ Leiter, Esc führt zurück ins Grid). Gebunden per `WidgetShortcutBinder` am Board: Diese Kürzel gelten, solange das Board den Fokus hat, und gehen den gleichlautenden Hauptfenster-Kürzeln vor (Strg+C/V, Strg+Pfeile, Entf, F2). Jeder Handler meldet `HANDLED`. Undo/Redo und Esc bindet die Leiter nicht selbst: sie laufen über die Hauptfenster-Bindungen, die das Intent-Tor der Leiter-Ansicht (`detail_surface.LADDER_SURFACE_INTENTS`) durchlässt; alle Grid-Kürzel sind dort wirkungslos. `allow_when_text_input=False`: Im Ideen-Textfeld und im Inline-Namensfeld behalten Pfeile und Strg+C/V/Z ihre native Bedeutung (Ideenfeld: Strg+Enter übernimmt; Namensfeld eines Bausteins: Enter übernimmt; Esc verwirft jeweils – über den bw-gui-`CardBoard`, kein Popup).
 
 | Aktion | Kürzel | Bemerkung |
 |---|---|---|
-| Baustein/Zelle wählen | Pfeiltasten | Hoch/Runter durch die Spalte über Sprossen hinweg |
-| Baustein höher/tiefer | Strg+↑ / Strg+↓ | tauscht mit dem Nachbarn; oben in der Zelle → unten in die nächsthöhere Sprosse |
-| Kopieren / Einfügen | Strg+C / Strg+V | Einfügen über dem gewählten Baustein, fragt sofort den neuen Namen ab |
+| Baustein/Zelle wählen | Pfeiltasten | Hoch/Runter durch die Spalte über Sprossen hinweg (Ideen-Spalte: Material, dann Ideenfeld) |
+| Baustein höher/tiefer | Strg+↑ / Strg+↓ | tauscht mit dem Nachbarn; oben in der Zelle → unten in die nächsthöhere Sprosse (Material bleibt über dem Ideenfeld) |
+| Kopieren / Einfügen | Strg+C / Strg+V | Einfügen über dem gewählten Baustein; der neue Name wird direkt im Board getippt |
 | Löschen | Entf | |
-| Umbenennen | F2 (oder Doppelklick) | nur eigene Bausteine |
+| Umbenennen | F2, Enter (oder Doppelklick) | nur eigene Bausteine; Namensfeld liegt über der Karte |
 | Neuer Baustein / Ideen bearbeiten | Enter | auf leerer Zelle bzw. im Ideenfeld |
 | Rückgängig / Wiederholen | Strg+Z / Strg+Y | Hauptfenster-Bindung, gemeinsamer Verlauf |
 | Zurück ins Grid | Esc | Hauptfenster-Bindung (`SelectionLayerStack`, Leiter-Ebene) |
