@@ -8,6 +8,11 @@ Regel:
 
 ## [Unreleased]
 
+- Einheitsvorschau, Datenseite (2026-11-10, Wunsch der Nutzerin: Strg+D zeigt das Einheitsdokument gerendert; Entscheidungen: python-markdown optional, Frontmatter-Felder kompakt oben).
+  - `LoadUnitPreviewUseCase.execute(path) -> UnitPreview(title, fields, body_html, body_text, error)` nur über bestehende Ports (`load_raw_lesson_frontmatter`, `read_file_content`) und Domain-Helfer (`body_after_frontmatter`, `unwrap_wiki_links`); leere Felder entfallen, Listen bleiben Einzelwerte.
+  - Port `MarkdownHtmlRendererPort`, Adapter `infrastructure/rendering/markdown_html_renderer.py` (einzige `markdown`-Importstelle, `MARKDOWN_AVAILABLE`), verdrahtet als `GuiDependencies.load_unit_preview_usecase`; Mini-ADR §38, `requirements.txt` `markdown==3.10.2`.
+  - Formfehler im Frontmatter (`RuntimeError` aus `parse_yaml_frontmatter`, z. B. fehlende Pflichtfelder) zeigen nur keine Felder; der Body bleibt sichtbar.
+  - Tests: `test_unit_preview_usecase.py` (synthetische Dateien, echte Repositories), `test_markdown_library_import_guardrail.py`.
 - Auswahl-Listener in `MainWindowUiState` (2026-11-10, Vorbereitung Einheitsvorschau).
   - `add_selection_listener(cb) -> remove`; gemeldet wird nur bei echter Änderung aus `set_selected_day_indices` (neu), `set_selected_cell`, `clear_selected_cell`. Der Property-Setter `MainWindow.selected_day_indices` delegiert an `set_selected_day_indices`.
   - Ein Haken statt Aufrufen in jedem Controller-Pfad: Fokus (`GRID_EDITOR_FOCUS_IN`), `_refresh_after_write`, Spalten-Umordnung, Konvertierung, Übersicht und Rebuild schreiben die Auswahl teils am `SelectionController` vorbei.

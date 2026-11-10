@@ -102,6 +102,7 @@ from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import SyncTopic
 from kursplaner.core.usecases.sync_ub_development_focus_usecase import SyncUbDevelopmentFocusUseCase
 from kursplaner.core.usecases.timetable_change_usecase import TimetableChangeUseCase
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
+from kursplaner.core.usecases.unit_preview_usecase import LoadUnitPreviewUseCase
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.export.achievements_report_pdf_renderer import AchievementsReportPdfRenderer
 from kursplaner.infrastructure.export.expected_horizon_markdown_reader import ExpectedHorizonMarkdownReader
@@ -112,6 +113,7 @@ from kursplaner.infrastructure.export.expected_horizon_pdf_renderer import (
 )
 from kursplaner.infrastructure.export.topic_units_markdown_renderer import TopicUnitsMarkdownRenderer
 from kursplaner.infrastructure.export.topic_units_pdf_renderer import TopicUnitsPdfRenderer
+from kursplaner.infrastructure.rendering.markdown_html_renderer import PythonMarkdownHtmlRenderer
 from kursplaner.infrastructure.repositories import FileSystemLessonIndexRepository
 from kursplaner.infrastructure.repositories.achievement_requirements_repository import (
     FileSystemAchievementRequirementsRepository,
@@ -244,6 +246,8 @@ class GuiDependencies:
     """`None`, wenn `PyYAML` fehlt (siehe `KOMPETENZGRAPH_YAML_AVAILABLE`) -- das
     Kompetenzgraph-Popup ist dann in der GUI deaktiviert statt beim Öffnen
     abzustürzen (Mini-ADR `docs/ARCHITEKTUR_KERN.md` §29)."""
+    load_unit_preview_usecase: LoadUnitPreviewUseCase
+    """Einheitsvorschau (Strg+D); ohne python-markdown liefert sie Rohtext statt HTML."""
     compute_kompetenz_graph_view_usecase: ComputeKompetenzGraphViewUseCase
     """Immer verfügbar (keine I/O, kein PyYAML) -- rein rechnerische
     Sichtbarkeits-Pipeline (Filter/Matchingtiefe/Fokus), von der GUI bei
@@ -358,6 +362,11 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         LoadKompetenzNodeBodyUseCase(kompetenzgraph_repo=kompetenzgraph_repo) if KOMPETENZGRAPH_YAML_AVAILABLE else None
     )
     compute_kompetenz_graph_view_usecase = ComputeKompetenzGraphViewUseCase()
+    load_unit_preview_usecase = LoadUnitPreviewUseCase(
+        lesson_repo=lesson_repo,
+        lesson_file_repo=lesson_file_repo,
+        markdown_renderer=PythonMarkdownHtmlRenderer(),
+    )
     clear_selected_lesson = ClearSelectedLessonUseCase(
         plan_repo=plan_repo,
         plan_commands=plan_commands,
@@ -625,6 +634,7 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         load_kompetenz_graph_usecase=load_kompetenz_graph_usecase,
         rebuild_kompetenz_graph_usecase=rebuild_kompetenz_graph_usecase,
         load_kompetenz_graph_body_usecase=load_kompetenz_graph_body_usecase,
+        load_unit_preview_usecase=load_unit_preview_usecase,
         compute_kompetenz_graph_view_usecase=compute_kompetenz_graph_view_usecase,
         app_info=APP_INFO,
         shell_config=AppShellConfig(

@@ -45,6 +45,7 @@ The format is based on Keep a Changelog.
 
 ### Changed
 - **Auswahl auf UB-Einheiten sichtbar:** Einheiten mit Unterrichtsbesuch tragen im Kursgitter jetzt einen grau-schieferfarbenen statt blauen Rahmen. Der blaue Auswahlrahmen um die gewählte Zelle hob sich davon vorher kaum (im Theme „Steel Morning“ gar nicht) ab.
+- **Neue optionale Abhängigkeit `markdown`** (`pip install -r requirements.txt`): Sie formatiert die Einheitsvorschau. Fehlt sie, zeigt die Vorschau den Text unformatiert.
 - **Für Mitentwickelnde:** Auswahlwechsel im Grid meldet `MainWindowUiState.add_selection_listener` an einer Stelle; die Auswahl wird nur noch über `set_selected_day_indices`/`set_selected_cell`/`clear_selected_cell` geschrieben (Guardrail-Test).
 - **Für Mitentwickelnde:** Welche Spalten gültig markiert sind, entscheiden nur `day_column.valid_selection`/`single_selection` (GUI: `selection_controller.selected_indices_sorted`/`single_selected`).
 - **Sequenzleiter als Ansicht statt Fenster:** Im geöffneten Kurs wechselst du mit Strg+Shift+L (oder „Ansicht → Sequenzleiter“) zwischen Grid und Sequenzleiter; Esc führt zurück ins Grid. Die Leiter hat eine eigene Toolbar mit einer Auswahlliste aller Sequenzen des Kurses und „Aus Kompetenznetz übernehmen…“. Beim Wechsel zeigt sie die Sequenz der markierten Spalte; wählst du in der Leiter einen Termin, ist im Grid dessen Spalte markiert. Die zuletzt gewählte Ansicht bleibt beim Kurswechsel erhalten.

@@ -11,3 +11,10 @@ reportlab==4.4.2
 # ARCHITEKTUR_KERN.md. Analog reportlab optional: fehlt sie, startet die App
 # trotzdem, nur das Kompetenzgraph-Popup ist dann deaktiviert.
 PyYAML==6.0.3
+
+# Fuer die Einheitsvorschau im Kursgitter (Strg+D): Markdown-Body der Einheit
+# als formatierter Text. Ausschliesslich in genau einer Infrastructure-Datei
+# importiert (infrastructure/rendering/markdown_html_renderer.py), siehe Mini-ADR
+# §38 in ARCHITEKTUR_KERN.md. Optional wie PyYAML: fehlt sie, zeigt die Vorschau
+# den Rohtext. Gleiche Version wie Blattwerk.
+markdown==3.10.2
