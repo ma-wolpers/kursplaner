@@ -8,6 +8,10 @@ Regel:
 
 ## [Unreleased]
 
+- Auswahl-Listener in `MainWindowUiState` (2026-11-10, Vorbereitung Einheitsvorschau).
+  - `add_selection_listener(cb) -> remove`; gemeldet wird nur bei echter Änderung aus `set_selected_day_indices` (neu), `set_selected_cell`, `clear_selected_cell`. Der Property-Setter `MainWindow.selected_day_indices` delegiert an `set_selected_day_indices`.
+  - Ein Haken statt Aufrufen in jedem Controller-Pfad: Fokus (`GRID_EDITOR_FOCUS_IN`), `_refresh_after_write`, Spalten-Umordnung, Konvertierung, Übersicht und Rebuild schreiben die Auswahl teils am `SelectionController` vorbei.
+  - Tests: `test_ui_state_selection_listeners.py` (Meldesemantik, Abmelden, Guardrail gegen direkte Zuweisungen an `ui_state.selected_day_indices`/`.selected_cell`).
 - UB-Rahmen im Grid: Token `accent` → `secondary` (2026-11-10, Wunsch der Nutzerin: Auswahlrahmen auf UB-Zellen unsichtbar; Entscheidung „Grau-Schiefer“, gestrichelt ist mit dem Tk-Highlight-Ring nicht möglich).
   - `grid_renderer._apply_ub_border` bleibt der einzige Rahmen-Stilweg für Zellen und Köpfe; `selection_bg` ist in jedem Theme eine Akzent-Variante (Steel Morning: identisch zu `accent`).
   - Tests: `test_grid_renderer_ub_border.py` (Stilweg UB-Zelle ausgewählt/nicht ausgewählt; `secondary` ≠ `selection_bg` in jedem registrierten Theme).

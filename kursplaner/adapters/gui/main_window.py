@@ -213,7 +213,7 @@ class KursplanerApp(KursplanerRowModeMixin, KursplanerPlanDelegationMixin, BwBas
     @selected_day_indices.setter
     def selected_day_indices(self, value: set[int]):
         """Setzt den kanonischen Selektionszustand der Grid-Spalten."""
-        self.ui_state.selected_day_indices = set(value)
+        self.ui_state.set_selected_day_indices(value)
 
     @property
     def is_detail_view(self) -> bool:
