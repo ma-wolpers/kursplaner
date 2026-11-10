@@ -8,6 +8,9 @@ Regel:
 
 ## [Unreleased]
 
+- UB-Rahmen im Grid: Token `accent` → `secondary` (2026-11-10, Wunsch der Nutzerin: Auswahlrahmen auf UB-Zellen unsichtbar; Entscheidung „Grau-Schiefer“, gestrichelt ist mit dem Tk-Highlight-Ring nicht möglich).
+  - `grid_renderer._apply_ub_border` bleibt der einzige Rahmen-Stilweg für Zellen und Köpfe; `selection_bg` ist in jedem Theme eine Akzent-Variante (Steel Morning: identisch zu `accent`).
+  - Tests: `test_grid_renderer_ub_border.py` (Stilweg UB-Zelle ausgewählt/nicht ausgewählt; `secondary` ≠ `selection_bg` in jedem registrierten Theme).
 - Sequenzleiter: Baustein-Namen direkt im Board statt im Popup (2026-11-09, Wunsch der Nutzerin: „winzige Texteditor-Popups“; dazu bw-gui `askstring` allgemein geräumiger, Fehler inline).
   - `sequence_ladder_controller`: `LadderDialogs.ask_text` (synchron, `simpledialog.askstring`) ersetzt durch das Protocol `BlockTextInput.request(target, *, initial, validate, done)` (`TextTarget` = Kartenschlüssel oder `BoardSlot`); `_ask` baut Ziel und Prüfung (`block_text_error`, dieselbe Regel wie beim Anwenden) einmal für Anlegen, Einfügen, Umbenennen. `TkLadderDialogs` behält Hinweis/Fehler/Auswahl/Rückfrage.
   - `SequenceLadderPanel.request`: Kartenschlüssel → `CardBoard.edit_card`, Slot → `CardBoard.draft_card` (bw-gui, Entwurfsplatz an der Einfügeposition). `sequence_ladder_board_mapping.board_slot` (Umkehrung von `ladder_slot`) als einzige Übersetzung Leiter-Position → Board-Slot. Host reicht das Panel als `text_input` durch.

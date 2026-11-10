@@ -166,12 +166,17 @@ class GridRenderer:
         return day.is_dateless() or day.is_ub()
 
     def _apply_ub_border(self, widget: ui.Widget, day_index: int) -> None:
-        """Setzt Datumslos-/UB-Akzentrahmen oder neutralen Rahmen auf einem Widget."""
+        """Setzt Datumslos-/UB-Akzentrahmen oder neutralen Rahmen auf einem Widget.
+
+        UB nutzt ``secondary`` (Grau-Schiefer), bewusst nicht ``accent``: der
+        Auswahlrahmen (``selection_bg``) ist in jedem Theme eine Akzent-Variante
+        und war auf UB-Zellen sonst kaum bzw. (Steel Morning) gar nicht sichtbar.
+        """
         in_range = 0 <= day_index < len(self.app.day_columns)
         if in_range and self.app.day_columns[day_index].is_dateless():
             theme_widget_border(widget, color_token="danger", thickness=2)
         elif in_range and self.app.day_columns[day_index].is_ub():
-            theme_widget_border(widget, color_token="accent", thickness=2)
+            theme_widget_border(widget, color_token="secondary", thickness=2)
         else:
             theme_widget_border(widget, color_token="border", thickness=1)
 
