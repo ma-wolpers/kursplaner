@@ -8,7 +8,9 @@ Zusätzlich werden die Leitkompetenzen aus der persistenten Sequenzdatei geladen
 angezeigt. Das Sequenzziel bleibt programmintern erhalten (Rückgabe, Sequenzdatei),
 erscheint aber nicht im Export. Aufbau des Dokuments nach der Ref-Vorlage
 „Sequenzplan“: Exportdatum, Titel, Kurszeile, Thema der Sequenz, vorrangig
-geförderte Kompetenz(en), Tabelle (`sequence_export_table`).
+geförderte Kompetenz(en), Tabelle (`sequence_export_table`). Nur im Dokument
+(nicht in der Sequenzdatei) beginnen Stundenziele mit „Die SuS können “ und
+nicht leere Leitkompetenzen mit „Die SuS “.
 """
 
 from __future__ import annotations
@@ -29,7 +31,12 @@ from kursplaner.core.domain.topic_sequence_runs import (
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.sequence_export import ExportTableRow
-from kursplaner.core.usecases.sequence_export_table import EXPORT_TABLE_HEADERS, export_row_cells
+from kursplaner.core.usecases.sequence_export_table import (
+    EXPORT_TABLE_HEADERS,
+    document_focus_competencies,
+    document_row_cells,
+    export_row_cells,
+)
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
 
 SEQUENCE_PLAN_TITLE = "Sequenzplan"
@@ -49,8 +56,8 @@ class TopicUnitsPdfDocument:
         export_date_text: Formatiertes Exportdatum (``TT.MM.JJJJ``).
         course_line: Kurszeile ``"Fach Lerngruppe Schuljahr Hj. X"``.
         sequence_topic: Thema der Sequenz (Oberthema, Klartext).
-        leitkompetenzen: Vorrangig geförderte Kompetenzen.
-        rows: Tabellenzeilen (`ExportCell` je Spalte).
+        leitkompetenzen: Vorrangig geförderte Kompetenzen als Sätze („Die SuS …“).
+        rows: Tabellenzeilen (`ExportCell` je Spalte), Stundenziel mit „Die SuS können …“.
     """
 
     document_title: str
@@ -171,8 +178,8 @@ class ExportTopicUnitsPdfUseCase:
             export_date_text=export_date.strftime("%d.%m.%Y"),
             course_line=title,
             sequence_topic=run.oberthema,
-            leitkompetenzen=sync_result.leitkompetenzen,
-            rows=table_rows,
+            leitkompetenzen=document_focus_competencies(sync_result.leitkompetenzen),
+            rows=tuple(document_row_cells(row) for row in table_rows),
         )
 
         self._renderer.render(document, output_path)

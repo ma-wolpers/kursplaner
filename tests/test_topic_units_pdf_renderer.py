@@ -121,6 +121,25 @@ def test_cell_markup_escapes_each_line_before_joining():
     assert pdf_renderer.cell_markup(()) == ""
 
 
+def test_pdf_text_unwraps_wiki_links_before_escaping():
+    assert pdf_renderer.pdf_text("Die SuS [[Mat-GF-29|führen Parametervariationen durch]] & mehr") == (
+        "Die SuS führen Parametervariationen durch &amp; mehr"
+    )
+    assert pdf_renderer.cell_markup(("Tafelbild [[Skizze]]",)) == "Tafelbild Skizze"
+
+
+def test_pdf_shows_no_wiki_link_brackets(tmp_path: Path):
+    rows = ((("Mo 07.09.2026",), ("[[Mat-KO-4|Terme ZZQKOMPEND]]",), ("Thema",), ("Ziel [[X|ZZQZIELEND]]",), ()),)
+    output = tmp_path / "links.pdf"
+
+    pdf_renderer.TopicUnitsPdfRenderer().render(_document(rows, focus=("Die SuS [[Mat-GF-29|ZZQFOKUSEND]]",)), output)
+
+    reader = assert_valid_pdf(output, pages=1, contains=["Die SuS ZZQFOKUSEND", "ZZQKOMPEND", "Ziel ZZQZIELEND"])
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "[[" not in text and "]]" not in text
+    assert "Mat-GF-29" not in text
+
+
 def test_date_column_never_wraps_the_date_and_rest_keeps_ratio():
     from reportlab.pdfbase.pdfmetrics import stringWidth
 

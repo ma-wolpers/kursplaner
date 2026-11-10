@@ -147,8 +147,39 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
     assert date_cell == ("Mo 01.09.2025",)  # ohne Rhythmus: keine Startzeit/Stundenzahl
     assert competence_cell == ("PK1", "PK2")  # ein Eintrag pro Zeile
     assert topic_cell == ("Sortieren",)
-    assert goal_cell == ("Sortierverfahren vergleichen",)
+    assert goal_cell == ("Die SuS können Sortierverfahren vergleichen",)
     assert material_cell == ()
+
+
+def test_export_document_gets_sentence_prefixes_but_sequence_file_does_not(tmp_path):
+    usecase, renderer = _make_usecase()
+    table = _table(tmp_path)
+    day_columns = [
+        _day(tmp_path, row_index=0, kind="Unterricht", obert="Potenzen", thema="Parameter", ziel="Parameter deuten")
+    ]
+    kwargs = dict(
+        table=table,
+        day_columns=day_columns,
+        selected_row_index=0,
+        output_path=tmp_path / "export.pdf",
+        export_date=date(2026, 3, 31),
+    )
+    first = usecase.execute(**kwargs)
+    focus = "[[Mat-GF-29|führen Parametervariationen für Potenzfunktionen durch]]"
+    FileSystemSequencePlanRepository().write_goal_and_focus_competencies(
+        sequence_path=first.sequence_path, sequenzziel="", leitkompetenzen=(focus, "modellieren")
+    )
+
+    result = usecase.execute(**kwargs)
+
+    document, _path = renderer.calls[-1]
+    assert renderer.calls[0][0].leitkompetenzen == ()  # keine Leitkompetenz → kein Satzanfang
+    assert document.leitkompetenzen == (f"Die SuS {focus}", "Die SuS modellieren")
+    assert document.rows[0][3] == ("Die SuS können Parameter deuten",)
+    assert result.leitkompetenzen[0] == focus  # Rückgabe/Sequenzdatei unverändert
+    sequence_text = result.sequence_path.read_text(encoding="utf-8")
+    assert "| Parameter deuten |" in sequence_text
+    assert "Die SuS" not in sequence_text
 
 
 def test_export_title_uses_requested_halfyear_format(tmp_path):

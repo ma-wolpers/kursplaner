@@ -14,10 +14,14 @@ from kursplaner.core.domain.topic_sequence_runs import (
 from kursplaner.core.domain.wiki_links import wiki_link_display_text
 from kursplaner.core.usecases.sequence_export_table import (
     EXPORT_TABLE_HEADERS,
+    GOAL_SENTENCE_PREFIX,
     date_hour_cell,
+    document_focus_competencies,
+    document_row_cells,
     entries_cell,
     export_row_cells,
     text_cell,
+    with_sentence_prefix,
 )
 from tests.day_column_factory import make_day_column
 
@@ -159,3 +163,42 @@ def test_net_links_show_their_title_in_goal_and_competence_cells():
 
     assert cells[1] == ("Algorithmen entwerfen", "Frei")
     assert cells[3] == ("Terme aufstellen",)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Terme aufstellen", "Die SuS können Terme aufstellen"),
+        ("  Terme aufstellen ", "Die SuS können Terme aufstellen"),
+        ("die SuS können Terme aufstellen", "die SuS können Terme aufstellen"),  # kein doppelter Satzanfang
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_goal_sentence_prefix(text, expected):
+    assert with_sentence_prefix(text, GOAL_SENTENCE_PREFIX) == expected
+
+
+def test_document_row_prefixes_only_first_goal_line_and_keeps_other_cells():
+    row = export_row_cells(_row(stundenziel="Terme aufstellen\nund vereinfachen"))
+
+    document_row = document_row_cells(row)
+
+    assert document_row[3] == ("Die SuS können Terme aufstellen", "und vereinfachen")
+    assert document_row[:3] == row[:3] and document_row[4:] == row[4:]
+
+
+def test_document_row_leaves_empty_goal_empty():
+    row = export_row_cells(_row(stundenziel=""))
+
+    assert document_row_cells(row)[3] == ()
+
+
+def test_focus_competencies_become_sentences_and_empty_ones_drop():
+    entries = ("[[Mat-GF-29|führen Parametervariationen für Potenzfunktionen durch]]", "  ", "modellieren")
+
+    assert document_focus_competencies(entries) == (
+        "Die SuS [[Mat-GF-29|führen Parametervariationen für Potenzfunktionen durch]]",
+        "Die SuS modellieren",
+    )
+    assert document_focus_competencies(()) == ()

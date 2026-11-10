@@ -3,7 +3,8 @@
 Aufbau (Querformat): Exportdatum klein oben links → Titel „Sequenzplan“
 zentriert → Kurszeile → Meta-Block (Thema der Sequenz, vorrangig geförderte
 Kompetenz(en)) mit grau hinterlegten Labels → Tabelle „Datum und Stunde |
-Kompetenzbezug | Stundenthema | Stundenziel | Material“.
+Kompetenzbezug | Stundenthema | Stundenziel | Material“. Wiki-Links
+(``[[Ziel|Alias]]``) erscheinen im PDF nur als sichtbarer Text (`pdf_text`).
 
 Zeilenhöhe und Seitenumbruch (verbindliche Semantik, per Spike mit reportlab
 4.4.2 geprüft): jede Datenzeile mindestens `MIN_ROW_HEIGHT` (≈ 2,4 cm, Platz
@@ -17,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 from xml.sax.saxutils import escape
 
+from kursplaner.core.domain.wiki_links import unwrap_wiki_links
 from kursplaner.core.ports.sequence_export import ExportCell
 from kursplaner.core.usecases.export_topic_units_pdf_usecase import TopicUnitsPdfDocument
 from kursplaner.core.usecases.sequence_export_table import EXPORT_TABLE_HEADERS
@@ -60,13 +62,36 @@ _NOT_SET = "(nicht gesetzt)"
 _PADDING = 5
 
 
+def pdf_text(line: str) -> str:
+    """Macht eine Zeile Benutzertext PDF-tauglich: Wiki-Links auflösen, dann XML-escapen.
+
+    Im PDF sind Obsidian-Links nicht klickbar; statt ``[[Mat-GF-29|führen …
+    durch]]`` erscheint deshalb nur der sichtbare Text (Alias, sonst Ziel) über
+    `wiki_links.unwrap_wiki_links`. Sequenzdatei und Markdown-Export behalten
+    ihre Links.
+
+    Args:
+        line: Eine Zeile Benutzertext.
+
+    Returns:
+        Paragraph-taugliches Markup ohne Wiki-Link-Klammern.
+
+    Example::
+
+        pdf_text("Die SuS [[Mat-GF-29|führen … durch]] & mehr")
+        # -> "Die SuS führen … durch &amp; mehr"
+    """
+    return escape(unwrap_wiki_links(line))
+
+
 def cell_markup(cell: ExportCell) -> str:
     """Wandelt eine `ExportCell` in reportlab-Paragraph-Markup um.
 
-    Jede Zeile wird **einzeln** XML-escaped (``&``, ``<``, ``>``), erst danach
-    werden die Zeilen mit ``<br/>`` verbunden — so wird das absichtlich
-    eingefügte ``<br/>`` nie selbst escaped, und ``&``/``<`` in Benutzertext
-    brechen den Paragraph-Parser nicht.
+    Jede Zeile wird **einzeln** über `pdf_text` aufbereitet (Wiki-Links
+    aufgelöst, ``&``/``<``/``>`` escaped), erst danach werden die Zeilen mit
+    ``<br/>`` verbunden — so wird das absichtlich eingefügte ``<br/>`` nie
+    selbst escaped, und ``&``/``<`` in Benutzertext brechen den
+    Paragraph-Parser nicht.
 
     Args:
         cell: Zeilen der Zelle.
@@ -74,7 +99,7 @@ def cell_markup(cell: ExportCell) -> str:
     Returns:
         Das Markup (leer bei leerer Zelle).
     """
-    return "<br/>".join(escape(line) for line in cell)
+    return "<br/>".join(pdf_text(line) for line in cell)
 
 
 class TopicUnitsPdfRenderer:
@@ -113,8 +138,8 @@ class TopicUnitsPdfRenderer:
         Returns:
             Die zweispaltige Tabelle (Label | Wert).
         """
-        topic = escape(document.sequence_topic) or _NOT_SET
-        focus = "<br/>".join(escape(entry) for entry in document.leitkompetenzen) or _NOT_SET
+        topic = pdf_text(document.sequence_topic) or _NOT_SET
+        focus = "<br/>".join(pdf_text(entry) for entry in document.leitkompetenzen) or _NOT_SET
         rows = [
             [Paragraph("Thema der Sequenz:", self._meta_label_style), Paragraph(topic, self._meta_value_style)],
             [

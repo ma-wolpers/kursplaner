@@ -12,6 +12,10 @@ einer Zelle selbst und escaped medienspezifisch.
 `EXPORT_TABLE_HEADERS` ist die **einzige** Quelle der Spaltenüberschriften; sie
 sind unveränderlicher Teil des Exportformats und werden deshalb nicht im
 Dokument-DTO mitgeführt.
+
+Satzanfänge („Die SuS können …“ vor Stundenzielen, „Die SuS …“ vor
+Leitkompetenzen) gehören nur ins Export-Dokument (`document_row_cells`,
+`document_focus_competencies`), nicht in die Sequenzdatei.
 """
 
 from __future__ import annotations
@@ -29,6 +33,72 @@ EXPORT_TABLE_HEADERS: tuple[str, ...] = (
     "Material",
 )
 """Spaltenüberschriften des Sequenzplans (Export und Sequenzdatei-Tabelle)."""
+
+GOAL_COLUMN_INDEX = EXPORT_TABLE_HEADERS.index("Stundenziel")
+"""Position der Stundenziel-Zelle in einer `ExportTableRow`."""
+
+GOAL_SENTENCE_PREFIX = "Die SuS können "
+"""Satzanfang vor jedem Stundenziel im Export-Dokument (nicht in der Sequenzdatei)."""
+
+FOCUS_SENTENCE_PREFIX = "Die SuS "
+"""Satzanfang vor jeder vorrangig geförderten Kompetenz im Export-Dokument."""
+
+
+def with_sentence_prefix(text: str, prefix: str) -> str:
+    """Stellt *prefix* vor einen Satz, sofern er nicht leer ist und noch nicht so beginnt.
+
+    Der Vergleich ignoriert Groß-/Kleinschreibung, damit ein bereits
+    ausformuliertes ``"Die SuS können …"`` nicht doppelt beginnt. Ein
+    eingebetteter Wiki-Link bleibt unangetastet (Darstellung ist Sache des
+    jeweiligen Mediums).
+
+    Args:
+        text: Satz (darf leer sein).
+        prefix: Satzanfang inkl. abschließendem Leerzeichen.
+
+    Returns:
+        Der getrimmte Satz mit Satzanfang bzw. ``""`` bei leerem Text.
+
+    Example::
+
+        with_sentence_prefix("[[Mat-GF-29|führen … durch]]", "Die SuS ")
+        # -> "Die SuS [[Mat-GF-29|führen … durch]]"
+    """
+    stripped = str(text).strip()
+    if not stripped or stripped.casefold().startswith(prefix.casefold()):
+        return stripped
+    return prefix + stripped
+
+
+def document_row_cells(row: ExportTableRow) -> ExportTableRow:
+    """Ergänzt eine Tabellenzeile um die Satzanfänge des Export-Dokuments.
+
+    Nur die erste Zeile eines nicht leeren Stundenziels erhält
+    `GOAL_SENTENCE_PREFIX`; alle übrigen Zellen bleiben unverändert. Die
+    Sequenzdatei nutzt weiterhin die unveränderten `export_row_cells`.
+
+    Args:
+        row: Zeile aus `export_row_cells`.
+
+    Returns:
+        Die Zeile für das Export-Dokument.
+    """
+    goal = row[GOAL_COLUMN_INDEX]
+    if goal:
+        goal = (with_sentence_prefix(goal[0], GOAL_SENTENCE_PREFIX), *goal[1:])
+    return (*row[:GOAL_COLUMN_INDEX], goal, *row[GOAL_COLUMN_INDEX + 1 :])
+
+
+def document_focus_competencies(entries: tuple[str, ...]) -> tuple[str, ...]:
+    """Formuliert die Leitkompetenzen als Sätze mit `FOCUS_SENTENCE_PREFIX`; leere entfallen.
+
+    Args:
+        entries: Leitkompetenzen aus der Sequenzdatei.
+
+    Returns:
+        Je nicht leerem Eintrag ``"Die SuS <Eintrag>"``.
+    """
+    return tuple(with_sentence_prefix(entry, FOCUS_SENTENCE_PREFIX) for entry in entries if str(entry).strip())
 
 
 def date_hour_cell(row: TopicUnitExportRow) -> ExportCell:

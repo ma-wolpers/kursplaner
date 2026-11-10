@@ -97,8 +97,10 @@ def test_markdown_renderer_writes_topic_units_table(tmp_path: Path):
     assert "**Vorrangig geförderte Kompetenz(en):** _(nicht gesetzt)_" in text
     assert "Sequenzziel" not in text
     assert "| Datum und Stunde | Kompetenzbezug | Stundenthema | Stundenziel | Material |" in text
-    assert "| Mo 01.09.2025<br>08:00 · 2 Std. | PK1 | Sortieren | Sortierverfahren vergleichen |  |" in text
-    assert "| Mo 08.09.2025<br>08:00 · 1 Std. | PK1 | LZK Sortieren | Verfahren anwenden |  |" in text
+    assert (
+        "| Mo 01.09.2025<br>08:00 · 2 Std. | PK1 | Sortieren | Die SuS können Sortierverfahren vergleichen |  |" in text
+    )
+    assert "| Mo 08.09.2025<br>08:00 · 1 Std. | PK1 | LZK Sortieren | Die SuS können Verfahren anwenden |  |" in text
 
 
 def test_meta_values_are_html_neutral_and_pipe_stays_literal(tmp_path: Path):
