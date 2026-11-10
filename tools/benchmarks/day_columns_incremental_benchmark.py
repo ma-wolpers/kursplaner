@@ -29,13 +29,16 @@ def _write_lesson(path: Path, number: int) -> None:
         "---\n"
         "Stundentyp: Unterricht\n"
         "Dauer: 2\n"
+        # Listenfelder mit echten Einträgen: leere Einträge verletzen die Listen-Invariante
+        # (`canonicalize_lesson_yaml` → `ListFieldViolationError`).
         "Kompetenzen:\n"
-        '  - ""\n'
+        f'  - "K{number % 7}"\n'
         f"Stundenthema: Thema {number}\n"
         'Stundenziel: ""\n'
         "Material:\n"
-        '  - ""\n'
-        f"Oberthema: Ober {number % 5}\n"
+        f'  - "AB {number}"\n'
+        "Oberthema:\n"
+        f'  - "[[Ober {number % 5}]]"\n'
         "---\n\n# Inhalt\n"
     )
     path.write_text(content, encoding="utf-8")
