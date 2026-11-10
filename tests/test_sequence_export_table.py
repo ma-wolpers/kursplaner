@@ -15,8 +15,8 @@ from kursplaner.core.domain.wiki_links import wiki_link_display_text
 from kursplaner.core.usecases.sequence_export_table import (
     EXPORT_TABLE_HEADERS,
     GOAL_SENTENCE_PREFIX,
+    competency_sentences,
     date_hour_cell,
-    document_focus_competencies,
     document_row_cells,
     entries_cell,
     export_row_cells,
@@ -184,21 +184,23 @@ def test_document_row_prefixes_only_first_goal_line_and_keeps_other_cells():
 
     document_row = document_row_cells(row)
 
+    assert document_row[1] == ("Die SuS Modellieren", "Die SuS Argumentieren")
     assert document_row[3] == ("Die SuS können Terme aufstellen", "und vereinfachen")
-    assert document_row[:3] == row[:3] and document_row[4:] == row[4:]
+    assert document_row[0] == row[0] and document_row[2] == row[2] and document_row[4] == row[4]
 
 
-def test_document_row_leaves_empty_goal_empty():
-    row = export_row_cells(_row(stundenziel=""))
+def test_document_row_leaves_empty_goal_and_competence_cells_empty():
+    row = export_row_cells(_row(stundenziel="", kompetenzen=()))
 
+    assert document_row_cells(row)[1] == ()
     assert document_row_cells(row)[3] == ()
 
 
-def test_focus_competencies_become_sentences_and_empty_ones_drop():
+def test_competencies_become_sentences_and_empty_ones_drop():
     entries = ("[[Mat-GF-29|führen Parametervariationen für Potenzfunktionen durch]]", "  ", "modellieren")
 
-    assert document_focus_competencies(entries) == (
+    assert competency_sentences(entries) == (
         "Die SuS [[Mat-GF-29|führen Parametervariationen für Potenzfunktionen durch]]",
         "Die SuS modellieren",
     )
-    assert document_focus_competencies(()) == ()
+    assert competency_sentences(()) == ()

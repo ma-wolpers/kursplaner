@@ -14,8 +14,8 @@ sind unveränderlicher Teil des Exportformats und werden deshalb nicht im
 Dokument-DTO mitgeführt.
 
 Satzanfänge („Die SuS können …“ vor Stundenzielen, „Die SuS …“ vor
-Leitkompetenzen) gehören nur ins Export-Dokument (`document_row_cells`,
-`document_focus_competencies`), nicht in die Sequenzdatei.
+Kompetenzbezug und Leitkompetenzen) gehören nur ins Export-Dokument
+(`document_row_cells`, `competency_sentences`), nicht in die Sequenzdatei.
 """
 
 from __future__ import annotations
@@ -37,11 +37,14 @@ EXPORT_TABLE_HEADERS: tuple[str, ...] = (
 GOAL_COLUMN_INDEX = EXPORT_TABLE_HEADERS.index("Stundenziel")
 """Position der Stundenziel-Zelle in einer `ExportTableRow`."""
 
+COMPETENCE_COLUMN_INDEX = EXPORT_TABLE_HEADERS.index("Kompetenzbezug")
+"""Position der Kompetenzbezug-Zelle in einer `ExportTableRow`."""
+
 GOAL_SENTENCE_PREFIX = "Die SuS können "
 """Satzanfang vor jedem Stundenziel im Export-Dokument (nicht in der Sequenzdatei)."""
 
-FOCUS_SENTENCE_PREFIX = "Die SuS "
-"""Satzanfang vor jeder vorrangig geförderten Kompetenz im Export-Dokument."""
+COMPETENCY_SENTENCE_PREFIX = "Die SuS "
+"""Satzanfang vor jeder Kompetenz (Kompetenzbezug und Leitkompetenzen) im Export-Dokument."""
 
 
 def with_sentence_prefix(text: str, prefix: str) -> str:
@@ -73,7 +76,8 @@ def with_sentence_prefix(text: str, prefix: str) -> str:
 def document_row_cells(row: ExportTableRow) -> ExportTableRow:
     """Ergänzt eine Tabellenzeile um die Satzanfänge des Export-Dokuments.
 
-    Nur die erste Zeile eines nicht leeren Stundenziels erhält
+    Jeder Eintrag im Kompetenzbezug wird über `competency_sentences` zum
+    Satz („Die SuS …“), die erste Zeile eines nicht leeren Stundenziels erhält
     `GOAL_SENTENCE_PREFIX`; alle übrigen Zellen bleiben unverändert. Die
     Sequenzdatei nutzt weiterhin die unveränderten `export_row_cells`.
 
@@ -83,22 +87,26 @@ def document_row_cells(row: ExportTableRow) -> ExportTableRow:
     Returns:
         Die Zeile für das Export-Dokument.
     """
+    cells = list(row)
+    cells[COMPETENCE_COLUMN_INDEX] = competency_sentences(row[COMPETENCE_COLUMN_INDEX])
     goal = row[GOAL_COLUMN_INDEX]
     if goal:
-        goal = (with_sentence_prefix(goal[0], GOAL_SENTENCE_PREFIX), *goal[1:])
-    return (*row[:GOAL_COLUMN_INDEX], goal, *row[GOAL_COLUMN_INDEX + 1 :])
+        cells[GOAL_COLUMN_INDEX] = (with_sentence_prefix(goal[0], GOAL_SENTENCE_PREFIX), *goal[1:])
+    return tuple(cells)
 
 
-def document_focus_competencies(entries: tuple[str, ...]) -> tuple[str, ...]:
-    """Formuliert die Leitkompetenzen als Sätze mit `FOCUS_SENTENCE_PREFIX`; leere entfallen.
+def competency_sentences(entries: tuple[str, ...]) -> tuple[str, ...]:
+    """Formuliert Kompetenzen als Sätze mit `COMPETENCY_SENTENCE_PREFIX`; leere entfallen.
+
+    Einzige Regel für Kompetenzbezug-Zellen und Leitkompetenzen.
 
     Args:
-        entries: Leitkompetenzen aus der Sequenzdatei.
+        entries: Kompetenzen (Zellzeilen oder Leitkompetenzen der Sequenzdatei).
 
     Returns:
         Je nicht leerem Eintrag ``"Die SuS <Eintrag>"``.
     """
-    return tuple(with_sentence_prefix(entry, FOCUS_SENTENCE_PREFIX) for entry in entries if str(entry).strip())
+    return tuple(with_sentence_prefix(entry, COMPETENCY_SENTENCE_PREFIX) for entry in entries if str(entry).strip())
 
 
 def date_hour_cell(row: TopicUnitExportRow) -> ExportCell:

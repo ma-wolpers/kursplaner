@@ -145,7 +145,7 @@ def test_export_builds_expected_title_and_rows_for_selected_run(tmp_path):
     assert len(document.rows) == 2
     date_cell, competence_cell, topic_cell, goal_cell, material_cell = document.rows[0]
     assert date_cell == ("Mo 01.09.2025",)  # ohne Rhythmus: keine Startzeit/Stundenzahl
-    assert competence_cell == ("PK1", "PK2")  # ein Eintrag pro Zeile
+    assert competence_cell == ("Die SuS PK1", "Die SuS PK2")  # ein Eintrag pro Zeile
     assert topic_cell == ("Sortieren",)
     assert goal_cell == ("Die SuS können Sortierverfahren vergleichen",)
     assert material_cell == ()

@@ -10,7 +10,7 @@ erscheint aber nicht im Export. Aufbau des Dokuments nach der Ref-Vorlage
 „Sequenzplan“: Exportdatum, Titel, Kurszeile, Thema der Sequenz, vorrangig
 geförderte Kompetenz(en), Tabelle (`sequence_export_table`). Nur im Dokument
 (nicht in der Sequenzdatei) beginnen Stundenziele mit „Die SuS können “ und
-nicht leere Leitkompetenzen mit „Die SuS “.
+jede Kompetenz (Kompetenzbezug, nicht leere Leitkompetenzen) mit „Die SuS “.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.sequence_export import ExportTableRow
 from kursplaner.core.usecases.sequence_export_table import (
     EXPORT_TABLE_HEADERS,
-    document_focus_competencies,
+    competency_sentences,
     document_row_cells,
     export_row_cells,
 )
@@ -57,7 +57,8 @@ class TopicUnitsPdfDocument:
         course_line: Kurszeile ``"Fach Lerngruppe Schuljahr Hj. X"``.
         sequence_topic: Thema der Sequenz (Oberthema, Klartext).
         leitkompetenzen: Vorrangig geförderte Kompetenzen als Sätze („Die SuS …“).
-        rows: Tabellenzeilen (`ExportCell` je Spalte), Stundenziel mit „Die SuS können …“.
+        rows: Tabellenzeilen (`ExportCell` je Spalte), Kompetenzbezug mit „Die SuS …“,
+            Stundenziel mit „Die SuS können …“.
     """
 
     document_title: str
@@ -178,7 +179,7 @@ class ExportTopicUnitsPdfUseCase:
             export_date_text=export_date.strftime("%d.%m.%Y"),
             course_line=title,
             sequence_topic=run.oberthema,
-            leitkompetenzen=document_focus_competencies(sync_result.leitkompetenzen),
+            leitkompetenzen=competency_sentences(sync_result.leitkompetenzen),
             rows=tuple(document_row_cells(row) for row in table_rows),
         )
 
