@@ -7,6 +7,7 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
     ask_lesson_kompetenzen_selection,
     ask_lesson_stundenziel_selection,
 )
+from kursplaner.adapters.gui.plan_tracked_write import run_plan_tracked_write
 from kursplaner.core.domain.list_cell_text import format_list_cell, parse_list_cell
 
 
@@ -37,19 +38,14 @@ class MainWindowEditorController:
         extra_before: list[pathlib.Path] | None = None,
         extra_after_from_result=None,
     ):
-        if self.app.current_table is None:
-            return action()
-
-        selected_day_indices = set(self.app.selected_day_indices)
-        selected_day_indices.add(day_index)
-        return self._tracked_write_uc.run_tracked_action(
+        return run_plan_tracked_write(
+            self.app,
+            self._tracked_write_uc,
             label=label,
             action=action,
-            table=self.app.current_table,
-            day_columns=self.app.day_columns,
-            selected_day_indices=selected_day_indices,
             extra_before=extra_before,
             extra_after_from_result=extra_after_from_result,
+            include_day_index=day_index,
         )
 
     def handle_editor_focus_in(self, field_key: str, day_index: int) -> bool:

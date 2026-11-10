@@ -66,6 +66,9 @@ class SequenceFieldGridRenderer:
         self._pointer_groups = pointer_groups if pointer_groups is not None else GridPointerGroups(app)
         self.app = app
         self._create_text_cell = create_text_cell
+        # Deaktivierte Leerzellen unter nicht abgedeckten Spalten; nur hier gemerkt,
+        # damit `rerender_cells()` sie ohne Grid-Neuaufbau ersetzen kann.
+        self._filler_cells: list[ui.Text] = []
 
     def render(
         self,
@@ -90,15 +93,12 @@ class SequenceFieldGridRenderer:
         Returns:
             Der nächste freie Grid-Zeilenindex nach den Sequenzfeld-Zeilen.
         """
+        self._filler_cells = []
         if not self.app.topic_sequence_plans:
             return row_idx
 
         row_index_to_grid_col = compute_row_index_to_grid_col(self.app.day_columns, day_grid_columns)
-        grid_col_is_cancel: dict[int, bool] = {
-            day_grid_columns[day_index]: day.is_cancel()
-            for day_index, day in enumerate(self.app.day_columns)
-            if isinstance(day, DayColumn) and day_index in day_grid_columns
-        }
+        grid_col_is_cancel = self._grid_col_is_cancel(day_grid_columns)
 
         for field_key in SEQUENCE_FIELD_ROW_ORDER:
             row_idx = self._render_one_row(
@@ -174,13 +174,70 @@ class SequenceFieldGridRenderer:
         theme_label_token(field_label, bg_token="panel_strong")
         field_label.grid(row=row_idx, column=0, sticky="nsew")
         row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(field_label.winfo_reqheight()))
+        self._render_row_cells(
+            row_idx=row_idx,
+            field_key=field_key,
+            row_index_to_grid_col=row_index_to_grid_col,
+            grid_col_is_cancel=grid_col_is_cancel,
+            row_pixel_heights=row_pixel_heights,
+        )
+        return row_idx + 1
 
+    def _grid_col_is_cancel(self, day_grid_columns: dict[int, int]) -> dict[int, bool]:
+        """Tk-Grid-Spalte → `is_cancel` der dort stehenden Tages-Spalte (Ausfall-Tönung der Leerzellen)."""
+        return {
+            day_grid_columns[day_index]: day.is_cancel()
+            for day_index, day in enumerate(self.app.day_columns)
+            if isinstance(day, DayColumn) and day_index in day_grid_columns
+        }
+
+    def rerender_cells(self, *, with_spans: bool = True) -> None:
+        """Ersetzt nur die Zellen beider Sequenzfeld-Zeilen (Spannen + Leerzellen), ohne Grid-Neuaufbau.
+
+        Für geänderte Sequenz-Läufe bei unveränderter Zeilenstruktur (es gab vorher
+        und nachher Sequenzen): derselbe Zellbaustein wie `render()`, die Zeilen-Labels
+        bleiben stehen. Mit ``with_spans=False`` entstehen nur die Leerzellen; die
+        Spannzellen legt dann die Mount-Reconciliation an, nur im sichtbaren Fenster
+        (`GridRenderer.remount_sequence_fields`) – dasselbe Ergebnis wie Neuaufbau
+        plus Evict, ohne Widgets außerhalb des Fensters erst zu bauen.
+        """
+        for cell in [*self.app.sequence_field_widgets.values(), *self._filler_cells]:
+            if cell.winfo_exists():  # ein Neuaufbau ohne Sequenzfelder hat sie bereits zerstört
+                cell.destroy()
+        self.app.sequence_field_widgets = {}
+        self._filler_cells = []
+        day_grid_columns = self.app.day_grid_columns
+        row_index_to_grid_col = compute_row_index_to_grid_col(self.app.day_columns, day_grid_columns)
+        grid_col_is_cancel = self._grid_col_is_cancel(day_grid_columns)
+        for row_idx, field_key in enumerate(SEQUENCE_FIELD_ROW_ORDER):
+            self._render_row_cells(
+                row_idx=row_idx,
+                field_key=field_key,
+                row_index_to_grid_col=row_index_to_grid_col,
+                grid_col_is_cancel=grid_col_is_cancel,
+                row_pixel_heights={},
+                with_spans=with_spans,
+            )
+
+    def _render_row_cells(
+        self,
+        *,
+        row_idx: int,
+        field_key: str,
+        row_index_to_grid_col: dict[int, int],
+        grid_col_is_cancel: dict[int, bool],
+        row_pixel_heights: dict[int, int],
+        with_spans: bool = True,
+    ) -> None:
+        """Einziger Zellbaustein einer Sequenzfeld-Zeile: eine Spannzelle je Lauf, Leerzellen sonst."""
         covered_grid_cols: set[int] = set()
         for view in self.app.topic_sequence_plans:
             full_span = self._run_span(row_index_to_grid_col, view.run.first_row_index, view.run.last_row_index)
             if full_span is None:
                 continue
             covered_grid_cols.update(full_span)
+            if not with_spans:
+                continue
             value = view.field_text(field_key)
             widget_key = (field_key, view.run.first_row_index)
 
@@ -207,8 +264,7 @@ class SequenceFieldGridRenderer:
                 height_lines=self.app.collapsed_row_lines,
             )
             blank_cell.grid(row=row_idx, column=grid_col, sticky="nsew")
-
-        return row_idx + 1
+            self._filler_cells.append(blank_cell)
 
     def _bind_events(self, cell: ui.Text, *, field_key: str, first_row_index: int) -> None:
         """Bindet den Editier-Lebenszyklus einer spannenden Sequenzfeld-Zelle.

@@ -7,6 +7,8 @@ import re
 from kursplaner.adapters.gui.dialog_services import filedialog, messagebox, simpledialog
 from kursplaner.adapters.gui.lesson_builder_dialog import ask_lesson_builder
 from kursplaner.adapters.gui.lzk_column_dialog import ask_lzk_column_dialog
+from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_write
+from kursplaner.adapters.gui.plan_tracked_write import run_plan_tracked_write
 from kursplaner.core.config.path_store import (
     BAUKASTEN_DIR_KEY,
     FACHDIDAKTIK_DIR_KEY,
@@ -213,27 +215,19 @@ class MainWindowLessonConversionController:
         extra_after: list[pathlib.Path] | None = None,
         extra_after_from_result=None,
     ):
-        if self.app.current_table is None:
-            return action()
-        return self._tracked_write_uc.run_tracked_action(
+        return run_plan_tracked_write(
+            self.app,
+            self._tracked_write_uc,
             label=label,
             action=action,
-            table=self.app.current_table,
-            day_columns=self.app.day_columns,
-            selected_day_indices=self.app.selected_day_indices,
             extra_before=extra_before,
             extra_after=extra_after,
             extra_after_from_result=extra_after_from_result,
         )
 
     def _refresh_after_write(self, *, selected_index: int | None = None) -> None:
-        self.app._collect_day_columns()
-        if isinstance(selected_index, int) and 0 <= selected_index < len(self.app.day_columns):
-            self.app.selected_day_indices = {selected_index}
-            self.app._update_selected_column_label()
-        self.app._refresh_grid_content()
-        self.app._update_selected_lesson_metrics()
-        self.app.action_controller.update_action_controls()
+        """Delegiert an den einzigen Refresh-Weg `plan_partial_refresh.refresh_after_write`."""
+        refresh_after_write(self.app, selected_index=selected_index)
 
     @staticmethod
     def _prefill_ausfall_reason_from_content(content: str) -> str:

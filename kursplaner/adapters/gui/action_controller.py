@@ -34,6 +34,8 @@ from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.kompetenzgraph_dialog import ask_kompetenz_graph
 from kursplaner.adapters.gui.local_keys import LEFT, RIGHT, bind_keys
 from kursplaner.adapters.gui.new_course_window import NewCourseWindow
+from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_write
+from kursplaner.adapters.gui.plan_tracked_write import run_plan_tracked_write
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
 from kursplaner.adapters.gui.school_wide_cancellation_dialog import SchoolWideCancellationDialog
@@ -1168,13 +1170,8 @@ class MainWindowActionController:
         return selected_index, day.row_index, day
 
     def _refresh_after_write(self, *, selected_index: int | None = None) -> None:
-        self.app._collect_day_columns()
-        if isinstance(selected_index, int) and 0 <= selected_index < len(self.app.day_columns):
-            self.app.selected_day_indices = {selected_index}
-            self.app._update_selected_column_label()
-        self.app._refresh_grid_content()
-        self.app._update_selected_lesson_metrics()
-        self.update_action_controls()
+        """Delegiert an den einzigen Refresh-Weg `plan_partial_refresh.refresh_after_write`."""
+        refresh_after_write(self.app, selected_index=selected_index)
 
     def _rebuild_file_relation_registry(self) -> None:
         """Best-effort rebuild for the persistent file relation registry."""
@@ -1206,12 +1203,11 @@ class MainWindowActionController:
     ):
         if self.app.current_table is None:
             return action()
-        result = self._tracked_write_uc.run_tracked_action(
+        result = run_plan_tracked_write(
+            self.app,
+            self._tracked_write_uc,
             label=label,
             action=action,
-            table=self.app.current_table,
-            day_columns=self.app.day_columns,
-            selected_day_indices=self.app.selected_day_indices,
             extra_before=extra_before,
             extra_after=extra_after,
             extra_after_from_result=extra_after_from_result,

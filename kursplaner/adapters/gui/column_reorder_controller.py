@@ -3,6 +3,8 @@ from __future__ import annotations
 import pathlib
 
 from kursplaner.adapters.gui.dialog_services import messagebox
+from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_write
+from kursplaner.adapters.gui.plan_tracked_write import run_plan_tracked_write
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.unterrichtsbesuch_policy import ub_link_stem
 
@@ -56,29 +58,23 @@ class MainWindowColumnReorderController:
         extra_after: list[pathlib.Path] | None = None,
         extra_after_from_result=None,
     ):
-        if self.app.current_table is None:
-            return action()
-        return self._tracked_write_uc.run_tracked_action(
+        return run_plan_tracked_write(
+            self.app,
+            self._tracked_write_uc,
             label=label,
             action=action,
-            table=self.app.current_table,
-            day_columns=self.app.day_columns,
-            selected_day_indices=self.app.selected_day_indices,
             extra_before=extra_before,
             extra_after=extra_after,
             extra_after_from_result=extra_after_from_result,
         )
 
-    def _refresh_after_write(self, *, selected_index: int | None = None) -> None:
-        self.app._collect_day_columns()
-        if isinstance(selected_index, int) and 0 <= selected_index < len(self.app.day_columns):
-            self.app.selected_day_indices = {selected_index}
-            self.app._update_selected_column_label()
-        self.app._refresh_grid_content()
-        self.app._update_selected_lesson_metrics()
-        self.app.action_controller.update_action_controls()
-
     def move_selected_columns(self, direction: int):
+        """Tauscht die ausgewählte Einheit mit der nächsten stattfindenden in *direction*.
+
+        Danach werden nur die zwei getauschten Planzeilen neu eingelesen: der Tausch
+        ändert ausschließlich deren Zelle `Inhalt` und schreibt keine Einheitsdatei
+        (`MoveSelectedColumnsUseCase.execute`). Das Grid patcht der Diff-Refresh.
+        """
         if self.app.current_table is None:
             return
         selected_index = self.app._get_single_selected_or_warn()
@@ -111,7 +107,11 @@ class MainWindowColumnReorderController:
                 getattr(result, "error_message", None) or "Verschieben fehlgeschlagen.",
                 parent=self.app,
             )
-            self._refresh_after_write(selected_index=selected_index)
+            refresh_after_write(self.app, selected_index=selected_index)
             return
 
-        self._refresh_after_write(selected_index=move_plan.partner_index)
+        refresh_after_write(
+            self.app,
+            selected_index=move_plan.partner_index,
+            changed_rows={move_plan.row_a, move_plan.row_b},
+        )

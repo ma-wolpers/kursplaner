@@ -1,25 +1,23 @@
-"""Gezielter Hauptfenster-Refresh nach Schreibvorgängen außerhalb des Grids (Sequenzleiter).
+"""Einziger Hauptfenster-Refresh nach Schreibvorgängen: nur neu lesen und zeichnen, was sich änderte.
 
-Früher lud jede Leiter-Aktion (Verschieben, Strg+↑/↓, Umbenennen, …) das ganze
-Hauptfenster neu wie Strg+R: alle Kurspläne zweimal parsen, Ladedialog, kompletter
-Plan-Reload und Neuaufbau aller Grid-Widgets. Hier wird nur neu gelesen, was die
-Aktion geschrieben hat:
+Zwei Einstiege, ein Kern (`_rederive_and_patch`):
 
-1. Zeilen, deren Einheit unter den geschriebenen Dateien ist
-   (`LoadPlanDetailUseCase.rows_linking` – dieselbe Vergleichsregel wie der
-   inkrementelle Neuaufbau, der Zeilen mit derselben Datei selbst ergänzt).
-2. `app._collect_day_columns(rows)` – inkrementell; danach laufen Sequenz-Sync und
-   `_publish_sequence_plans`, d. h. eine offene Leiter lädt genau einmal neu.
-3. `app._refresh_grid_content()` – Zellen und Köpfe aktualisieren, kein Widget-Neuaufbau.
+- `refresh_after_write(app, selected_index=, changed_rows=)` – nach Grid-/Toolbar-Aktionen
+  (Spaltentausch, UB, Einfügen, Leeren, Umbenennen, Umwandlungen, Verlängern, …).
+  Früher trugen drei Controller je eine Kopie davon, die stets den ganzen Plan neu
+  einlas und jede Zelle neu stylte. *changed_rows* (Tabellenzeilen, ``DayColumn.row_index``)
+  übergibt nur, wer die geänderten Zeilen beweisbar kennt (Spaltentausch: genau die
+  zwei getauschten Planzeilen, keine Datei geschrieben); sonst ``None`` = voll einlesen.
+- `refresh_after_files_written(app, paths)` – nach Schreibvorgängen außerhalb des Grids
+  (Sequenzleiter). Zeilen, deren Einheit unter den geschriebenen Dateien ist
+  (`LoadPlanDetailUseCase.rows_linking`), werden inkrementell neu gelesen; ist die
+  Plandatei selbst dabei, werden alle Tagesspalten aus der – bereits geänderten –
+  Tabelle im Speicher neu abgeleitet. Trifft keine Zeile, bleibt das Grid unangetastet.
 
-Trifft keine Zeile (z. B. nur die Ablage der Sequenzdatei geändert), bleibt das
-Grid unangetastet; der Aufrufer lädt die Leiter dann selbst.
-
-Ist die Plan-Datei selbst unter den geschriebenen Dateien (Zuordnen einer
-Ablage-Sprosse hat eine Einheit angelegt und verlinkt), werden alle Tagesspalten
-aus der – bereits geänderten – Tabelle im Speicher neu abgeleitet
-(`collect_day_columns()` ohne Zeilen); Kursliste, Ladedialog und Widget-Neuaufbau
-entfallen trotzdem.
+Das Neuzeichnen läuft in beiden Fällen über den Diff-Refresh
+(`grid_change_refresh.refresh_grid_changes`): nur Spalten mit geänderter `DayColumn`
+oder Auswahl, Felder mit geändertem Layout, alle Köpfe; Kursliste, Ladedialog und
+Widget-Neuaufbau entfallen (außer die Sequenz-Spannen ändern sich).
 """
 
 from __future__ import annotations
@@ -27,7 +25,30 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+from kursplaner.adapters.gui.grid_change_refresh import capture_grid_snapshot, refresh_grid_changes
 from kursplaner.core.usecases.load_plan_detail_usecase import LoadPlanDetailUseCase
+
+
+def _rederive_and_patch(app, changed_rows: set[int] | None, *, selected_index: int | None = None) -> None:
+    """Leitet `day_columns` neu ab (voll oder für *changed_rows*) und patcht das Grid per Diff."""
+    before = capture_grid_snapshot(app)
+    app._collect_day_columns(changed_rows)
+    if isinstance(selected_index, int) and 0 <= selected_index < len(app.day_columns):
+        app.selected_day_indices = {selected_index}
+        app._update_selected_column_label()
+    refresh_grid_changes(app, before)
+
+
+def refresh_after_write(app, *, selected_index: int | None = None, changed_rows: set[int] | None = None) -> None:
+    """Aktualisiert Hauptfenster und Kurskennzahlen nach einer plan-bezogenen Schreibaktion.
+
+    Args:
+        app: Hauptfenster.
+        selected_index: Spaltenposition, die danach allein ausgewählt sein soll.
+        changed_rows: Beweisbar einzige geänderte Tabellenzeilen; ``None`` = unbekannt.
+    """
+    _rederive_and_patch(app, changed_rows, selected_index=selected_index)
+    app._update_selected_lesson_metrics()
 
 
 def refresh_after_files_written(app, paths: Iterable[Path]) -> None:
@@ -35,18 +56,16 @@ def refresh_after_files_written(app, paths: Iterable[Path]) -> None:
 
     Args:
         app: Hauptfenster (braucht ``current_table``, ``raw_day_columns``,
-            ``_collect_day_columns``, ``_refresh_grid_content`` und ``action_controller``).
+            ``_collect_day_columns`` und ``action_controller``).
         paths: Von der Aktion geschriebene Dateien (Einheiten und/oder Sequenzdatei).
     """
     paths = list(paths)
     table = app.current_table
     if table is not None and table.markdown_path.resolve() in {path.resolve() for path in paths}:
-        app._collect_day_columns()
-        app._refresh_grid_content()
+        _rederive_and_patch(app, None)
         return
     rows = LoadPlanDetailUseCase.rows_linking(list(getattr(app, "raw_day_columns", ())), paths)
     if table is not None and rows:
-        app._collect_day_columns(rows)
-        app._refresh_grid_content()  # aktualisiert auch die Aktionsknöpfe (Undo)
+        _rederive_and_patch(app, rows)  # aktualisiert auch die Aktionsknöpfe (Undo)
         return
     app.action_controller.update_action_controls()

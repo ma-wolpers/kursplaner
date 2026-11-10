@@ -65,6 +65,11 @@ class GridRenderer:
         """
         self._next_unit_index = value
 
+    @property
+    def next_unit_index(self) -> int | None:
+        """Zuletzt gesetzter 'nächste Einheit'-Index (Vergleichsbasis des Diff-Refresh)."""
+        return getattr(self, "_next_unit_index", None)
+
     def _apply_marker_kind_fill(self, canvas: ui.Canvas, item_id: int, kind: str) -> None:
         """Wendet Markerfarbe per canvas-Primitive auf ein Rechteck-Item an."""
         tint = LESSON_KIND_TINTS.get(str(kind).strip().lower())
@@ -486,6 +491,25 @@ class GridRenderer:
         result = (row_height, collapsible, expanded, label_text)
         self._row_layout_cache[field_key] = result
         return result
+
+    def remount_sequence_fields(self) -> None:
+        """Ersetzt nur die Sequenz-Spannzellen (Läufe oder Werte geändert), ohne Grid-Neuaufbau.
+
+        Danach gilt wie nach `_rebuild_grid()` das aktuelle Mount-Fenster.
+        """
+        viewport = getattr(self.app, "viewport_sync_h", None)
+        mounted_range = viewport.mounted_day_index_range() if viewport is not None else None
+        self._sequence_field_renderer.rerender_cells(with_spans=mounted_range is None)
+        if mounted_range is not None:
+            self._reconcile_sequence_field_mounts(mounted_range)
+
+    def row_layout_snapshot(self) -> dict[str, tuple[int, bool, bool, str]]:
+        """Aktuelle `_row_layout`-Werte aller Felder des Modus (Vergleichsbasis des Diff-Refresh).
+
+        Bewusst `row_defs` statt `_visible_row_defs()`: die Sichtbarkeitsprüfung läuft
+        über alle Felder × Tage; für ein unsichtbares Feld ist `update_row_style()` ein No-op.
+        """
+        return {field_key: self._row_layout(field_key) for field_key, _label in self.app.row_defs}
 
     def invalidate_row_layout_cache(self, field_key: str | None = None) -> None:
         """Löscht den Row-Layout-Cache vollständig oder für ein einzelnes Feld.
@@ -983,15 +1007,25 @@ class GridRenderer:
         bisher ungenutzt blieb).
         """
         self.update_header(day_index)
+        self.update_column_cells(day_index)
+        if day_index in self.app.header_labels:
+            self.app.selection_controller._apply_single_header_style(day_index)
+        self.app._on_grid_inner_configure()
+
+    def update_column_cells(self, day_index: int) -> None:
+        """Patcht nur die gemounteten Feldzellen einer Spalte (ohne Kopf, ohne Scrollregion).
+
+        Einziger Zellweg von `update_column()` und vom Diff-Refresh
+        (`grid_change_refresh.refresh_grid_changes`). Zeilenhöhen wachsen bei Bedarf
+        (`_grow_row_minsize_for_cell`); schrumpfen kann eine Zeile nur über
+        `update_row_style()`, das der Diff-Refresh bei geändertem Feld-Layout aufruft.
+        """
         for field_key, _label in self.app.row_defs:
             cell = self.app.cell_widgets.get((field_key, day_index))
             if cell is None:
                 continue
             self.update_cell(field_key, day_index, sync_row_style=False)
             self._grow_row_minsize_for_cell(field_key, cell)
-        if day_index in self.app.header_labels:
-            self.app.selection_controller._apply_single_header_style(day_index)
-        self.app._on_grid_inner_configure()
 
     def _grow_row_minsize_for_cell(self, field_key: str, cell) -> None:
         """Vergrößert die Zeilenhöhe (`minsize`), falls diese eine Zelle mehr Platz braucht.
@@ -1031,8 +1065,8 @@ class GridRenderer:
             self._rebuild_grid()
             return
 
-        for day_index in range(len(self.app.day_columns)):
-            self.update_header(day_index)
+        # Köpfe einmal über `_refresh_header_styles()` (alle `header_labels`, derselbe
+        # Stilweg `apply_header_style` wie `update_header`) -- früher liefen beide.
         for field_key, _label in self.app.row_defs:
             self.update_row_style(field_key)
         self.app._refresh_header_styles()

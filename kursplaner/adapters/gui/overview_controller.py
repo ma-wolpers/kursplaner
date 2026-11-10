@@ -636,11 +636,11 @@ class MainWindowOverviewController:
                 (und Zeilen mit derselben verlinkten Datei) neu von der
                 Platte liest, statt den gesamten Plan. ``None`` (Standard)
                 bedeutet "unbekannt, evtl. mehr als eine Zeile betroffen"
-                (Spaltentausch, Konvertierungen, …) und bewahrt das bisherige
+                (Konvertierungen, Verlängern, …) und bewahrt das bisherige
                 Verhalten eines vollständigen Neuaufbaus — übergeben wird der
-                Parameter nur vom Einzelzell-Edit (`editor_controller.py`) und
-                vom gezielten Refresh nach Leiter-Schreibvorgängen
-                (`plan_partial_refresh.py`).
+                Parameter vom Einzelzell-Edit (`editor_controller.py`) und vom
+                zentralen Refresh (`plan_partial_refresh.py`: Spaltentausch mit
+                genau den zwei getauschten Zeilen, Leiter-Schreibvorgänge).
         """
         if self.app.current_table is None:
             self.app.raw_day_columns = []

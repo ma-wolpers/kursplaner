@@ -1,7 +1,22 @@
 from types import SimpleNamespace
 
+import pytest
+
 from kursplaner.adapters.gui.column_reorder_controller import MainWindowColumnReorderController
 from tests.day_column_factory import make_day_column
+
+
+@pytest.fixture
+def refresh_calls(monkeypatch):
+    """Fängt den zentralen Refresh ab (eigene Tests in `test_plan_partial_refresh.py`)."""
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        "kursplaner.adapters.gui.column_reorder_controller.refresh_after_write",
+        lambda app, *, selected_index=None, changed_rows=None: calls.append(
+            {"selected_index": selected_index, "changed_rows": changed_rows}
+        ),
+    )
+    return calls
 
 
 class _TrackedWriteSpy:
@@ -127,7 +142,7 @@ def test_find_swap_partner_does_not_skip_holiday_columns_when_not_cancel():
     assert partner == 1
 
 
-def test_move_selected_columns_swaps_rows_runs_usecase_and_refreshes_ui():
+def test_move_selected_columns_swaps_rows_runs_usecase_and_refreshes_ui(refresh_calls):
     app, tracked, move_uc, action_controller = _build_app(selected_index=0)
     controller = MainWindowColumnReorderController(app)
 
@@ -136,15 +151,10 @@ def test_move_selected_columns_swaps_rows_runs_usecase_and_refreshes_ui():
     assert move_uc.calls == [(0, 1)]
     assert move_uc.plan_calls == [(0, 1)]
     assert tracked.labels == ["Einheiten verschieben"]
-    assert app.selected_day_indices == {1}
-    assert app.collect_calls == 1
-    assert app.label_calls == 1
-    assert app.refresh_grid_calls == 1
-    assert app.metrics_calls == 1
-    assert action_controller.update_calls == 1
+    assert refresh_calls == [{"selected_index": 1, "changed_rows": {0, 1}}]
 
 
-def test_move_selected_columns_skips_cancel_day_via_move_plan():
+def test_move_selected_columns_skips_cancel_day_via_move_plan(refresh_calls):
     app, tracked, move_uc, action_controller = _build_app(selected_index=0, cancel_indices={1})
     controller = MainWindowColumnReorderController(app)
 
@@ -152,15 +162,10 @@ def test_move_selected_columns_skips_cancel_day_via_move_plan():
 
     assert move_uc.calls == [(0, 2)]
     assert tracked.labels == ["Einheiten verschieben"]
-    assert app.selected_day_indices == {2}
-    assert app.collect_calls == 1
-    assert app.label_calls == 1
-    assert app.refresh_grid_calls == 1
-    assert app.metrics_calls == 1
-    assert action_controller.update_calls == 1
+    assert refresh_calls == [{"selected_index": 2, "changed_rows": {0, 2}}]
 
 
-def test_move_selected_columns_with_ub_link_requires_confirmation_and_aborts_on_no(monkeypatch):
+def test_move_selected_columns_with_ub_link_requires_confirmation_and_aborts_on_no(monkeypatch, refresh_calls):
     app, tracked, move_uc, action_controller = _build_app(
         selected_index=0, ub_link_by_index={1: "[[UB 26-02-27 Supertrumpf Kodierung]]"}
     )
@@ -179,13 +184,10 @@ def test_move_selected_columns_with_ub_link_requires_confirmation_and_aborts_on_
     assert len(ask_calls) == 1
     assert move_uc.calls == []
     assert tracked.labels == []
-    assert app.collect_calls == 0
-    assert app.refresh_grid_calls == 0
-    assert app.metrics_calls == 0
-    assert action_controller.update_calls == 0
+    assert refresh_calls == []
 
 
-def test_move_selected_columns_with_ub_link_runs_on_yes(monkeypatch):
+def test_move_selected_columns_with_ub_link_runs_on_yes(monkeypatch, refresh_calls):
     app, tracked, move_uc, action_controller = _build_app(
         selected_index=0, ub_link_by_index={0: "[[UB 26-02-06 Fach-Diagnose]]"}
     )
@@ -197,8 +199,4 @@ def test_move_selected_columns_with_ub_link_runs_on_yes(monkeypatch):
 
     assert move_uc.calls == [(0, 1)]
     assert tracked.labels == ["Einheiten verschieben"]
-    assert app.selected_day_indices == {1}
-    assert app.collect_calls == 1
-    assert app.refresh_grid_calls == 1
-    assert app.metrics_calls == 1
-    assert action_controller.update_calls == 1
+    assert refresh_calls == [{"selected_index": 1, "changed_rows": {0, 1}}]
