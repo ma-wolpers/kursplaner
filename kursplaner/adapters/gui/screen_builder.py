@@ -23,7 +23,6 @@ from kursplaner.adapters.gui._screen_shortcut_debug import ScreenShortcutDebugMi
 from kursplaner.adapters.gui._screen_shortcuts import ScreenShortcutsMixin
 from kursplaner.adapters.gui._screen_toolbar import ScreenToolbarMixin
 from kursplaner.adapters.gui.help_catalog import MAIN_WINDOW_HELP
-from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.overview_columns import OVERVIEW_COLUMNS
 from kursplaner.adapters.gui.search_overlay_view import SearchOverlayView
 from kursplaner.adapters.gui.sequence_ladder_panel import SequenceLadderPanel
@@ -57,7 +56,6 @@ class ScreenBuilder(
         self.app.shortcut_runtime_debug_context_var = None
         self.app.shortcut_runtime_debug_summary_var = None
         self.app.shortcut_runtime_debug_offline_var = None
-        self._intent_help_tooltips: list[tuple[HoverTooltip, str, str, dict[str, str] | None]] = []
 
     def build_ui(self, frame=None):
         """Erzeugt Widgets und verbindet UI-Events mit Adapter-Delegationspunkten."""

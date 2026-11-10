@@ -199,7 +199,6 @@ class ScreenShortcutsMixin:
             self.app,
             lambda event: None if accepts_text_input(event.widget) else self._on_global_click_commit_cell(event),
         )
-        self._refresh_intent_help_tooltips()
 
     def _shortcut_dialog_open(self) -> bool:
         """Meldet, ob ein modales Popup oder ein Menue-Popup offen ist (Overlay-Stack-Preset)."""

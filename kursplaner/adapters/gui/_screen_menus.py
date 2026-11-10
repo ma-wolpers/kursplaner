@@ -235,14 +235,16 @@ class ScreenMenusMixin:
 
         Mit *intent* hängt die Hilfe die Taste der passenden Bindung an (``metadata``
         unterscheidet Bindungen desselben Intents, z. B. die Verschieberichtung); der
-        Hilfetext selbst nennt keine Taste.
+        Hilfetext selbst nennt keine Taste. Die Taste wird erst beim Anzeigen gelesen
+        (bw-gui ``text_provider``): Die Hilfen entstehen vor der Kürzel-Registrierung,
+        und ``tooltip.text`` bleibt der reine Hilfetext, den ``set_intent_help_text`` tauscht.
         """
         base_text = text.strip()
         if not base_text:
             return None
-        tooltip = HoverTooltip(widget, self._intent_help_text(base_text, intent, metadata))
-        if intent is not None:
-            self._intent_help_tooltips.append((tooltip, base_text, intent, metadata))
+        tooltip: HoverTooltip  # vom Provider erst beim Anzeigen gelesen
+        provider = None if intent is None else (lambda: self._intent_help_text(tooltip.text, intent, metadata))
+        tooltip = HoverTooltip(widget, base_text, text_provider=provider)
         self.app.hover_tooltips.append(tooltip)
         return tooltip
 
@@ -255,19 +257,8 @@ class ScreenMenusMixin:
         )
 
     def set_intent_help_text(self, tooltip: HoverTooltip, base_text: str) -> None:
-        """Tauscht den Hilfetext einer Intent-Hilfe (z. B. Ausfall ↔ zurücknehmen); die Taste bleibt."""
-        for index, (known, _old_text, intent, metadata) in enumerate(self._intent_help_tooltips):
-            if known is tooltip:
-                self._intent_help_tooltips[index] = (known, base_text, intent, metadata)
-                tooltip.text = self._intent_help_text(base_text, intent, metadata)
-                return
-        tooltip.text = base_text
+        """Tauscht den Hilfetext einer Hilfe aus ``_add_help`` (z. B. Ausfall ↔ zurücknehmen).
 
-    def _refresh_intent_help_tooltips(self) -> None:
-        """Aktualisiert Intent-basierte Hover-Texte nach Shortcut-Registrierung."""
-
-        for tooltip, base_text, intent, metadata in list(self._intent_help_tooltips):
-            try:
-                tooltip.text = self._intent_help_text(base_text, intent, metadata)
-            except Exception:
-                continue
+        Die Taste bleibt: Bei Intent-Hilfen hängt der ``text_provider`` sie beim Anzeigen an.
+        """
+        tooltip.text = base_text.strip()

@@ -71,7 +71,8 @@ def _check_shared_ui_contract_hardening(errors: list[str]) -> None:
         "from bw_gui.shortcuts import compose_hover_text_for_intent as compose_shared_hover_text_for_intent",
         "from kursplaner.adapters.gui.hover_tooltip import HoverTooltip",
         "return compose_shared_hover_text_for_intent(",
-        "tooltip = HoverTooltip(widget, self._intent_help_text(base_text, intent, metadata))",
+        "provider = None if intent is None else (lambda: self._intent_help_text(tooltip.text, intent, metadata))",
+        "tooltip = HoverTooltip(widget, base_text, text_provider=provider)",
     ):
         _require_substring(screen_builder, snippet, "kursplaner/adapters/gui/screen_builder.py", errors)
 
