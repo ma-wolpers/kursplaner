@@ -12,7 +12,11 @@ from types import SimpleNamespace
 import pytest
 
 import kursplaner.adapters.gui.plan_partial_refresh as plan_partial_refresh
-from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_files_written, refresh_after_write
+from kursplaner.adapters.gui.plan_partial_refresh import (
+    refresh_after_files_written,
+    refresh_after_history_step,
+    refresh_after_write,
+)
 from kursplaner.core.usecases.load_plan_detail_usecase import LoadPlanDetailUseCase
 
 
@@ -108,3 +112,85 @@ def test_refresh_after_write_without_known_rows_rereads_all_and_keeps_invalid_se
 
     assert calls == [("snapshot",), ("collect", None), ("refresh",), ("metrics",)]
     assert app.selected_day_indices == {0}
+
+
+def _history_app(tmp_path: Path, calls: list, *, fresh_rows=None):
+    """Offener Kurs mit Plan ``Kurs.md``, Einheiten ``Einheiten/`` und Sequenzordner; Plan-Reload protokolliert."""
+    app, units = _app(tmp_path, calls)
+    app.current_table = SimpleNamespace(
+        markdown_path=tmp_path / "Kurs.md", rows=[["a"], ["b"], ["c"], ["d"]], headers=["Datum"], metadata={}
+    )
+    fresh = SimpleNamespace(
+        markdown_path=tmp_path / "Kurs.md",
+        rows=fresh_rows if fresh_rows is not None else [["a"], ["B"], ["c"], ["d"]],
+        headers=["Datum"],
+        metadata={},
+    )
+
+    def load_table(path):
+        calls.append(("load_table", Path(path).name))
+        return fresh
+
+    app.gui_dependencies = SimpleNamespace(load_plan_detail_usecase=SimpleNamespace(load_table=load_table))
+    return app, units, fresh
+
+
+def _entry(*paths):
+    return SimpleNamespace(deltas=[SimpleNamespace(path=path) for path in paths])
+
+
+def test_history_step_in_course_rereads_only_plan_and_changed_rows(tmp_path):
+    calls: list = []
+    app, units, fresh = _history_app(tmp_path, calls)
+
+    handled = refresh_after_history_step(app, _entry(tmp_path / "Kurs.md", units[1]))
+
+    assert handled is True
+    assert app.current_table is fresh
+    # Zeile 1 im Plan geändert, Zeile 2 verlinkt die zurückgeschriebene Einheit.
+    assert calls == [("load_table", "Kurs.md"), ("snapshot",), ("collect", {1, 2}), ("refresh",), ("metrics",)]
+
+
+def test_history_step_with_new_unit_file_in_lesson_folder_stays_targeted(tmp_path):
+    calls: list = []
+    app, _units, _fresh = _history_app(tmp_path, calls)
+
+    handled = refresh_after_history_step(app, _entry(tmp_path / "Kurs.md", tmp_path / "Einheiten" / "neu123.md"))
+
+    assert handled is True
+
+
+def test_history_step_with_only_sequence_file_rederives_without_plan_reload(tmp_path):
+    calls: list = []
+    app, _units, _fresh = _history_app(tmp_path, calls)
+
+    handled = refresh_after_history_step(app, _entry(tmp_path / "Sequenzen" / "Brüche.md"))
+
+    assert handled is True
+    assert calls == [("snapshot",), ("collect", set()), ("refresh",), ("metrics",)]
+
+
+def test_history_step_outside_course_needs_full_reload(tmp_path):
+    calls: list = []
+    app, _units, _fresh = _history_app(tmp_path, calls)
+
+    assert refresh_after_history_step(app, _entry(tmp_path.parent / "UBs" / "UB 26-11-30.md")) is False
+    assert calls == []
+
+
+def test_history_step_with_changed_row_count_needs_full_reload(tmp_path):
+    calls: list = []
+    app, _units, _fresh = _history_app(tmp_path, calls, fresh_rows=[["a"], ["b"], ["c"]])
+    old_table = app.current_table
+
+    assert refresh_after_history_step(app, _entry(tmp_path / "Kurs.md")) is False
+    assert app.current_table is old_table
+
+
+def test_history_step_without_entry_or_plan_needs_full_reload(tmp_path):
+    calls: list = []
+    app, _units, _fresh = _history_app(tmp_path, calls)
+
+    assert refresh_after_history_step(app, None) is False
+    app.current_table = None
+    assert refresh_after_history_step(app, _entry(tmp_path / "Kurs.md")) is False

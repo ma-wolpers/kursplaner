@@ -7,6 +7,13 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Undo/Redo gezielt statt Voll-Reload (2026-11-10, Freigabe der Nutzerin; ARCHITEKTUR_KERN §39).
+  - Vorher: jedes Undo/Redo → `reload_keeping_view` (Kursliste aller Pläne parsen, Plan laden mit Reparaturläufen, `_rebuild_grid`): ~8 s im 80-Einheiten-Testkurs.
+  - `plan_partial_refresh.refresh_after_history_step(app, entry) -> bool`: liegen alle `entry.deltas` im geöffneten Kurs (Plandatei, verlinkte Einheiten bzw. deren Ordner, `sequence_directory_for_plan`), wird nur die Plandatei über `LoadPlanDetailUseCase.load_table` (neu, `execute` nutzt sie) gelesen; geänderte Zeilen = Plan-Zeilen-Diff ∪ `rows_linking(Deltas)`; danach `refresh_after_write(changed_rows=…)` (inkrementell + Diff-Refresh). ``False`` bei Datei außerhalb, geänderter Zeilenzahl/Kopfzeile/Metadaten oder fehlendem Eintrag → wie bisher `reload_keeping_view`.
+  - `action_controller.refresh_after_file_write(entry=None)`: Undo/Redo reichen `HistoryStepResult.entry` durch; „Undo bis Eintrag“ nur bei genau einem Schritt (`UndoToRecentResult` kennt nur den letzten Eintrag).
+  - Load-Reparaturen (UB-Abgleich, Oberthema-Migration, LZK-Link-Aufräumen) laufen im gezielten Weg nicht: Undo stellt einen Stand her, den die App selbst erzeugt bzw. schon geladen hatte.
+  - Messung: Undo 8,2 s → 0,32 s, Redo 6,9 s → 0,29 s; Zustand nach Undo/Redo identisch mit Neuaufbau.
+  - Tests: `test_plan_partial_refresh.py` (Plan + Einheit, neue Einheitsdatei im Einheitenordner, nur Sequenzdatei, Datei außerhalb, geänderte Zeilenzahl, ohne Eintrag/Plan).
 - Kurskennzahlen aus einer Quelle (2026-11-10, Freigabe der Nutzerin nach Messung: `summarize_plan` war mit ~1 s/Tausch der größte Posten; ARCHITEKTUR_KERN §39).
   - `PlanOverviewQueryUseCase.summarize_plan(..., lessons_by_row=)`: `_update_selected_lesson_metrics` übergibt `{row_index: DayColumn.yaml}` aus `raw_day_columns` (bereits kanonisiert) → keine Plattenzugriffe auf Einheiten.
   - Ohne `lessons_by_row` (Kursliste, `ListLessonsUseCase`) genau ein Ladeweg `_lesson_data_by_row` über `lesson_repo.load_lessons_for_rows` (kanonisiert, signaturgecacht). Vorher zusätzlich `lesson_index_repo.load_lessons_metadata_for_rows` für Thema/Typ – wirkungslos, weil der volle Load für die UB-Erkennung ohnehin lief, und ungenau: der Index reichte nur `Stundenthema`/`Stundentyp` durch, `infer_stundentyp` erkannte eine LZK ohne `Stundentyp` deshalb nicht (Kursliste ≠ Grid).

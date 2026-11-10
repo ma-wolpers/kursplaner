@@ -34,7 +34,7 @@ from kursplaner.adapters.gui.hover_tooltip import HoverTooltip
 from kursplaner.adapters.gui.kompetenzgraph_dialog import ask_kompetenz_graph
 from kursplaner.adapters.gui.local_keys import LEFT, RIGHT, bind_keys
 from kursplaner.adapters.gui.new_course_window import NewCourseWindow
-from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_write
+from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_history_step, refresh_after_write
 from kursplaner.adapters.gui.plan_tracked_write import run_plan_tracked_write
 from kursplaner.adapters.gui.popup_window import ScrollablePopupWindow
 from kursplaner.adapters.gui.row_filter_dialog import ask_row_filter
@@ -1355,13 +1355,15 @@ class MainWindowActionController:
             return False
         return bool(str(clipboard_value).strip())
 
-    def refresh_after_file_write(self) -> None:
-        """Zeigt den Stand nach Undo/Redo: Plan neu laden, ohne dass der Nutzer seinen Platz verliert.
+    def refresh_after_file_write(self, entry=None) -> None:
+        """Zeigt den Stand nach Undo/Redo, ohne dass der Nutzer seinen Platz verliert.
 
-        Läuft über `reload_keeping_view` (veröffentlicht auch die Sequenzen neu). Die
-        Sequenzleiter kennt ihre geschriebenen Dateien und nutzt stattdessen den
-        gezielten Weg `plan_partial_refresh.refresh_after_files_written`.
+        Mit bekanntem Verlaufseintrag gezielt (`plan_partial_refresh.refresh_after_history_step`:
+        nur Plandatei und betroffene Zeilen); geht das nicht sicher (Datei außerhalb des
+        Kurses, Struktur geändert, mehrere Schritte), voller `reload_keeping_view`.
         """
+        if refresh_after_history_step(self.app, entry):
+            return
         self.app.overview_controller.reload_keeping_view()
         self.update_action_controls()
 
@@ -1372,7 +1374,7 @@ class MainWindowActionController:
             messagebox.showinfo("Undo", "Kein Undo-Eintrag vorhanden.", parent=self.app)
             self.update_action_controls()
             return
-        self.refresh_after_file_write()
+        self.refresh_after_file_write(result.entry)
 
     def redo_history(self):
         """Führt Redo über den zentralen History-Use-Case aus und aktualisiert die GUI."""
@@ -1381,7 +1383,7 @@ class MainWindowActionController:
             messagebox.showinfo("Redo", "Kein Redo-Eintrag vorhanden.", parent=self.app)
             self.update_action_controls()
             return
-        self.refresh_after_file_write()
+        self.refresh_after_file_write(result.entry)
 
     def list_recent_change_labels(self, *, limit: int = 5) -> list[str]:
         """Liefert die letzten Undo-Labels (neueste zuerst) für Menüdarstellung."""
@@ -1410,7 +1412,8 @@ class MainWindowActionController:
             messagebox.showinfo("Letzte Änderungen", "Kein passender Undo-Eintrag vorhanden.", parent=self.app)
             self.update_action_controls()
             return
-        self.refresh_after_file_write()
+        # Mehrere Schritte: nur der letzte Eintrag ist bekannt → voller Reload.
+        self.refresh_after_file_write(result.last_entry if result.applied_count == 1 else None)
 
     def copy_selected_lesson(self):
         """Kopiert die verlinkte Stunden-Datei der ausgewählten Spalte in die Zwischenablage."""

@@ -98,8 +98,16 @@ class LoadPlanDetailUseCase:
 
     def execute(self, markdown_path: Path) -> PlanDetailResult:
         """Lädt Tabelle und erzeugt Spalten-Daten für die Detailansicht."""
-        table = self.plan_repo.load_plan_table(markdown_path)
+        table = self.load_table(markdown_path)
         return PlanDetailResult(table=table, day_columns=self.build_day_columns(table))
+
+    def load_table(self, markdown_path: Path) -> PlanTableData:
+        """Liest nur die Planungstabelle frisch von der Platte (ohne Tagesspalten).
+
+        Für den gezielten Refresh nach Undo/Redo (`plan_partial_refresh.refresh_after_history_step`):
+        die Tagesspalten baut dann `build_day_columns_incremental` nur für geänderte Zeilen.
+        """
+        return self.plan_repo.load_plan_table(markdown_path)
 
     def _header_indices(self, table: PlanTableData) -> tuple[int, int, int | None]:
         """Liest die Spaltenindizes von Datum/Inhalt/Thema-Ausfall aus den Tabellen-Headern."""
