@@ -221,7 +221,11 @@ class KursplanerPlanDelegationMixin:
             _days_until_next_unit,
             _has_upcoming_unit,
             _has_any_dated_unit,
-        ) = self._plan_overview_query.summarize_plan(self.current_table)
+        ) = self._plan_overview_query.summarize_plan(
+            self.current_table,
+            # Einheitsdaten liegen schon kanonisiert in den Tagesspalten: kein erneutes Lesen.
+            lessons_by_row={day.row_index: day.yaml for day in getattr(self, "raw_day_columns", ())},
+        )
         # Schreibzugriff über Spalten-IDs statt Positionsindizes, damit neue oder
         # umsortierte Übersichtsspalten (z. B. "stufe") keine Werte verschieben.
         updates = {

@@ -279,7 +279,6 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
 
     plan_overview_query = PlanOverviewQueryUseCase(
         lesson_repo=lesson_repo,
-        lesson_index_repo=lesson_index_repo,
         ub_repo=ub_repo,
         past_cutoff_time_provider=load_ub_past_cutoff_time,
         next_unit_global_cutoff_enabled_provider=lambda: load_next_unit_mode() == NEXT_UNIT_MODE_FEST,

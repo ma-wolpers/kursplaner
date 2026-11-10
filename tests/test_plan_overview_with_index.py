@@ -3,12 +3,11 @@ from datetime import date, datetime, time, timedelta
 from kursplaner.core.domain.course_rhythm import weekday_token
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase
-from kursplaner.infrastructure.repositories.lesson_index_repository import FileSystemLessonIndexRepository
 from kursplaner.infrastructure.repositories.markdown_repositories import FileSystemLessonRepository
 from kursplaner.infrastructure.repositories.ub_repository import FileSystemUbRepository
 
 
-def test_plan_overview_uses_index(tmp_path):
+def test_plan_overview_reads_topic_from_lesson_file(tmp_path):
     # Setup a simple Unterricht folder with one lesson
     root = tmp_path / "Unterricht"
     (root / "FachX" / "Einheiten").mkdir(parents=True)
@@ -18,11 +17,8 @@ def test_plan_overview_uses_index(tmp_path):
         encoding="utf-8",
     )
 
-    repo = FileSystemLessonIndexRepository()
-    repo.rebuild_index(root)
-
     lesson_repo = FileSystemLessonRepository()
-    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo)
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo)
 
     future = (date.today() + timedelta(days=1)).strftime("%d-%m-%y")
     table = PlanTableData(
@@ -36,7 +32,7 @@ def test_plan_overview_uses_index(tmp_path):
         metadata={},
     )
 
-    # summarize_plan should run using the index; result should reflect the indexed topic
+    # summarize_plan liest das Thema aus der (kanonisierten) Einheitsdatei
     (
         theme,
         remaining,
@@ -93,11 +89,9 @@ def test_plan_overview_exposes_next_ub_display(tmp_path):
         encoding="utf-8",
     )
 
-    repo = FileSystemLessonIndexRepository()
-    repo.rebuild_index(workspace_root / "7thVault" / "Unterricht")
     lesson_repo = FileSystemLessonRepository()
     ub_repo = FileSystemUbRepository()
-    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo, ub_repo=ub_repo)
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, ub_repo=ub_repo)
 
     table = PlanTableData(
         markdown_path=root / "plan.md",
@@ -151,11 +145,9 @@ def test_plan_overview_next_ub_without_langentwurf_has_no_plus(tmp_path):
         encoding="utf-8",
     )
 
-    repo = FileSystemLessonIndexRepository()
-    repo.rebuild_index(workspace_root / "7thVault" / "Unterricht")
     lesson_repo = FileSystemLessonRepository()
     ub_repo = FileSystemUbRepository()
-    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo, ub_repo=ub_repo)
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, ub_repo=ub_repo)
 
     table = PlanTableData(
         markdown_path=root / "plan.md",
@@ -207,11 +199,9 @@ def test_plan_overview_falls_back_to_row_date_when_ub_stem_has_no_date(tmp_path)
         encoding="utf-8",
     )
 
-    repo = FileSystemLessonIndexRepository()
-    repo.rebuild_index(workspace_root / "7thVault" / "Unterricht")
     lesson_repo = FileSystemLessonRepository()
     ub_repo = FileSystemUbRepository()
-    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo, ub_repo=ub_repo)
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, ub_repo=ub_repo)
 
     table = PlanTableData(
         markdown_path=root / "plan.md",
@@ -274,11 +264,9 @@ def test_plan_overview_next_ub_uses_start_time_of_ub_date_not_row_date(tmp_path)
         encoding="utf-8",
     )
 
-    repo = FileSystemLessonIndexRepository()
-    repo.rebuild_index(workspace_root / "7thVault" / "Unterricht")
     lesson_repo = FileSystemLessonRepository()
     ub_repo = FileSystemUbRepository()
-    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo, ub_repo=ub_repo)
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, ub_repo=ub_repo)
 
     # ub_date startet spaet (16:00), row_dates Wochentag frueh (08:00), ist
     # aber ohnehin irrelevant, da row_date in der Zukunft liegt. Waere
@@ -324,10 +312,8 @@ def test_plan_overview_next_lzk_uses_stundentyp_not_topic_keyword(tmp_path):
         encoding="utf-8",
     )
 
-    repo = FileSystemLessonIndexRepository()
-    repo.rebuild_index(root)
     lesson_repo = FileSystemLessonRepository()
-    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=repo)
+    usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo)
 
     future_1 = (date.today() + timedelta(days=1)).strftime("%d-%m-%y")
     future_2 = (date.today() + timedelta(days=2)).strftime("%d-%m-%y")

@@ -13,7 +13,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from kursplaner.core.domain.plan_table import PlanTableData  # noqa: E402
 from kursplaner.core.usecases.plan_overview_query_usecase import PlanOverviewQueryUseCase  # noqa: E402
-from kursplaner.infrastructure.repositories.lesson_index_repository import FileSystemLessonIndexRepository  # noqa: E402
 from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository  # noqa: E402
 
 
@@ -62,10 +61,7 @@ def run_benchmark(rows: int, iterations: int) -> tuple[float, float]:
         table = _build_plan_table(root, rows)
 
         lesson_repo = FileSystemLessonRepository()
-        index_repo = FileSystemLessonIndexRepository()
-        index_repo.rebuild_index(root)
-
-        usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo, lesson_index_repo=index_repo)
+        usecase = PlanOverviewQueryUseCase(lesson_repo=lesson_repo)
 
         start = time.perf_counter()
         for _ in range(iterations):

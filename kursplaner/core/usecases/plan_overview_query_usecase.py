@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
 from kursplaner.core.config.path_store import infer_workspace_root_from_path
 from kursplaner.core.domain.content_markers import normalize_marker_text
@@ -16,7 +16,7 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     parse_ub_date_from_stem,
     ub_link_stem,
 )
-from kursplaner.core.ports.repositories import LessonIndexRepository, LessonRepository, UbRepository
+from kursplaner.core.ports.repositories import LessonRepository, UbRepository
 from kursplaner.core.usecases.lesson_context_query_usecase import LessonContextQueryUseCase
 
 
@@ -43,17 +43,20 @@ class PlanOverviewQueryUseCase:
     def __init__(
         self,
         lesson_repo: LessonRepository,
-        lesson_index_repo: LessonIndexRepository | None = None,
         ub_repo: UbRepository | None = None,
         past_cutoff_time_provider: Callable[[], time] | None = None,
         now_provider: Callable[[], datetime] | None = None,
         next_unit_global_cutoff_enabled_provider: Callable[[], bool] | None = None,
         next_unit_global_cutoff_time_provider: Callable[[], time] | None = None,
     ):
-        """Initialisiert den Überblicks-Use-Case mit optionalem Metadaten-Index.
+        """Initialisiert den Überblicks-Use-Case.
 
-        Bei vorhandenem `lesson_index_repo` werden Themen-Metadaten indexbasiert geladen.
-        Ohne Index erfolgt ein Fallback auf `lesson_repo` mit voller YAML-Ladung.
+        Einheitsdaten kommen aus genau einer Quelle: entweder vom Aufrufer
+        (`summarize_plan(lessons_by_row=…)`, offener Kurs: `DayColumn.yaml`) oder
+        einmal über `lesson_repo` (kanonisiert, nach Dateisignatur gecacht). Früher
+        lud die Methode Themen zusätzlich über den Lesson-Index – den Doppel-Load
+        machte der ohnehin nötige volle Load für die UB-Erkennung wirkungslos, und
+        der Index kannte ohne `Stundentyp` keine LZK.
 
         `now_provider` liefert den "jetzt"-Zeitpunkt für `summarize_plan`, wenn
         dessen `now`-Parameter nicht explizit übergeben wird — vermeidet einen
@@ -65,7 +68,6 @@ class PlanOverviewQueryUseCase:
         bereits abgehalten").
         """
         self.lesson_repo = lesson_repo
-        self.lesson_index_repo = lesson_index_repo
         self.ub_repo = ub_repo
         self._past_cutoff_time_provider = past_cutoff_time_provider
         self._now_provider = now_provider or datetime.now
@@ -182,17 +184,38 @@ class PlanOverviewQueryUseCase:
             return f"{ub_date.day}.{ub_date.month}. {initials}{marker}"
         return f"{ub_date.day}.{ub_date.month}."
 
+    def _lesson_data_by_row(
+        self,
+        table: PlanTableData,
+        rows: list[int],
+        provided: Mapping[int, Mapping[str, object]] | None,
+    ) -> dict[int, dict[str, object]]:
+        """Einziger Ladeweg der Einheitsdaten: kanonisiertes YAML je Zeile, leere Zeilen entfallen."""
+        if provided is not None:
+            return {row: dict(provided[row]) for row in rows if provided.get(row)}
+        loaded = self.lesson_repo.load_lessons_for_rows(table, rows)
+        return {row: lesson.data for row, lesson in loaded.items() if isinstance(lesson.data, dict) and lesson.data}
+
     def summarize_plan(
         self,
         table: PlanTableData,
         reference_day: date | None = None,
         now: datetime | None = None,
+        *,
+        lessons_by_row: Mapping[int, Mapping[str, object]] | None = None,
     ) -> tuple[str, int, str, str, str, int | None, bool, bool]:
         """Berechnet Uebersichtskennzahlen inkl. naechster Einheit fuer eine Planung.
 
-        Berücksichtigt den konfigurierbaren Tages-Cutoff fuer heutige Einheiten,
-        ignoriert Ausfallmarker bei Reststunden/Nächster-Einheit und nutzt sofern
-        verfügbar den Lesson-Index.
+        Berücksichtigt den konfigurierbaren Tages-Cutoff fuer heutige Einheiten und
+        ignoriert Ausfallmarker bei Reststunden/Nächster-Einheit.
+
+        Args:
+            table: Planungstabelle.
+            reference_day: Optionaler Stichtag statt "heute".
+            now: Optionaler Zeitpunkt statt `now_provider()`.
+            lessons_by_row: Bereits geladene, kanonisierte Einheitsdaten je
+                Tabellenzeile (``DayColumn.yaml`` des offenen Kurses) – dann ohne
+                Plattenzugriff auf Einheiten. Ohne: einmal über `lesson_repo`.
         """
         current_now = now if now is not None else self._now_provider()
 
@@ -245,26 +268,7 @@ class PlanOverviewQueryUseCase:
             row_date_values[row_index] = row_date
             candidate_rows.append(row_index)
 
-        # Prefer index-based metadata load if available to avoid full YAML loads per row.
-        if self.lesson_index_repo is not None:
-            lessons_meta = self.lesson_index_repo.load_lessons_metadata_for_rows(table, candidate_rows)
-            # adapt index metadata shape to match previous `LessonYamlData`-based access
-            lessons_by_row = {}
-            for row_idx, meta in lessons_meta.items():
-                lessons_by_row[row_idx] = type(
-                    "MetaLike",
-                    (),
-                    {
-                        "data": {
-                            "Stundenthema": meta.get("Stundenthema", ""),
-                            "Stundentyp": meta.get("Stundentyp", ""),
-                        }
-                    },
-                )()
-        else:
-            lessons_by_row = self.lesson_repo.load_lessons_for_rows(table, candidate_rows)
-
-        lessons_for_ub = self.lesson_repo.load_lessons_for_rows(table, candidate_rows)
+        lesson_data_by_row = self._lesson_data_by_row(table, candidate_rows, lessons_by_row)
         workspace_root = self._workspace_root_from_table(table)
         ub_root = self.ub_repo.ensure_ub_root(workspace_root) if self.ub_repo is not None else None
 
@@ -273,10 +277,7 @@ class PlanOverviewQueryUseCase:
             marker_text = row_markers.get(row_index, "")
             row_date_text = row_dates.get(row_index, "")
             row_date = row_date_values.get(row_index)
-            lesson = lessons_by_row.get(row_index)
-            lesson_for_ub = lessons_for_ub.get(row_index)
-
-            lesson_meta = lesson.data if lesson is not None and isinstance(lesson.data, dict) else {}
+            lesson_meta = lesson_data_by_row.get(row_index, {})
             if lesson_meta:
                 lesson_topic = str(lesson_meta.get("Stundenthema", "")).strip()
                 if next_theme == "—" and lesson_topic:
@@ -299,11 +300,7 @@ class PlanOverviewQueryUseCase:
                     days_until_next_unit = (row_date - current_now.date()).days
                 remaining_hours += hours_for_date(rhythm, row_date)
 
-            lesson_data = lesson_for_ub.data if lesson_for_ub is not None else {}
-            if not isinstance(lesson_data, dict):
-                continue
-
-            ub_link = ub_link_stem(lesson_data)
+            ub_link = ub_link_stem(lesson_meta)
             if not ub_link:
                 continue
 

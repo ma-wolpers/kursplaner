@@ -17,7 +17,11 @@ from kursplaner.adapters.gui.overview_columns import OVERVIEW_COLUMNS, overview_
 
 
 class _QueryStub:
-    def summarize_plan(self, _table):
+    def __init__(self):
+        self.lessons_by_row = None
+
+    def summarize_plan(self, _table, *, lessons_by_row=None):
+        self.lessons_by_row = lessons_by_row
         return ("Neues Thema", 17, "16.11. M", "9.11. M", "26-10-26", 3, True, True)
 
 
@@ -40,9 +44,14 @@ def test_update_selected_lesson_metrics_writes_by_column_id(tk_root):
         ),
     )
     tree.focus("kurs")
-    app = SimpleNamespace(lesson_tree=tree, current_table=object(), _plan_overview_query=_QueryStub())
+    query = _QueryStub()
+    days = [SimpleNamespace(row_index=0, yaml={"Stundenthema": "A"}), SimpleNamespace(row_index=3, yaml={})]
+    app = SimpleNamespace(lesson_tree=tree, current_table=object(), _plan_overview_query=query, raw_day_columns=days)
 
     KursplanerApp._update_selected_lesson_metrics(app)
+
+    # Die bereits geladenen Einheitsdaten werden übergeben, nicht neu gelesen.
+    assert query.lessons_by_row == {0: {"Stundenthema": "A"}, 3: {}}
 
     row = {column_id: tree.set("kurs", column_id) for column_id in OVERVIEW_COLUMNS}
     assert row == {
