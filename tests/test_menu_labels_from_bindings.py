@@ -49,6 +49,7 @@ def _menus():
         action_controller=SimpleNamespace(list_recent_change_labels=lambda limit: []),
         destroy=lambda: None,
         ui_state=MainWindowUiState(),
+        unit_preview_controller=SimpleNamespace(is_open=False),
     )
     return menus
 
@@ -83,12 +84,17 @@ def test_menu_labels_take_keys_from_bindings():
         "Shortcut-Runtime-Debug anzeigen (Strg+Shift+D)",
         "Kompetenznetz anzeigen… (Strg+Shift+K)",
         "Sequenzleiter (Strg+Shift+L)",
+        "Einheitsvorschau (Strg+D)",
     ]
 
 
 def test_guide_display_is_derived_from_the_key():
     entries = load_shortcut_guide_entries()
-    assert len(entries) == 29
+    assert len(entries) == 30
     by_intent = {entry.intent: entry for entry in entries}
     assert by_intent["toolbar.clear"].display_shortcut == "Strg+Entf"
+    # Strg+D wirkt auch in einer bearbeiteten Zelle (Tk löscht dort sonst still ein Zeichen).
+    preview = by_intent["detail.toggle_unit_preview"]
+    assert preview.display_shortcut == "Strg+D" and preview.allow_when_text_input
+    assert not by_intent["toolbar.clear"].allow_when_text_input
     assert all(entry.is_ctrl_shortcut for entry in entries)

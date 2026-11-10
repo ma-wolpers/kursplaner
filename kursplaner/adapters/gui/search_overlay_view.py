@@ -19,8 +19,19 @@ class SearchOverlayView:
     `tests/test_search_architecture_guardrails.py`.
     """
 
-    def __init__(self, app, parent):
+    def __init__(self, app, parent, *, anchor=None):
+        """Baut das (verborgene) Suchfeld in ``parent``.
+
+        Args:
+            app: Hauptfenster (Intent-Weiterleitung, Suchzustand).
+            parent: Container, in den das Feld per ``place()`` gelegt wird.
+            anchor: Widget innerhalb von ``parent``, an dessen rechter oberer
+                Ecke das Feld steht (Standard: ``parent``). Das Grid übergibt
+                den Spaltenkopf, damit das Feld links neben einer offenen
+                Einheitsvorschau bleibt statt auf deren Kopfzeile.
+        """
         self.app = app
+        self._anchor = anchor if anchor is not None else parent
         self.frame = widgets.Frame(parent, padding=6, relief="raised", borderwidth=1)
         # `_status_label` muss VOR `RegexEntryField` existieren: dessen Konstruktor ruft
         # synchron `on_change` auf (Initial-Kompilierung fuer die Rahmenfarbe), was hier bis
@@ -49,7 +60,8 @@ class SearchOverlayView:
 
     def show(self) -> None:
         """Blendet das Suchfeld über der rechten oberen Ecke des Grids ein und fokussiert es."""
-        self.frame.place(relx=1.0, rely=0.0, anchor="ne", x=-12, y=8)
+        self.frame.place(in_=self._anchor, relx=1.0, rely=0.0, anchor="ne", x=-12, y=8)
+        self.frame.lift()
         self._field.set_text("")
         self._status_label.configure(text="")
         self._field.focus_set()

@@ -16,6 +16,10 @@ class ShortcutGuideEntry:
     ``key`` ist die Taste als bw-gui-``KeySpec`` (in der JSON kanonische Notation,
     z. B. ``"Ctrl+Shift+E"``); der deutsche Anzeigetext ``display_shortcut`` wird daraus
     abgeleitet (bw-gui `humanize_shortcut`), nicht gespeichert.
+
+    ``allow_when_text_input`` (optional, Standard ``false``) lässt die Taste auch
+    in einer bearbeiteten Grid-Zelle wirken – nötig, wenn Tk dieselbe Taste im
+    ``Text`` sonst still anders belegt (Strg+D löscht dort ein Zeichen).
     """
 
     key: KeySpec
@@ -25,6 +29,7 @@ class ShortcutGuideEntry:
     didactic_hint: str
     from_shortcut: bool = False
     payload: dict[str, object] = field(default_factory=dict)
+    allow_when_text_input: bool = False
 
     @property
     def display_shortcut(self) -> str:
@@ -89,6 +94,7 @@ def load_shortcut_guide_entries() -> tuple[ShortcutGuideEntry, ...]:
                 didactic_hint=str(item["didactic_hint"]),
                 from_shortcut=bool(item.get("from_shortcut", False)),
                 payload=dict(payload_data),
+                allow_when_text_input=bool(item.get("allow_when_text_input", False)),
             )
         )
 

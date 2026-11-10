@@ -35,6 +35,7 @@ from kursplaner.adapters.gui.toolbar_viewmodel import (
     TOOLBAR_SLOT_ORDER,
 )
 from kursplaner.adapters.gui.ui_intents import UiIntent
+from kursplaner.adapters.gui.unit_preview_controller import UnitPreviewController
 
 
 class ScreenBuilder(
@@ -344,7 +345,8 @@ class ScreenBuilder(
         y_scroll.grid(row=1, column=2, sticky="ns")
         self.app.x_scroll.grid(row=2, column=1, sticky="ew")
 
-        self.app.search_overlay_view = SearchOverlayView(self.app, editor_frame)
+        self.app.unit_preview_controller = UnitPreviewController(self.app, editor_frame)
+        self.app.search_overlay_view = SearchOverlayView(self.app, editor_frame, anchor=self.app.header_canvas)
 
         editor_frame.rowconfigure(0, weight=0)
         editor_frame.rowconfigure(1, weight=1)

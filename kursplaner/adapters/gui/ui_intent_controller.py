@@ -269,6 +269,10 @@ class MainWindowUiIntentController:
             if bool(getattr(self.app, "is_detail_view", False)):
                 self.app.main_view_switcher.toggle_ladder()
             return EventResult.HANDLED
+        if intent == UiIntent.TOGGLE_UNIT_PREVIEW:
+            if bool(getattr(self.app, "is_detail_view", False)):
+                self.app.unit_preview_controller.toggle()
+            return EventResult.HANDLED
         if intent == UiIntent.OPEN_ROW_FILTER_SETTINGS:
             self.app.action_controller.open_row_filter_settings()
             return None

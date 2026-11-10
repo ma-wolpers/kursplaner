@@ -180,6 +180,7 @@ class ScreenShortcutsMixin:
                 intent=entry.intent,
                 metadata=binding_metadata(entry.payload),
                 modes=(UI_MODE_GLOBAL, UI_MODE_PREVIEW),
+                allow_when_text_input=entry.allow_when_text_input,
                 applies_when=self._event_in_main_window,
             )
         for row in self._shortcut_rows():

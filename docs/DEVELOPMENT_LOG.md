@@ -8,6 +8,14 @@ Regel:
 
 ## [Unreleased]
 
+- Einheitsvorschau, GUI (2026-11-10, Wunsch der Nutzerin; Entscheidung: Grid wird schmaler statt verdeckt – ein echtes Overlay hätte die letzten Spalten auch bei Vollausschlag verdeckt, und die xview-Brüche hängen an der Scrollregion).
+  - `unit_preview_controller.UnitPreviewController`: bw-gui `ResizableSideOverlay` + `ZoomableDocText`, `place()` in Spalte 3 des Editor-Rahmens, deren `minsize` folgt der Panelbreite (`on_resize` am Panel). Neuladen per `after_idle` gebündelt: Auswahl-Listener (nur bei anderer Datei/anderem Platzhalter) und `on_plan_changed` aus `overview_controller._publish_sequence_plans` (jede Neuberechnung, immer neu lesen). Fokussierte Einheit: Spalte der markierten Zelle, sonst `single_selected()`.
+  - `unit_preview_events.py`: einzige Layout-Stelle (Feldzeilen „**Feld:** a · b“, Body über bw-gui `html_to_events`, Platzhaltertexte), Tk-frei.
+  - Strg+D in `shortcut_guide.json` (`detail.toggle_unit_preview`); neues optionales Guide-Feld `allow_when_text_input` (`ShortcutGuideEntry`, an den Binder durchgereicht), weil Tks `Text` Strg+D sonst als „Zeichen rechts löschen“ ausführt. Intent nicht in `LADDER_SURFACE_INTENTS`; Menüschalter „Ansicht → Einheitsvorschau“.
+  - `SearchOverlayView(..., anchor=)`: das Suchfeld steht an der rechten Kante des Spaltenkopfs (`place(in_=header_canvas)`) und damit links neben einer offenen Vorschau.
+  - `ui_preferences_store`: `UnitPreviewSettings` (Breite, Schriftgröße), Schlüssel `unit_preview`.
+  - Klick in die Vorschau nimmt den Fokus, aber eine deaktivierte `Text` gilt für bw-gui nicht als Texteingabe – Grid-Pfeiltasten wirken weiter.
+  - Tests: `test_unit_preview_controller.py` (Event-Layout; echtes Tk mit synthetischer App: Umschalten/Spaltenreserve, Auswahl folgen ohne Doppel-Lesen, Plan-Neuberechnung, ×, Platzhalter, Breite/Zoom gemerkt), `test_menu_labels_from_bindings.py` (Menütext, Guide-Anzahl, Textfeld-Flag).
 - Einheitsvorschau, Datenseite (2026-11-10, Wunsch der Nutzerin: Strg+D zeigt das Einheitsdokument gerendert; Entscheidungen: python-markdown optional, Frontmatter-Felder kompakt oben).
   - `LoadUnitPreviewUseCase.execute(path) -> UnitPreview(title, fields, body_html, body_text, error)` nur über bestehende Ports (`load_raw_lesson_frontmatter`, `read_file_content`) und Domain-Helfer (`body_after_frontmatter`, `unwrap_wiki_links`); leere Felder entfallen, Listen bleiben Einzelwerte.
   - Port `MarkdownHtmlRendererPort`, Adapter `infrastructure/rendering/markdown_html_renderer.py` (einzige `markdown`-Importstelle, `MARKDOWN_AVAILABLE`), verdrahtet als `GuiDependencies.load_unit_preview_usecase`; Mini-ADR §38, `requirements.txt` `markdown==3.10.2`.

@@ -190,6 +190,13 @@ class ScreenMenusMixin:
                 # Der Intent schaltet selbst um; der angefragte Wert ist immer „nicht gesetzt“.
                 on_toggle=lambda _on: self._emit_intent(UiIntent.TOGGLE_SEQUENCE_LADDER_VIEW),
             ),
+            SharedMenuItem(
+                type="switch",
+                label=self._menu_label("Einheitsvorschau", UiIntent.TOGGLE_UNIT_PREVIEW),
+                checked=self.app.unit_preview_controller.is_open,
+                # Wie bei der Leiter schaltet der Intent selbst um.
+                on_toggle=lambda _on: self._emit_intent(UiIntent.TOGGLE_UNIT_PREVIEW),
+            ),
         )
 
     def _menu_label(self, text: str, intent: str) -> str:

@@ -1,6 +1,6 @@
 # Shortcut-Konfliktmatrix
 
-Stand: 2026-11-04
+Stand: 2026-11-10
 
 Quelle der aktuellen Belegung:
 - `kursplaner/resources/shortcuts/shortcut_guide.json` (Guide-Kuerzel) und `kursplaner/adapters/gui/_screen_shortcuts.py` (`_bind_shortcuts`)
@@ -32,6 +32,7 @@ Quelle der aktuellen Belegung:
 | Shortcut-Übersicht | Strg+H | H = Hilfe | H liefert schnellen Zugang zur Lernhilfe selbst. | Verlauf/Replace je nach App | mittel | gut merkbar |
 | Kompetenznetz anzeigen | Strg+Shift+K | K = Kompetenznetz | Shift trennt es von der bereits belegten LZK-Markierung (Strg+K). | selten standardisiert | niedrig | gut |
 | Grid ↔ Sequenzleiter | Strg+Shift+L | L = Leiter | Shift trennt sie von der Spaltenarten-Einstellung (Strg+L). | selten standardisiert | niedrig | gut |
+| Einheitsvorschau ein/aus | Strg+D | D = Display | Wunsch der Nutzerin (2026-11-10). Wirkt auch in einer bearbeiteten Zelle (`allow_when_text_input`), weil Tks `Text` Strg+D sonst still als „Zeichen rechts löschen“ ausführt. Strg+Shift+D bleibt der Runtime-Debug (exakte Modifier). | Lesezeichen (Browser), Zeile duplizieren (Editoren) | niedrig | gut |
 
 ## Kurzfazit
 

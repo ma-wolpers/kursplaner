@@ -21,6 +21,19 @@ _COURSE_OVERVIEW_HIGHLIGHT_DAYS_KEY = "course_overview_highlight_days"
 _ROW_FILTER_KEY = "row_filter"
 _SCHOOL_WIDE_CANCELLATIONS_PATH_KEY = "school_wide_cancellations_path"
 _COURSE_KC_DEFAULTS_KEY = "course_kc_defaults"
+_UNIT_PREVIEW_KEY = "unit_preview"
+
+
+@dataclass(frozen=True)
+class UnitPreviewSettings:
+    """Gemerkte Breite (Pixel) und Schriftgröße (Punkt) der Einheitsvorschau.
+
+    Begrenzt wird erst im Widget (Panel-Breite relativ zum Fenster, Zoombereich);
+    hier gilt nur: positive Ganzzahl, sonst Standardwert.
+    """
+
+    width: int = 460
+    zoom: int = 10
 
 
 @dataclass(frozen=True)
@@ -235,6 +248,32 @@ def load_course_overview_highlight_days(default: int = 5) -> int:
     if not text.isdigit():
         return fallback
     return max(0, min(60, int(text)))
+
+
+def _positive_int(raw: object, default: int) -> int:
+    """``raw`` als positive Ganzzahl (kein ``bool``), sonst ``default``."""
+    if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+        return raw
+    return default
+
+
+def load_unit_preview_settings() -> UnitPreviewSettings:
+    """Lädt Breite und Schriftgröße der Einheitsvorschau (Standardwerte bei fehlenden/ungültigen Daten)."""
+    raw = _load_payload().get(_UNIT_PREVIEW_KEY)
+    defaults = UnitPreviewSettings()
+    if not isinstance(raw, dict):
+        return defaults
+    return UnitPreviewSettings(
+        width=_positive_int(raw.get("width"), defaults.width),
+        zoom=_positive_int(raw.get("zoom"), defaults.zoom),
+    )
+
+
+def save_unit_preview_settings(settings: UnitPreviewSettings) -> None:
+    """Persistiert Breite und Schriftgröße der Einheitsvorschau."""
+    payload = _load_payload()
+    payload[_UNIT_PREVIEW_KEY] = {"width": int(settings.width), "zoom": int(settings.zoom)}
+    _save_payload(payload)
 
 
 def save_course_overview_highlight_days(value: int) -> None:

@@ -658,15 +658,19 @@ class MainWindowOverviewController:
         self._sync_topic_sequence_plans()
 
     def _publish_sequence_plans(self, views: list) -> None:
-        """Einzige Stelle, die `app.topic_sequence_plans` setzt; benachrichtigt danach die Sequenzleiter.
+        """Einzige Stelle, die `app.topic_sequence_plans` setzt; benachrichtigt danach Leiter und Vorschau.
 
         Deckt jede Neuberechnung ab (Laden, Grid-Edit, Undo/Redo, Kurswechsel, Schließen),
-        damit eine sichtbare Leiter-Ansicht Termine und Schreibschutz immer aktuell zeigt.
+        damit eine sichtbare Leiter-Ansicht Termine und Schreibschutz und eine offene
+        Einheitsvorschau den Dateiinhalt immer aktuell zeigen.
         """
         self.app.topic_sequence_plans = views
         host = getattr(self.app, "sequence_ladder_host", None)
         if host is not None:
             host.on_sequence_plans_changed()
+        preview = getattr(self.app, "unit_preview_controller", None)
+        if preview is not None:
+            preview.on_plan_changed()
 
     def _sync_topic_sequence_plans(self) -> None:
         """Aktualisiert erkannte Themen-Sequenzen und deren Sequenzdateien.

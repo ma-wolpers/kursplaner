@@ -220,5 +220,13 @@
     "intent": "detail.toggle_sequence_ladder_view",
     "mnemonic": "L = Leiter",
     "didactic_hint": "Shift trennt die Leiter von der Spaltenarten-Einstellung (Strg+L)."
+  },
+  {
+    "key": "Ctrl+D",
+    "action_label": "Einheitsvorschau ein/aus",
+    "intent": "detail.toggle_unit_preview",
+    "mnemonic": "D = Display",
+    "didactic_hint": "Zeigt rechts das Einheitsdokument der gewählten Spalte; die Vorschau folgt jeder Auswahl. Wirkt auch beim Bearbeiten einer Zelle.",
+    "allow_when_text_input": true
   }
 ]

@@ -76,6 +76,7 @@ class UiIntent:
     OPEN_TIMETABLE_CHANGE = "detail.open_timetable_change"
     SHOW_KOMPETENZGRAPH = "detail.show_kompetenzgraph"
     TOGGLE_SEQUENCE_LADDER_VIEW = "detail.toggle_sequence_ladder_view"
+    TOGGLE_UNIT_PREVIEW = "detail.toggle_unit_preview"
 
     # Global shortcut and pointer intents
     SHORTCUT_DETAIL_LEFT = "shortcut.detail_left"
