@@ -55,7 +55,7 @@ Die Leiter ist eine Oberfläche der Detailansicht (Strg+Shift+L oder Menü „An
 | Baustein höher/tiefer | Strg+↑ / Strg+↓ | tauscht mit dem Nachbarn; oben in der Zelle → unten in die nächsthöhere Sprosse (Material bleibt über dem Ideenfeld) |
 | Kopieren / Einfügen | Strg+C / Strg+V | Einfügen über dem gewählten Baustein; der neue Name wird direkt im Board getippt |
 | Löschen | Entf | |
-| Umbenennen | F2, Enter (oder Doppelklick) | nur eigene Bausteine; Namensfeld liegt über der Karte |
+| Umbenennen | F2, Enter (oder Doppelklick) | alle Bausteine (Netz-Bausteine: Alias, leer = Original); Namensfeld liegt über der Karte |
 | Neuer Baustein / Ideen bearbeiten | Enter | auf leerer Zelle bzw. im Ideenfeld |
 | Rückgängig / Wiederholen | Strg+Z / Strg+Y | Hauptfenster-Bindung, gemeinsamer Verlauf |
 | Zurück ins Grid | Esc | Hauptfenster-Bindung (`SelectionLayerStack`, Leiter-Ebene) |

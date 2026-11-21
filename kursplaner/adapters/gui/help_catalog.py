@@ -135,8 +135,10 @@ SEQUENCE_LADDER_HELP: dict[str, str] = {
         "Unterrichtsdatei; vorhandene Ziele/Kompetenzen nach Rückfrage ersetzt, Material und Ideen angehängt). "
         "Namen tippst du direkt im Board (Enter übernimmt, Esc bricht ab). "
         "Pfeile: wählen · Strg+↑/↓: Baustein höher/tiefer (über Sprossen hinweg) · "
-        "Strg+C/Strg+V: kopieren/darüber einfügen mit neuem Namen · Entf: löschen · F2, Enter oder "
-        "Doppelklick: umbenennen (nur eigene) · Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · "
+        "Strg+C/Strg+V: kopieren/darüber einfügen mit neuem Namen (auch in eine andere Leiter, Kompetenz-Code "
+        "bleibt) · Entf: löschen · F2, Enter oder Doppelklick: umbenennen – bei Kompetenzen aus dem Netz steht "
+        "das Original dann klein darunter, leer lassen stellt es wieder her · "
+        "Enter: in leerer Zelle neuer Baustein, im Ideenfeld bearbeiten · "
         "Strg+Z/Strg+Y: rückgängig/wiederholen."
     ),
 }

@@ -19,7 +19,7 @@ from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUse
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
-from kursplaner.core.usecases.load_sequence_ladder_usecase import LoadSequenceLadderUseCase
+from kursplaner.core.usecases.load_sequence_ladder_usecase import CompetenceOriginals, LoadSequenceLadderUseCase
 from kursplaner.core.usecases.sequence_ladder_source import SequenceLadderSource
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 from kursplaner.infrastructure.repositories.command_repository import FileSystemCommandRepository
@@ -83,8 +83,13 @@ class LadderEnv:
         )
 
 
-def make_ladder_env(tmp_path: Path, kinds: str = "", **unit_contents: dict) -> LadderEnv:
-    """Baut die Sequenz; *unit_contents* je Einheit ``u<n>`` (n = Termin-Index) als `unit_text`-Argumente."""
+def make_ladder_env(
+    tmp_path: Path, kinds: str = "", *, originals: CompetenceOriginals | None = None, **unit_contents: dict
+) -> LadderEnv:
+    """Baut die Sequenz; *unit_contents* je Einheit ``u<n>`` (n = Termin-Index) als `unit_text`-Argumente.
+
+    *originals* ist der Originaltitel-Puffer des Lade-Use-Cases (``None`` = keine Originale).
+    """
     plan_dir = tmp_path / "M GK test-1 26-2"
     plan_dir.mkdir()
     plan_path = plan_dir / "M GK test-1 26-2.md"
@@ -122,4 +127,5 @@ def make_ladder_env(tmp_path: Path, kinds: str = "", **unit_contents: dict) -> L
         lesson_edit=LessonEditUseCase(lesson_repo=lesson_repo),
         tracked_write=TrackedWriteUseCase(history),
     )
-    return LadderEnv(sequence_path, units, days, runs, history, sequence_repo, LoadSequenceLadderUseCase(source), edit)
+    load = LoadSequenceLadderUseCase(source, originals)
+    return LadderEnv(sequence_path, units, days, runs, history, sequence_repo, load, edit)

@@ -51,6 +51,19 @@ class LoadKompetenzGraphUseCase:
     def __init__(self, kompetenzgraph_repo: KompetenzGraphRepository):
         """Initialisiert den Use Case mit einem `KompetenzGraphRepository`-Port."""
         self.kompetenzgraph_repo = kompetenzgraph_repo
+        self._last_snapshot: KompetenzGraphSnapshot | None = None
+
+    @property
+    def last_snapshot(self) -> KompetenzGraphSnapshot | None:
+        """Snapshot des letzten `execute` (``None`` vor dem ersten Laden).
+
+        Dient als Puffer für Nachschlagen ohne Dateizugriff (z. B. Originaltitel
+        der Netz-Bausteine in der Sequenzleiter, `CompetenceOriginalsBuffer`).
+        Jeder Ladeweg – Kompetenznetz-Dialog, Neuaufbau, Öffnen der Leiter – läuft
+        über `execute` und hält ihn damit automatisch aktuell; es gibt keine
+        zweite Titel-Tabelle, die veralten könnte.
+        """
+        return self._last_snapshot
 
     def execute(self, unterricht_dir: Path, subject_folders: Sequence[str] | None = None) -> KompetenzGraphLoadResult:
         """Lädt den Kompetenzgraphen (gecacht, siehe Repository) für die gegebenen Fächer.
@@ -64,6 +77,7 @@ class LoadKompetenzGraphUseCase:
         snapshot, file_diagnostics, loaded_subjects = self.kompetenzgraph_repo.load_snapshot(
             unterricht_dir, subject_folders
         )
+        self._last_snapshot = snapshot
         cycle_diagnostics = check_kompetenz_graph_for_cycles(snapshot)
         return KompetenzGraphLoadResult(
             snapshot=snapshot,

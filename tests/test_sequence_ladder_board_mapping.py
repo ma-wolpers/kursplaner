@@ -70,6 +70,17 @@ def test_cards_key_a_block_ref_and_show_the_competence_code_as_badge():
     assert bottom.texts[LANE_IDEEN] == "Idee 1\nIdee 2"
 
 
+def test_original_appears_as_note_only_under_an_edited_network_block():
+    blocks = (LadderBlock("Netz", "Mat-PL-1"), LadderBlock("Netz bearbeitet", "Mat-PL-2"))
+    ladder = SequenceLadder((LadderRung(prozess=blocks),))
+    view = SequenceLadderView(
+        Path("x.md"), "Brüche", ladder, _view().rungs, originals={"Mat-PL-1": "Netz", "Mat-PL-2": "Netz Original"}
+    )
+    cards = board_rows(view)[-1].cards[LANE_PROZESS]
+    assert [(c.text, c.note) for c in cards] == [("Netz", None), ("Netz bearbeitet", "Netz Original")]
+    assert board_rows(_view())[-1].cards[LANE_PROZESS][0].note is None  # ohne bekanntes Original keine Notiz
+
+
 def test_card_key_round_trips_texts_with_separators_of_other_kinds():
     ref = BlockRef(3, LadderSide.PROZESS, "a | b: c")
     assert block_ref(card_key(ref)) == ref

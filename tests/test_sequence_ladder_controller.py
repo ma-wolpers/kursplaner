@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from bw_gui.widgets.card_board import BoardCell, BoardSlot
+from bw_gui.widgets.card_board import BoardCell, BoardSlot, TextRejection
 from sequence_ladder_test_support import make_ladder_env
 
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
@@ -13,21 +13,25 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     card_key,
     rung_key,
 )
-from kursplaner.adapters.gui.sequence_ladder_controller import SequenceLadderController
-from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide
+from kursplaner.adapters.gui.sequence_ladder_controller import LadderClipboard, SequenceLadderController
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderBlock, LadderSide
+
+PRO = LadderSide.PROZESS
 
 
 class FakeDialogs:
     """`LadderDialogs` und `BlockTextInput` zugleich: Antworten der Namenseingabe stehen in ``answers``.
 
     Wie der Inline-Editor des Boards: ``None`` bricht ab, ein abgelehnter Text (``validate``)
-    bleibt in der Eingabe stehen – beides ruft ``done`` nicht auf.
+    bleibt in der Eingabe stehen – beides ruft ``done`` nicht auf. Eine `TextRejection` landet
+    in ``rejections`` (ihr Vorschlag stünde dann im Feld).
     """
 
     def __init__(self):
         self.answers: list[str | None] = []
         self.asked: list[tuple[object, str]] = []
         self.validators = []
+        self.rejections: list[TextRejection] = []
         self.infos: list[str] = []
         self.errors: list[str] = []
 
@@ -35,7 +39,12 @@ class FakeDialogs:
         self.asked.append((target, initial))
         self.validators.append(validate)
         answer = self.answers.pop(0)
-        if answer is not None and validate(answer) is None:
+        if answer is None:
+            return
+        result = validate(answer)
+        if isinstance(result, TextRejection):
+            self.rejections.append(result)
+        elif result is None:
             done(answer)
 
     def show_error(self, title, message):
@@ -49,8 +58,10 @@ class FakeDialogs:
 def make(tmp_path):
     """Controller über einer synthetischen Sequenz; ohne *kinds* liegen alle Sprossen in der Ablage."""
 
-    def factory(kinds="", *, missing=False, after_write=None, **units):
-        env = make_ladder_env(tmp_path, kinds, **units)
+    def factory(kinds="", *, missing=False, after_write=None, clipboard=None, root=None, **units):
+        if root is not None:
+            root.mkdir()
+        env = make_ladder_env(root or tmp_path, kinds, originals=FakeOriginals(), **units)
         dialogs, renders, writes = FakeDialogs(), [], []
         controller = SequenceLadderController(
             sequence_path=env.sequence_path,
@@ -61,11 +72,27 @@ def make(tmp_path):
             text_input=dialogs,
             render=lambda view, cursor, banner: renders.append((view, cursor, banner)),
             after_write=after_write or writes.append,
+            clipboard=clipboard,
         )
         controller.reload()
         return controller, dialogs, renders, writes, env.history
 
     return factory
+
+
+class FakeOriginals:
+    """Originaltitel-Puffer mit einer erfundenen Kompetenz."""
+
+    def original(self, kompetenz_id):
+        return "Netz" if kompetenz_id == "Mat-PL-1" else None
+
+
+def _with_ablage(controller, *lines):
+    """Schreibt eine Ablage in die Sequenzdatei (wie von Hand) und lädt neu."""
+    path = controller.sequence_path
+    section = "## Sequenzleiter\n\n- Ablage 1\n" + "".join(f"  - {line}\n" for line in lines) + "\n## Export"
+    path.write_text(path.read_text(encoding="utf-8").replace("## Export", section), encoding="utf-8")
+    controller.reload()
 
 
 def _key(text, rung=0, side=LadderSide.INHALT):
@@ -102,25 +129,55 @@ def test_copy_paste_inserts_above_with_prefilled_name(make):
 def test_paste_without_clipboard_or_target_explains_itself(make):
     controller, dialogs, *_ = make()
     controller.paste()
-    controller.clipboard = "A"
+    controller.clipboard.block = LadderBlock("A")
     controller.set_cursor(None)
     controller.paste()
     assert len(dialogs.infos) == 2
 
 
-def test_rename_refuses_network_blocks(make, tmp_path):
+def test_rename_of_network_block_edits_the_alias_and_keeps_the_link(make):
     controller, dialogs, *_ = make()
-    path = controller.sequence_path
-    path.write_text(
-        path.read_text(encoding="utf-8").replace(
-            "## Export", "## Sequenzleiter\n\n- Ablage 1\n  - Prozess: [[Mat-PL-1|Netz]]\n\n## Export"
-        ),
-        encoding="utf-8",
-    )
-    controller.reload()
-    controller.set_cursor(_key("Netz", side=LadderSide.PROZESS))
+    _with_ablage(controller, "Prozess: [[Mat-PL-1|Netz]]")
+    controller.set_cursor(_key("Netz", side=PRO))
+    dialogs.answers = ["Netz anders"]
     controller.rename()
-    assert dialogs.asked == [] and "nicht umbenannt" in dialogs.infos[0]
+    assert controller.ladder.rung(0).prozess == (LadderBlock("Netz anders", "Mat-PL-1"),)
+    assert "[[Mat-PL-1|Netz anders]]" in controller.sequence_path.read_text(encoding="utf-8")
+    assert controller.view.originals == {"Mat-PL-1": "Netz"}
+
+
+def test_empty_rename_resets_to_the_original(make):
+    controller, dialogs, *_ = make()
+    _with_ablage(controller, "Prozess: [[Mat-PL-1|Netz anders]]")
+    controller.set_cursor(_key("Netz anders", side=PRO))
+    dialogs.answers = [""]
+    controller.rename()
+    assert controller.ladder.rung(0).prozess == (LadderBlock("Netz", "Mat-PL-1"),)
+
+
+def test_empty_rename_onto_an_existing_original_suggests_a_copy(make):
+    controller, dialogs, *_ = make()
+    _with_ablage(controller, "Prozess: [[Mat-PL-1|Netz]]", "Prozess: [[Mat-PL-1|Netz anders]]")
+    controller.set_cursor(_key("Netz anders", side=PRO))
+    dialogs.answers = [""]
+    controller.rename()
+    assert [r.replacement for r in dialogs.rejections] == ["Netz (Kopie)"]
+    assert [b.text for b in controller.ladder.rung(0).prozess] == ["Netz", "Netz anders"]  # nichts geschrieben
+
+
+def test_copy_paste_of_a_network_block_keeps_link_and_text_across_ladders(make, tmp_path):
+    shared = LadderClipboard()
+    source, _dialogs, *_ = make(clipboard=shared)
+    _with_ablage(source, "Prozess: [[Mat-PL-1|Netz anders]]", "Inhalt: Ziel")
+    source.set_cursor(_key("Netz anders", side=PRO))
+    source.copy()
+    assert shared.block == LadderBlock("Netz anders", "Mat-PL-1") and shared.original == "Netz"
+    target, dialogs, *_ = make("U", clipboard=shared, root=tmp_path / "zweite")  # andere Leiter, neuer Controller
+    target.set_cursor(BoardCell(rung_key(0), LANE_PROZESS))
+    dialogs.answers = ["Netz anders"]
+    target.paste()
+    assert dialogs.asked[-1][1] == "Netz anders"
+    assert target.ladder.rung(0).prozess == (LadderBlock("Netz anders", "Mat-PL-1"),)
 
 
 def test_delete_selects_the_neighbour_or_the_empty_cell(make):

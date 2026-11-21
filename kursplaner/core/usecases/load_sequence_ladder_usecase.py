@@ -7,16 +7,21 @@ pro Lauf alle Planzeilen vom ersten bis zum letzten Mitglied (Unterricht, LZK,
 Hospitation und dazwischenliegende Ausfälle), vereinigt über alle Läufe, die
 dieselbe Datei teilen. Zeilen fremder Themen zwischen zwei Läufen werden nie
 Sprossen. Jenseits der Termine tragen Sprossen ``??``. Siehe §37.
+
+Zu jedem Netz-Baustein liefert die Ansicht den Originaltitel aus dem
+Kompetenznetz (`SequenceLadderView.originals`), nachgeschlagen über den Port
+`CompetenceOriginals` – ein Puffer, kein Dateizugriff pro Neuladen.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from kursplaner.core.domain.day_column import DayColumn, days_by_row
-from kursplaner.core.domain.sequence_ladder import BlockRef, SequenceLadder
+from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
 from kursplaner.core.domain.sequence_ladder_homes import RungKind, rung_kind
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
@@ -28,6 +33,7 @@ UNKNOWN_DATE_LABEL = "??"
 
 __all__ = [
     "UNKNOWN_DATE_LABEL",
+    "CompetenceOriginals",
     "LoadSequenceLadderUseCase",
     "RungInfo",
     "RungKind",
@@ -63,6 +69,9 @@ class SequenceLadderView:
         error: Nutzerlesbarer Fehler (Formatfehler, Datei fehlt) oder ``None``.
         notes: Hinweise zu einzelnen Sprossen (gesperrt, nicht lesbar, gekürzt).
         duplicates: Gruppen von Bausteinen, die schon vor der Eindeutigkeitsregel doppelt standen.
+        originals: Normalisierter Originaltitel je Kompetenz-ID der Leiter (nur IDs,
+            die im Kompetenznetz bekannt sind); Grundlage für die Anzeige unter
+            bearbeiteten Netz-Bausteinen und für das Zurücksetzen per leerer Eingabe.
     """
 
     sequence_path: Path
@@ -72,6 +81,24 @@ class SequenceLadderView:
     error: str | None = None
     notes: tuple[str, ...] = ()
     duplicates: tuple[tuple[BlockRef, ...], ...] = ()
+    originals: Mapping[str, str] = field(default_factory=dict)
+
+
+class CompetenceOriginals(Protocol):
+    """Port: Originaltitel einer Kompetenz aus dem Netz (umgesetzt von `CompetenceOriginalsBuffer`)."""
+
+    def original(self, kompetenz_id: str) -> str | None:
+        """Normalisierter Originaltitel (`network_block_text`) oder ``None``, wenn unbekannt."""
+        ...
+
+
+def _originals(ladder: SequenceLadder, source: CompetenceOriginals | None) -> dict[str, str]:
+    """Originaltitel aller Kompetenz-IDs der Leiter, soweit *source* sie kennt."""
+    if source is None:
+        return {}
+    ids = {block.kompetenz_id for rung in ladder.rungs for side in LadderSide for block in rung.blocks(side)}
+    found = {kid: source.original(kid) for kid in ids if kid is not None}
+    return {kid: title for kid, title in found.items() if title}
 
 
 def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSequenceRun]) -> list[DayColumn]:
@@ -106,9 +133,15 @@ def rung_infos(days: Sequence[DayColumn], rung_count: int) -> tuple[RungInfo, ..
 class LoadSequenceLadderUseCase:
     """Liest die Leiter aus Einheiten und Ablage und berechnet die Sprossen-Termine."""
 
-    def __init__(self, source: SequenceLadderSource) -> None:
-        """Initialisiert den Use Case mit der gemeinsamen Lesequelle."""
+    def __init__(self, source: SequenceLadderSource, originals: CompetenceOriginals | None = None) -> None:
+        """Initialisiert den Use Case.
+
+        Args:
+            source: Gemeinsame Lesequelle von Einheiten und Ablage.
+            originals: Originaltitel-Puffer; ``None`` = keine Originale (z. B. Tests, ohne PyYAML).
+        """
         self._source = source
+        self._originals = originals
 
     def execute(
         self,
@@ -144,4 +177,5 @@ class LoadSequenceLadderUseCase:
             rung_infos(days, count),
             notes=snapshot.notes,
             duplicates=ladder.duplicate_groups(),
+            originals=_originals(ladder, self._originals),
         )

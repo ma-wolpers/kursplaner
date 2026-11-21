@@ -33,6 +33,7 @@ from kursplaner.core.usecases.cleanup_lzk_expected_horizon_links_usecase import 
 from kursplaner.core.usecases.clear_selected_lesson_usecase import ClearSelectedLessonUseCase
 from kursplaner.core.usecases.column_visibility_projection_usecase import ColumnVisibilityProjectionUseCase
 from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
+from kursplaner.core.usecases.competence_originals import CompetenceOriginalsBuffer
 from kursplaner.core.usecases.convert_to_ausfall_usecase import ConvertToAusfallUseCase
 from kursplaner.core.usecases.convert_to_hospitation_usecase import ConvertToHospitationUseCase
 from kursplaner.core.usecases.convert_to_lzk_usecase import ConvertToLzkUseCase
@@ -201,6 +202,7 @@ class GuiDependencies:
     sync_topic_sequence_plans_usecase: SyncTopicSequencePlansUseCase
     update_sequence_goal_field_usecase: UpdateSequenceGoalFieldUseCase
     load_sequence_ladder_usecase: LoadSequenceLadderUseCase
+    competence_originals: CompetenceOriginalsBuffer
     edit_sequence_ladder_usecase: EditSequenceLadderUseCase
     assign_ablage_rung_usecase: AssignAblageRungUseCase
     file_relation_registry_repo: FileSystemFileRelationRegistryRepository
@@ -458,7 +460,10 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
     )
     update_sequence_goal_field_usecase = UpdateSequenceGoalFieldUseCase(sequence_plan_repo=sequence_plan_repo)
     sequence_ladder_source = SequenceLadderSource(sequence_plan_repo=sequence_plan_repo, lesson_repo=lesson_repo)
-    load_sequence_ladder_usecase = LoadSequenceLadderUseCase(source=sequence_ladder_source)
+    competence_originals = CompetenceOriginalsBuffer(load_kompetenz_graph_usecase)
+    load_sequence_ladder_usecase = LoadSequenceLadderUseCase(
+        source=sequence_ladder_source, originals=competence_originals
+    )
     edit_sequence_ladder_usecase = EditSequenceLadderUseCase(
         source=sequence_ladder_source,
         sequence_plan_repo=sequence_plan_repo,
@@ -594,6 +599,7 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         sync_topic_sequence_plans_usecase=sync_topic_sequence_plans_usecase,
         update_sequence_goal_field_usecase=update_sequence_goal_field_usecase,
         load_sequence_ladder_usecase=load_sequence_ladder_usecase,
+        competence_originals=competence_originals,
         edit_sequence_ladder_usecase=edit_sequence_ladder_usecase,
         assign_ablage_rung_usecase=assign_ablage_rung_usecase,
         file_relation_registry_repo=file_relation_registry_repo,

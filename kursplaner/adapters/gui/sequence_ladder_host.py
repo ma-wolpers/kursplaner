@@ -27,7 +27,12 @@ from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_files_wri
 from kursplaner.adapters.gui.sequence_choices import SequenceChoice, sequence_choices, views_by_path
 from kursplaner.adapters.gui.sequence_ladder_assign_flow import AssignRungFlow
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import cursor_rung, rung_cursor
-from kursplaner.adapters.gui.sequence_ladder_controller import LadderContext, SequenceLadderController, TkLadderDialogs
+from kursplaner.adapters.gui.sequence_ladder_controller import (
+    LadderClipboard,
+    LadderContext,
+    SequenceLadderController,
+    TkLadderDialogs,
+)
 from kursplaner.adapters.gui.sequence_ladder_keys import bind_ladder_keys
 from kursplaner.adapters.gui.sequence_ladder_panel import SequenceLadderPanel
 from kursplaner.core.domain.course_kc_context import CourseKcContext, course_kc_context
@@ -45,10 +50,16 @@ class SequenceLadderHost:
     """Bindet, aktualisiert und befüllt die (eine) Leiter-Oberfläche."""
 
     def __init__(self, app) -> None:
-        """Bindet den Host an das Hauptfenster; die Oberfläche kommt über `attach_panel`."""
+        """Bindet den Host an das Hauptfenster; die Oberfläche kommt über `attach_panel`.
+
+        Die Zwischenablage (`LadderClipboard`) lebt hier, nicht im Controller: der
+        Controller wird bei jedem Sequenzwechsel neu gebaut, die Ablage soll
+        Kopieren aus einer Leiter und Einfügen in eine andere erlauben.
+        """
         self.app = app
         self._panel: SequenceLadderPanel | None = None
         self._controller: SequenceLadderController | None = None
+        self.clipboard = LadderClipboard()
 
     # -- Sequenzen des Kurses ----------------------------------------------------
 
@@ -113,10 +124,22 @@ class SequenceLadderHost:
         return paths[0] if paths else None
 
     def on_shown(self, path: Path | None = None) -> None:
-        """Leiter wurde eingeblendet (`MainViewSwitcher`): Sequenz binden, Cursor auf die markierte Spalte."""
+        """Leiter wurde eingeblendet (`MainViewSwitcher`): Sequenz binden, Cursor auf die markierte Spalte.
+
+        Stellt vorher sicher, dass der Originaltitel-Puffer gefüllt ist
+        (`CompetenceOriginalsBuffer.ensure_loaded`: nur beim ersten Öffnen der
+        Sitzung ein Ladevorgang); jedes Neuladen nach einer Bearbeitung liest nur den Puffer.
+        """
+        self._ensure_originals()
         self._show(path or self.resolve_sequence(), from_selection=True)
         if self._panel is not None:
             self._panel.focus_board()
+
+    def _ensure_originals(self) -> None:
+        """Originaltitel-Puffer aus dem Kompetenznetz des eingestellten Unterrichtsordners füllen (einmal je Sitzung)."""
+        app = self.app
+        unterricht_dir = app.path_settings_usecase.resolve_unterricht_dir(app.path_values)
+        app.gui_dependencies.competence_originals.ensure_loaded(unterricht_dir)
 
     def show_for_sequence(self, path: Path) -> SequenceLadderController | None:
         """Zeigt die Leiter von *path* (schaltet die Leiter-Ansicht ein, falls nötig)."""
@@ -159,6 +182,7 @@ class SequenceLadderHost:
                 sequence_path=path,
                 table=lambda: getattr(self.app, "current_table", None),
             ),
+            clipboard=self.clipboard,
         )
 
     def _selection_cursor(self, path: Path) -> Cursor:

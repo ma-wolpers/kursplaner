@@ -13,7 +13,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from bw_gui.runtime import combobox_selection, on_combobox_select, widgets
-from bw_gui.widgets.card_board import BoardCell, BoardSlot, CardBoard, Cursor
+from bw_gui.widgets.card_board import BoardCell, BoardSlot, CardBoard, Cursor, TextValidator
 
 from kursplaner.adapters.gui.help_catalog import SEQUENCE_LADDER_HELP
 from kursplaner.adapters.gui.sequence_choices import SequenceChoice
@@ -99,13 +99,14 @@ class SequenceLadderPanel:
             controller.rename()
 
     def request(
-        self, target: TextTarget, *, initial: str, validate: Callable[[str], str | None], done: Callable[[str], None]
+        self, target: TextTarget, *, initial: str, validate: TextValidator, done: Callable[[str], None]
     ) -> None:
         """`BlockTextInput`: Namenseingabe direkt im Board statt im Popup.
 
         Ein Kartenschlüssel öffnet den Inline-Editor über der Karte (umbenennen), ein
         Board-Slot einen Entwurfsplatz für einen neuen Baustein. Enter übernimmt, Escape
-        bricht ab; Validierungsfehler stehen unter dem Feld (bw-gui `CardBoard`).
+        bricht ab; Validierungsfehler stehen unter dem Feld, ein Vorschlag
+        (`TextRejection`, z. B. „Titel (Kopie)“) ersetzt zusätzlich den Feldtext (bw-gui `CardBoard`).
         """
         if isinstance(target, BoardSlot):
             self.board.draft_card(target, on_done=done, initial=initial, validate=validate)

@@ -12,7 +12,9 @@ Markierungen: gesperrte Sprossen (LZK/Hospitation/Ausfall) werden gesperrte
 Board-Zeilen; der oberste linke Baustein einer Unterrichts-Sprosse – ihr
 Stundenziel nach der Positionsregel (`sequence_ladder_homes.goals_from_left`) –
 trägt den Ton `EMPHASIS`; Altbestand-Doppelungen (`SequenceLadderView.duplicates`)
-den Ton `WARNING` und einen Hinweis im Banner (`view_hints`).
+den Ton `WARNING` und einen Hinweis im Banner (`view_hints`). Ein Netz-Baustein,
+dessen Alias vom Netztitel abweicht, zeigt das Original als Notiz unter einem
+Trenner in derselben Karte (`BoardCard.note`, Regel `shows_original`).
 """
 
 from __future__ import annotations
@@ -33,12 +35,14 @@ from kursplaner.adapters.gui.lesson_kind_tints import LESSON_KIND_TINTS, LessonK
 from kursplaner.core.domain.sequence_ladder import (
     SIDE_RULES,
     BlockRef,
+    LadderBlock,
     LadderRuleError,
     LadderRung,
     LadderSide,
     LadderSlot,
     SequenceLadder,
 )
+from kursplaner.core.domain.sequence_ladder_alias import shows_original
 from kursplaner.core.domain.sequence_ladder_entries import block_display_text
 from kursplaner.core.domain.sequence_ladder_ops import MoveBlock, apply_ladder_operation
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungInfo, RungKind, SequenceLadderView
@@ -151,6 +155,12 @@ def _tone(view: SequenceLadderView, ref: BlockRef, position: int, locked: bool) 
     return CardTone.EMPHASIS if is_unit and ref.side is LadderSide.INHALT and position == 0 else CardTone.NORMAL
 
 
+def _note(view: SequenceLadderView, block: LadderBlock) -> str | None:
+    """Originaltitel als Kartennotiz, wenn der Alias davon abweicht (`shows_original`), sonst ``None``."""
+    original = view.originals.get(block.kompetenz_id) if block.kompetenz_id is not None else None
+    return original if shows_original(block, original) else None
+
+
 def board_rows(view: SequenceLadderView) -> list[BoardRow]:
     """Zeilen für das Board, oberste Sprosse zuerst (alle Sprossen aus `view.rungs`)."""
     ladder = view.ladder or SequenceLadder()
@@ -164,6 +174,7 @@ def board_rows(view: SequenceLadderView) -> list[BoardRow]:
                     block_display_text(block, side),
                     block.kompetenz_id,
                     _tone(view, ref, position, locked),
+                    note=_note(view, block),
                 )
                 for position, block in enumerate(rung.blocks(side))
             )

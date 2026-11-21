@@ -8,16 +8,23 @@ Inline-Editor des CardBoards – kein Popup), Hinweise und Rückfragen laufen ü
 `LadderDialogs`-Protocol (Adapter `TkLadderDialogs`), die Anzeige über den
 `render`-Callback des Fensters. Cursor-Werte sind Board-Cursor (Kartenschlüssel
 eines `BlockRef` oder Board-Zelle, siehe `sequence_ladder_board_mapping`).
+
+Netz-Bausteine sind umbenennbar: ihr Text ist der Alias, die Kompetenz-ID bleibt.
+Die Eingabe folgt `sequence_ladder_alias` (leer = Original, schon vorhandenes
+Original → Vorschlag „(Kopie)“ im Feld, bw-gui `TextRejection`). Die
+Zwischenablage (`LadderClipboard`) gehört dem Host und überlebt den
+Sequenzwechsel; sie trägt den ganzen Baustein samt ID und Original.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, Union
 
 from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
-from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor
+from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor, TextRejection, TextValidator
 
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
@@ -35,6 +42,7 @@ from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.sequence_ladder import (
+    SIDE_RULES,
     BlockRef,
     LadderBlock,
     LadderSide,
@@ -43,6 +51,7 @@ from kursplaner.core.domain.sequence_ladder import (
     block_text_error,
     locked_message,
 )
+from kursplaner.core.domain.sequence_ladder_alias import AliasProblem, alias_problem, resolve_alias
 from kursplaner.core.domain.sequence_ladder_homes import locked_reason
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
@@ -68,13 +77,40 @@ class BlockTextInput(Protocol):
     """Namenseingabe direkt im Board (Tk-frei testbar; umgesetzt von `SequenceLadderPanel`)."""
 
     def request(
-        self, target: TextTarget, *, initial: str, validate: Callable[[str], str | None], done: Callable[[str], None]
+        self, target: TextTarget, *, initial: str, validate: TextValidator, done: Callable[[str], None]
     ) -> None:
         """Öffnet die Eingabe an *target*; *done* erhält den angenommenen Text, nie bei Abbruch.
 
-        *validate* liefert eine Fehlermeldung (die Eingabe bleibt offen und zeigt sie) oder ``None``.
+        *validate* liefert eine Fehlermeldung (die Eingabe bleibt offen und zeigt sie), eine
+        `TextRejection` (zusätzlich wird ihr Vorschlag ins Feld gesetzt) oder ``None``.
         """
         ...
+
+
+@dataclass
+class LadderClipboard:
+    """Zwischenablage der Leiter-Ansicht: ein kopierter Baustein samt Originaltitel.
+
+    Eine Instanz gehört dem `SequenceLadderHost` und wird jedem Controller
+    mitgegeben, damit Strg+C in einer Leiter und Strg+V in einer anderen
+    zusammenpassen (der Controller wird beim Sequenzwechsel neu gebaut).
+    ``original`` reist mit, weil die Zielleiter die Kompetenz evtl. noch nicht
+    enthält und ihr Original dort sonst unbekannt wäre (Zurücksetzen per leerer Eingabe).
+
+    Attributes:
+        block: Kopierter Baustein (Text bzw. Alias und ggf. Kompetenz-ID) oder ``None``.
+        original: Originaltitel eines kopierten Netz-Bausteins oder ``None``.
+    """
+
+    block: LadderBlock | None = None
+    original: str | None = None
+
+
+def _editor_feedback(problem: AliasProblem | None) -> str | TextRejection | None:
+    """Alias-Prüfergebnis (Domain) → Rückmeldung des Inline-Editors (bw-gui)."""
+    if problem is None:
+        return None
+    return TextRejection(problem.message, problem.suggestion) if problem.suggestion else problem.message
 
 
 class LadderDialogs(Protocol):
@@ -137,6 +173,7 @@ class SequenceLadderController:
         render: Callable[[SequenceLadderView, Cursor, str | None], None],
         after_write: Callable[[tuple[Path, ...]], None],
         assign: Callable[[int, LadderContext], EditSequenceLadderResult | None] | None = None,
+        clipboard: LadderClipboard | None = None,
     ) -> None:
         """Verdrahtet den Editor; `reload()` lädt die erste Ansicht.
 
@@ -153,6 +190,7 @@ class SequenceLadderController:
                 `plan_partial_refresh`); lädt es dabei die Leiter neu, entfällt das
                 eigene Neuladen.
             assign: Zuordnen-Ablauf für Ablage-Sprossen (`AssignRungFlow`); ``None`` = nicht verfügbar.
+            clipboard: Geteilte Zwischenablage des Hosts; ``None`` = eigene (nur diese Leiter).
         """
         self.sequence_path = sequence_path
         self._load, self._edit, self._context = load, edit, context
@@ -163,7 +201,7 @@ class SequenceLadderController:
         self._reload_count = 0
         self.view: SequenceLadderView | None = None
         self.cursor: Cursor = None
-        self.clipboard: str | None = None
+        self.clipboard = clipboard if clipboard is not None else LadderClipboard()
 
     # -- Laden und Anzeige -----------------------------------------------------
 
@@ -262,20 +300,51 @@ class SequenceLadderController:
         *,
         rename: BlockRef | None = None,
         initial: str = "",
+        kompetenz_id: str | None = None,
+        original: str | None = None,
     ) -> None:
         """Namenseingabe im Board: über dem Baustein *rename* oder als neuer Baustein an *slot*.
 
-        Geprüft wird mit derselben Regel wie beim Anwenden (`block_text_error`), sodass die
-        Eingabe nur einen Text annimmt, den die Operation auch akzeptiert; *then* erhält ihn
-        getrimmt. Abbrechen ruft nichts auf.
+        Geprüft wird mit derselben Regel wie beim Anwenden, sodass die Eingabe nur
+        einen Text annimmt, den die Operation auch akzeptiert. Für einen Netz-Baustein
+        (*kompetenz_id* auf einer Netz-Seite) gelten die Alias-Regeln
+        (`sequence_ladder_alias`: leer = *original*, Kopie-Vorschlag) und *then* erhält
+        den aufgelösten Alias; sonst `block_text_error` und den getrimmten Text.
+        Abbrechen ruft nichts auf.
         """
-        ladder = self.ladder
+        ladder, side, rung = self.ladder, slot.side, slot.rung
+        validate: TextValidator
+        if kompetenz_id is not None and SIDE_RULES[side].network:
+            kid = kompetenz_id
+
+            def validate(t: str) -> str | TextRejection | None:
+                problem = alias_problem(
+                    t, ladder, side=side, rung=rung, kompetenz_id=kid, original=original, ignore=rename
+                )
+                return _editor_feedback(problem)
+
+            def resolve(t: str) -> str:
+                return resolve_alias(t, kid, original)
+        else:
+
+            def validate(t: str) -> str | TextRejection | None:
+                return block_text_error(t, ladder, side=side, rung=rung, ignore=rename)
+
+            def resolve(t: str) -> str:
+                return t.strip()
+
         self._text_input.request(
             card_key(rename) if rename is not None else board_slot(slot),
             initial=initial,
-            validate=lambda t: block_text_error(t, ladder, side=slot.side, rung=slot.rung, ignore=rename),
-            done=lambda text: then(text.strip()),
+            validate=validate,
+            done=lambda text: then(resolve(text)),
         )
+
+    def _original(self, block: LadderBlock) -> str | None:
+        """Originaltitel eines Netz-Bausteins aus der geladenen Ansicht (Puffer), sonst ``None``."""
+        if self.view is None or block.kompetenz_id is None:
+            return None
+        return self.view.originals.get(block.kompetenz_id)
 
     def _selected(self) -> tuple[BlockRef, LadderSlot, LadderBlock] | None:
         """Gewählter Baustein mit Position, ``None`` ohne Baustein-Auswahl."""
@@ -300,14 +369,21 @@ class SequenceLadderController:
         self._ask(slot, lambda text: self._run(AddBlock(slot, text)))
 
     def copy(self) -> None:
-        """Strg+C: den gewählten Baustein merken."""
+        """Strg+C: den gewählten Baustein samt Kompetenz-ID und Originaltitel merken (geteilte Ablage)."""
         selected = self._selected()
         if selected is not None:
-            self.clipboard = selected[2].text
+            block = selected[2]
+            self.clipboard.block, self.clipboard.original = block, self._original(block)
 
     def paste(self) -> None:
-        """Strg+V: Kopie über dem gewählten Baustein (oder in die gewählte Zelle) mit neuem Namen."""
-        if self.clipboard is None:
+        """Strg+V: Kopie über dem gewählten Baustein (oder in die gewählte Zelle), Name vorbelegt.
+
+        Ein Netz-Baustein bleibt auf einer Netz-Seite ein Netz-Baustein mit derselben ID
+        (Link und Text bleiben erhalten); weil der Alias im Bereich eindeutig sein muss,
+        öffnet sich die Namenseingabe vorbelegt mit dem bisherigen Alias.
+        """
+        copied = self.clipboard.block
+        if copied is None:
             self._dialogs.show_info("Einfügen", "Erst einen Baustein mit Strg+C kopieren.")
             return
         slot = self._paste_slot()
@@ -316,7 +392,14 @@ class SequenceLadderController:
             return
         if self._locked(slot):
             return
-        self._ask(slot, lambda text: self._run(AddBlock(slot, text, pasted=True)), initial=self.clipboard)
+        kid = copied.kompetenz_id if SIDE_RULES[slot.side].network else None
+        self._ask(
+            slot,
+            lambda text: self._run(AddBlock(slot, text, pasted=True, kompetenz_id=kid)),
+            initial=copied.text,
+            kompetenz_id=kid,
+            original=self.clipboard.original,
+        )
 
     def _paste_slot(self) -> LadderSlot | None:
         if isinstance(self.cursor, str):
@@ -340,20 +423,28 @@ class SequenceLadderController:
             self._show()  # Leiter ist nach `_finish` schon frisch; nur den Nachbar-Cursor zeigen
 
     def rename(self) -> None:
-        """F2/Enter/Doppelklick: eigenen Baustein direkt auf der Karte umbenennen (Netz-Bausteine gesperrt)."""
+        """F2/Enter/Doppelklick: Baustein direkt auf der Karte umbenennen.
+
+        Bei Netz-Bausteinen wird der Alias bearbeitet (ID bleibt); eine leere Eingabe
+        setzt ihn auf den Originaltitel zurück (`sequence_ladder_alias`).
+        """
         selected = self._selected()
         if selected is None or self.read_only:
             return
         ref, slot, block = selected
-        if block.is_network:
-            self._dialogs.show_info("Umbenennen", "Bausteine aus dem Kompetenznetz können nicht umbenannt werden.")
-            return
 
         def renamed(text: str) -> None:
             if text and text != block.text:
                 self._run(RenameBlock(ref, text))
 
-        self._ask(slot, renamed, rename=ref, initial=block.text)
+        self._ask(
+            slot,
+            renamed,
+            rename=ref,
+            initial=block.text,
+            kompetenz_id=block.kompetenz_id,
+            original=self._original(block),
+        )
 
     def step(self, up: bool) -> None:
         """Strg+↑/↓: eine Position höher/tiefer (über Sprossengrenzen)."""
