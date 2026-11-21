@@ -21,6 +21,22 @@ dieselben Strings, statt zwei unabhängig gepflegte Schreibweisen zu haben.
 """
 
 
+def header_index(headers: list[str], column_name: str) -> int | None:
+    """Spaltenindex eines Kopfes, case-insensitiv und ohne Rand-Leerzeichen; ``None``, wenn er fehlt.
+
+    **Einzige** Kopf-Suche im Kursplaner: `PlanTableData.column_index(_optional)`
+    nutzt sie, ebenso Domain-/Use-Case-Code, der nur Kopfzeilen hat (Schulausfall,
+    Zeilenidentität, Stundenplanänderung). Früher lag dieselbe Schleife als
+    `_col_index` siebenmal kopiert vor.
+
+    Args:
+        headers: Tabellenköpfe.
+        column_name: Fachlicher Spaltenname, z. B. `COLUMN_INHALT`.
+    """
+    wanted = column_name.strip().lower()
+    return next((idx for idx, name in enumerate(headers) if str(name).strip().lower() == wanted), None)
+
+
 @dataclass
 class PlanTableData:
     """Fachlicher Snapshot einer geladenen Planungstabelle.
@@ -91,11 +107,7 @@ class PlanTableData:
         Returns:
             Nullbasierter Spaltenindex, oder `None` wenn die Spalte fehlt.
         """
-        lowered = column_name.lower()
-        for idx, name in enumerate(self.headers):
-            if name.lower() == lowered:
-                return idx
-        return None
+        return header_index(self.headers, column_name)
 
     def inhalt(self, row_index: int) -> str:
         """Liest den `Inhalt`-Zellwert einer Planzeile robust (leer bei kurzer Zeile)."""

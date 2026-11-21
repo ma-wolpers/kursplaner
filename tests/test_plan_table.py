@@ -7,6 +7,7 @@ from kursplaner.core.domain.plan_table import (
     COLUMN_INHALT,
     COLUMN_THEMA_AUSFALL,
     PlanTableData,
+    header_index,
 )
 from kursplaner.infrastructure.repositories.plan_table_markdown_io import _EXPECTED_HEADERS
 
@@ -28,6 +29,14 @@ def test_column_index_finds_column_case_insensitively():
     table = _table(["Datum", "Inhalt", "Thema/Ausfall"], [])
     assert table.column_index(COLUMN_INHALT) == 1
     assert table.column_index("inhalt") == 1
+
+
+def test_header_index_ignores_case_and_surrounding_spaces_and_backs_the_table_lookup():
+    headers = [" Datum ", "INHALT", "Thema/Ausfall"]
+    assert header_index(headers, COLUMN_DATUM) == 0
+    assert header_index(headers, COLUMN_INHALT) == 1
+    assert header_index(headers, "fehlt") is None
+    assert _table(headers, []).column_index(COLUMN_DATUM) == 0
 
 
 def test_column_index_raises_when_column_missing():

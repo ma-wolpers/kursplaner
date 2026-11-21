@@ -5,6 +5,7 @@ from pathlib import Path
 
 from kursplaner.core.domain.plan_row_payload import PayloadColumns
 from kursplaner.core.domain.plan_row_placement import strip_empty_dateless_rows
+from kursplaner.core.domain.plan_table import COLUMN_INHALT, COLUMN_THEMA_AUSFALL, header_index
 from kursplaner.core.domain.row_identity import (
     MoveResolution,
     ResolutionStatus,
@@ -14,15 +15,6 @@ from kursplaner.core.domain.row_identity import (
 )
 from kursplaner.core.domain.school_wide_cancellation import CourseApplicationLedger, UnitMove
 from kursplaner.core.ports.repositories import PlanRepository
-
-
-def _col_index(headers: list[str], name: str) -> int | None:
-    """Liefert den Index einer Spaltenueberschrift (case-insensitiv); None falls fehlt."""
-    lc = name.lower()
-    for i, h in enumerate(headers):
-        if str(h).strip().lower() == lc:
-            return i
-    return None
 
 
 @dataclass(frozen=True)
@@ -79,8 +71,8 @@ class SchoolWideCancellationRevertUseCase:
         """
         table = self._plan_repo.load_plan_table(markdown_path)
         headers = table.headers
-        idx_inhalt = _col_index(headers, "inhalt")
-        idx_thema = _col_index(headers, "thema/ausfall")
+        idx_inhalt = header_index(headers, COLUMN_INHALT)
+        idx_thema = header_index(headers, COLUMN_THEMA_AUSFALL)
         if idx_inhalt is None or idx_thema is None:
             missing_columns_issue = SourceResolution(
                 ResolutionStatus.ERROR, None, "Spalten 'Inhalt'/'Thema/Ausfall' fehlen."

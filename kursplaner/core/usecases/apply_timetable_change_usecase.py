@@ -12,7 +12,14 @@ from kursplaner.core.domain.course_rhythm import (
     splice_segment,
 )
 from kursplaner.core.domain.plan_row_placement import strip_empty_dateless_rows
-from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
+from kursplaner.core.domain.plan_table import (
+    COLUMN_DATUM,
+    COLUMN_INHALT,
+    COLUMN_THEMA_AUSFALL,
+    PlanTableData,
+    header_index,
+    parse_plan_row_date,
+)
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.timetable_change_usecase import DraftSlot
 
@@ -38,14 +45,6 @@ class ApplyTimetableChangeUseCase:
     def __init__(self, plan_repo: PlanRepository) -> None:
         """Nimmt das Plan-Repository für Lade- und Speicheroperationen."""
         self._plan_repo = plan_repo
-
-    def _col_index(self, headers: list[str], name: str) -> int | None:
-        """Liefert den Index einer Spaltenüberschrift (case-insensitiv); None falls fehlt."""
-        lc = name.lower()
-        for i, h in enumerate(headers):
-            if str(h).strip().lower() == lc:
-                return i
-        return None
 
     def _build_row(
         self,
@@ -127,7 +126,7 @@ class ApplyTimetableChangeUseCase:
         headers = table.headers
         n_cols = max(len(headers), 3)
 
-        idx_datum = self._col_index(headers, "datum")
+        idx_datum = header_index(headers, COLUMN_DATUM)
         idx_datum = idx_datum if idx_datum is not None else 0
 
         if rhythm_segment:
@@ -141,8 +140,8 @@ class ApplyTimetableChangeUseCase:
             )
             self._plan_repo.update_plan_rhythm(table.markdown_path, combined_rhythm)
             table.metadata[RHYTHM_YAML_KEY] = format_rhythm(combined_rhythm)
-        idx_inhalt = self._col_index(headers, "inhalt")
-        idx_thema_ausfall = self._col_index(headers, "thema/ausfall")
+        idx_inhalt = header_index(headers, COLUMN_INHALT)
+        idx_thema_ausfall = header_index(headers, COLUMN_THEMA_AUSFALL)
 
         old_contents = self._collect_old_contents(table, date_from, date_to)
         new_contents = {s.content for s in draft_slots if s.content}
@@ -199,7 +198,7 @@ class ApplyTimetableChangeUseCase:
 
     def _collect_old_contents(self, table: PlanTableData, date_from: date, date_to: date) -> list[str]:
         """Sammelt Inhalt-Zellwerte der alten Planzeilen im Datumsbereich."""
-        idx_inhalt = self._col_index(table.headers, "inhalt")
+        idx_inhalt = header_index(table.headers, COLUMN_INHALT)
         if idx_inhalt is None:
             return []
         result = []

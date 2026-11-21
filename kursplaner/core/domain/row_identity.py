@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from kursplaner.core.domain.content_markers import normalize_marker_text, resolve_row_cancel_state
+from kursplaner.core.domain.plan_table import COLUMN_DATUM, COLUMN_INHALT, header_index
 from kursplaner.core.domain.school_wide_cancellation import RowLocation, UnitMove, UnitReference
 from kursplaner.core.domain.wiki_links import extract_wiki_link_target
 
@@ -56,24 +57,15 @@ class MoveResolution:
     detail: str = ""
 
 
-def _col_index(headers: list[str], name: str) -> int | None:
-    """Liefert den Index einer Spaltenueberschrift (case-insensitiv); None falls fehlt."""
-    lc = name.lower()
-    for i, h in enumerate(headers):
-        if str(h).strip().lower() == lc:
-            return i
-    return None
-
-
 def _rows_with_date(headers: list[str], rows: list[list[str]], date_text: str) -> list[int]:
-    idx_datum = _col_index(headers, "datum")
+    idx_datum = header_index(headers, COLUMN_DATUM)
     if idx_datum is None:
         return []
     return [i for i, row in enumerate(rows) if idx_datum < len(row) and str(row[idx_datum]).strip() == date_text]
 
 
 def _dateless_row_indices(headers: list[str], rows: list[list[str]]) -> list[int]:
-    idx_datum = _col_index(headers, "datum")
+    idx_datum = header_index(headers, COLUMN_DATUM)
     if idx_datum is None:
         return []
     return [i for i, row in enumerate(rows) if idx_datum < len(row) and not str(row[idx_datum]).strip()]
@@ -81,7 +73,7 @@ def _dateless_row_indices(headers: list[str], rows: list[list[str]]) -> list[int
 
 def extract_row_reference(headers: list[str], row: list[str]) -> UnitReference:
     """Leitet die Wiedererkennungs-Referenz einer Zeile aus ihrer `Inhalt`-Zelle ab."""
-    idx_inhalt = _col_index(headers, "inhalt")
+    idx_inhalt = header_index(headers, COLUMN_INHALT)
     inhalt = str(row[idx_inhalt]) if idx_inhalt is not None and idx_inhalt < len(row) else ""
     link_target = extract_wiki_link_target(inhalt)
     if link_target:

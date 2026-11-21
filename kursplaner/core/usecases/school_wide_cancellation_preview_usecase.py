@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Sequence
 
 from kursplaner.core.domain.plan_row_placement import find_stattfindend_rows_in_range
-from kursplaner.core.domain.plan_table import parse_plan_row_date
+from kursplaner.core.domain.plan_table import COLUMN_DATUM, COLUMN_INHALT, header_index, parse_plan_row_date
 from kursplaner.core.domain.school_wide_cancellation import (
     SchoolWideCancellationEntry,
     course_key_for_path,
@@ -14,15 +14,6 @@ from kursplaner.core.domain.school_wide_cancellation import (
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import PlanRepository
-
-
-def _col_index(headers: list[str], name: str) -> int | None:
-    """Liefert den Index einer Spaltenueberschrift (case-insensitiv); None falls fehlt."""
-    lc = name.lower()
-    for i, h in enumerate(headers):
-        if str(h).strip().lower() == lc:
-            return i
-    return None
 
 
 @dataclass(frozen=True)
@@ -106,8 +97,8 @@ class SchoolWideCancellationPreviewUseCase:
                 continue
 
             course_key = course_key_for_path(markdown_path)
-            idx_datum = _col_index(table.headers, "datum")
-            idx_inhalt = _col_index(table.headers, "inhalt")
+            idx_datum = header_index(table.headers, COLUMN_DATUM)
+            idx_inhalt = header_index(table.headers, COLUMN_INHALT)
             group_name = strip_wiki_link(str(table.metadata.get("Lerngruppe", "")))
             course_label = group_name or markdown_path.parent.name
 

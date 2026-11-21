@@ -7,6 +7,7 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Kopf-Suche zusammengeführt (2026-11-21, Altfund aus der Verschiebe-Arbeit): `plan_table.header_index(headers, name)` (case-insensitiv, ohne Rand-Leerzeichen) ist die einzige Kopf-Suche; `PlanTableData.column_index_optional` delegiert (ignoriert jetzt auch Rand-Leerzeichen). Die siebenmal kopierte `_col_index`-Schleife entfällt in `plan_row_placement`, `row_identity`, `apply_school_wide_cancellations_to_new_rows_usecase`, `apply_timetable_change_usecase`, `school_wide_cancellation_apply/preview/revert_usecase`; Spaltennamen dort über `COLUMN_*` statt Literale. Test in `tests/test_plan_table.py`.
 - Sequenzleiter „Sprosse zuordnen“: Zielarten, chronologische Auswahl, Einfügen mit Verschieben (2026-11-21; ARCHITEKTUR_KERN §37 „Ablage-Sprosse zuordnen“).
   - Ursache des Bugs „Sprosse weg, keine neue Einheit“: Ziele jenseits der direkt anschließenden Zeile ergaben eine allein stehende Einheit (Lauf der Länge 1, vom Sync verworfen); belegte Zeilen wurden überschrieben statt eingefügt. Behoben durch das erweiterte Sequenzmodell (eigener Eintrag) plus Einfügen.
   - Domain `sequence_ladder_assign`: `TargetKind` (`MEMBER`, `BLOCKED`, `FREE`, `OCCUPIED`, `LOOSE_UNIT`), `target_kind(day, member_rows)` als einzige Regel (frei = leere Nutzlast über `RowPayload.of_cells`, §40); `needs_new_unit` entfällt. `RowPayload.of_cells` ist jetzt die einzige Marker-Regel (auch für `PayloadColumns.read`).

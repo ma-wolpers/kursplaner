@@ -10,7 +10,14 @@ from kursplaner.core.domain.plan_row_placement import (
     plan_gap_placement,
     strip_empty_dateless_rows,
 )
-from kursplaner.core.domain.plan_table import PlanTableData, parse_plan_row_date
+from kursplaner.core.domain.plan_table import (
+    COLUMN_DATUM,
+    COLUMN_INHALT,
+    COLUMN_THEMA_AUSFALL,
+    PlanTableData,
+    header_index,
+    parse_plan_row_date,
+)
 from kursplaner.core.domain.row_identity import extract_row_reference
 from kursplaner.core.domain.school_wide_cancellation import (
     CourseApplicationLedger,
@@ -19,15 +26,6 @@ from kursplaner.core.domain.school_wide_cancellation import (
     UnitReference,
 )
 from kursplaner.core.ports.repositories import PlanRepository
-
-
-def _col_index(headers: list[str], name: str) -> int | None:
-    """Liefert den Index einer Spaltenueberschrift (case-insensitiv); None falls fehlt."""
-    lc = name.lower()
-    for i, h in enumerate(headers):
-        if str(h).strip().lower() == lc:
-            return i
-    return None
 
 
 def _position_in_date(rows: list[list[str]], idx_datum: int, target_index: int, raw_datum: str) -> int:
@@ -84,9 +82,9 @@ class SchoolWideCancellationApplyUseCase:
         reason: str,
     ) -> CourseApplicationLedger:
         headers = table.headers
-        idx_datum = _col_index(headers, "datum")
-        idx_inhalt = _col_index(headers, "inhalt")
-        idx_thema = _col_index(headers, "thema/ausfall")
+        idx_datum = header_index(headers, COLUMN_DATUM)
+        idx_inhalt = header_index(headers, COLUMN_INHALT)
+        idx_thema = header_index(headers, COLUMN_THEMA_AUSFALL)
         if idx_datum is None or idx_inhalt is None or idx_thema is None:
             return CourseApplicationLedger(moves=())
 

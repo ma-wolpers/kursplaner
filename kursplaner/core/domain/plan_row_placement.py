@@ -14,16 +14,13 @@ from datetime import date
 from typing import Callable
 
 from kursplaner.core.domain.content_markers import resolve_row_cancel_state
-from kursplaner.core.domain.plan_table import parse_plan_row_date
-
-
-def _col_index(headers: list[str], name: str) -> int | None:
-    """Liefert den Index einer Spaltenueberschrift (case-insensitiv); None falls fehlt."""
-    lc = name.lower()
-    for i, h in enumerate(headers):
-        if str(h).strip().lower() == lc:
-            return i
-    return None
+from kursplaner.core.domain.plan_table import (
+    COLUMN_DATUM,
+    COLUMN_INHALT,
+    COLUMN_THEMA_AUSFALL,
+    header_index,
+    parse_plan_row_date,
+)
 
 
 def find_stattfindend_rows_in_range(
@@ -39,7 +36,7 @@ def find_stattfindend_rows_in_range(
     tatsaechlichen Anwenden eines schulweiten Ausfalls, damit beide nicht
     unabhaengig voneinander driften.
     """
-    idx_datum = _col_index(headers, "datum")
+    idx_datum = header_index(headers, COLUMN_DATUM)
     if idx_datum is None:
         return []
 
@@ -101,11 +98,11 @@ def strip_empty_dateless_rows(headers: list[str], rows: list[list[str]]) -> list
     selbst datumslose Zeilen erzeugen kann (Schulweite-Ausfall-Apply/-Revert,
     `TimetableChangeDialog`-Uebernehmen).
     """
-    idx_datum = _col_index(headers, "datum")
+    idx_datum = header_index(headers, COLUMN_DATUM)
     if idx_datum is None:
         return list(rows)
-    idx_inhalt = _col_index(headers, "inhalt")
-    idx_thema_ausfall = _col_index(headers, "thema/ausfall")
+    idx_inhalt = header_index(headers, COLUMN_INHALT)
+    idx_thema_ausfall = header_index(headers, COLUMN_THEMA_AUSFALL)
 
     result: list[list[str]] = []
     for row in rows:
