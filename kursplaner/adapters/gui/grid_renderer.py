@@ -32,6 +32,7 @@ from kursplaner.adapters.gui.sequence_field_grid_renderer import (
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.warning_marker import WARNING_GLYPH
 from kursplaner.core.usecases.day_label_format import short_day_label
+from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import view_blocks
 
 
 class GridRenderer:
@@ -398,11 +399,11 @@ class GridRenderer:
 
         for field_key in SEQUENCE_FIELD_ROW_ORDER:
             row_idx = SEQUENCE_FIELD_ROW_ORDER.index(field_key)
-            for view in self.app.topic_sequence_plans:
+            for view, block in view_blocks(self.app.topic_sequence_plans):
                 full_span = self._sequence_field_renderer._run_span(
-                    row_index_to_grid_col, view.run.first_row_index, view.run.last_row_index
+                    row_index_to_grid_col, block.first_row_index, block.last_row_index
                 )
-                widget_key = (field_key, view.run.first_row_index)
+                widget_key = (field_key, block.first_row_index)
                 existing = self.app.sequence_field_widgets.get(widget_key)
                 domain_value = view.field_text(field_key)
 
@@ -415,7 +416,7 @@ class GridRenderer:
 
                 if sub_span is None:
                     if existing is not None:
-                        self._evict_sequence_field_to_cold(field_key, view.run.first_row_index, existing, domain_value)
+                        self._evict_sequence_field_to_cold(field_key, block.first_row_index, existing, domain_value)
                     continue
 
                 if existing is not None:
@@ -438,7 +439,7 @@ class GridRenderer:
                 )
                 cell.grid(row=row_idx, column=sub_span.start, columnspan=len(sub_span), sticky="nsew")
                 self._sequence_field_renderer._bind_events(
-                    cell, field_key=field_key, first_row_index=view.run.first_row_index
+                    cell, field_key=field_key, first_row_index=block.first_row_index
                 )
                 self.app.sequence_field_widgets[widget_key] = cell
 

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from sequence_view_factory import make_plan_view
 from test_sequence_plan_repository import _build_table
 
 from kursplaner.adapters.gui.editor_controller import MainWindowEditorController
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
-from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 from kursplaner.core.usecases.tracked_write_usecase import TrackedWriteUseCase
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.repositories.command_repository import FileSystemCommandRepository
@@ -45,7 +45,7 @@ def test_saving_the_sequence_goal_records_one_undoable_entry(tmp_path):
         _is_rebuilding_grid=False,
         current_table=table,
         sequence_field_widgets={("Sequenzziel", 0): _Cell("Brüche verstehen")},
-        topic_sequence_plans=[TopicSequencePlanView(TopicSequenceRun("Brüche", (0, 1)), path, "", ())],
+        topic_sequence_plans=[make_plan_view(TopicSequenceRun("Brüche", (0, 1)), path)],
         pending_cell_text={},
         _collect_day_columns=lambda: None,
         _rebuild_grid=lambda: None,

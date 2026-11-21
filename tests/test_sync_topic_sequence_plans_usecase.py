@@ -57,7 +57,7 @@ def test_creates_sequence_file_only_for_runs_with_at_least_two_members(tmp_path)
     views = usecase.execute(table=table, day_columns=day_columns)
 
     assert len(views) == 1
-    assert views[0].run.oberthema == "Lineare Funktionen"
+    assert views[0].oberthema == "Lineare Funktionen"
     assert views[0].sequence_path.exists()
     assert views[0].sequenzziel == ""
     assert views[0].leitkompetenzen == ()
@@ -237,8 +237,8 @@ def test_runs_with_the_same_oberthema_form_one_sequence_with_one_file_and_full_e
 
     views = usecase.execute(table=table, day_columns=day_columns)
 
-    assert [view.run.member_row_indices for view in views] == [(0, 1), (3,)]
-    assert views[0].sequence_path == views[1].sequence_path
-    content = views[0].sequence_path.read_text(encoding="utf-8")
+    [view] = views  # eine View je Sequenz
+    assert [block.member_row_indices for block in view.blocks] == [(0, 1), (3,)]
+    content = view.sequence_path.read_text(encoding="utf-8")
     assert all(topic in content for topic in ("Teilen", "Kürzen", "Erweitern"))
     assert "Winkel" not in content

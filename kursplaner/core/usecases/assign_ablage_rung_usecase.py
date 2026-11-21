@@ -19,7 +19,7 @@ Je Zielart genau ein Weg (`_prepare` ist die einzige Entscheidungsstelle):
 - `LOOSE_UNIT` mit ``merge=True`` → Inhalt in die vorhandene Einheit übernehmen.
 
 Danach erhält die Einheit das Oberthema der Sequenz und gehört damit zur Sequenz,
-egal wo sie steht (`topic_sequence_runs.group_into_sequences`). Pfad neuer Dateien
+egal wo sie steht (`topic_sequence_runs.compute_topic_sequences`). Pfad neuer Dateien
 vorab über `LessonRepository.new_lesson_path`, damit Undo/Rollback sie entfernen.
 Die Regeln stehen in `sequence_ladder_assign`, die Schreibschritte in
 `sequence_ladder_writes`; hier wird nur gelesen, geprüft und orchestriert.
@@ -45,7 +45,7 @@ from kursplaner.core.domain.sequence_ladder_assign import (
 )
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
 from kursplaner.core.domain.sequence_ladder_homes import AblageHome, UnitContent, UnitHome, term_home
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence
 from kursplaner.core.ports.repositories import LessonRepository, PlanRepository, SequencePlanRepository
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderResult
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
@@ -131,9 +131,9 @@ class AssignAblageRungUseCase:
         self._writers = LadderWriters(lesson_edit=lesson_edit, lessons=lesson_repo, sequences=sequence_plan_repo)
 
     @staticmethod
-    def targets(*, runs: Sequence[TopicSequenceRun], day_columns: Sequence[DayColumn]) -> AssignTargets:
+    def targets(*, sequence: TopicSequence, day_columns: Sequence[DayColumn]) -> AssignTargets:
         """Zielzeilen chronologisch vom ersten Termin bis `FOLLOWING_ROWS` nach dem letzten."""
-        terms = {day.row_index for day in sequence_term_days(day_columns, runs)}
+        terms = {day.row_index for day in sequence_term_days(day_columns, sequence)}
         days = sorted(day_columns, key=lambda d: d.row_index)
         first = min(terms, default=-1)
         last = max(terms, default=-1)
@@ -148,8 +148,7 @@ class AssignAblageRungUseCase:
         *,
         table: PlanTableData,
         sequence_path: Path,
-        oberthema: str,
-        runs: Sequence[TopicSequenceRun],
+        sequence: TopicSequence,
         day_columns: Sequence[DayColumn],
         rung: int,
         target_row: int,
@@ -159,13 +158,13 @@ class AssignAblageRungUseCase:
 
         *merge* nur bei `LOOSE_UNIT`: Inhalt in die vorhandene Einheit übernehmen statt einzufügen.
         """
-        prepared = self._prepare(table, sequence_path, runs, day_columns, rung, target_row, merge)
+        prepared = self._prepare(table, sequence_path, sequence, day_columns, rung, target_row, merge)
         if isinstance(prepared, str):
             return AssignCheck(error=prepared)
         if prepared.unit_path is None:
             return AssignCheck(creates_file=True, shifted=len(prepared.moves or ()))
         return AssignCheck(
-            warnings=overwrite_warnings(prepared.rung, prepared.old, prepared.day.oberthema(), oberthema)
+            warnings=overwrite_warnings(prepared.rung, prepared.old, prepared.day.oberthema(), sequence.oberthema)
         )
 
     def execute(
@@ -173,8 +172,7 @@ class AssignAblageRungUseCase:
         *,
         table: PlanTableData,
         sequence_path: Path,
-        oberthema: str,
-        runs: Sequence[TopicSequenceRun],
+        sequence: TopicSequence,
         day_columns: Sequence[DayColumn],
         rung: int,
         target_row: int,
@@ -185,14 +183,13 @@ class AssignAblageRungUseCase:
         Args:
             table: Geöffnete Planung (wird beim Einfügen/Anlegen geändert und gespeichert).
             sequence_path: Sequenzdatei.
-            oberthema: Oberthema der Sequenz (bekommt die Ziel-Einheit).
-            runs: Alle Läufe mit diesem Pfad.
+            sequence: Die Sequenz; ihr Oberthema bekommt die Ziel-Einheit.
             day_columns: Alle Tagesspalten des Plans.
             rung: Index der Ablage-Sprosse in der Leiter.
             target_row: Tabellenzeile des Ziels.
             merge: Bei `LOOSE_UNIT` übernehmen statt einfügen.
         """
-        prepared = self._prepare(table, sequence_path, runs, day_columns, rung, target_row, merge)
+        prepared = self._prepare(table, sequence_path, sequence, day_columns, rung, target_row, merge)
         if isinstance(prepared, str):
             return EditSequenceLadderResult(False, None, prepared)
         creates = prepared.unit_path is None
@@ -216,7 +213,7 @@ class AssignAblageRungUseCase:
                     hours = max(1, prepared.day.stunden())
                     self._lessons.create_linked_lesson_file(table, target_row, "", hours, lesson_path=path)
                     self._plans.save_plan_table(table)
-                self._lesson_edit.set_lesson_oberthemen(path, [oberthema], prepared.day.group_name)
+                self._lesson_edit.set_lesson_oberthemen(path, [sequence.oberthema], prepared.day.group_name)
                 for write in writes:
                     write.run()
             except Exception:
@@ -234,14 +231,14 @@ class AssignAblageRungUseCase:
         self,
         table: PlanTableData,
         sequence_path: Path,
-        runs: Sequence[TopicSequenceRun],
+        sequence: TopicSequence,
         day_columns: Sequence[DayColumn],
         rung: int,
         target_row: int,
         merge: bool,
     ) -> _Prepared | str:
         """Liest frisch, prüft alle Regeln und entscheidet den Weg; Fehlertext oder vorbereiteter Zustand."""
-        terms = sequence_term_days(day_columns, runs)
+        terms = sequence_term_days(day_columns, sequence)
         try:
             snapshot = self._source.read(sequence_path, terms)
         except (LadderFormatError, OSError) as exc:

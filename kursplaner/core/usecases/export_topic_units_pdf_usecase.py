@@ -27,9 +27,8 @@ from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
     EXPORTABLE_LESSON_TYPES,
     build_export_rows,
-    compute_topic_sequence_runs,
+    compute_topic_sequences,
     find_sequence_for_row_index,
-    group_into_sequences,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.sequence_export import ExportTableRow
@@ -152,7 +151,7 @@ class ExportTopicUnitsPdfUseCase:
             raise RuntimeError("Der Export ist nur fuer Unterrichts- oder LZK-Einheiten verfuegbar.")
 
         # min_members=1: auch eine einzelne Einheit mit Oberthema ist exportierbar.
-        sequences = group_into_sequences(compute_topic_sequence_runs(day_columns), min_members=1)
+        sequences = compute_topic_sequences(day_columns, min_members=1)
         sequence = find_sequence_for_row_index(sequences, selected_row_index)
         if sequence is None or not sequence.oberthema:
             raise RuntimeError("Die ausgewaehlte Einheit hat kein Oberthema.")

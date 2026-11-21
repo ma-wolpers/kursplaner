@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from day_column_factory import make_day_column
+from sequence_view_factory import make_plan_views
 
 from kursplaner.adapters.gui import sequence_ladder_host as host_module
 from kursplaner.adapters.gui.detail_surface import DetailSurface
@@ -14,18 +15,19 @@ from kursplaner.adapters.gui.sequence_ladder_host import SequenceLadderHost
 from kursplaner.core.domain.sequence_ladder import LadderSide
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungInfo, RungKind
-from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 
 A, B = Path("Sequenzen/a Brüche.md"), Path("Sequenzen/a Prozente.md")
 
 
 def _app(selected=()):
     days = [make_day_column(row_index=i, datum=f"0{i + 2}-11-26") for i in range(6)]
-    plans = [
-        TopicSequencePlanView(TopicSequenceRun("Brüche", (0, 2)), A, "", ()),
-        TopicSequencePlanView(TopicSequenceRun("Prozente", (3, 4)), B, "", ()),
-        TopicSequencePlanView(TopicSequenceRun("Brüche", (5,)), A, "", ()),
-    ]
+    plans = make_plan_views(
+        [
+            (TopicSequenceRun("Brüche", (0, 2)), A),
+            (TopicSequenceRun("Prozente", (3, 4)), B),
+            (TopicSequenceRun("Brüche", (5,)), A),
+        ]
+    )
     app = SimpleNamespace(
         topic_sequence_plans=plans, raw_day_columns=days, day_columns=days, selected_day_indices=set(selected)
     )
@@ -47,8 +49,8 @@ def test_selected_column_inside_a_run_picks_its_sequence():
 
 
 def test_context_unites_all_runs_of_one_file():
-    oberthema, runs, days = SequenceLadderHost(_app())._context(A)
-    assert oberthema == "Brüche" and [r.member_row_indices for r in runs] == [(0, 2), (5,)]
+    sequence, days = SequenceLadderHost(_app())._context(A)
+    assert sequence.oberthema == "Brüche" and [r.member_row_indices for r in sequence.runs] == [(0, 2), (5,)]
     assert len(days) == 6
     assert SequenceLadderHost(_app())._context(Path("fehlt.md")) is None
 

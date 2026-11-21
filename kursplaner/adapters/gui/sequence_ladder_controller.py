@@ -62,12 +62,12 @@ from kursplaner.core.domain.sequence_ladder_ops import (
     SetIdeas,
     StepBlock,
 )
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderResult, EditSequenceLadderUseCase
 from kursplaner.core.usecases.load_sequence_ladder_usecase import LoadSequenceLadderUseCase, SequenceLadderView
 
-LadderContext = tuple[str, Sequence[TopicSequenceRun], Sequence[DayColumn]]
-"""(Oberthema, Läufe mit dieser Datei, alle Tagesspalten) – ``None``, wenn die Sequenz im Kurs fehlt."""
+LadderContext = tuple[TopicSequence, Sequence[DayColumn]]
+"""(Sequenz, alle Tagesspalten) – ``None``, wenn die Sequenz im Kurs fehlt."""
 
 
 TextTarget = Union[str, BoardSlot]
@@ -200,7 +200,7 @@ class SequenceLadderController:
         self._load, self._edit, self._context = load, edit, context
         self._dialogs, self._render, self._after_write = dialogs, render, after_write
         self._text_input, self._assign = text_input, assign
-        self._oberthema = sequence_path.stem
+        self._sequence = TopicSequence(sequence_path.stem, ())  # zuletzt gesehene Sequenz
         self._missing = False
         self._reload_count = 0
         self.view: SequenceLadderView | None = None
@@ -225,11 +225,10 @@ class SequenceLadderController:
         context = self._context()
         self._missing = context is None
         if context is not None:
-            self._oberthema = context[0]
-        oberthema, runs, days = context if context is not None else (self._oberthema, (), ())
-        self.view = self._load.execute(
-            sequence_path=self.sequence_path, oberthema=oberthema, runs=runs, day_columns=days
-        )
+            self._sequence = context[0]
+        # Fehlt die Sequenz im Kurs, bleibt ihr Name sichtbar (leere Sequenz, schreibgeschützt).
+        sequence, days = context if context is not None else (TopicSequence(self._sequence.oberthema, ()), [])
+        self.view = self._load.execute(sequence_path=self.sequence_path, sequence=sequence, day_columns=days)
         if cursor is not None:
             self.cursor = cursor
         elif self.cursor is None:
@@ -267,8 +266,8 @@ class SequenceLadderController:
         context = self._writable_context()
         if context is None:
             return None
-        _oberthema, runs, days = context
-        result = self._edit.execute(sequence_path=self.sequence_path, runs=runs, day_columns=days, operation=op)
+        sequence, days = context
+        result = self._edit.execute(sequence_path=self.sequence_path, sequence=sequence, day_columns=days, operation=op)
         return self._finish(result, cursor_after)
 
     def _finish(self, result: EditSequenceLadderResult, cursor_after: Cursor) -> EditSequenceLadderResult:
@@ -487,10 +486,10 @@ class SequenceLadderController:
         context = self._writable_context()
         if context is None:
             return
-        _oberthema, runs, days = context
+        sequence, days = context
         result = self._edit.import_competences(
             sequence_path=self.sequence_path,
-            runs=runs,
+            sequence=sequence,
             day_columns=days,
             snapshot=snapshot,
             kompetenz_ids=kompetenz_ids,

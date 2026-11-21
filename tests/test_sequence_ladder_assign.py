@@ -26,7 +26,7 @@ from kursplaner.core.domain.sequence_ladder_homes import (
     term_home,
 )
 from kursplaner.core.domain.sequence_ladder_ops import AddBlock, SetIdeas
-from kursplaner.core.domain.topic_sequence_runs import compute_topic_sequence_runs, group_into_sequences
+from kursplaner.core.domain.topic_sequence_runs import compute_topic_sequences
 from kursplaner.core.usecases.assign_ablage_rung_usecase import MEMBER_ERROR, AssignAblageRungUseCase
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.load_sequence_ladder_usecase import sequence_term_days
@@ -132,7 +132,7 @@ def assign_env(tmp_path):
 
         def run(step: str, target_row: int, rung: int = ablage, merge: bool = False):
             call = usecase.check if step == "check" else usecase.execute
-            return call(table=table, sequence_path=env.sequence_path, oberthema="Brüche", runs=env.runs,
+            return call(table=table, sequence_path=env.sequence_path, sequence=env.sequence,
                         day_columns=days, rung=rung, target_row=target_row, merge=merge)  # fmt: skip
 
         return env, table, days, usecase, run
@@ -155,7 +155,7 @@ def _after_unit(env, row: int):
 
 def test_targets_are_chronological_with_kinds_and_the_suggestion_after_the_last_term(assign_env):
     env, _table, days, usecase, _run = assign_env(after="KG-N---")
-    targets = usecase.targets(runs=env.runs, day_columns=days)
+    targets = usecase.targets(sequence=env.sequence, day_columns=days)
     kinds = [(t.day.row_index, t.kind) for t in targets.targets]
     assert kinds == [
         (0, TargetKind.MEMBER), (1, TargetKind.MEMBER), (2, TargetKind.BLOCKED), (3, TargetKind.OCCUPIED),
@@ -186,8 +186,8 @@ def test_a_later_free_row_becomes_part_of_the_sequence(assign_env):
 
     after = list(days)
     after[3] = make_day_column(row_index=3, datum=days[3].datum, inhalt=table.rows[3][1], link=created, yaml=data)
-    [sequence] = [s for s in group_into_sequences(compute_topic_sequence_runs(after)) if s.oberthema == "Brüche"]
-    assert 3 in {day.row_index for day in sequence_term_days(after, list(sequence.runs))}
+    [sequence] = [s for s in compute_topic_sequences(after) if s.oberthema == "Brüche"]
+    assert 3 in {day.row_index for day in sequence_term_days(after, sequence)}
 
 
 def test_insert_before_another_sequence_shifts_it_but_the_lzk_stays_and_undo_restores(assign_env):

@@ -14,7 +14,7 @@ from day_column_factory import make_day_column
 from test_sequence_plan_repository import _build_table
 
 from kursplaner.core.domain.day_column import DayColumn
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence, TopicSequenceRun
 from kursplaner.core.usecases.command_executor_usecase import CommandExecutorUseCase
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderUseCase
 from kursplaner.core.usecases.history_usecase import HistoryUseCase
@@ -59,28 +59,26 @@ class LadderEnv:
     sequence_path: Path
     units: list[Path]
     days: list[DayColumn]
-    runs: list[TopicSequenceRun]
+    sequence: TopicSequence
     history: HistoryUseCase
     sequence_repo: FileSystemSequencePlanRepository
     load: LoadSequenceLadderUseCase
     edit: EditSequenceLadderUseCase
 
     @property
-    def context(self) -> tuple[str, list[TopicSequenceRun], list[DayColumn]]:
-        """Controller-Kontext (Oberthema, Läufe, Tagesspalten)."""
-        return "Brüche", self.runs, self.days
+    def context(self) -> tuple[TopicSequence, list[DayColumn]]:
+        """Controller-Kontext (`LadderContext`: Sequenz, Tagesspalten)."""
+        return self.sequence, self.days
 
     def execute(self, operation):
         """Leiter-Operation über den echten Edit-Use-Case."""
         return self.edit.execute(
-            sequence_path=self.sequence_path, runs=self.runs, day_columns=self.days, operation=operation
+            sequence_path=self.sequence_path, sequence=self.sequence, day_columns=self.days, operation=operation
         )
 
     def view(self):
         """Ansicht über den echten Lade-Use-Case."""
-        return self.load.execute(
-            sequence_path=self.sequence_path, oberthema="Brüche", runs=self.runs, day_columns=self.days
-        )
+        return self.load.execute(sequence_path=self.sequence_path, sequence=self.sequence, day_columns=self.days)
 
 
 def make_ladder_env(
@@ -116,7 +114,8 @@ def make_ladder_env(
             yaml = {"Stundentyp": "Unterricht", "Oberthema": "Brüche"}
             units.append(path)
         days.append(make_day_column(row_index=index, datum=datum, inhalt=f"[[{stem}]]", link=path, yaml=yaml))
-    runs = [TopicSequenceRun("Brüche", tuple(day.row_index for day in days if not day.is_cancel()))] if days else []
+    members = tuple(day.row_index for day in days if not day.is_cancel())
+    sequence = TopicSequence("Brüche", (TopicSequenceRun("Brüche", members),) if members else ())
     lesson_repo = FileSystemLessonRepository()
     history = HistoryUseCase(CommandExecutorUseCase(command_repo=FileSystemCommandRepository()))
     source = SequenceLadderSource(sequence_plan_repo=sequence_repo, lesson_repo=lesson_repo)
@@ -128,4 +127,4 @@ def make_ladder_env(
         tracked_write=TrackedWriteUseCase(history),
     )
     load = LoadSequenceLadderUseCase(source, originals)
-    return LadderEnv(sequence_path, units, days, runs, history, sequence_repo, load, edit)
+    return LadderEnv(sequence_path, units, days, sequence, history, sequence_repo, load, edit)

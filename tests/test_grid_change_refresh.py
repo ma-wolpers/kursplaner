@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
+from sequence_view_factory import make_plan_view
+
 from kursplaner.adapters.gui.grid_change_refresh import capture_grid_snapshot, refresh_grid_changes
+from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
 from tests.day_column_factory import make_day_column
 
 
@@ -65,9 +69,7 @@ def _days(*contents):
 
 
 def _sequence(oberthema, rows, ziel=""):
-    return SimpleNamespace(
-        run=SimpleNamespace(oberthema=oberthema, member_row_indices=tuple(rows)), sequenzziel=ziel, leitkompetenzen=()
-    )
+    return make_plan_view(TopicSequenceRun(oberthema, tuple(rows)), Path(f"{oberthema}.md"), sequenzziel=ziel)
 
 
 def test_swap_patches_only_the_two_swapped_columns_and_tail_once():

@@ -33,7 +33,7 @@ from kursplaner.core.domain.sequence_ladder_ops import (
     apply_ladder_operation,
     operation_label,
 )
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence
 from kursplaner.core.ports.repositories import LessonRepository, SequencePlanRepository
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.load_sequence_ladder_usecase import sequence_term_days
@@ -84,7 +84,7 @@ class EditSequenceLadderUseCase:
         self,
         *,
         sequence_path: Path,
-        runs: Sequence[TopicSequenceRun],
+        sequence: TopicSequence,
         day_columns: Sequence[DayColumn],
         operation: LadderOperation,
         notes: tuple[str, ...] = (),
@@ -93,13 +93,13 @@ class EditSequenceLadderUseCase:
 
         Args:
             sequence_path: Sequenzdatei.
-            runs: Alle Läufe mit diesem Pfad (bestimmen die Termine).
+            sequence: Die Sequenz (bestimmt die Termine, sequence_term_days).
             day_columns: Alle Tagesspalten des geöffneten Plans.
             operation: Die Operation (siehe `sequence_ladder_ops`).
             notes: Zusätzliche Hinweise, die dem Ergebnis vorangestellt werden.
         """
         try:
-            snapshot = self._source.read(sequence_path, sequence_term_days(day_columns, runs))
+            snapshot = self._source.read(sequence_path, sequence_term_days(day_columns, sequence))
         except (LadderFormatError, OSError) as exc:
             return EditSequenceLadderResult(False, None, str(exc), notes)
         try:
@@ -138,7 +138,7 @@ class EditSequenceLadderUseCase:
         self,
         *,
         sequence_path: Path,
-        runs: Sequence[TopicSequenceRun],
+        sequence: TopicSequence,
         day_columns: Sequence[DayColumn],
         snapshot: KompetenzGraphSnapshot,
         kompetenz_ids: Iterable[str],
@@ -158,7 +158,7 @@ class EditSequenceLadderUseCase:
             return EditSequenceLadderResult(False, None, "Keine übernehmbaren Kompetenzen markiert.", problems)
         return self.execute(
             sequence_path=sequence_path,
-            runs=runs,
+            sequence=sequence,
             day_columns=day_columns,
             operation=ImportCompetences(items),
             notes=problems,

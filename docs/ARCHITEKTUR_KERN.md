@@ -1066,15 +1066,21 @@ Plattenwert; Einzelwerte bleiben unangetastet). Nicht eindeutig migrierbare Date
 als Ladehinweis gemeldet — es gibt kein dauerhaftes Dualschema, nur Eingabetoleranz für noch nicht geöffnete Kurse.
 
 **Themenfolgen:** Eine Mehrthemen-LZK setzt nur die *laufende* Kette fort, wenn deren Thema unter ihren
-Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einheit gehört zu mehreren Läufen.
+Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einheit gehört zu mehreren Läufen –
+wohl aber zu mehreren **Sequenzen**: Jede Sequenz, deren Thema die LZK nennt, führt sie in `shared_rows`
+(Leiter-Termin, Export, Auswahl), ohne dass sich Grid-Blöcke überlappen.
 
 **Sequenz = alle Läufe eines Oberthemas (2026-11-21):** Ein *Lauf* (`TopicSequenceRun`) ist ein zusammenhängender
 Block benachbarter Einheiten mit gleichem Oberthema – das Grid spannt je Lauf eine Sequenzfeld-Zelle, Läufe
 überlappen nie. Eine *Sequenz* (`TopicSequence`, `group_into_sequences`) sind **alle** Läufe mit demselben
 Oberthema, auch wenn anderes dazwischen liegt, sobald sie zusammen `MIN_SEQUENCE_MEMBER_COUNT` (2) Einheiten haben;
-dann zählt auch ein Lauf mit einer Einheit. Je Sequenz eine Sequenzdatei mit der Export-Tabelle aller Mitglieder
-(`SyncTopicSequencePlansUseCase`, eine `TopicSequencePlanView` je Lauf, gleicher `sequence_path`); der
-Sequenzplan-Export nimmt die ganze Sequenz. Einzige Gruppierungsregel ist `group_into_sequences`.
+dann zählt auch ein Lauf mit einer Einheit. Einstieg ist `compute_topic_sequences` (Läufe → Gruppen →
+geteilte Mehrthemen-LZKs). Je Sequenz **genau eine** `TopicSequencePlanView(sequence, sequence_path, …)` und eine
+Sequenzdatei mit der Export-Tabelle aller Mitglieder; das Grid spannt die Sequenzfelder über `view.blocks`
+(`view_blocks` ist der einzige Weg über alle Blöcke), die Leiter bekommt `LadderContext = (TopicSequence,
+Tagesspalten)` und bildet ihre Termine mit `sequence_term_days(days, sequence)` (Mitglieder inkl. geteilter
+LZKs + Ausfälle in eigenen Blöcken). „Zeile → Sequenz“ entscheidet nur `find_sequence_for_row_index` (Block
+zuerst, sonst teilende Sequenz).
 
 ---
 

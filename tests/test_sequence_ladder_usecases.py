@@ -21,7 +21,7 @@ from kursplaner.core.domain.sequence_ladder_ops import (
     SetIdeas,
     StepBlock,
 )
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence, TopicSequenceRun, compute_topic_sequences
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
 from kursplaner.core.usecases.load_sequence_ladder_usecase import RungKind, sequence_term_days
 from kursplaner.infrastructure.repositories.lesson_repository import FileSystemLessonRepository
@@ -90,8 +90,33 @@ def test_term_days_cover_members_and_inner_cancellations_of_every_run():
         make_day_column(row_index=3, datum="05-11-26", yaml={"Stundentyp": "Unterricht"}),
         make_day_column(row_index=4, datum="06-11-26", yaml={"Stundentyp": "Hospitation"}),
     ]
-    runs = [TopicSequenceRun("Brüche", (0, 2)), TopicSequenceRun("Brüche", (4,))]
-    assert [d.row_index for d in sequence_term_days(days, runs)] == [0, 1, 2, 4]
+    sequence = TopicSequence("Brüche", (TopicSequenceRun("Brüche", (0, 2)), TopicSequenceRun("Brüche", (4,))))
+    assert [d.row_index for d in sequence_term_days(days, sequence)] == [0, 1, 2, 4]
+
+
+def test_a_shared_multi_topic_lzk_is_a_term_of_every_sequence_it_names(tmp_path):
+    (tmp_path / "Einheiten").mkdir()
+    lzk = tmp_path / "Einheiten" / "lzk.md"  # verwaltete Einheiten-Datei (sonst gilt sie nicht als LZK)
+    lzk.write_text("---\nStundentyp: LZK\n---\n", encoding="utf-8")
+    days = [
+        make_day_column(row_index=0, datum="02-11-26", yaml={"Stundentyp": "Unterricht", "Oberthema": "Brüche"}),
+        make_day_column(row_index=1, datum="03-11-26", yaml={"Stundentyp": "Unterricht", "Oberthema": "Prozente"}),
+        make_day_column(row_index=2, datum="04-11-26", yaml={"Stundentyp": "Unterricht", "Oberthema": "Prozente"}),
+        make_day_column(row_index=3, datum="05-11-26", yaml={"Stundentyp": "Unterricht", "Oberthema": "Brüche"}),
+        make_day_column(
+            row_index=4,
+            datum="06-11-26",
+            link=lzk,
+            inhalt="[[lzk]]",
+            yaml={"Stundentyp": "LZK", "Oberthema": ["[[Brüche]]", "[[Prozente]]"]},
+        ),  # fmt: skip
+    ]
+    by_topic = {sequence.oberthema: sequence for sequence in compute_topic_sequences(days)}
+    assert set(by_topic) == {"Brüche", "Prozente"}
+    assert [d.row_index for d in sequence_term_days(days, by_topic["Brüche"])] == [0, 3, 4]
+    assert [d.row_index for d in sequence_term_days(days, by_topic["Prozente"])] == [1, 2, 4]
+    # Grid-Blöcke überlappen nie: die LZK steht nur im Block von „Brüche“.
+    assert [run.member_row_indices for run in by_topic["Prozente"].runs] == [(1, 2)]
 
 
 def test_load_shows_unit_contents_labels_rungs_and_locks_markers(tmp_path):
@@ -208,7 +233,7 @@ def test_import_lands_on_the_first_open_rung_above_the_highest_occupied(tmp_path
     )
     result = env.edit.import_competences(
         sequence_path=env.sequence_path,
-        runs=env.runs,
+        sequence=env.sequence,
         day_columns=env.days,
         snapshot=snapshot,
         kompetenz_ids=["Mat-PL-1", "Mat-X-1"],
@@ -228,7 +253,7 @@ def test_mixed_competences_go_to_the_chosen_column_and_semicolon_titles_stay_loa
     ]
     result = env.edit.import_competences(
         sequence_path=env.sequence_path,
-        runs=env.runs,
+        sequence=env.sequence,
         day_columns=env.days,
         snapshot=build_kompetenz_graph_snapshot(nodes, bereiche),
         kompetenz_ids=["Mat-GF-28", "Mat-GF-29"],

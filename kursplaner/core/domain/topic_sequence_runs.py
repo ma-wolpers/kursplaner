@@ -10,7 +10,9 @@ Zwei Ebenen:
   Lauf. Läufe sind die Blöcke, über die das Grid die Sequenzfelder spannt.
 - **Sequenz** (`TopicSequence`): **alle** Läufe mit demselben Oberthema, auch wenn
   anderes dazwischen liegt (`group_into_sequences`), sobald sie zusammen
-  mindestens `MIN_SEQUENCE_MEMBER_COUNT` Einheiten haben.
+  mindestens `MIN_SEQUENCE_MEMBER_COUNT` Einheiten haben. Eine LZK mit mehreren
+  Oberthemen steht in genau einem Lauf, gehört aber zu jeder Sequenz, deren Thema
+  sie nennt (`TopicSequence.shared_rows`). Einstieg: `compute_topic_sequences`.
 
 Die Berechnung arbeitet bewusst auf der vollständigen, chronologischen Tagesliste
 (z. B. `app.raw_day_columns`) und nicht auf einer nach Sichtbarkeits-Einstellungen
@@ -21,7 +23,7 @@ Anzeige-Einstellungen ist.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from kursplaner.core.domain.day_column import DayColumn
@@ -163,20 +165,35 @@ class TopicSequence:
 
     Die Läufe bleiben zusammenhängende Blöcke (das Grid zeichnet je Lauf eine
     Spannzelle; Blöcke überlappen nie). Die Sequenz selbst ist ihre Vereinigung.
+
+    ``shared_rows``: LZKs, die dieses Thema unter ihren Oberthemen nennen, aber im
+    Lauf einer anderen Sequenz stehen (eine Einheit gehört zu genau einem Lauf).
+    Sie zählen zur Sequenz (Leiter-Termine, Export, Auswahl), nicht aber zu den
+    Grid-Blöcken und nicht zur Mindestgröße (`own_member_count`).
     """
 
     oberthema: str
     runs: tuple[TopicSequenceRun, ...]
+    shared_rows: tuple[int, ...] = ()
 
     @property
-    def member_row_indices(self) -> tuple[int, ...]:
-        """Alle Einheiten der Sequenz chronologisch."""
+    def own_row_indices(self) -> tuple[int, ...]:
+        """Einheiten der eigenen Läufe chronologisch."""
         return tuple(sorted(row for run in self.runs for row in run.member_row_indices))
 
     @property
-    def member_count(self) -> int:
-        """Anzahl aller Einheiten der Sequenz."""
+    def member_row_indices(self) -> tuple[int, ...]:
+        """Alle Einheiten der Sequenz chronologisch (eigene Läufe + geteilte LZKs)."""
+        return tuple(sorted(self.own_row_indices + self.shared_rows))
+
+    @property
+    def own_member_count(self) -> int:
+        """Anzahl der Einheiten der eigenen Läufe (Maß für `MIN_SEQUENCE_MEMBER_COUNT`)."""
         return sum(run.member_count for run in self.runs)
+
+    def covers_in_block(self, row_index: int) -> bool:
+        """Liegt die Zeile in der Spanne eines eigenen Laufs (Grid-Block, inkl. Lücken wie Ausfall)?"""
+        return any(run.covers(row_index) for run in self.runs)
 
 
 def group_into_sequences(
@@ -200,12 +217,45 @@ def group_into_sequences(
     for run in runs:
         grouped.setdefault(run.oberthema, []).append(run)
     sequences = [TopicSequence(oberthema, tuple(members)) for oberthema, members in grouped.items()]
-    return [sequence for sequence in sequences if sequence.member_count >= min_members]
+    return [sequence for sequence in sequences if sequence.own_member_count >= min_members]
 
 
-def find_sequence_for_row_index(sequences: list[TopicSequence], row_index: int) -> TopicSequence | None:
-    """Sequenz, zu der die Einheit in *row_index* gehört (``None`` ohne Sequenz)."""
-    return next((sequence for sequence in sequences if row_index in sequence.member_row_indices), None)
+def compute_topic_sequences(
+    day_columns: list[DayColumn], min_members: int = MIN_SEQUENCE_MEMBER_COUNT
+) -> list[TopicSequence]:
+    """Einziger Weg zu den Sequenzen eines Plans: Läufe, Gruppierung, geteilte Mehrthemen-LZKs.
+
+    Args:
+        day_columns: Vollständige, unprojizierte Tagesliste (`app.raw_day_columns`).
+        min_members: Siehe `group_into_sequences`.
+    """
+    sequences = group_into_sequences(compute_topic_sequence_runs(day_columns), min_members)
+    lzk_topics = [
+        (day.row_index, day.oberthemen())
+        for day in day_columns
+        if isinstance(day, DayColumn) and day.lesson_type() == "LZK"
+    ]
+    return [
+        replace(
+            sequence,
+            shared_rows=tuple(
+                row
+                for row, topics in lzk_topics
+                if sequence.oberthema in topics and row not in sequence.own_row_indices
+            ),
+        )
+        for sequence in sequences
+    ]
+
+
+def find_sequence_for_row_index(sequences: Sequence[TopicSequence], row_index: int) -> TopicSequence | None:
+    """Sequenz einer Zeile: die, in deren Block sie liegt; sonst eine, die sie als LZK teilt.
+
+    Einzige Regel „Zeile → Sequenz“ (Export, „Sequenz der markierten Spalte“). Blöcke
+    überlappen nie, daher ist der erste Treffer eindeutig.
+    """
+    in_block = next((sequence for sequence in sequences if sequence.covers_in_block(row_index)), None)
+    return in_block or next((sequence for sequence in sequences if row_index in sequence.shared_rows), None)
 
 
 def find_run_for_row_index(runs: list[TopicSequenceRun], row_index: int) -> TopicSequenceRun | None:

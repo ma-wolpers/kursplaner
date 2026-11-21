@@ -22,6 +22,8 @@ import tkinter as tk
 from pathlib import Path
 from types import SimpleNamespace
 
+from sequence_view_factory import make_plan_view
+
 from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.adapters.gui.grid_renderer import GridRenderer
 from kursplaner.adapters.gui.sequence_field_grid_renderer import SequenceFieldGridRenderer
@@ -34,8 +36,8 @@ _DAY_COUNT = 10
 
 def _view(*, member_row_indices, sequenzziel="Ziel", leitkompetenzen=("Kompetenz",)) -> TopicSequencePlanView:
     run = TopicSequenceRun(oberthema="Testthema", member_row_indices=tuple(member_row_indices))
-    return TopicSequencePlanView(
-        run=run, sequence_path=Path("dummy-sequenz.md"), sequenzziel=sequenzziel, leitkompetenzen=leitkompetenzen
+    return make_plan_view(
+        run, Path("dummy-sequenz.md"), sequenzziel=sequenzziel, leitkompetenzen=tuple(leitkompetenzen)
     )
 
 

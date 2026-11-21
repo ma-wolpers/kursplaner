@@ -15,6 +15,7 @@ from kursplaner.adapters.gui.sequence_ladder_assign_flow import (
     target_options,
 )
 from kursplaner.core.domain.sequence_ladder_assign import TargetKind
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence
 from kursplaner.core.usecases.assign_ablage_rung_usecase import AssignCheck, AssignTarget, AssignTargets
 from kursplaner.core.usecases.edit_sequence_ladder_usecase import EditSequenceLadderResult
 
@@ -55,7 +56,7 @@ class _UseCase:
     def __init__(self, check: AssignCheck):
         self._check, self.checks, self.executed = check, [], []
 
-    def targets(self, *, runs, day_columns):
+    def targets(self, *, sequence, day_columns):
         return TARGETS
 
     def check(self, **kwargs):
@@ -74,7 +75,7 @@ def _flow(check=AssignCheck(), **dialog_args):
 
 
 def _run(flow):
-    return flow(6, ("Brüche", [], DAYS))
+    return flow(6, (TopicSequence("Brüche", ()), DAYS))
 
 
 def test_list_is_chronological_with_members_merged_greyed_and_the_suggestion_emphasized():
@@ -143,7 +144,7 @@ def test_controller_finishes_an_assignment_like_every_other_action(tmp_path):
     written, calls = [], []
 
     def assign(rung, context):
-        calls.append((rung, context[0]))
+        calls.append((rung, context[0].oberthema))
         return EditSequenceLadderResult(True, None, written=(env.units[0],))
 
     controller = SequenceLadderController(

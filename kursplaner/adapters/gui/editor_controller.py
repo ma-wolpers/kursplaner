@@ -9,6 +9,7 @@ from kursplaner.adapters.gui.lesson_builder_dialog import (
 )
 from kursplaner.adapters.gui.plan_tracked_write import run_plan_tracked_write
 from kursplaner.core.domain.list_cell_text import format_list_cell, parse_list_cell
+from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import view_blocks
 
 
 class MainWindowEditorController:
@@ -278,7 +279,11 @@ class MainWindowEditorController:
             return False
 
         view = next(
-            (item for item in self.app.topic_sequence_plans if item.run.first_row_index == first_row_index),
+            (
+                item
+                for item, block in view_blocks(self.app.topic_sequence_plans)
+                if block.first_row_index == first_row_index
+            ),
             None,
         )
         if view is None:
@@ -301,7 +306,7 @@ class MainWindowEditorController:
                 paths=[view.sequence_path],
                 action=lambda: self.update_sequence_goal_field_usecase.execute(
                     table=table,
-                    oberthema=view.run.oberthema,
+                    oberthema=view.oberthema,
                     field_key=sequence_field_key,
                     value=value,
                 ),

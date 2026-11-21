@@ -24,7 +24,7 @@ from kursplaner.core.domain.day_column import DayColumn, days_by_row
 from kursplaner.core.domain.sequence_ladder import BlockRef, LadderSide, SequenceLadder
 from kursplaner.core.domain.sequence_ladder_codec import LadderFormatError
 from kursplaner.core.domain.sequence_ladder_homes import RungKind, rung_kind
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence
 from kursplaner.core.usecases.day_label_format import short_day_label
 from kursplaner.core.usecases.sequence_ladder_source import SequenceLadderSource
 
@@ -101,20 +101,23 @@ def _originals(ladder: SequenceLadder, source: CompetenceOriginals | None) -> di
     return {kid: title for kid, title in found.items() if title}
 
 
-def sequence_term_days(day_columns: Sequence[DayColumn], runs: Sequence[TopicSequenceRun]) -> list[DayColumn]:
-    """Termine der Sequenz chronologisch: Mitglieder und Ausfälle innerhalb jedes Laufs.
+def sequence_term_days(day_columns: Sequence[DayColumn], sequence: TopicSequence) -> list[DayColumn]:
+    """Termine der Sequenz chronologisch (einzige Termin-Regel der Leiter).
+
+    Termine sind alle Einheiten der Sequenz (eigene Läufe und geteilte Mehrthemen-LZKs,
+    `TopicSequence.member_row_indices`) sowie Ausfälle innerhalb eines eigenen Laufs.
 
     Args:
         day_columns: Alle Tagesspalten des Plans (unprojiziert, `raw_day_columns`).
-        runs: Alle Läufe, die dieselbe Sequenzdatei teilen.
+        sequence: Die Sequenz (leer, wenn sie im Kurs nicht mehr vorkommt).
     """
     by_row = days_by_row(day_columns)
-    rows: set[int] = set()
-    for run in runs:
-        if not run.member_row_indices:
-            continue
-        members = set(run.member_row_indices)
-        rows.update(index for index in by_row if run.covers(index) and (index in members or by_row[index].is_cancel()))
+    members = set(sequence.member_row_indices)
+    rows = {
+        index
+        for index, day in by_row.items()
+        if index in members or (day.is_cancel() and sequence.covers_in_block(index))
+    }
     return [by_row[index] for index in sorted(rows)]
 
 
@@ -147,19 +150,18 @@ class LoadSequenceLadderUseCase:
         self,
         *,
         sequence_path: Path,
-        oberthema: str,
-        runs: Sequence[TopicSequenceRun],
+        sequence: TopicSequence,
         day_columns: Sequence[DayColumn],
     ) -> SequenceLadderView:
         """Lädt die Leiter; ein Lesefehler liefert eine schreibgeschützte Ansicht mit Fehlertext.
 
         Args:
             sequence_path: Sequenzdatei.
-            oberthema: Anzeigename der Sequenz.
-            runs: Alle Läufe mit diesem Pfad (leer, wenn die Sequenz im Kurs nicht mehr vorkommt).
+            sequence: Die Sequenz (Oberthema = Anzeigename; ohne Läufe, wenn sie im Kurs fehlt).
             day_columns: Alle Tagesspalten des geöffneten Plans.
         """
-        days = sequence_term_days(day_columns, runs)
+        oberthema = sequence.oberthema
+        days = sequence_term_days(day_columns, sequence)
         try:
             snapshot = self._source.read(sequence_path, days)
         except LadderFormatError as exc:

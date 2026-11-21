@@ -6,7 +6,8 @@ Sequenz-Dateiablage (`SequencePlanRepository`): für jede Sequenz (alle Läufe
 eines Oberthemas, zusammen mindestens `MIN_SEQUENCE_MEMBER_COUNT` Einheiten,
 `group_into_sequences`) wird sichergestellt, dass eine Sequenzdatei existiert,
 und deren aktuelles Sequenzziel/Leitkompetenzen wird für die Grid-Anzeige
-geladen – als eine View je Lauf (Grid-Spannzelle), alle mit derselben Datei.
+geladen – als genau eine View je Sequenz (`compute_topic_sequences`); das Grid
+spannt die Sequenzfelder über deren Blöcke (`TopicSequencePlanView.blocks`).
 
 Hält zusätzlich die `## Export`-Tabelle jeder Sequenzdatei aktuell (dieselbe
 Zeilenlogik wie beim manuellen "Exportieren als..." über
@@ -17,6 +18,7 @@ Einheiten zeigt, statt nur nach einem manuell ausgelösten Export.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,10 +26,10 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
+    TopicSequence,
     TopicSequenceRun,
     build_export_rows,
-    compute_topic_sequence_runs,
-    group_into_sequences,
+    compute_topic_sequences,
 )
 from kursplaner.core.ports.repositories import SequencePlanRepository
 from kursplaner.core.usecases.sequence_export_table import EXPORT_TABLE_HEADERS, export_row_cells
@@ -36,19 +38,30 @@ from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequ
 
 @dataclass(frozen=True)
 class TopicSequencePlanView:
-    """Anzeige-/Bearbeitungszustand einer einzelnen Sequenz für das Grid.
+    """Anzeige-/Bearbeitungszustand einer Sequenz – genau eine View je Sequenz(datei).
 
     Attributes:
-        run: Der zugrunde liegende, fachlich erkannte Sequenz-Lauf.
+        sequence: Die Sequenz (alle Läufe, geteilte Mehrthemen-LZKs) – Quelle für
+            Leiter, Sequenzauswahl und Export.
         sequence_path: Pfad der zugehörigen, persistenten Sequenz-Markdown-Datei.
         sequenzziel: Aktueller Sequenzziel-Text (kann leer sein).
         leitkompetenzen: Aktuelle vorrangig geförderte Kompetenzen (kann leer sein).
     """
 
-    run: TopicSequenceRun
+    sequence: TopicSequence
     sequence_path: Path
     sequenzziel: str
     leitkompetenzen: tuple[str, ...]
+
+    @property
+    def oberthema(self) -> str:
+        """Oberthema der Sequenz."""
+        return self.sequence.oberthema
+
+    @property
+    def blocks(self) -> tuple[TopicSequenceRun, ...]:
+        """Grid-Blöcke: je Lauf eine Spannzelle der Sequenzfelder (überlappen nie)."""
+        return self.sequence.runs
 
     @property
     def is_incomplete(self) -> bool:
@@ -73,6 +86,15 @@ class TopicSequencePlanView:
         if field_key == "Sequenzziel":
             return self.sequenzziel
         return format_list_cell(self.leitkompetenzen)
+
+
+def view_blocks(
+    views: Iterable[TopicSequencePlanView],
+) -> Iterator[tuple[TopicSequencePlanView, TopicSequenceRun]]:
+    """Alle Grid-Blöcke aller Sequenzen als ``(View, Block)`` – einziger Weg der Grid-Seite über die Blöcke."""
+    for view in views:
+        for block in view.blocks:
+            yield view, block
 
 
 class SyncTopicSequencePlansUseCase:
@@ -121,7 +143,7 @@ class SyncTopicSequencePlansUseCase:
                 Reihenfolge (`app.raw_day_columns`).
 
         Returns:
-            Eine `TopicSequencePlanView` je Lauf einer Sequenz (Oberthemen mit
+            Eine `TopicSequencePlanView` je Sequenz (Oberthemen mit
             zusammen weniger als `MIN_SEQUENCE_MEMBER_COUNT` Einheiten sind
             keine Sequenz und tauchen nicht in der Rückgabe auf). Leer, wenn der Sync wegen ungültiger Oberthemen
             übersprungen wurde (siehe `rows_with_invalid_oberthema`).
@@ -133,7 +155,7 @@ class SyncTopicSequencePlansUseCase:
             return []
         views: list[TopicSequencePlanView] = []
         synced_oberthemen: set[str] = set()
-        for sequence in group_into_sequences(compute_topic_sequence_runs(day_columns)):
+        for sequence in compute_topic_sequences(day_columns):
             synced_oberthemen.add(sequence.oberthema)
 
             # Eine Sequenzdatei je Oberthema, Export über alle Läufe (vorher je Lauf:
@@ -156,15 +178,13 @@ class SyncTopicSequencePlansUseCase:
                 )
                 sequenzziel, leitkompetenzen = self._sequence_plan_repo.read_goal_and_focus_competencies(sequence_path)
 
-            # Eine View je Lauf (Grid-Spannzelle), alle mit derselben Sequenzdatei.
-            views.extend(
+            views.append(
                 TopicSequencePlanView(
-                    run=run,
+                    sequence=sequence,
                     sequence_path=sequence_path,
                     sequenzziel=sequenzziel,
                     leitkompetenzen=leitkompetenzen,
                 )
-                for run in sequence.runs
             )
 
         self._prune_stale_sequence_documents(table=table, synced_oberthemen=synced_oberthemen)

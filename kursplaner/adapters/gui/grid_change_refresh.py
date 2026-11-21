@@ -28,6 +28,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import view_blocks
+
 
 @dataclass(frozen=True)
 class GridSnapshot:
@@ -47,12 +49,12 @@ def _sequence_spans(app, row_indices: tuple[int, ...]) -> tuple:
     position = {row_index: idx for idx, row_index in enumerate(row_indices)}
     return tuple(
         (
-            view.run.oberthema,
-            tuple(position.get(row_index) for row_index in view.run.member_row_indices),
+            view.oberthema,
+            tuple(position.get(row_index) for row_index in block.member_row_indices),
             view.sequenzziel,
             tuple(view.leitkompetenzen),
         )
-        for view in (getattr(app, "topic_sequence_plans", None) or ())
+        for view, block in view_blocks(getattr(app, "topic_sequence_plans", None) or ())
     )
 
 

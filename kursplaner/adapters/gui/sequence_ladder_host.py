@@ -24,7 +24,7 @@ from bw_gui.widgets.card_board import Cursor
 from kursplaner.adapters.gui.detail_surface import DetailSurface
 from kursplaner.adapters.gui.dialog_services import messagebox
 from kursplaner.adapters.gui.plan_partial_refresh import refresh_after_files_written
-from kursplaner.adapters.gui.sequence_choices import SequenceChoice, sequence_choices, views_by_path
+from kursplaner.adapters.gui.sequence_choices import SequenceChoice, sequence_choices, view_for_path, view_for_rows
 from kursplaner.adapters.gui.sequence_ladder_assign_flow import AssignRungFlow
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import cursor_rung, rung_cursor
 from kursplaner.adapters.gui.sequence_ladder_controller import (
@@ -68,10 +68,8 @@ class SequenceLadderHost:
         return sequence_choices(self.app.topic_sequence_plans, self.app.raw_day_columns)
 
     def _context(self, path: Path) -> LadderContext | None:
-        views = views_by_path(self.app.topic_sequence_plans).get(path)
-        if not views:
-            return None
-        return views[0].run.oberthema, [view.run for view in views], list(self.app.raw_day_columns)
+        view = view_for_path(self.app.topic_sequence_plans, path)
+        return (view.sequence, list(self.app.raw_day_columns)) if view is not None else None
 
     def _selected_rows(self) -> set[int]:
         """Plan-Zeilen der markierten Spalten (die Spaltenauswahl ist die eine Auswahlquelle)."""
@@ -81,11 +79,8 @@ class SequenceLadderHost:
 
     def selected_sequence_path(self) -> Path | None:
         """Sequenz der markierten Spalte (auch ein Ausfall zwischen zwei Mitgliedern zählt)."""
-        rows = self._selected_rows()
-        for view in self.app.topic_sequence_plans:
-            if any(view.run.covers(row) for row in rows):
-                return view.sequence_path
-        return None
+        view = view_for_rows(self.app.topic_sequence_plans, self._selected_rows())
+        return view.sequence_path if view is not None else None
 
     def choose_sequence(self, *, title: str = "Sequenz wählen") -> Path | None:
         """Sequenzübersicht des geöffneten Kurses; ``None`` bei Abbruch oder ohne Sequenz."""
@@ -194,9 +189,9 @@ class SequenceLadderHost:
         context = self._context(path)
         if context is None:
             return None
-        _oberthema, runs, days = context
+        sequence, days = context
         rows = self._selected_rows()
-        for index, day in enumerate(sequence_term_days(days, runs)):
+        for index, day in enumerate(sequence_term_days(days, sequence)):
             if day.row_index in rows:
                 return rung_cursor(index)
         return None

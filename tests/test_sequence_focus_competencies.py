@@ -3,11 +3,11 @@
 from pathlib import Path
 
 import pytest
+from sequence_view_factory import make_plan_view
 
 from kursplaner.core.domain.list_cell_text import ListFieldViolationError
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
-from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import TopicSequencePlanView
 from kursplaner.core.usecases.update_sequence_goal_field_usecase import UpdateSequenceGoalFieldUseCase
 from kursplaner.infrastructure.repositories.sequence_plan_repository import FileSystemSequencePlanRepository
 
@@ -115,9 +115,9 @@ def test_replacing_generated_table_leaves_frontmatter_and_brainstorming_untouche
 
 def test_plan_view_field_text_formats_both_fields():
     run = TopicSequenceRun(oberthema="V", member_row_indices=(0, 1))
-    view = TopicSequencePlanView(run=run, sequence_path=Path("x.md"), sequenzziel="Ziel", leitkompetenzen=("A", "B"))
+    view = make_plan_view(run, Path("x.md"), sequenzziel="Ziel", leitkompetenzen=("A", "B"))
 
     assert view.field_text("Sequenzziel") == "Ziel"
     assert view.field_text("Leitkompetenzen") == "A\n--\nB"
     assert view.is_incomplete is False
-    assert TopicSequencePlanView(run=run, sequence_path=Path("x.md"), sequenzziel="Z", leitkompetenzen=()).is_incomplete
+    assert make_plan_view(run, Path("x.md"), sequenzziel="Z").is_incomplete

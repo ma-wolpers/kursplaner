@@ -25,7 +25,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.sequence_ladder_assign import TargetKind
 from kursplaner.core.domain.sequence_ladder_homes import locked_reason, rung_kind
-from kursplaner.core.domain.topic_sequence_runs import TopicSequenceRun
+from kursplaner.core.domain.topic_sequence_runs import TopicSequence
 from kursplaner.core.usecases.assign_ablage_rung_usecase import (
     AssignAblageRungUseCase,
     AssignCheck,
@@ -147,19 +147,19 @@ class AssignRungFlow:
         self._sequence_path, self._table = sequence_path, table
 
     def __call__(
-        self, rung: int, context: tuple[str, Sequence[TopicSequenceRun], Sequence[DayColumn]]
+        self, rung: int, context: tuple[TopicSequence, Sequence[DayColumn]]
     ) -> EditSequenceLadderResult | None:
         """Fragt Ziel und ggf. Bestätigung ab und ordnet zu; ``None`` bei Abbruch oder Fehler.
 
         Args:
             rung: Index der Ablage-Sprosse.
-            context: Oberthema, Läufe und Tagesspalten des geöffneten Kurses.
+            context: Sequenz und Tagesspalten des geöffneten Kurses (`LadderContext`).
         """
-        oberthema, runs, days = context
+        sequence, days = context
         table = self._table()
         if table is None:
             return None
-        targets = self._usecase.targets(runs=runs, day_columns=days)
+        targets = self._usecase.targets(sequence=sequence, day_columns=days)
         if not any(target.selectable for target in targets.targets):
             self._dialogs.show_info(TITLE, "Im Plan gibt es keine Zeile, der die Sprosse zugeordnet werden kann.")
             return None
@@ -171,8 +171,7 @@ class AssignRungFlow:
         request = dict(
             table=table,
             sequence_path=self._sequence_path,
-            oberthema=oberthema,
-            runs=runs,
+            sequence=sequence,
             day_columns=days,
             rung=rung,
             target_row=target.day.row_index,

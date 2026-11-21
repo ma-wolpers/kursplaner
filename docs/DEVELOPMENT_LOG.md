@@ -7,6 +7,12 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Sequenz als eigentliche Einheit; Mehrthemen-LZK in allen ihren Sequenzen (2026-11-21; ARCHITEKTUR_KERN §30).
+  - Passungsprüfung: Die Anforderung „LZK in mehreren Leitern“ passte nicht ins Modell „eine View je Lauf“ (Grid-Blöcke dürfen nicht überlappen). Ein erster, nicht committeter Anbau mit künstlichen Ein-Zeilen-Läufen und zwei Zählweisen wurde verworfen; stattdessen ist die Sequenz jetzt die Einheit.
+  - Domain: `TopicSequence.shared_rows`, `own_row_indices`, `own_member_count` (statt doppeldeutigem `member_count`), `covers_in_block`; `compute_topic_sequences` als einziger Einstieg; `find_sequence_for_row_index` Block zuerst, sonst teilende Sequenz.
+  - `TopicSequencePlanView(sequence, sequence_path, sequenzziel, leitkompetenzen)` – genau eine je Sequenz, `blocks`/`oberthema` als Properties; `view_blocks` für Grid-Renderer, Sequenzfeld-Renderer, Editor und Diff-Refresh. `views_by_path` entfällt (`view_for_path`, `view_for_rows` in `sequence_choices`).
+  - Leiter: `LadderContext = (TopicSequence, Tagesspalten)`; `sequence_term_days(days, sequence)`; Load/Edit/Assign-Use-Cases nehmen `sequence` statt `runs` (Assign ohne doppelten `oberthema`-Parameter). Controller merkt sich die zuletzt gesehene Sequenz für den Fall „fehlt im Kurs“.
+  - Tests: gemeinsame Fabrik `tests/sequence_view_factory.py` statt Handbau in fünf Testdateien; neue Fälle für geteilte LZK (Termine, Auswahl).
 - Kopf-Suche zusammengeführt (2026-11-21, Altfund aus der Verschiebe-Arbeit): `plan_table.header_index(headers, name)` (case-insensitiv, ohne Rand-Leerzeichen) ist die einzige Kopf-Suche; `PlanTableData.column_index_optional` delegiert (ignoriert jetzt auch Rand-Leerzeichen). Die siebenmal kopierte `_col_index`-Schleife entfällt in `plan_row_placement`, `row_identity`, `apply_school_wide_cancellations_to_new_rows_usecase`, `apply_timetable_change_usecase`, `school_wide_cancellation_apply/preview/revert_usecase`; Spaltennamen dort über `COLUMN_*` statt Literale. Test in `tests/test_plan_table.py`.
 - Sequenzleiter „Sprosse zuordnen“: Zielarten, chronologische Auswahl, Einfügen mit Verschieben (2026-11-21; ARCHITEKTUR_KERN §37 „Ablage-Sprosse zuordnen“).
   - Ursache des Bugs „Sprosse weg, keine neue Einheit“: Ziele jenseits der direkt anschließenden Zeile ergaben eine allein stehende Einheit (Lauf der Länge 1, vom Sync verworfen); belegte Zeilen wurden überschrieben statt eingefügt. Behoben durch das erweiterte Sequenzmodell (eigener Eintrag) plus Einfügen.

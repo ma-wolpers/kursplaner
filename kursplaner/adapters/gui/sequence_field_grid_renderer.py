@@ -7,6 +7,7 @@ from bw_gui.theming import theme_label_token
 
 from kursplaner.adapters.gui.grid_pointer_groups import GridPointerGroups
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.usecases.sync_topic_sequence_plans_usecase import view_blocks
 
 CreateTextCell = Callable[..., ui.Text]
 
@@ -231,15 +232,15 @@ class SequenceFieldGridRenderer:
     ) -> None:
         """Einziger Zellbaustein einer Sequenzfeld-Zeile: eine Spannzelle je Lauf, Leerzellen sonst."""
         covered_grid_cols: set[int] = set()
-        for view in self.app.topic_sequence_plans:
-            full_span = self._run_span(row_index_to_grid_col, view.run.first_row_index, view.run.last_row_index)
+        for view, block in view_blocks(self.app.topic_sequence_plans):
+            full_span = self._run_span(row_index_to_grid_col, block.first_row_index, block.last_row_index)
             if full_span is None:
                 continue
             covered_grid_cols.update(full_span)
             if not with_spans:
                 continue
             value = view.field_text(field_key)
-            widget_key = (field_key, view.run.first_row_index)
+            widget_key = (field_key, block.first_row_index)
 
             cell = self._create_text_cell(
                 self.app.grid_inner,
@@ -250,7 +251,7 @@ class SequenceFieldGridRenderer:
                 height_lines=self.app.collapsed_row_lines,
             )
             cell.grid(row=row_idx, column=full_span.start, columnspan=len(full_span), sticky="nsew")
-            self._bind_events(cell, field_key=field_key, first_row_index=view.run.first_row_index)
+            self._bind_events(cell, field_key=field_key, first_row_index=block.first_row_index)
             self.app.sequence_field_widgets[widget_key] = cell
             row_pixel_heights[row_idx] = max(row_pixel_heights.get(row_idx, 0), int(cell.winfo_reqheight()))
 
