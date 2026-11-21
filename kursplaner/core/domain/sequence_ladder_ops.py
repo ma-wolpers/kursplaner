@@ -25,6 +25,7 @@ from typing import Callable, Union
 
 from kursplaner.core.domain.sequence_ladder import (
     COMPETENCE_SIDES,
+    SIDE_RULES,
     BlockRef,
     LadderBlock,
     LadderRuleError,
@@ -36,15 +37,22 @@ from kursplaner.core.domain.sequence_ladder import (
     locked_message,
     uniqueness_scope,
 )
+from kursplaner.core.domain.sequence_ladder_entries import network_block_text
 
 
 @dataclass(frozen=True)
 class AddBlock:
-    """Eigenen Baustein an *slot* anlegen ("+": unten in der Zelle; Strg+V: über dem gewählten)."""
+    """Baustein an *slot* anlegen ("+": unten in der Zelle; Strg+V: über dem gewählten).
+
+    ``kompetenz_id`` ist gesetzt, wenn ein kopierter Netz-Baustein eingefügt wird:
+    auf einer Netz-Seite (`SIDE_RULES`) bleibt er ein Netz-Baustein mit dieser ID,
+    auf einer anderen Seite (Material) wird nur sein Text übernommen.
+    """
 
     slot: LadderSlot
     text: str
     pasted: bool = False
+    kompetenz_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -56,7 +64,11 @@ class RemoveBlock:
 
 @dataclass(frozen=True)
 class RenameBlock:
-    """Eigenen Baustein umbenennen (Netz-Bausteine sind gesperrt)."""
+    """Baustein umbenennen; bei Netz-Bausteinen den Alias (die Kompetenz-ID bleibt).
+
+    *new_text* ist bereits aufgelöst (`sequence_ladder_alias.resolve_alias`:
+    leere Eingabe → Original); die Operation normalisiert nur noch.
+    """
 
     ref: BlockRef
     new_text: str
@@ -163,22 +175,34 @@ def _relocate(ladder: SequenceLadder, ref: BlockRef, target: LadderSlot) -> Ladd
         raise LadderRuleError("Bausteine bleiben in ihrer Spalte.")
     _require_open(ladder, target.rung)
     if uniqueness_scope(target.side, target.rung) != uniqueness_scope(slot.side, slot.rung):
-        clash = ladder.conflict(target.side, target.rung, block.text, kompetenz_id=block.kompetenz_id, ignore=ref)
+        clash = ladder.conflict(target.side, target.rung, block.text, ignore=ref)
         if clash is not None:
             raise LadderRuleError(f"Sprosse {target.rung + 1}: {conflict_message(clash, target.side)}")
     moved = _insert(_remove(ladder, slot), target, block)
     return LadderApplyResult(moved, focus=BlockRef(target.rung, target.side, block.text))
 
 
+def _new_block(side: LadderSide, text: str, kompetenz_id: str | None) -> LadderBlock:
+    """Baustein für *text* auf *side*: Netz-Baustein nur mit ID auf einer Netz-Seite.
+
+    Der Alias eines Netz-Bausteins wird wie beim Import normalisiert
+    (`network_block_text`), damit der Primärschlüssel den Rundweg durch die
+    Datei unverändert übersteht; eigene Bausteine behalten ihren Text.
+    """
+    stripped = str(text).strip()
+    if kompetenz_id is None or not SIDE_RULES[side].network or not stripped:
+        return LadderBlock(stripped)
+    return LadderBlock(network_block_text(kompetenz_id, stripped), kompetenz_id)
+
+
 def _add(ladder: SequenceLadder, op: AddBlock) -> LadderApplyResult:
+    """Neuen (ggf. eingefügten Netz-)Baustein anlegen; Regeln aus `block_text_error`."""
     _require_open(ladder, op.slot.rung)
-    error = block_text_error(op.text, ladder, side=op.slot.side, rung=op.slot.rung)
+    block = _new_block(op.slot.side, op.text, op.kompetenz_id)
+    error = block_text_error(block.text, ladder, side=op.slot.side, rung=op.slot.rung)
     if error:
         raise LadderRuleError(error)
-    text = op.text.strip()
-    return LadderApplyResult(
-        _insert(ladder, op.slot, LadderBlock(text)), focus=BlockRef(op.slot.rung, op.slot.side, text)
-    )
+    return LadderApplyResult(_insert(ladder, op.slot, block), focus=BlockRef(op.slot.rung, op.slot.side, block.text))
 
 
 def _remove_op(ladder: SequenceLadder, op: RemoveBlock) -> LadderApplyResult:
@@ -187,15 +211,14 @@ def _remove_op(ladder: SequenceLadder, op: RemoveBlock) -> LadderApplyResult:
 
 
 def _rename(ladder: SequenceLadder, op: RenameBlock) -> LadderApplyResult:
+    """Text bzw. Alias ersetzen; ein Netz-Baustein behält seine Kompetenz-ID."""
     slot, block = _require(ladder, op.ref)
-    if block.is_network:
-        raise LadderRuleError("Bausteine aus dem Kompetenznetz können nicht umbenannt werden.")
-    error = block_text_error(op.new_text, ladder, side=slot.side, rung=slot.rung, ignore=op.ref)
+    renamed_block = _new_block(slot.side, op.new_text, block.kompetenz_id)
+    error = block_text_error(renamed_block.text, ladder, side=slot.side, rung=slot.rung, ignore=op.ref)
     if error:
         raise LadderRuleError(error)
-    text = op.new_text.strip()
-    renamed = _insert(_remove(ladder, slot), slot, LadderBlock(text))
-    return LadderApplyResult(renamed, focus=BlockRef(slot.rung, slot.side, text))
+    renamed = _insert(_remove(ladder, slot), slot, renamed_block)
+    return LadderApplyResult(renamed, focus=BlockRef(slot.rung, slot.side, renamed_block.text))
 
 
 def _move(ladder: SequenceLadder, op: MoveBlock) -> LadderApplyResult:
@@ -226,7 +249,7 @@ def _import(ladder: SequenceLadder, op: ImportCompetences) -> LadderApplyResult:
     targets = {side: _next_open(ladder, ladder.highest_occupied(side) + 1, 1) for side in COMPETENCE_SIDES}
     for item in op.items:
         rung = targets[item.side]
-        clash = ladder.conflict(item.side, rung, item.text, kompetenz_id=item.kompetenz_id)
+        clash = ladder.conflict(item.side, rung, item.text)
         if clash is not None:
             notes.append(f"{item.kompetenz_id}: {conflict_message(clash, item.side)}")
             continue

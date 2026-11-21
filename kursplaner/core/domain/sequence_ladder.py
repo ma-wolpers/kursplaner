@@ -14,7 +14,10 @@ Spalte, rechts (geförderte Kompetenzen) und beim Material nur innerhalb einer
 Sprosse – dieselbe Prozesskompetenz oder dasselbe Material darf in mehreren
 Sprossen stehen. Ein Baustein wird daher über `BlockRef` (Sprosse, Seite, Text)
 angesprochen. Bausteine aus dem Kompetenznetz (nur Inhalt/Prozess) tragen
-zusätzlich die Kompetenz-ID und sind nicht umbenennbar.
+zusätzlich die Kompetenz-ID; ihr Text ist der frei bearbeitbare Alias
+(``[[ID|Alias]]``). Eindeutig sein muss nur der Text – dieselbe Kompetenz darf
+mehrfach vorkommen, wenn sie jeweils anders formuliert ist
+(`sequence_ladder_alias`).
 
 Gesperrte Sprossen (`SequenceLadder.locked_rungs`, z. B. LZK/Hospitation/Ausfall)
 nehmen keine Bausteine und keine Ideen auf; die Sperre wird aus den Terminen
@@ -76,7 +79,8 @@ class LadderBlock:
     """Ein Baustein.
 
     Attributes:
-        text: Beschreibung und Primärschlüssel (einzeilig).
+        text: Beschreibung und Primärschlüssel (einzeilig); bei Netz-Bausteinen
+            der bearbeitbare Alias, der vom Netztitel abweichen darf.
         kompetenz_id: ID der Kompetenz im Netz (z. B. ``"Mat-RF-14"``) oder
             ``None`` für einen eigenen Baustein.
     """
@@ -86,7 +90,7 @@ class LadderBlock:
 
     @property
     def is_network(self) -> bool:
-        """``True`` für Bausteine aus dem Kompetenznetz (nicht umbenennbar)."""
+        """``True`` für Bausteine aus dem Kompetenznetz (Originaltitel über die ID nachschlagbar)."""
         return self.kompetenz_id is not None
 
 
@@ -142,12 +146,15 @@ def block_key(text: str) -> str:
 def collision_keys(block: LadderBlock) -> frozenset[tuple[str, str]]:
     """Schlüssel, über die zwei Bausteine im selben Bereich kollidieren – die einzige Stelle dieser Regel.
 
-    Gleicher Text (`block_key`) oder – bei Netz-Bausteinen – gleiche Kompetenz-ID.
+    Nur der Text (`block_key`) zählt, bei Netz-Bausteinen also der bearbeitbare
+    Alias, nicht die Kompetenz-ID: dieselbe Kompetenz darf in einem Bereich
+    mehrfach stehen, solange sie jeweils anders formuliert ist (Wunsch der
+    Nutzerin, z. B. zwei Stundenziele zu K-31 mit unterschiedlichem Schwerpunkt).
+    Zweimal unverändert übernommen kollidiert sie weiterhin, weil der Alias
+    dann gleich ist. Als Menge geliefert, damit `duplicate_groups` und
+    `SequenceLadder.conflict` unabhängig von der Zahl der Schlüssel bleiben.
     """
-    keys = {("text", block_key(block.text))}
-    if block.kompetenz_id is not None:
-        keys.add(("id", block.kompetenz_id))
-    return frozenset(keys)
+    return frozenset({("text", block_key(block.text))})
 
 
 def uniqueness_scope(side: LadderSide, rung: int) -> tuple[object, ...]:
@@ -155,8 +162,8 @@ def uniqueness_scope(side: LadderSide, rung: int) -> tuple[object, ...]:
 
     Links (Stunden-/Teilziele) ist die ganze Spalte ein Bereich, rechts
     (vorrangig geförderte Kompetenzen) und beim Material jede Sprosse für sich.
-    Zwei Bausteine kollidieren genau dann, wenn ihr Bereich gleich ist und Text
-    oder Kompetenz-ID übereinstimmen.
+    Zwei Bausteine kollidieren genau dann, wenn ihr Bereich gleich ist und ihre
+    Texte übereinstimmen (`collision_keys`).
     """
     return (side, rung) if SIDE_RULES[side].per_rung else (side,)
 
@@ -208,19 +215,20 @@ class SequenceLadder:
         rung: int,
         text: str,
         *,
-        kompetenz_id: str | None = None,
         ignore: BlockRef | None = None,
     ) -> LadderBlock | None:
-        """Baustein, mit dem ein Baustein (*text*/*kompetenz_id*) an Sprosse *rung* kollidieren würde.
+        """Baustein, mit dem ein Baustein mit *text* an Sprosse *rung* kollidieren würde.
+
+        Die Kompetenz-ID spielt keine Rolle (`collision_keys`), daher nimmt die
+        Abfrage nur den Text.
 
         Args:
             side: Spalte des geprüften Bausteins.
             rung: Zielsprosse des geprüften Bausteins.
-            text: Sein Text.
-            kompetenz_id: Seine Kompetenz-ID (Netz-Baustein) oder ``None``.
+            text: Sein Text (bei Netz-Bausteinen der Alias).
             ignore: Baustein, der nicht zählt (der verschobene/umbenannte selbst).
         """
-        scope, wanted = uniqueness_scope(side, rung), collision_keys(LadderBlock(text, kompetenz_id))
+        scope, wanted = uniqueness_scope(side, rung), collision_keys(LadderBlock(text))
         ignored = (ignore.rung, ignore.side, block_key(ignore.text)) if ignore is not None else None
         for rung_index, other in enumerate(self.rungs):
             if uniqueness_scope(side, rung_index) != scope:

@@ -14,6 +14,7 @@ from kursplaner.core.domain.sequence_ladder import (
     SequenceLadder,
     block_text_error,
 )
+from kursplaner.core.domain.sequence_ladder_entries import block_from_entry, entry_from_block
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
     ImportCompetences,
@@ -91,9 +92,32 @@ def test_rename_keeps_position_and_allows_case_change_of_itself():
     assert result.focus == BlockRef(0, INH, "b")
 
 
-def test_rename_of_network_block_is_refused():
-    with pytest.raises(LadderRuleError, match="nicht umbenannt"):
-        _apply(_ladder(), RenameBlock(BlockRef(0, PRO, "Netz"), "Neu"))
+def test_rename_of_network_block_changes_the_alias_and_keeps_the_id():
+    result = apply_ladder_operation(_ladder(), RenameBlock(BlockRef(0, PRO, "Netz"), "  Neu formuliert "))
+    assert result.ladder.rung(0).prozess == (LadderBlock("Neu formuliert", "Mat-PL-1"),)
+    assert result.focus == BlockRef(0, PRO, "Neu formuliert")
+
+
+def test_rename_of_network_block_normalizes_like_the_file_round_trip():
+    renamed = _apply(_ladder(), RenameBlock(BlockRef(0, PRO, "Netz"), "a | b"))
+    block = renamed.rung(0).prozess[0]
+    assert block.kompetenz_id == "Mat-PL-1"
+    assert block_from_entry(entry_from_block(block), PRO) == block
+
+
+def test_same_competence_twice_with_different_alias_is_allowed_same_alias_collides():
+    ladder = SequenceLadder((LadderRung((LadderBlock("Titel", "Mat-1"),)),))
+    result = apply_ladder_operation(ladder, AddBlock(LadderSlot(1, INH, 0), "Titel vertieft", kompetenz_id="Mat-1"))
+    assert result.ladder.rung(1).inhalt == (LadderBlock("Titel vertieft", "Mat-1"),)
+    with pytest.raises(LadderRuleError, match="Spalte bereits"):
+        _apply(ladder, AddBlock(LadderSlot(1, INH, 0), "titel", kompetenz_id="Mat-1"))
+
+
+def test_pasting_a_network_block_onto_material_keeps_only_its_text():
+    result = apply_ladder_operation(
+        _ladder(), AddBlock(LadderSlot(0, LadderSide.MATERIAL, 0), "Netz", True, "Mat-PL-1")
+    )
+    assert result.ladder.rung(0).material == (LadderBlock("Netz"),)
 
 
 def test_remove_deletes_any_block_and_trims_empty_top_rungs():
@@ -218,13 +242,21 @@ def test_legacy_duplicates_stay_movable_renamable_and_deletable():
 
 def test_moving_a_right_block_to_another_rung_still_checks_that_rung():
     ladder = SequenceLadder(
-        (LadderRung(prozess=(LadderBlock("P", "Mat-1"),)), LadderRung(prozess=(LadderBlock("anders", "Mat-1"),)))
+        (LadderRung(prozess=(LadderBlock("P", "Mat-1"),)), LadderRung(prozess=(LadderBlock("p", "Mat-2"),)))
     )
     with pytest.raises(LadderRuleError, match="Sprosse 2"):
         apply_ladder_operation(ladder, MoveBlock(BlockRef(0, PRO, "P"), LadderSlot(1, PRO, 0)))
 
 
-def test_duplicate_groups_are_connected_over_text_and_competence_id():
+def test_moving_the_same_competence_with_another_alias_into_a_rung_is_allowed():
+    ladder = SequenceLadder(
+        (LadderRung(prozess=(LadderBlock("P", "Mat-1"),)), LadderRung(prozess=(LadderBlock("anders", "Mat-1"),)))
+    )
+    moved = _apply(ladder, MoveBlock(BlockRef(0, PRO, "P"), LadderSlot(1, PRO, 0)))
+    assert _texts(moved, 1, PRO) == ["P", "anders"]
+
+
+def test_duplicate_groups_follow_the_text_only():
     ladder = SequenceLadder(
         (
             LadderRung((LadderBlock("Titel", "Mat-1"),)),
@@ -232,9 +264,7 @@ def test_duplicate_groups_are_connected_over_text_and_competence_id():
             LadderRung((LadderBlock("Anders", "Mat-1"),)),
         )
     )
-    assert ladder.duplicate_groups() == (
-        (BlockRef(0, INH, "Titel"), BlockRef(1, INH, "titel"), BlockRef(2, INH, "Anders")),
-    )
+    assert ladder.duplicate_groups() == ((BlockRef(0, INH, "Titel"), BlockRef(1, INH, "titel")),)
 
 
 def test_block_text_follows_the_list_entry_contract():

@@ -50,6 +50,11 @@ def test_same_right_block_in_several_rungs_is_valid():
     assert [len(rung.prozess) for rung in ladder.rungs] == [1, 1]
 
 
+def test_same_competence_with_different_aliases_in_one_column_is_valid():
+    ladder = parse_ablage_section("- Ablage 1\n  - Inhalt: [[Mat-1|Titel]]\n  - Inhalt: [[Mat-1|Titel vertieft]]")
+    assert ladder.rung(0).inhalt == (LadderBlock("Titel", "Mat-1"), LadderBlock("Titel vertieft", "Mat-1"))
+
+
 def test_network_text_normalizes_like_the_file_does():
     assert network_block_text("Mat-1", "Titel [mit] Klammern") == "Titel mit Klammern"
     assert network_block_text("Mat-1", "") == "Mat-1"

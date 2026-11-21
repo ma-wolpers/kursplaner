@@ -113,7 +113,7 @@ def parse_ablage_section(body: str) -> SequenceLadder:
             continue
         side = LadderSide(label)
         block = _parse_block(value, side, line_no)
-        clash = _build(rungs).conflict(side, len(rungs) - 1, block.text, kompetenz_id=block.kompetenz_id)
+        clash = _build(rungs).conflict(side, len(rungs) - 1, block.text)
         if clash is not None:
             raise LadderFormatError(line_no, conflict_message(clash, side))
         rungs[-1][label].append(block)
