@@ -1226,3 +1226,19 @@ Der Parser ist strikt (`LadderFormatError` mit Zeilennummer); bei Fehlern öffne
 - **Undo/Redo:** `refresh_after_history_step(app, entry)` nutzt die Deltas des angewendeten `CommandEntry`. Liegen alle im geöffneten Kurs (Plandatei, verlinkte Einheiten bzw. deren Ordner, Sequenzordner), wird nur die Plandatei neu gelesen (`LoadPlanDetailUseCase.load_table`), geänderte Zeilen = Plan-Zeilen-Diff ∪ `rows_linking(Deltas)`; sonst (Datei außerhalb, geänderte Zeilenzahl/Metadaten, mehrere Schritte ohne bekannte Deltas) `reload_keeping_view`.
 
 **Verboten:** neue Kopien von Collect+Refresh in Controllern; `refresh_grid_content()` als Standard nach Datenänderungen (bleibt für Theme/Modus/Selektions-Restyling).
+
+## 40) Einheiten-Nutzlast: einziger Weg, eine Einheit in eine andere Zeile zu bewegen (verbindlich)
+
+**Betroffene Module:** `core/domain/plan_row_payload.py` (`RowPayload`, `PayloadColumns`, `swap_payloads`, `shift_moves`, `apply_moves`), `PlanCommandsUseCase.shift_existing_lessons_forward`/`plan_shift`/`is_lzk_row`/`swap_contents`, Schulausfall Anwenden/Rücknahme.
+
+**Kontext:** Verschieben und Spaltentausch bewegten nur `Inhalt`; die Zelle `Thema/Ausfall` (`[[Gruppe Oberthema]]`, `LZK [[…]]`, `HO …`, Oberthema einer noch nicht angelegten Einheit) blieb stehen und gehörte danach zur Nachbarzeile. LZKs wurden mitgeschoben.
+
+**Entscheidung:**
+
+- Eine Planzeile = **Termin** (Datum, Ausfall-/Ferien-Marker – bleibt) + **Nutzlast** (Link + Thema-Zelle, sofern dort kein Termin-Marker steht – wandert).
+- Wer eine Einheit bewegt, liest/schreibt nur `RowPayload` über `PayloadColumns`. Invarianten: Link und Thema wandern gemeinsam; `write` überschreibt nie einen Termin-Marker, `read` nimmt ihn nie mit; einen Marker entfernt nur `clear_slot_marker` (bewusst, z. B. Rücknahme eines Ausfalls).
+- Verschieben „ab Zeile X um einen Termin nach hinten“ plant ausschließlich `shift_moves` (Ausfall/Ferien und feste Zeilen übersprungen, Ziel = erster Termin mit leerer Nutzlast); Vorschau-Texte und Ausführung nutzen dieselbe Planung (`PlanCommandsUseCase.plan_shift`).
+- **Feste Termine beim Verschieben: nur LZKs** (`is_lzk_row`, gleiche Typregel wie `DayColumn.stundentyp`). Die ausdrücklich gewählte Startzeile rückt auch als LZK.
+- Die Stundenplanänderung baut Zeilen aus `DraftSlot` neu und kopiert nicht von Zeile zu Zeile; sie ist kein Verschiebeweg im Sinne dieses Abschnitts.
+
+**Verboten:** direkte Zellzuweisungen `rows[i][idx_inhalt] = rows[j][idx_inhalt]` (oder für `Thema/Ausfall`) zum Bewegen einer Einheit.

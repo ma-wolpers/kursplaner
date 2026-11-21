@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from kursplaner.core.domain.content_markers import build_ausfall_marker
+from kursplaner.core.domain.plan_row_payload import PayloadColumns, RowPayload
 from kursplaner.core.domain.plan_row_placement import (
     find_stattfindend_rows_in_range,
     plan_gap_placement,
@@ -96,7 +97,8 @@ class SchoolWideCancellationApplyUseCase:
         cancel_row_indices_set = set(cancel_row_indices)
 
         moves: list[UnitMove] = []
-        pending: list[tuple[RowLocation, UnitReference, str, str]] = []
+        pending: list[tuple[RowLocation, UnitReference, RowPayload]] = []
+        columns = PayloadColumns(idx_inhalt, idx_thema)
 
         marker = build_ausfall_marker(reason)
         for row_index in cancel_row_indices:
@@ -105,18 +107,16 @@ class SchoolWideCancellationApplyUseCase:
             source_loc = RowLocation(
                 date=raw_datum, position_in_date=_position_in_date(original_rows, idx_datum, row_index, raw_datum)
             )
-            inhalt_value = str(row[idx_inhalt]) if idx_inhalt < len(row) else ""
-            thema_value = str(row[idx_thema]) if idx_thema < len(row) else ""
+            payload = columns.read(row)
 
             target_row = table.rows[row_index]
-            if idx_inhalt < len(target_row):
-                target_row[idx_inhalt] = ""
+            columns.clear(target_row)
             if idx_thema < len(target_row):
-                target_row[idx_thema] = marker
+                target_row[idx_thema] = marker  # Termin-Marker, keine Nutzlast
 
-            if inhalt_value.strip() or thema_value.strip():
+            if not payload.is_empty:
                 reference = extract_row_reference(headers, row)
-                pending.append((source_loc, reference, inhalt_value, thema_value))
+                pending.append((source_loc, reference, payload))
             else:
                 moves.append(UnitMove(source=source_loc, reference=None, target=None))
 
@@ -144,10 +144,14 @@ class SchoolWideCancellationApplyUseCase:
         idx_datum: int,
         idx_inhalt: int,
         idx_thema: int,
-        pending: list[tuple[RowLocation, UnitReference, str, str]],
+        pending: list[tuple[RowLocation, UnitReference, RowPayload]],
         moves: list[UnitMove],
     ) -> None:
-        """Platziert verdraengten Inhalt in freien Luecken nach dem Ausfall-Block, sonst angehaengt."""
+        """Platziert verdraengten Inhalt in freien Luecken nach dem Ausfall-Block, sonst angehaengt.
+
+        Link und Thema-Zelle wandern gemeinsam (`plan_row_payload`).
+        """
+        columns = PayloadColumns(idx_inhalt, idx_thema)
 
         def is_available_gap(index: int) -> bool:
             if index in cancel_row_indices or index >= len(original_rows):
@@ -156,9 +160,7 @@ class SchoolWideCancellationApplyUseCase:
             raw = row[idx_datum] if idx_datum < len(row) else ""
             if parse_plan_row_date(raw) is None:
                 return False
-            inhalt = str(row[idx_inhalt]).strip() if idx_inhalt < len(row) else ""
-            thema = str(row[idx_thema]).strip() if idx_thema < len(row) else ""
-            return not inhalt and not thema
+            return not columns.has_slot_marker(row) and columns.read(row).is_empty
 
         last_cancel_index = max(cancel_row_indices)
         placement = plan_gap_placement(
@@ -169,14 +171,10 @@ class SchoolWideCancellationApplyUseCase:
         )
         gap_iter = iter(placement.gap_indices)
 
-        for source_loc, reference, inhalt_value, thema_value in pending:
+        for source_loc, reference, payload in pending:
             gap_index = next(gap_iter, None)
             if gap_index is not None:
-                gap_row = table.rows[gap_index]
-                if idx_inhalt < len(gap_row):
-                    gap_row[idx_inhalt] = inhalt_value
-                if idx_thema < len(gap_row):
-                    gap_row[idx_thema] = thema_value
+                columns.write(table.rows[gap_index], payload)
                 gap_raw_datum = original_rows[gap_index][idx_datum] if idx_datum < len(original_rows[gap_index]) else ""
                 target_loc = RowLocation(
                     date=gap_raw_datum,
@@ -184,10 +182,7 @@ class SchoolWideCancellationApplyUseCase:
                 )
             else:
                 new_row = [""] * len(table.headers)
-                if idx_inhalt < len(new_row):
-                    new_row[idx_inhalt] = inhalt_value
-                if idx_thema < len(new_row):
-                    new_row[idx_thema] = thema_value
+                columns.write(new_row, payload)
                 table.rows.append(new_row)
                 target_loc = RowLocation(date=None, position_in_date=0)
 

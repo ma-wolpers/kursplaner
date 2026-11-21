@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from kursplaner.core.domain.plan_row_payload import PayloadColumns
 from kursplaner.core.domain.plan_row_placement import strip_empty_dateless_rows
 from kursplaner.core.domain.row_identity import (
     MoveResolution,
@@ -133,24 +134,14 @@ class SchoolWideCancellationRevertUseCase:
         if source_index is None:
             return
         source_row = rows[source_index]
+        columns = PayloadColumns(idx_inhalt, idx_thema)
+        # Die Ausfall-Markierung der Quelle wird bewusst entfernt (Rücknahme des Ausfalls).
+        columns.clear_slot_marker(source_row)
 
         target_index = resolution.target.row_index
         if target_index is None:
-            # Storniert ohne verdraengten Inhalt: nur die Ausfall-Markierung entfernen.
-            if idx_thema < len(source_row):
-                source_row[idx_thema] = ""
-            return
+            return  # Storniert ohne verdraengten Inhalt: nur die Markierung war zu entfernen.
 
         target_row = rows[target_index]
-        current_inhalt = str(target_row[idx_inhalt]) if idx_inhalt < len(target_row) else ""
-        current_thema = str(target_row[idx_thema]) if idx_thema < len(target_row) else ""
-
-        if idx_inhalt < len(source_row):
-            source_row[idx_inhalt] = current_inhalt
-        if idx_thema < len(source_row):
-            source_row[idx_thema] = current_thema
-
-        if idx_inhalt < len(target_row):
-            target_row[idx_inhalt] = ""
-        if idx_thema < len(target_row):
-            target_row[idx_thema] = ""
+        columns.write(source_row, columns.read(target_row))
+        columns.clear(target_row)

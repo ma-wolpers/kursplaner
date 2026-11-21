@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kursplaner.core.domain.content_markers import build_ausfall_marker, resolve_row_cancel_state
+from kursplaner.core.domain.content_markers import build_ausfall_marker
+from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
+from kursplaner.core.domain.plan_row_payload import Move, apply_moves, shift_moves, swap_payloads
 from kursplaner.core.domain.plan_table import COLUMN_INHALT, COLUMN_THEMA_AUSFALL, PlanTableData
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link, first_wiki_link
 from kursplaner.core.ports.repositories import LessonRepository
@@ -97,62 +99,57 @@ class PlanCommandsUseCase:
             table.rows[row_index][idx_inhalt] = marker
         return link
 
+    def is_lzk_row(self, table: PlanTableData, row_index: int) -> bool:
+        """``True``, wenn die verlinkte Einheit eine LZK ist (fester Termin beim Verschieben).
+
+        Gleiche Typregel wie `DayColumn.stundentyp` (`infer_stundentyp` auf der
+        verlinkten YAML); eine nicht lesbare Datei gilt als nicht fest.
+        """
+        link = self.lesson_repo.resolve_row_link_path(table, row_index)
+        if not isinstance(link, Path) or not link.is_file():
+            return False
+        try:
+            return infer_stundentyp(self.lesson_repo.load_lesson_yaml(link).data) == "LZK"
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
+
+    def plan_shift(self, table: PlanTableData, start_row_index: int) -> tuple[Move, ...] | None:
+        """Vorschau des Verschiebens ab *start_row_index* (LZKs bleiben stehen), ohne zu schreiben.
+
+        Returns:
+            Die Bewegungen (`plan_row_payload.shift_moves`) oder ``None``, wenn
+            bis zum Tabellenende kein freier Termin kommt.
+        """
+        return shift_moves(table, start_row_index, lambda row: self.is_lzk_row(table, row))
+
     def shift_existing_lessons_forward(self, table: PlanTableData, start_row_index: int) -> bool:
-        """Verschiebt bestehende Inhalte ab einer Zeile um einen freien Slot nach hinten.
+        """Verschiebt Einheiten ab einer Zeile um einen Termin nach hinten bis zum ersten freien Termin.
+
+        Link und Thema-Zelle wandern gemeinsam (`plan_row_payload`); Ausfall-/Ferientermine
+        und LZKs bleiben stehen und werden übersprungen. Die Startzeile selbst wird auch
+        dann verschoben, wenn sie eine LZK ist (ausdrücklich gewählt).
 
         Args:
             table: Planungstabelle.
-            start_row_index: Startzeile der Verschiebung.
+            start_row_index: Zeile, die frei werden soll.
 
         Returns:
-            ``True`` bei erfolgreicher Verschiebung, sonst ``False``.
+            ``True`` bei erfolgreicher Verschiebung, sonst ``False`` (Tabelle unverändert).
         """
-        idx_inhalt = table.column_index(COLUMN_INHALT)
-
-        valid_rows: list[int] = []
-        for row_index, row in enumerate(table.rows):
-            if not resolve_row_cancel_state(table.headers, row):
-                valid_rows.append(row_index)
-
-        if start_row_index not in valid_rows:
+        moves = self.plan_shift(table, start_row_index)
+        if moves is None:
             return False
-
-        start_pos = valid_rows.index(start_row_index)
-        free_pos = None
-        for probe in range(start_pos, len(valid_rows)):
-            row_index = valid_rows[probe]
-            content = table.rows[row_index][idx_inhalt].strip()
-            if not content:
-                free_pos = probe
-                break
-
-        if free_pos is None:
-            return False
-
-        for probe in range(free_pos, start_pos, -1):
-            dst = valid_rows[probe]
-            src = valid_rows[probe - 1]
-            table.rows[dst][idx_inhalt] = table.rows[src][idx_inhalt]
-
-        table.rows[start_row_index][idx_inhalt] = ""
+        apply_moves(table, moves, start_row_index)
         return True
 
     def swap_contents(self, table: PlanTableData, row_a: int, row_b: int) -> None:
-        """Tauscht Inhalte der Spalte ``inhalt`` zwischen zwei Zeilen.
+        """Tauscht die Einheiten zweier Zeilen (Link + Thema-Zelle, Termine bleiben).
 
         Args:
             table: Planungstabelle.
             row_a: Erste Zielzeile.
             row_b: Zweite Zielzeile.
         """
-        idx_inhalt = table.column_index(COLUMN_INHALT)
         if not (0 <= row_a < len(table.rows) and 0 <= row_b < len(table.rows)):
             raise RuntimeError("Ungültige Zeilen für Verschiebung.")
-
-        content_a = table.rows[row_a][idx_inhalt] if idx_inhalt < len(table.rows[row_a]) else ""
-        content_b = table.rows[row_b][idx_inhalt] if idx_inhalt < len(table.rows[row_b]) else ""
-
-        if idx_inhalt < len(table.rows[row_a]):
-            table.rows[row_a][idx_inhalt] = content_b
-        if idx_inhalt < len(table.rows[row_b]):
-            table.rows[row_b][idx_inhalt] = content_a
+        swap_payloads(table, row_a, row_b)

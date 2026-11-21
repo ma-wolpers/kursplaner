@@ -7,6 +7,11 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Einheiten-Nutzlast als einziger Verschiebeweg (2026-11-21; ARCHITEKTUR_KERN §40).
+  - Neu `core/domain/plan_row_payload.py`: `RowPayload` (Link + Thema-Zelle), `PayloadColumns` (`read` ohne Termin-Marker, `write` überschreibt nie einen Termin-Marker, `clear_slot_marker` nur bewusst), `swap_payloads`, reine Planung `shift_moves(table, start, is_fixed)` und `apply_moves`.
+  - `PlanCommandsUseCase`: `shift_existing_lessons_forward` und `swap_contents` nur noch über die Primitive (vorher nur `Inhalt` → Thema-Zelle versetzt); neu `is_lzk_row` (gleiche Typregel wie `DayColumn.stundentyp`, `infer_stundentyp`) und `plan_shift` (Vorschau). LZKs sind feste Zeilen, außer der ausdrücklich gewählten Startzeile. Freier Termin = leere Nutzlast (vorher nur leerer `Inhalt`).
+  - Schulausfall Anwenden/Rücknahme lesen/schreiben über `PayloadColumns` statt eigener Zellzugriffe. Die Stundenplanänderung baut Zeilen aus `DraftSlot` neu (kein Zeile-zu-Zeile-Kopieren) und bleibt unverändert.
+  - Tests: `tests/test_plan_row_payload.py`.
 - Sequenzleiter: Netz-Bausteine mit bearbeitbarem Alias, Original darunter (2026-11-21, Wunsch der Nutzerin; ARCHITEKTUR_KERN §37 „Netz-Bausteine: Alias und Original“).
   - Domain (Commit `3bfc3f4`): `collision_keys` nur noch Text (Alias) statt Text oder ID; `SequenceLadder.conflict` ohne `kompetenz_id`. `RenameBlock` erlaubt Netz-Bausteine (ID bleibt), `AddBlock.kompetenz_id` für eingefügte Kopien; Normalisierung in `sequence_ladder_ops._new_block` über `network_block_text`. Neues Modul `sequence_ladder_alias` (`resolve_alias`, `alias_problem` → `AliasProblem` mit freiem „(Kopie)“-Vorschlag nur beim Zurücksetzen per leerer Eingabe, `shows_original`).
   - Puffer: `LoadKompetenzGraphUseCase.last_snapshot`; `CompetenceOriginalsBuffer` (`core/usecases/competence_originals.py`, Port `CompetenceOriginals` in `load_sequence_ladder_usecase`) → `SequenceLadderView.originals`. `ensure_loaded` nur beim ersten `SequenceLadderHost.on_shown` der Sitzung; Kompetenznetz-Dialog/Neuaufbau frischen ihn über denselben Use Case auf. Messung (echtes Netz, 1223 Kompetenzen): Laden 0,37–0,39 s warm, 0,70 s erster Ladevorgang; 200 Nachschlagevorgänge 5 ms. Deshalb kein Laden bei jedem Einblenden.
