@@ -27,6 +27,7 @@ from bw_gui.dialogs import ChoiceDialogService, ChoiceOption
 from bw_gui.widgets.card_board import BoardCell, BoardSlot, Cursor, TextRejection, TextValidator
 
 from kursplaner.adapters.gui.dialog_services import messagebox
+from kursplaner.adapters.gui.sequence_ladder_assign_flow import ChoiceItem
 from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     block_ref,
     board_cell,
@@ -124,8 +125,8 @@ class LadderDialogs(Protocol):
         """Zeigt einen Hinweis."""
         ...
 
-    def choose(self, title: str, prompt: str, options: Sequence[tuple[str, str, str]]) -> str | None:
-        """Eine von *options* ``(key, label, description)`` wählen; ``None`` bei Abbruch."""
+    def choose(self, title: str, prompt: str, options: Sequence[ChoiceItem]) -> str | None:
+        """Eine von *options* wählen (ausgegraute nicht wählbar); ``None`` bei Abbruch."""
         ...
 
     def confirm(self, title: str, message: str) -> bool:
@@ -148,9 +149,12 @@ class TkLadderDialogs:
         """Hinweis."""
         messagebox.showinfo(title, message, parent=self._parent)
 
-    def choose(self, title: str, prompt: str, options: Sequence[tuple[str, str, str]]) -> str | None:
-        """Auswahl als Knopf-Dialog (bw-gui `askchoice`, ein Knopf je Option)."""
-        choices = [ChoiceOption(key, label, description) for key, label, description in options]
+    def choose(self, title: str, prompt: str, options: Sequence[ChoiceItem]) -> str | None:
+        """Auswahl als Knopf-Dialog (bw-gui `askchoice`, ein Knopf je Option; ausgegraut/hervorgehoben)."""
+        choices = [
+            ChoiceOption(item.key, item.label, item.description, enabled=item.enabled, emphasized=item.emphasized)
+            for item in options
+        ]
         return ChoiceDialogService().askchoice(title, prompt, choices, parent=self._parent)
 
     def confirm(self, title: str, message: str) -> bool:

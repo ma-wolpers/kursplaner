@@ -4,11 +4,13 @@ Ablage-Sprossen leben in der Sequenzdatei; ihr Inhalt wandert nie automatisch in
 eine Einheit. Das Zuordnen ist der ausdrückliche Weg dorthin. Hier stehen nur
 die reinen Regeln, der Use Case `assign_ablage_rung_usecase` liest und schreibt:
 
-| Zielzeile (`term_home`) | Verhalten |
+| Zielzeile (`target_kind`) | Verhalten |
 |---|---|
-| LZK, Hospitation, Ausfall | Fehler (`assign_target_error`) |
-| Unterricht mit Datei | Inhalt übernehmen; vorher warnen, was überschrieben wird |
-| Termin ohne Datei | Unterrichtsdatei anlegen, dann übernehmen |
+| Termin dieser Sequenz (`MEMBER`) | nicht wählbar |
+| LZK, Hospitation, Ausfall (`BLOCKED`) | nicht wählbar (`assign_target_error`) |
+| leerer Termin (`FREE`) | Unterrichtsdatei anlegen, dann übernehmen |
+| belegt (`OCCUPIED`: andere Sequenz, geplantes Thema, …) | neue Einheit einfügen, ab dort rückt alles einen Termin nach hinten (LZKs bleiben, `plan_row_payload.shift_moves`) |
+| Unterricht ohne Oberthema (`LOOSE_UNIT`) | wie `OCCUPIED` **oder** Inhalt übernehmen; vorher warnen, was überschrieben wird |
 
 **Übernahme** (`merge_rung_into_unit`): Eine Kompetenz-Seite (links Ziele, rechts
 Kompetenzen) wird nur ersetzt, wenn die Sprosse dort Bausteine hat – dann
@@ -19,16 +21,19 @@ Material und Ideen werden **angehängt** (Material ohne Doppelte nach
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import replace
+from enum import Enum
 
 from kursplaner.core.domain.day_column import DayColumn
+from kursplaner.core.domain.plan_row_payload import RowPayload
 from kursplaner.core.domain.sequence_ladder import COMPETENCE_SIDES, LadderRung, LadderSide, collision_keys
 from kursplaner.core.domain.sequence_ladder_entries import block_from_entry, entry_from_block
 from kursplaner.core.domain.sequence_ladder_homes import (
     MarkerHome,
     RungKind,
     UnitContent,
+    UnitHome,
     left_entries,
     locked_reason,
     term_home,
@@ -49,9 +54,41 @@ def assign_target_error(day: DayColumn) -> str | None:
     return None
 
 
-def needs_new_unit(day: DayColumn) -> bool:
-    """``True``, wenn für *day* erst eine Unterrichtsdatei angelegt werden muss (Termin ohne Datei)."""
-    return isinstance(term_home(day), MarkerHome) and assign_target_error(day) is None
+class TargetKind(Enum):
+    """Art einer angebotenen Zielzeile beim Zuordnen (siehe `target_kind`)."""
+
+    MEMBER = "member"
+    """Termin dieser Sequenz – nicht wählbar."""
+    BLOCKED = "blocked"
+    """LZK, Hospitation oder Ausfall – nicht wählbar (`assign_target_error`)."""
+    FREE = "free"
+    """Leerer Termin – eine neue Unterrichtsdatei wird angelegt."""
+    OCCUPIED = "occupied"
+    """Belegt (Einheit einer anderen Sequenz, geplantes Thema, Datei fehlt) – nur Einfügen + Verschieben."""
+    LOOSE_UNIT = "loose_unit"
+    """Unterrichtseinheit ohne Oberthema – Einfügen + Verschieben oder Übernehmen."""
+
+
+SELECTABLE_KINDS = frozenset({TargetKind.FREE, TargetKind.OCCUPIED, TargetKind.LOOSE_UNIT})
+"""Zielarten, die der Nutzer wählen kann."""
+
+
+def target_kind(day: DayColumn, member_rows: Collection[int]) -> TargetKind:
+    """Einzige Regel, wie eine Plan-Zeile beim Zuordnen behandelt wird.
+
+    Args:
+        day: Die Zeile.
+        member_rows: Termine der Sequenz (`sequence_term_days`).
+    """
+    if day.row_index in member_rows:
+        return TargetKind.MEMBER
+    if assign_target_error(day):
+        return TargetKind.BLOCKED
+    if RowPayload.of_cells(day.inhalt, day.thema_ausfall).is_empty:
+        return TargetKind.FREE
+    if isinstance(term_home(day), UnitHome) and not day.oberthema():
+        return TargetKind.LOOSE_UNIT
+    return TargetKind.OCCUPIED
 
 
 def _entries(rung: LadderRung, side: LadderSide) -> tuple[str, ...]:

@@ -43,6 +43,14 @@ class RowPayload:
     inhalt: str = ""
     thema: str = ""
 
+    @classmethod
+    def of_cells(cls, inhalt: str, thema: str) -> RowPayload:
+        """Nutzlast aus den Zellwerten ``Inhalt`` und ``Thema/Ausfall`` (einzige Marker-Regel).
+
+        Ein Ausfall-/Ferien-Marker gehört zum Termin und ist keine Nutzlast.
+        """
+        return cls(str(inhalt or ""), "" if is_ausfall_marker(thema) else str(thema or ""))
+
     @property
     def is_empty(self) -> bool:
         """``True``, wenn die Zeile keine Einheit trägt (weder Link noch Thema)."""
@@ -71,8 +79,7 @@ class PayloadColumns:
 
     def read(self, row: Sequence[str]) -> RowPayload:
         """Nutzlast der Zeile; ein Termin-Marker gehört nicht dazu."""
-        thema = "" if self.has_slot_marker(row) else _cell(row, self.thema)
-        return RowPayload(_cell(row, self.inhalt), thema)
+        return RowPayload.of_cells(_cell(row, self.inhalt), _cell(row, self.thema))
 
     def write(self, row: list[str], payload: RowPayload) -> None:
         """Setzt die Nutzlast; ein Termin-Marker der Zeile bleibt stehen."""

@@ -477,6 +477,7 @@ def build_gui_dependencies(*, max_history: int = DEFAULT_MAX_HISTORY) -> GuiDepe
         lesson_repo=lesson_repo,
         lesson_edit=lesson_edit,
         plan_repo=plan_repo,
+        plan_commands=plan_commands,
         tracked_write=tracked_write_usecase,
     )
     # `reportlab` ist eine optionale Laufzeitabhaengigkeit (siehe requirements.txt):
