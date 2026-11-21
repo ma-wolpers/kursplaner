@@ -42,7 +42,7 @@ from kursplaner.core.usecases.load_sequence_ladder_usecase import sequence_term_
 
 _NO_SEQUENCE = (
     "Im geöffneten Kurs gibt es noch keine Sequenz – sie entsteht, sobald mindestens zwei "
-    "benachbarte Einheiten dasselbe Oberthema tragen."
+    "Einheiten dasselbe Oberthema tragen."
 )
 
 

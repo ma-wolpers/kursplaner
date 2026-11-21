@@ -7,6 +7,11 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Sequenzmodell erweitert: Sequenz = alle Läufe eines Oberthemas (2026-11-21, Entscheidung der Lehrkraft; ARCHITEKTUR_KERN §30 „Sequenz = alle Läufe eines Oberthemas“).
+  - Domain `topic_sequence_runs`: `TopicSequence(oberthema, runs)`, `group_into_sequences(runs, min_members=MIN_SEQUENCE_MEMBER_COUNT)` (einzige Gruppierungsregel; Konstante aus dem Sync-Use-Case in die Domain gezogen), `find_sequence_for_row_index`; `build_export_rows_for_run` → `build_export_rows(day_columns, member_row_indices)`.
+  - `SyncTopicSequencePlansUseCase`: je Gruppe eine Datei, Export über alle Mitglieder (Altfehler: bei mehreren Läufen überschrieb der letzte die Tabelle), eine View je Lauf (auch Läufe mit einer Einheit). Leiter (`views_by_path`, `sequence_term_days`), Sequenzauswahl und Grid-Spannen unverändert, da sie schon mehrere Läufe je Datei konnten.
+  - `ExportTopicUnitsPdfUseCase`: ganze Sequenz (`min_members=1`, damit eine einzelne Einheit exportierbar bleibt). Test `test_export_does_not_merge_non_adjacent…` auf das neue Modell umgestellt.
+  - Unverändert: Mehrthemen-LZK bleibt Mitglied genau einer Kette.
 - Einheiten-Nutzlast als einziger Verschiebeweg (2026-11-21; ARCHITEKTUR_KERN §40).
   - Neu `core/domain/plan_row_payload.py`: `RowPayload` (Link + Thema-Zelle), `PayloadColumns` (`read` ohne Termin-Marker, `write` überschreibt nie einen Termin-Marker, `clear_slot_marker` nur bewusst), `swap_payloads`, reine Planung `shift_moves(table, start, is_fixed)` und `apply_moves`.
   - `PlanCommandsUseCase`: `shift_existing_lessons_forward` und `swap_contents` nur noch über die Primitive (vorher nur `Inhalt` → Thema-Zelle versetzt); neu `is_lzk_row` (gleiche Typregel wie `DayColumn.stundentyp`, `infer_stundentyp`) und `plan_shift` (Vorschau). LZKs sind feste Zeilen, außer der ausdrücklich gewählten Startzeile. Freier Termin = leere Nutzlast (vorher nur leerer `Inhalt`).

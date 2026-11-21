@@ -1,11 +1,12 @@
 """Use Case: automatisches Erkennen und Anlegen von Themen-Sequenz-Dateien.
 
-Dieser Use Case verbindet die reine Adjazenz-Erkennung aus
+Dieser Use Case verbindet die reine Erkennung aus
 `kursplaner.core.domain.topic_sequence_runs` mit der persistenten
-Sequenz-Dateiablage (`SequencePlanRepository`): für jeden erkannten Lauf von
-mindestens zwei benachbarten, gleichthematischen Einheiten wird sichergestellt,
-dass eine Sequenzdatei existiert, und deren aktuelles Sequenzziel/Leitkompetenzen
-wird für die Grid-Anzeige geladen.
+Sequenz-Dateiablage (`SequencePlanRepository`): für jede Sequenz (alle Läufe
+eines Oberthemas, zusammen mindestens `MIN_SEQUENCE_MEMBER_COUNT` Einheiten,
+`group_into_sequences`) wird sichergestellt, dass eine Sequenzdatei existiert,
+und deren aktuelles Sequenzziel/Leitkompetenzen wird für die Grid-Anzeige
+geladen – als eine View je Lauf (Grid-Spannzelle), alle mit derselben Datei.
 
 Hält zusätzlich die `## Export`-Tabelle jeder Sequenzdatei aktuell (dieselbe
 Zeilenlogik wie beim manuellen "Exportieren als..." über
@@ -24,15 +25,13 @@ from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
     TopicSequenceRun,
-    build_export_rows_for_run,
+    build_export_rows,
     compute_topic_sequence_runs,
+    group_into_sequences,
 )
 from kursplaner.core.ports.repositories import SequencePlanRepository
 from kursplaner.core.usecases.sequence_export_table import EXPORT_TABLE_HEADERS, export_row_cells
 from kursplaner.core.usecases.sync_sequence_export_table_usecase import SyncSequenceExportTableUseCase
-
-MIN_SEQUENCE_MEMBER_COUNT = 2
-"""Mindestanzahl an Kettenmitgliedern, ab der ein Lauf als "Sequenz" gilt."""
 
 
 @dataclass(frozen=True)
@@ -122,10 +121,9 @@ class SyncTopicSequencePlansUseCase:
                 Reihenfolge (`app.raw_day_columns`).
 
         Returns:
-            Eine `TopicSequencePlanView` pro erkannter Sequenz (Läufe mit
-            weniger als `MIN_SEQUENCE_MEMBER_COUNT` Mitgliedern werden nicht
-            als eigenständige Sequenz behandelt und tauchen nicht in der
-            Rückgabe auf). Leer, wenn der Sync wegen ungültiger Oberthemen
+            Eine `TopicSequencePlanView` je Lauf einer Sequenz (Oberthemen mit
+            zusammen weniger als `MIN_SEQUENCE_MEMBER_COUNT` Einheiten sind
+            keine Sequenz und tauchen nicht in der Rückgabe auf). Leer, wenn der Sync wegen ungültiger Oberthemen
             übersprungen wurde (siehe `rows_with_invalid_oberthema`).
         """
         if self.rows_with_invalid_oberthema(day_columns):
@@ -133,20 +131,19 @@ class SyncTopicSequencePlansUseCase:
             # abbrechen; Sync und Bereinigung (die Sequenzdateien löschen kann)
             # laufen deshalb erst wieder, wenn die Datei korrigiert ist.
             return []
-        runs = compute_topic_sequence_runs(day_columns)
         views: list[TopicSequencePlanView] = []
         synced_oberthemen: set[str] = set()
-        for run in runs:
-            if run.member_count < MIN_SEQUENCE_MEMBER_COUNT:
-                continue
-            synced_oberthemen.add(run.oberthema)
+        for sequence in group_into_sequences(compute_topic_sequence_runs(day_columns)):
+            synced_oberthemen.add(sequence.oberthema)
 
-            export_rows = build_export_rows_for_run(day_columns, run)
+            # Eine Sequenzdatei je Oberthema, Export über alle Läufe (vorher je Lauf:
+            # der letzte Lauf überschrieb die Tabelle der übrigen).
+            export_rows = build_export_rows(day_columns, sequence.member_row_indices)
             if export_rows:
                 rows = [export_row_cells(row) for row in export_rows]
                 sync_result = self._sequence_export_sync.execute(
                     table=table,
-                    oberthema=run.oberthema,
+                    oberthema=sequence.oberthema,
                     headers=EXPORT_TABLE_HEADERS,
                     rows=rows,
                 )
@@ -155,17 +152,19 @@ class SyncTopicSequencePlansUseCase:
                 leitkompetenzen = sync_result.leitkompetenzen
             else:
                 sequence_path = self._sequence_plan_repo.ensure_sequence_document(
-                    table=table, sequence_name=run.oberthema
+                    table=table, sequence_name=sequence.oberthema
                 )
                 sequenzziel, leitkompetenzen = self._sequence_plan_repo.read_goal_and_focus_competencies(sequence_path)
 
-            views.append(
+            # Eine View je Lauf (Grid-Spannzelle), alle mit derselben Sequenzdatei.
+            views.extend(
                 TopicSequencePlanView(
                     run=run,
                     sequence_path=sequence_path,
                     sequenzziel=sequenzziel,
                     leitkompetenzen=leitkompetenzen,
                 )
+                for run in sequence.runs
             )
 
         self._prune_stale_sequence_documents(table=table, synced_oberthemen=synced_oberthemen)

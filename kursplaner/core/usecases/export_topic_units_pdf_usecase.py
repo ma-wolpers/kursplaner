@@ -1,8 +1,9 @@
-"""Use Case: Export einer Themen-Sequenz (Kette benachbarter Einheiten) als PDF/Markdown.
+"""Use Case: Export einer Themen-Sequenz als PDF/Markdown.
 
-Exportiert ausschließlich die zusammenhängende Kette benachbarter Einheiten, die
-zur ausgewählten Einheit gehört (siehe `topic_sequence_runs.compute_topic_sequence_runs`),
-nicht mehr jedes Vorkommen desselben Oberthema-Textes im gesamten Kursplan.
+Exportiert die Sequenz der ausgewählten Einheit: alle Einheiten mit demselben
+Oberthema, auch wenn anderes dazwischen liegt (`topic_sequence_runs.group_into_sequences`,
+dieselbe Regel wie der Sequenzdatei-Sync); eine einzelne Einheit mit Oberthema
+wird allein exportiert.
 Zusätzlich werden die Leitkompetenzen aus der persistenten Sequenzdatei geladen
 (deren Export-Tabelle beim Export aktualisiert wird) und im Kopf des Dokuments
 angezeigt. Das Sequenzziel bleibt programmintern erhalten (Rückgabe, Sequenzdatei),
@@ -25,9 +26,10 @@ from kursplaner.core.domain.export_date_formatting import extract_term_token, sc
 from kursplaner.core.domain.plan_table import PlanTableData
 from kursplaner.core.domain.topic_sequence_runs import (
     EXPORTABLE_LESSON_TYPES,
-    build_export_rows_for_run,
+    build_export_rows,
     compute_topic_sequence_runs,
-    find_run_for_row_index,
+    find_sequence_for_row_index,
+    group_into_sequences,
 )
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.sequence_export import ExportTableRow
@@ -98,7 +100,7 @@ class TopicUnitsPdfRendererPort(Protocol):
 
 
 class ExportTopicUnitsPdfUseCase:
-    """Exportiert die zusammenhängende Sequenz einer ausgewählten Unterrichts- oder LZK-Einheit."""
+    """Exportiert die Sequenz (alle Läufe ihres Oberthemas) einer ausgewählten Unterrichts- oder LZK-Einheit."""
 
     def __init__(self, *, renderer: TopicUnitsPdfRendererPort, sequence_export_sync: SyncSequenceExportTableUseCase):
         """Initialisiert den Use Case mit Renderer und Sequenzdatei-Synchronisation.
@@ -149,12 +151,13 @@ class ExportTopicUnitsPdfUseCase:
         if selected_type not in EXPORTABLE_LESSON_TYPES:
             raise RuntimeError("Der Export ist nur fuer Unterrichts- oder LZK-Einheiten verfuegbar.")
 
-        runs = compute_topic_sequence_runs(day_columns)
-        run = find_run_for_row_index(runs, selected_row_index)
-        if run is None or not run.oberthema:
+        # min_members=1: auch eine einzelne Einheit mit Oberthema ist exportierbar.
+        sequences = group_into_sequences(compute_topic_sequence_runs(day_columns), min_members=1)
+        sequence = find_sequence_for_row_index(sequences, selected_row_index)
+        if sequence is None or not sequence.oberthema:
             raise RuntimeError("Die ausgewaehlte Einheit hat kein Oberthema.")
 
-        rows = build_export_rows_for_run(day_columns, run)
+        rows = build_export_rows(day_columns, sequence.member_row_indices)
         if not rows:
             raise RuntimeError("Keine Einheiten fuer das ausgewaehlte Oberthema gefunden.")
 
@@ -169,7 +172,7 @@ class ExportTopicUnitsPdfUseCase:
         table_rows = tuple(export_row_cells(row) for row in rows)
         sync_result = self._sequence_export_sync.execute(
             table=table,
-            oberthema=run.oberthema,
+            oberthema=sequence.oberthema,
             headers=EXPORT_TABLE_HEADERS,
             rows=table_rows,
         )
@@ -178,7 +181,7 @@ class ExportTopicUnitsPdfUseCase:
             document_title=SEQUENCE_PLAN_TITLE,
             export_date_text=export_date.strftime("%d.%m.%Y"),
             course_line=title,
-            sequence_topic=run.oberthema,
+            sequence_topic=sequence.oberthema,
             leitkompetenzen=competency_sentences(sync_result.leitkompetenzen),
             rows=tuple(document_row_cells(row) for row in table_rows),
         )

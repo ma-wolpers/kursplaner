@@ -1068,6 +1068,14 @@ als Ladehinweis gemeldet — es gibt kein dauerhaftes Dualschema, nur Eingabetol
 **Themenfolgen:** Eine Mehrthemen-LZK setzt nur die *laufende* Kette fort, wenn deren Thema unter ihren
 Themen ist; sonst startet sie eine Kette mit ihrem Haupt-Oberthema. Keine Einheit gehört zu mehreren Läufen.
 
+**Sequenz = alle Läufe eines Oberthemas (2026-11-21):** Ein *Lauf* (`TopicSequenceRun`) ist ein zusammenhängender
+Block benachbarter Einheiten mit gleichem Oberthema – das Grid spannt je Lauf eine Sequenzfeld-Zelle, Läufe
+überlappen nie. Eine *Sequenz* (`TopicSequence`, `group_into_sequences`) sind **alle** Läufe mit demselben
+Oberthema, auch wenn anderes dazwischen liegt, sobald sie zusammen `MIN_SEQUENCE_MEMBER_COUNT` (2) Einheiten haben;
+dann zählt auch ein Lauf mit einer Einheit. Je Sequenz eine Sequenzdatei mit der Export-Tabelle aller Mitglieder
+(`SyncTopicSequencePlansUseCase`, eine `TopicSequencePlanView` je Lauf, gleicher `sequence_path`); der
+Sequenzplan-Export nimmt die ganze Sequenz. Einzige Gruppierungsregel ist `group_into_sequences`.
+
 ---
 
 ## 31) Kompetenzhorizont: Stichtag und Themenauswahl (verbindlich)

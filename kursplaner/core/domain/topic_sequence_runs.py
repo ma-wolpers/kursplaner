@@ -1,11 +1,16 @@
-"""Fachliche Erkennung von Themen-Sequenzen (Ketten benachbarter Einheiten mit gleichem Oberthema).
+"""Fachliche Erkennung von Themen-Sequenzen.
 
-Eine Sequenz im Sinne dieses Moduls ist eine ununterbrochene Kette chronologisch
-benachbarter Unterrichts-, LZK- oder Hospitations-Einheiten, deren Oberthema-Feld
-denselben, nicht-leeren Text trägt. Ausfall-Einheiten unterbrechen eine solche
-Kette nicht, tragen selbst aber auch kein Oberthema und werden bei der Erkennung
-übersprungen. Alle anderen Einheiten (leere/ungeplante Tage, oder Einheiten ohne
-gesetztes Oberthema) beenden eine laufende Kette.
+Zwei Ebenen:
+
+- **Lauf** (`TopicSequenceRun`): eine ununterbrochene Kette chronologisch
+  benachbarter Unterrichts-, LZK- oder Hospitations-Einheiten mit demselben,
+  nicht-leeren Oberthema. Ausfall-Einheiten unterbrechen eine Kette nicht, tragen
+  selbst aber kein Oberthema und werden übersprungen. Alle anderen Einheiten
+  (leere/ungeplante Tage, Einheiten ohne oder mit anderem Oberthema) beenden einen
+  Lauf. Läufe sind die Blöcke, über die das Grid die Sequenzfelder spannt.
+- **Sequenz** (`TopicSequence`): **alle** Läufe mit demselben Oberthema, auch wenn
+  anderes dazwischen liegt (`group_into_sequences`), sobald sie zusammen
+  mindestens `MIN_SEQUENCE_MEMBER_COUNT` Einheiten haben.
 
 Die Berechnung arbeitet bewusst auf der vollständigen, chronologischen Tagesliste
 (z. B. `app.raw_day_columns`) und nicht auf einer nach Sichtbarkeits-Einstellungen
@@ -15,6 +20,7 @@ Anzeige-Einstellungen ist.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -147,6 +153,61 @@ def compute_topic_sequence_runs(raw_day_columns: list[DayColumn]) -> list[TopicS
     return runs
 
 
+MIN_SEQUENCE_MEMBER_COUNT = 2
+"""Mindestanzahl an Einheiten (über alle Läufe eines Oberthemas), ab der eine Sequenz entsteht."""
+
+
+@dataclass(frozen=True)
+class TopicSequence:
+    """Eine Sequenz: alle Läufe mit demselben Oberthema – auch wenn anderes dazwischen liegt.
+
+    Die Läufe bleiben zusammenhängende Blöcke (das Grid zeichnet je Lauf eine
+    Spannzelle; Blöcke überlappen nie). Die Sequenz selbst ist ihre Vereinigung.
+    """
+
+    oberthema: str
+    runs: tuple[TopicSequenceRun, ...]
+
+    @property
+    def member_row_indices(self) -> tuple[int, ...]:
+        """Alle Einheiten der Sequenz chronologisch."""
+        return tuple(sorted(row for run in self.runs for row in run.member_row_indices))
+
+    @property
+    def member_count(self) -> int:
+        """Anzahl aller Einheiten der Sequenz."""
+        return sum(run.member_count for run in self.runs)
+
+
+def group_into_sequences(
+    runs: list[TopicSequenceRun], min_members: int = MIN_SEQUENCE_MEMBER_COUNT
+) -> list[TopicSequence]:
+    """Fasst Läufe mit gleichem Oberthema zu Sequenzen zusammen (einzige Gruppierungsregel).
+
+    Eine Gruppe ist eine Sequenz, sobald sie zusammen mindestens
+    `MIN_SEQUENCE_MEMBER_COUNT` Einheiten hat – dann zählt auch ein Lauf mit
+    nur einer Einheit dazu. Reihenfolge: nach dem ersten Auftreten.
+
+    Args:
+        runs: Läufe aus `compute_topic_sequence_runs`.
+        min_members: Mindestgröße einer Gruppe; ``1`` liefert jedes Oberthema
+            (Export einer einzelnen Einheit).
+
+    Returns:
+        Die qualifizierten Sequenzen.
+    """
+    grouped: dict[str, list[TopicSequenceRun]] = {}
+    for run in runs:
+        grouped.setdefault(run.oberthema, []).append(run)
+    sequences = [TopicSequence(oberthema, tuple(members)) for oberthema, members in grouped.items()]
+    return [sequence for sequence in sequences if sequence.member_count >= min_members]
+
+
+def find_sequence_for_row_index(sequences: list[TopicSequence], row_index: int) -> TopicSequence | None:
+    """Sequenz, zu der die Einheit in *row_index* gehört (``None`` ohne Sequenz)."""
+    return next((sequence for sequence in sequences if row_index in sequence.member_row_indices), None)
+
+
 def find_run_for_row_index(runs: list[TopicSequenceRun], row_index: int) -> TopicSequenceRun | None:
     """Sucht den Sequenz-Lauf, der eine bestimmte Einheit als Mitglied enthält.
 
@@ -167,7 +228,7 @@ def find_run_for_row_index(runs: list[TopicSequenceRun], row_index: int) -> Topi
 class TopicUnitExportRow:
     """Fachdaten einer Einheit für den Sequenzplan-Export (Export-DTO, typisiert).
 
-    Reines Export-DTO: wird nur von `build_export_rows_for_run` erzeugt und nur
+    Reines Export-DTO: wird nur von `build_export_rows` erzeugt und nur
     von den beiden Exportpfaden (manueller Sequenzplan-Export, Sequenzdatei-
     Sync) konsumiert. Es trägt bewusst **keine** vorformatierten Strings —
     Wochentag, ``Std.``-Suffix, Zeilenaufteilung und Material-Anzeigenamen sind
@@ -195,8 +256,8 @@ class TopicUnitExportRow:
     material: tuple[str, ...]
 
 
-def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRun) -> list[TopicUnitExportRow]:
-    """Baut die Exportzeilen ausschließlich aus den Mitgliedern eines Sequenz-Laufs.
+def build_export_rows(day_columns: list[DayColumn], member_row_indices: Sequence[int]) -> list[TopicUnitExportRow]:
+    """Baut die Exportzeilen ausschließlich aus den Mitgliedern einer Sequenz (alle ihre Läufe).
 
     Hospitations-Einheiten zählen als Kettenmitglied (siehe
     `compute_topic_sequence_runs`), erscheinen aber wie bisher nicht als eigene
@@ -209,18 +270,19 @@ def build_export_rows_for_run(day_columns: list[DayColumn], run: TopicSequenceRu
     Args:
         day_columns: Vollständige, unprojizierte Tagesliste in chronologischer
             Reihenfolge (z. B. `app.raw_day_columns`).
-        run: Der Sequenz-Lauf, dessen Mitglieder exportiert werden sollen.
+        member_row_indices: Zeilen der Einheiten, die exportiert werden sollen
+            (`TopicSequence.member_row_indices`).
 
     Returns:
         Eine Exportzeile pro exportierbarem Kettenmitglied, in chronologischer
         Reihenfolge.
     """
-    member_row_indices = set(run.member_row_indices)
+    members = set(member_row_indices)
     rows: list[TopicUnitExportRow] = []
     for day in day_columns:
         if not isinstance(day, DayColumn):
             continue
-        if day.row_index not in member_row_indices:
+        if day.row_index not in members:
             continue
         if day.lesson_type() not in EXPORTABLE_LESSON_TYPES:
             continue

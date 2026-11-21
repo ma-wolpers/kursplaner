@@ -1,6 +1,8 @@
 from kursplaner.core.domain.topic_sequence_runs import (
     compute_topic_sequence_runs,
     find_run_for_row_index,
+    find_sequence_for_row_index,
+    group_into_sequences,
 )
 from tests.day_column_factory import make_day_column
 
@@ -216,3 +218,32 @@ def test_ausfall_between_chain_and_multi_topic_lzk_is_skipped():
     runs = compute_topic_sequence_runs(day_columns)
 
     assert [(run.oberthema, run.member_row_indices) for run in runs] == [("B", (0, 2))]
+
+
+def test_runs_with_the_same_oberthema_are_grouped_into_one_sequence():
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="A"),
+        _day(row_index=1, kind="Unterricht", obert="A"),
+        _day(row_index=2, kind="Unterricht", obert="B"),
+        _day(row_index=3, kind="Unterricht", obert="A"),
+        _day(row_index=4, kind="Unterricht", obert="C"),
+    ]
+
+    sequences = group_into_sequences(compute_topic_sequence_runs(day_columns))
+
+    assert [(s.oberthema, s.member_row_indices) for s in sequences] == [("A", (0, 1, 3))]
+    assert [run.member_row_indices for run in sequences[0].runs] == [(0, 1), (3,)]
+    assert find_sequence_for_row_index(sequences, 3) is sequences[0]
+    assert find_sequence_for_row_index(sequences, 2) is None
+
+
+def test_two_single_units_with_the_same_oberthema_are_a_sequence_and_min_members_one_keeps_singles():
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="A"),
+        _day(row_index=1, kind="Unterricht", obert="B"),
+        _day(row_index=2, kind="Unterricht", obert="A"),
+    ]
+    runs = compute_topic_sequence_runs(day_columns)
+
+    assert [s.oberthema for s in group_into_sequences(runs)] == ["A"]
+    assert [s.oberthema for s in group_into_sequences(runs, min_members=1)] == ["A", "B"]

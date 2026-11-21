@@ -7,9 +7,8 @@ import pytest
 
 from kursplaner.core.domain.course_rhythm import WeekdayRhythm
 from kursplaner.core.domain.topic_sequence_runs import (
-    TopicSequenceRun,
     TopicUnitExportRow,
-    build_export_rows_for_run,
+    build_export_rows,
 )
 from kursplaner.core.domain.wiki_links import wiki_link_display_text
 from kursplaner.core.usecases.sequence_export_table import (
@@ -116,7 +115,7 @@ def test_build_export_rows_reads_typed_fields(tmp_path: Path):
         },
     )
 
-    [row] = build_export_rows_for_run([day], TopicSequenceRun(oberthema="Funktionen", member_row_indices=(0,)))
+    [row] = build_export_rows([day], (0,))
 
     assert row == TopicUnitExportRow(
         datum=date(2023, 9, 7),
@@ -136,7 +135,7 @@ def test_lzk_without_material_key_yields_empty_material(tmp_path: Path):
     link.write_text("---\nStundentyp: LZK\n---\n", encoding="utf-8")
     day = make_day_column(row_index=0, datum="07-09-23", link=link, yaml={"Stundentyp": "LZK", "Oberthema": ["T"]})
 
-    [row] = build_export_rows_for_run([day], TopicSequenceRun(oberthema="T", member_row_indices=(0,)))
+    [row] = build_export_rows([day], (0,))
 
     assert row.material == ()
 
@@ -153,7 +152,7 @@ def test_non_list_competencies_violate_the_invariant(tmp_path: Path):
     )
 
     with pytest.raises(TypeError):
-        build_export_rows_for_run([day], TopicSequenceRun(oberthema="T", member_row_indices=(0,)))
+        build_export_rows([day], (0,))
 
 
 def test_net_links_show_their_title_in_goal_and_competence_cells():

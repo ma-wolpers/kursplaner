@@ -219,7 +219,8 @@ def test_export_rejects_selection_without_oberthema(tmp_path):
         )
 
 
-def test_export_does_not_merge_non_adjacent_occurrences_of_same_oberthema(tmp_path):
+def test_export_includes_all_occurrences_of_the_oberthema_even_with_others_between(tmp_path):
+    """Sequenz = alle Einheiten mit gleichem Oberthema (2026-11-21), auch mit „Geometrie“ dazwischen."""
     usecase, renderer = _make_usecase()
 
     day_columns = [
@@ -236,9 +237,9 @@ def test_export_does_not_merge_non_adjacent_occurrences_of_same_oberthema(tmp_pa
         export_date=date(2026, 3, 31),
     )
 
-    assert result.row_count == 1
+    assert result.row_count == 2
     document, _rendered_path = renderer.calls[0]
-    assert document.rows[0][2] == ("Einstieg",)
+    assert [row[2] for row in document.rows] == [("Einstieg",), ("Vertiefung",)]
 
 
 def test_export_includes_hospitation_in_chain_but_not_as_table_row(tmp_path):

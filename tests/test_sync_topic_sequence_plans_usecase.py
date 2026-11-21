@@ -222,3 +222,23 @@ def test_sync_is_skipped_while_a_unit_has_invalid_oberthema(tmp_path):
     assert views == []
     assert usecase.rows_with_invalid_oberthema([valid[0], invalid]) == (1,)
     assert view.sequence_path.read_text(encoding="utf-8") == before
+
+
+def test_runs_with_the_same_oberthema_form_one_sequence_with_one_file_and_full_export(tmp_path):
+    """A A B A: das letzte A gehört zur Sequenz A, obwohl B dazwischen liegt (ein Lauf mit einer Einheit)."""
+    usecase = _usecase(FileSystemSequencePlanRepository())
+    table = _table(tmp_path)
+    day_columns = [
+        _day(row_index=0, kind="Unterricht", obert="Brüche", datum="02-11-26", thema="Teilen"),
+        _day(row_index=1, kind="Unterricht", obert="Brüche", datum="03-11-26", thema="Kürzen"),
+        _day(row_index=2, kind="Unterricht", obert="Geometrie", datum="04-11-26", thema="Winkel"),
+        _day(row_index=3, kind="Unterricht", obert="Brüche", datum="05-11-26", thema="Erweitern"),
+    ]
+
+    views = usecase.execute(table=table, day_columns=day_columns)
+
+    assert [view.run.member_row_indices for view in views] == [(0, 1), (3,)]
+    assert views[0].sequence_path == views[1].sequence_path
+    content = views[0].sequence_path.read_text(encoding="utf-8")
+    assert all(topic in content for topic in ("Teilen", "Kürzen", "Erweitern"))
+    assert "Winkel" not in content

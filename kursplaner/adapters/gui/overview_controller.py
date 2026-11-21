@@ -679,8 +679,8 @@ class MainWindowOverviewController:
         unabhängig von aktuellen Sichtbarkeits-Einstellungen ist (siehe
         `SyncTopicSequencePlansUseCase`). Wird nach jedem Neuladen der
         Tagesliste aufgerufen und erledigt damit die automatische
-        Sequenzdatei-Erzeugung "sofort", sobald 2+ benachbarte Einheiten ein
-        gemeinsames Oberthema tragen.
+        Sequenzdatei-Erzeugung "sofort", sobald 2+ Einheiten ein gemeinsames
+        Oberthema tragen (auch mit anderem dazwischen, `group_into_sequences`).
         """
         if self.app.current_table is None:
             self._publish_sequence_plans([])
