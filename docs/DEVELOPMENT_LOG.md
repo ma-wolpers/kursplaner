@@ -7,6 +7,11 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Sequenz-Link der Plantabelle beim Kursladen aus dem YAML ableiten (2026-11-25; ARCHITEKTUR_KERN §41).
+  - Befund: Im Kurs ge5 fehlte bei drei Einheiten mit `Oberthema: Dezimalbrüche` der Link `[[ge5 Dezimalbrüche]]` in `Thema/Ausfall`, obwohl der Kursplaner sie korrekt in der Sequenz zeigte. Ursache: Den Spiegel schrieb nur `PlanRegularLessonUseCase.execute_write`; `AssignAblageRungUseCase.execute` (über `LessonEditUseCase.set_lesson_oberthemen`) und `save_oberthema_cell` mit Datei setzen nur das YAML, Obsidian-Bearbeitungen sowieso.
+  - Passungsprüfung: Ein gemeinsamer Schreibweg für alle Oberthema-Schreiber hätte Obsidian-Bearbeitungen nie abgedeckt, und `STUNDENPLAN_RHYTHMUS.md` beschrieb die Spalte nur als Fallback. Die Nutzerin hat „Ableiten beim Laden“ gewählt (Alternativen: gemeinsamer Schreibweg, Spiegel abschaffen).
+  - Neu: `ReconcilePlanTopicLinksUseCase` (`execute(table, day_columns)` → `ReconcilePlanTopicLinksResult.changed_rows`, `is_derived_cell`); nutzt `PlanRepository.sync_thema_ausfall_to_plan_row` als einzige Regel und speichert nur bei Änderungen. Aufruf in `overview_controller.load_selected_table` nach der Oberthema-Migration, Neuladen bei Änderungen; Verdrahtung in `wiring.py`.
+  - Tests: neu `test_reconcile_plan_topic_links_usecase.py` (leere/veraltete Links, LZK-Präfix, entferntes Oberthema leert, Marker/Freitext/Zeilen ohne Datei unberührt, kein Speichern ohne Änderung).
 - Formulierung je Leiter-Seite: `titel_infinitiv` als Lernziel-Form (2026-11-25, Wunsch der Nutzerin; ARCHITEKTUR_KERN §37 „Formulierung je Seite“, Vault-Schema-Invariante 18).
   - Passungsprüfung: Beim Kopieren können Netz-Bausteine die Seite wechseln. „Ohne Alias = irgendeine Variante“ hätte die falsche Form auf der falschen Seite legitimiert (Einwand der Nutzerin). Stattdessen gilt „Alias = Abweichung vom Original der eigenen Seite“, und Kopieren überträgt den Alias-Zustand. Das Speichermodell `[[ID|Text]]` bleibt; die SSOT-Variante `[[ID]]` ohne Text hat die Nutzerin verworfen, weil sonst alle Leser von Einheitsfeldern vom Netz abhingen.
   - Domain:

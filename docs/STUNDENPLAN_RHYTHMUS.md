@@ -187,7 +187,7 @@ Unter dem YAML-Block steht die Plantabelle mit genau drei Spalten:
 |---|---|
 | `Datum` | Termin im Format `TT-MM-JJ` |
 | `Inhalt` | Link auf die Einheiten-Datei (z. B. `[[ab12cd]]`) oder leer |
-| `Thema/Ausfall` | Oberthema einer noch nicht angelegten Einheit, oder ein Ausfall-Marker |
+| `Thema/Ausfall` | Oberthema einer noch nicht angelegten Einheit, Sequenz-Link einer angelegten Einheit (`[[Gruppe Oberthema]]`, wird beim Kursladen aus ihrem YAML abgeleitet, siehe ARCHITEKTUR_KERN §41), oder ein Ausfall-Marker |
 
 Ausfall-Marker:
 

@@ -41,6 +41,7 @@ class MainWindowOverviewController:
         self.reconcile_ub_overview_usecase = deps.reconcile_ub_overview_usecase
         self.cleanup_lzk_expected_horizon_links_usecase = deps.cleanup_lzk_expected_horizon_links_usecase
         self.migrate_oberthema_list_usecase = deps.migrate_oberthema_list_usecase
+        self.reconcile_plan_topic_links_usecase = deps.reconcile_plan_topic_links_usecase
         self.sync_topic_sequence_plans_usecase = deps.sync_topic_sequence_plans_usecase
         self.archive_former_courses_usecase = deps.archive_former_courses_usecase
         self.path_settings_usecase = app.path_settings_usecase
@@ -469,6 +470,11 @@ class MainWindowOverviewController:
             if migration.migrated_files:
                 detail = self.load_plan_detail_usecase.execute(path)
             oberthema_problems = migration.problems
+            # Sequenz-Link der Plantabelle aus dem YAML ableiten (einzige Abgleichstelle).
+            if self.reconcile_plan_topic_links_usecase.execute(
+                table=detail.table, day_columns=detail.day_columns
+            ).changed_rows:
+                detail = self.load_plan_detail_usecase.execute(path)
             cleanup_result = self.cleanup_lzk_expected_horizon_links_usecase.execute(
                 table=detail.table,
                 day_columns=detail.day_columns,
