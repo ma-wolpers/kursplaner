@@ -16,15 +16,15 @@ def duplicate_title_summary(load_result: KompetenzGraphLoadResult) -> str:
     if not diagnostics:
         return ""
     lines = [
-        f"{d.subject}: „{d.title}“ ({', '.join(d.node_ids)})" + (f" – {d.hint}" if d.hint else "")
+        f"{d.subject} ({d.form}): „{d.title}“ ({', '.join(d.node_ids)})" + (f" – {d.hint}" if d.hint else "")
         for d in diagnostics[:_MAX_TITLE_LINES]
     ]
     remaining = len(diagnostics) - _MAX_TITLE_LINES
     suffix = f"\n(+{remaining} weitere)" if remaining > 0 else ""
     return (
-        f"{len(diagnostics)} Kompetenz-Titel kommen in einem Fach mehrfach vor. Bitte zusammenführen oder "
-        "die Titel unterscheidbar machen (Schema-Invariante 17) – in der Sequenzleiter ist der Titel der "
-        "Name des Bausteins:\n" + "\n".join(lines) + suffix
+        f"{len(diagnostics)} Kompetenz-Titel oder Lernziel-Formen kommen in einem Fach mehrfach vor. Bitte "
+        "zusammenführen oder unterscheidbar machen (Schema-Invariante 17/18) – in der Sequenzleiter sind sie "
+        "die Namen der Bausteine:\n" + "\n".join(lines) + suffix
     )
 
 

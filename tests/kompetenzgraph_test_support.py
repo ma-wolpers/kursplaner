@@ -60,6 +60,7 @@ def make_node(
     status: str = "entwurf",
     title: str | None = None,
     source: SourceRef | None = None,
+    title_infinitive: str = "",
 ) -> KompetenzNode:
     """Baut einen `KompetenzNode` mit sinnvollen Testdefaults -- ein gültiger `kc_zuordnung`-Eintrag inklusive."""
     return KompetenzNode(
@@ -73,6 +74,7 @@ def make_node(
         kc_zuordnung=kc_zuordnung if kc_zuordnung is not None else (make_kc_zuordnung(),),
         status=status,
         title=title if title is not None else f"Titel von {node_id}",
+        title_infinitive=title_infinitive,
     )
 
 

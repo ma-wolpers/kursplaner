@@ -140,3 +140,32 @@ def test_empty_optional_lists_default_to_empty_tuples():
     assert node.voraussetzungen_ids == ()
     assert node.prozessbereich_ids == ()
     assert node.offene_voraussetzungen == ()
+
+
+def test_titel_infinitiv_is_read_and_missing_means_empty():
+    frontmatter = {
+        "primarer_bereich": "[[I-Test]]",
+        "kc_zuordnung": _VALID_KC_ZUORDNUNG,
+        "status": "entwurf",
+        "titel_infinitiv": "  Brüche darstellen ",
+    }
+    node, issues = parse_kompetenz_node_from_raw(frontmatter, "# stellen Brüche dar", node_id="GF-49", source=_source())
+    assert issues == ()
+    assert node.title_infinitive == "Brüche darstellen" and node.infinitive_title == "Brüche darstellen"
+
+    del frontmatter["titel_infinitiv"]
+    node, issues = parse_kompetenz_node_from_raw(frontmatter, "# stellen Brüche dar", node_id="GF-49", source=_source())
+    assert issues == ()
+    assert node.title_infinitive == "" and node.infinitive_title == "stellen Brüche dar"
+
+
+def test_non_text_titel_infinitiv_is_a_soft_error_with_title_fallback():
+    frontmatter = {
+        "primarer_bereich": "[[I-Test]]",
+        "kc_zuordnung": _VALID_KC_ZUORDNUNG,
+        "status": "entwurf",
+        "titel_infinitiv": ["Liste"],
+    }
+    node, issues = parse_kompetenz_node_from_raw(frontmatter, "# stellen Brüche dar", node_id="GF-49", source=_source())
+    assert node.infinitive_title == "stellen Brüche dar"
+    assert any(issue.field == "titel_infinitiv" and issue.severity == "warning" for issue in issues)

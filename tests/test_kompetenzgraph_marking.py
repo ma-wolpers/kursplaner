@@ -53,3 +53,19 @@ def test_duplicate_titles_are_found_per_subject_ignoring_case_and_spaces():
     result = KompetenzGraphLoadResult(snapshot, (), (), ("Mathematik",), diagnostics)
     assert "Mat-1, Mat-2" in duplicate_title_summary(result)
     assert duplicate_title_summary(KompetenzGraphLoadResult(snapshot, (), (), ())) == ""
+
+
+def test_duplicate_goal_forms_are_reported_separately_and_only_when_maintained():
+    snapshot = _snapshot(
+        make_node("Mat-1", title="stellen Brüche dar", title_infinitive="Brüche darstellen"),
+        make_node("Mat-2", title="zeigen Brüche", title_infinitive="brüche  darstellen"),
+        make_node("Mat-3", title="ordnen Zahlen"),
+        make_node("Mat-4", title="Ordnen Zahlen"),  # doppelter Titel ohne eigene Lernziel-Form: nur einmal gemeldet
+    )
+    diagnostics = check_kompetenz_graph_for_duplicate_titles(snapshot)
+    assert [(d.form, d.node_ids) for d in diagnostics] == [
+        ("Titel", ("Mat-3", "Mat-4")),
+        ("Lernziel-Form", ("Mat-1", "Mat-2")),
+    ]
+    summary = duplicate_title_summary(KompetenzGraphLoadResult(snapshot, (), (), ("Mathematik",), diagnostics))
+    assert "Mathematik (Lernziel-Form): „Brüche darstellen“ (Mat-1, Mat-2)" in summary

@@ -58,6 +58,11 @@ class KompetenzNode:
             kurze Zeile, kein Vault-Duplikat). Fällt beim Mapping auf den
             ersten nicht-leeren `kc_verweis` bzw. zuletzt auf die ID
             selbst zurück, falls der Body keine Überschrift enthält.
+            Satzform mit kleinem Anfangsverb (Schema-Invariante 18).
+        title_infinitive: Frontmatter-Feld ``titel_infinitiv`` – dieselbe
+            Aussage im Infinitiv (Lernziel-Form, Schema-Invariante 18);
+            ``""``, wenn es fehlt. Gelesen wird es nur über
+            `infinitive_title`, die einzige Stelle des Rückfalls auf `title`.
     """
 
     id: str
@@ -70,6 +75,12 @@ class KompetenzNode:
     kc_zuordnung: tuple[KcZuordnungEintrag, ...]
     status: str
     title: str
+    title_infinitive: str = ""
+
+    @property
+    def infinitive_title(self) -> str:
+        """Lernziel-Form (`title_infinitive`), ohne gepflegtes Feld der Titel selbst."""
+        return self.title_infinitive or self.title
 
     @property
     def referenced_bereich_ids(self) -> frozenset[str]:

@@ -12,9 +12,9 @@ Markierungen: gesperrte Sprossen (LZK/Hospitation/Ausfall) werden gesperrte
 Board-Zeilen; der oberste linke Baustein einer Unterrichts-Sprosse – ihr
 Stundenziel nach der Positionsregel (`sequence_ladder_homes.goals_from_left`) –
 trägt den Ton `EMPHASIS`; Altbestand-Doppelungen (`SequenceLadderView.duplicates`)
-den Ton `WARNING` und einen Hinweis im Banner (`view_hints`). Ein Netz-Baustein,
-dessen Alias vom Netztitel abweicht, zeigt das Original als Notiz unter einem
-Trenner in derselben Karte (`BoardCard.note`, Regel `shows_original`).
+den Ton `WARNING` und einen Hinweis im Banner (`view_hints`). Ein Netz-Baustein
+mit Alias (Text ≠ Original seiner Seite) zeigt dieses Original als Notiz unter
+einem Trenner in derselben Karte (`BoardCard.note`, Regel `shows_original`).
 """
 
 from __future__ import annotations
@@ -155,10 +155,10 @@ def _tone(view: SequenceLadderView, ref: BlockRef, position: int, locked: bool) 
     return CardTone.EMPHASIS if is_unit and ref.side is LadderSide.INHALT and position == 0 else CardTone.NORMAL
 
 
-def _note(view: SequenceLadderView, block: LadderBlock) -> str | None:
-    """Originaltitel als Kartennotiz, wenn der Alias davon abweicht (`shows_original`), sonst ``None``."""
-    original = view.originals.get(block.kompetenz_id) if block.kompetenz_id is not None else None
-    return original if shows_original(block, original) else None
+def _note(view: SequenceLadderView, block: LadderBlock, side: LadderSide) -> str | None:
+    """Original der Seite als Kartennotiz, wenn der Baustein einen Alias trägt (`shows_original`), sonst ``None``."""
+    wording = view.originals.get(block.kompetenz_id) if block.kompetenz_id is not None else None
+    return wording.for_side(side) if wording is not None and shows_original(block, wording, side) else None
 
 
 def board_rows(view: SequenceLadderView) -> list[BoardRow]:
@@ -174,7 +174,7 @@ def board_rows(view: SequenceLadderView) -> list[BoardRow]:
                     block_display_text(block, side),
                     block.kompetenz_id,
                     _tone(view, ref, position, locked),
-                    note=_note(view, block),
+                    note=_note(view, block, side),
                 )
                 for position, block in enumerate(rung.blocks(side))
             )

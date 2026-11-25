@@ -6,8 +6,9 @@ prozessbezogen rechts, Material über dem Ideenfeld – und das Ideenfeld. Inner
 einer Zelle ist Index 0 der oberste Baustein.
 
 Was eine Seite ausmacht, steht allein in der Regeltabelle `SIDE_RULES`
-(Speicherfeld der Sprosse, Eindeutigkeitsbereich, Netz-Bausteine erlaubt,
-Nomen für Meldungen). Der Baustein-Text ist innerhalb seines
+(Speicherfeld der Sprosse, Eindeutigkeitsbereich, Nomen für Meldungen und die
+Formulierung ihrer Netz-Bausteine – Infinitiv links, Satzform rechts, keine beim
+Material). Der Baustein-Text ist innerhalb seines
 Eindeutigkeitsbereichs Schlüssel (verglichen nach Trimmen und ohne
 Groß-/Kleinschreibung, `block_key`): links (Stunden-/Teilziele) über die ganze
 Spalte, rechts (geförderte Kompetenzen) und beim Material nur innerhalb einer
@@ -42,6 +43,19 @@ class LadderSide(str, Enum):
     MATERIAL = "Material"
 
 
+class NetworkWording(str, Enum):
+    """Sprachliche Variante einer Netz-Kompetenz, die eine Seite trägt (Schema-Invariante 18).
+
+    ``TITLE`` ist die Satzform des Netz-Titels („stellen Brüche dar“, passt hinter
+    „Die SuS …“), ``INFINITIVE`` das Feld ``titel_infinitiv`` („Brüche darstellen“,
+    passt hinter „Die SuS können …“/„Ich kann …“). Welche Seite welche trägt, steht
+    allein in `SIDE_RULES`; den Text liefert `competence_wording.CompetenceWording`.
+    """
+
+    TITLE = "titel"
+    INFINITIVE = "infinitiv"
+
+
 @dataclass(frozen=True)
 class SideRules:
     """Regeln einer Bausteinseite (eine Zeile von `SIDE_RULES`).
@@ -49,20 +63,26 @@ class SideRules:
     Attributes:
         field: Attribut von `LadderRung`, das die Bausteine der Seite hält.
         per_rung: Eindeutigkeit je Sprosse (``True``) oder über die ganze Spalte.
-        network: Die Seite nimmt Netz-Bausteine (``[[ID|Titel]]``) auf.
         noun: Was ein Baustein dieser Seite für die Nutzerin ist (Meldungen).
+        wording: Formulierung, in der Netz-Bausteine auf dieser Seite stehen;
+            ``None`` = die Seite nimmt keine Netz-Bausteine auf.
     """
 
     field: str
     per_rung: bool
-    network: bool
     noun: str
+    wording: NetworkWording | None = None
+
+    @property
+    def network(self) -> bool:
+        """Die Seite nimmt Netz-Bausteine (``[[ID|Text]]``) auf – genau dann, wenn sie eine Formulierung hat."""
+        return self.wording is not None
 
 
 SIDE_RULES: dict[LadderSide, SideRules] = {
-    LadderSide.INHALT: SideRules("inhalt", per_rung=False, network=True, noun="Lernziel"),
-    LadderSide.PROZESS: SideRules("prozess", per_rung=True, network=True, noun="Kompetenz"),
-    LadderSide.MATERIAL: SideRules("material", per_rung=True, network=False, noun="Material"),
+    LadderSide.INHALT: SideRules("inhalt", per_rung=False, noun="Lernziel", wording=NetworkWording.INFINITIVE),
+    LadderSide.PROZESS: SideRules("prozess", per_rung=True, noun="Kompetenz", wording=NetworkWording.TITLE),
+    LadderSide.MATERIAL: SideRules("material", per_rung=True, noun="Material"),
 }
 """Einzige Tabelle der Seitenregeln; alle Abfragen unten und in den Nachbarmodulen lesen sie."""
 

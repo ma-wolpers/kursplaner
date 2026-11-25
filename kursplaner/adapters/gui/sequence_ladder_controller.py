@@ -10,10 +10,10 @@ Inline-Editor des CardBoards – kein Popup), Hinweise und Rückfragen laufen ü
 eines `BlockRef` oder Board-Zelle, siehe `sequence_ladder_board_mapping`).
 
 Netz-Bausteine sind umbenennbar: ihr Text ist der Alias, die Kompetenz-ID bleibt.
-Die Eingabe folgt `sequence_ladder_alias` (leer = Original, schon vorhandenes
-Original → Vorschlag „(Kopie)“ im Feld, bw-gui `TextRejection`). Die
+Die Eingabe folgt `sequence_ladder_alias` (leer = Original der Seite, schon
+vorhandenes Original → Vorschlag „(Kopie)“ im Feld, bw-gui `TextRejection`). Die
 Zwischenablage (`LadderClipboard`) gehört dem Host und überlebt den
-Sequenzwechsel; sie trägt den ganzen Baustein samt ID und Original.
+Sequenzwechsel; sie trägt einen `CopiedBlock` (Baustein, Formulierung, Alias-Zustand).
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     rung_index,
     view_hints,
 )
+from kursplaner.core.domain.competence_wording import CompetenceWording
 from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
@@ -52,7 +53,7 @@ from kursplaner.core.domain.sequence_ladder import (
     block_text_error,
     locked_message,
 )
-from kursplaner.core.domain.sequence_ladder_alias import AliasProblem, alias_problem, resolve_alias
+from kursplaner.core.domain.sequence_ladder_alias import AliasProblem, CopiedBlock, alias_problem, resolve_alias
 from kursplaner.core.domain.sequence_ladder_homes import locked_reason
 from kursplaner.core.domain.sequence_ladder_ops import (
     AddBlock,
@@ -90,21 +91,19 @@ class BlockTextInput(Protocol):
 
 @dataclass
 class LadderClipboard:
-    """Zwischenablage der Leiter-Ansicht: ein kopierter Baustein samt Originaltitel.
+    """Zwischenablage der Leiter-Ansicht: ein kopierter Baustein (`CopiedBlock`).
 
     Eine Instanz gehört dem `SequenceLadderHost` und wird jedem Controller
     mitgegeben, damit Strg+C in einer Leiter und Strg+V in einer anderen
-    zusammenpassen (der Controller wird beim Sequenzwechsel neu gebaut).
-    ``original`` reist mit, weil die Zielleiter die Kompetenz evtl. noch nicht
-    enthält und ihr Original dort sonst unbekannt wäre (Zurücksetzen per leerer Eingabe).
+    zusammenpassen (der Controller wird beim Sequenzwechsel neu gebaut). Was
+    beim Einfügen auf einer anderen Seite erscheint, entscheidet allein
+    `CopiedBlock` (Domain, `sequence_ladder_alias`).
 
     Attributes:
-        block: Kopierter Baustein (Text bzw. Alias und ggf. Kompetenz-ID) oder ``None``.
-        original: Originaltitel eines kopierten Netz-Bausteins oder ``None``.
+        copied: Kopierter Baustein samt Formulierung und Alias-Zustand oder ``None``.
     """
 
-    block: LadderBlock | None = None
-    original: str | None = None
+    copied: CopiedBlock | None = None
 
 
 def _editor_feedback(problem: AliasProblem | None) -> str | TextRejection | None:
@@ -304,16 +303,16 @@ class SequenceLadderController:
         rename: BlockRef | None = None,
         initial: str = "",
         kompetenz_id: str | None = None,
-        original: str | None = None,
+        wording: CompetenceWording | None = None,
     ) -> None:
         """Namenseingabe im Board: über dem Baustein *rename* oder als neuer Baustein an *slot*.
 
         Geprüft wird mit derselben Regel wie beim Anwenden, sodass die Eingabe nur
         einen Text annimmt, den die Operation auch akzeptiert. Für einen Netz-Baustein
         (*kompetenz_id* auf einer Netz-Seite) gelten die Alias-Regeln
-        (`sequence_ladder_alias`: leer = *original*, Kopie-Vorschlag) und *then* erhält
-        den aufgelösten Alias; sonst `block_text_error` und den getrimmten Text.
-        Abbrechen ruft nichts auf.
+        (`sequence_ladder_alias`: leer = Original der Seite aus *wording*,
+        Kopie-Vorschlag) und *then* erhält den aufgelösten Text; sonst
+        `block_text_error` und den getrimmten Text. Abbrechen ruft nichts auf.
         """
         ladder, side, rung = self.ladder, slot.side, slot.rung
         validate: TextValidator
@@ -322,12 +321,12 @@ class SequenceLadderController:
 
             def validate(t: str) -> str | TextRejection | None:
                 problem = alias_problem(
-                    t, ladder, side=side, rung=rung, kompetenz_id=kid, original=original, ignore=rename
+                    t, ladder, side=side, rung=rung, kompetenz_id=kid, wording=wording, ignore=rename
                 )
                 return _editor_feedback(problem)
 
             def resolve(t: str) -> str:
-                return resolve_alias(t, kid, original)
+                return resolve_alias(t, kid, wording, side)
         else:
 
             def validate(t: str) -> str | TextRejection | None:
@@ -343,8 +342,8 @@ class SequenceLadderController:
             done=lambda text: then(resolve(text)),
         )
 
-    def _original(self, block: LadderBlock) -> str | None:
-        """Originaltitel eines Netz-Bausteins aus der geladenen Ansicht (Puffer), sonst ``None``."""
+    def _wording(self, block: LadderBlock) -> CompetenceWording | None:
+        """Formulierung eines Netz-Bausteins aus der geladenen Ansicht (Puffer), sonst ``None``."""
         if self.view is None or block.kompetenz_id is None:
             return None
         return self.view.originals.get(block.kompetenz_id)
@@ -372,20 +371,22 @@ class SequenceLadderController:
         self._ask(slot, lambda text: self._run(AddBlock(slot, text)))
 
     def copy(self) -> None:
-        """Strg+C: den gewählten Baustein samt Kompetenz-ID und Originaltitel merken (geteilte Ablage)."""
+        """Strg+C: den gewählten Baustein samt Formulierung und Alias-Zustand merken (geteilte Ablage)."""
         selected = self._selected()
         if selected is not None:
-            block = selected[2]
-            self.clipboard.block, self.clipboard.original = block, self._original(block)
+            _ref, slot, block = selected
+            self.clipboard.copied = CopiedBlock.of(block, slot.side, self._wording(block))
 
     def paste(self) -> None:
         """Strg+V: Kopie über dem gewählten Baustein (oder in die gewählte Zelle), Name vorbelegt.
 
-        Ein Netz-Baustein bleibt auf einer Netz-Seite ein Netz-Baustein mit derselben ID
-        (Link und Text bleiben erhalten); weil der Alias im Bereich eindeutig sein muss,
-        öffnet sich die Namenseingabe vorbelegt mit dem bisherigen Alias.
+        Ein Netz-Baustein bleibt auf einer Netz-Seite ein Netz-Baustein mit derselben ID.
+        Die Vorbelegung bestimmt `CopiedBlock.text_for`: ohne Alias das Original der
+        Zielseite (Lernziel ↔ Kompetenz wechseln die Formulierung), ein Alias bleibt
+        wörtlich. Weil der Text im Bereich eindeutig sein muss, öffnet sich die
+        Namenseingabe.
         """
-        copied = self.clipboard.block
+        copied = self.clipboard.copied
         if copied is None:
             self._dialogs.show_info("Einfügen", "Erst einen Baustein mit Strg+C kopieren.")
             return
@@ -395,13 +396,13 @@ class SequenceLadderController:
             return
         if self._locked(slot):
             return
-        kid = copied.kompetenz_id if SIDE_RULES[slot.side].network else None
+        kid = copied.block.kompetenz_id if SIDE_RULES[slot.side].network else None
         self._ask(
             slot,
             lambda text: self._run(AddBlock(slot, text, pasted=True, kompetenz_id=kid)),
-            initial=copied.text,
+            initial=copied.text_for(slot.side),
             kompetenz_id=kid,
-            original=self.clipboard.original,
+            wording=copied.wording,
         )
 
     def _paste_slot(self) -> LadderSlot | None:
@@ -446,7 +447,7 @@ class SequenceLadderController:
             rename=ref,
             initial=block.text,
             kompetenz_id=block.kompetenz_id,
-            original=self._original(block),
+            wording=self._wording(block),
         )
 
     def step(self, up: bool) -> None:

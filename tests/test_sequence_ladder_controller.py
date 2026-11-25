@@ -14,9 +14,13 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     rung_key,
 )
 from kursplaner.adapters.gui.sequence_ladder_controller import LadderClipboard, SequenceLadderController
+from kursplaner.core.domain.competence_wording import CompetenceWording
 from kursplaner.core.domain.sequence_ladder import BlockRef, LadderBlock, LadderSide
+from kursplaner.core.domain.sequence_ladder_alias import CopiedBlock
 
 PRO = LadderSide.PROZESS
+NETZ = CompetenceWording("Mat-PL-1", "Netz", "Netz knüpfen")
+"""Erfundene Kompetenz: Satzform „Netz“ (Kompetenzspalte), Lernziel-Form „Netz knüpfen“."""
 
 
 class FakeDialogs:
@@ -81,10 +85,10 @@ def make(tmp_path):
 
 
 class FakeOriginals:
-    """Originaltitel-Puffer mit einer erfundenen Kompetenz."""
+    """Originale-Puffer mit einer erfundenen Kompetenz (`NETZ`)."""
 
     def original(self, kompetenz_id):
-        return "Netz" if kompetenz_id == "Mat-PL-1" else None
+        return NETZ if kompetenz_id == "Mat-PL-1" else None
 
 
 def _with_ablage(controller, *lines):
@@ -129,7 +133,7 @@ def test_copy_paste_inserts_above_with_prefilled_name(make):
 def test_paste_without_clipboard_or_target_explains_itself(make):
     controller, dialogs, *_ = make()
     controller.paste()
-    controller.clipboard.block = LadderBlock("A")
+    controller.clipboard.copied = CopiedBlock.of(LadderBlock("A"), LadderSide.INHALT, None)
     controller.set_cursor(None)
     controller.paste()
     assert len(dialogs.infos) == 2
@@ -143,7 +147,7 @@ def test_rename_of_network_block_edits_the_alias_and_keeps_the_link(make):
     controller.rename()
     assert controller.ladder.rung(0).prozess == (LadderBlock("Netz anders", "Mat-PL-1"),)
     assert "[[Mat-PL-1|Netz anders]]" in controller.sequence_path.read_text(encoding="utf-8")
-    assert controller.view.originals == {"Mat-PL-1": "Netz"}
+    assert controller.view.originals == {"Mat-PL-1": NETZ}
 
 
 def test_empty_rename_resets_to_the_original(make):
@@ -171,13 +175,51 @@ def test_copy_paste_of_a_network_block_keeps_link_and_text_across_ladders(make, 
     _with_ablage(source, "Prozess: [[Mat-PL-1|Netz anders]]", "Inhalt: Ziel")
     source.set_cursor(_key("Netz anders", side=PRO))
     source.copy()
-    assert shared.block == LadderBlock("Netz anders", "Mat-PL-1") and shared.original == "Netz"
+    assert shared.copied == CopiedBlock(LadderBlock("Netz anders", "Mat-PL-1"), NETZ, "Netz anders")
     target, dialogs, *_ = make("U", clipboard=shared, root=tmp_path / "zweite")  # andere Leiter, neuer Controller
     target.set_cursor(BoardCell(rung_key(0), LANE_PROZESS))
     dialogs.answers = ["Netz anders"]
     target.paste()
     assert dialogs.asked[-1][1] == "Netz anders"
     assert target.ladder.rung(0).prozess == (LadderBlock("Netz anders", "Mat-PL-1"),)
+
+
+def test_copying_without_alias_between_columns_switches_the_wording(make):
+    controller, dialogs, *_ = make()
+    _with_ablage(controller, "Prozess: [[Mat-PL-1|Netz]]", "Inhalt: Ziel")
+    controller.set_cursor(_key("Netz", side=PRO))
+    controller.copy()
+    controller.set_cursor(BoardCell(rung_key(0), LANE_INHALT))
+    dialogs.answers = ["Netz knüpfen"]
+    controller.paste()
+    assert dialogs.asked[-1][1] == "Netz knüpfen"  # Lernziel-Form, nicht die Satzform
+    assert LadderBlock("Netz knüpfen", "Mat-PL-1") in controller.ladder.rung(0).inhalt
+    controller.set_cursor(_key("Netz knüpfen"))
+    controller.copy()
+    controller.set_cursor(BoardCell(rung_key(0), LANE_PROZESS))
+    dialogs.answers = [None]  # nur die Vorbelegung prüfen
+    controller.paste()
+    assert dialogs.asked[-1][1] == "Netz"  # zurück zur Satzform
+
+
+def test_copying_with_alias_between_columns_keeps_the_alias(make):
+    controller, dialogs, *_ = make()
+    _with_ablage(controller, "Prozess: [[Mat-PL-1|eigene Fassung]]")
+    controller.set_cursor(_key("eigene Fassung", side=PRO))
+    controller.copy()
+    controller.set_cursor(BoardCell(rung_key(0), LANE_INHALT))
+    dialogs.answers = [None]
+    controller.paste()
+    assert dialogs.asked[-1][1] == "eigene Fassung"
+
+
+def test_empty_rename_in_the_goal_column_resets_to_the_infinitive(make):
+    controller, dialogs, *_ = make()
+    _with_ablage(controller, "Inhalt: [[Mat-PL-1|Netz]]")
+    controller.set_cursor(_key("Netz"))
+    dialogs.answers = [""]
+    controller.rename()
+    assert controller.ladder.rung(0).inhalt == (LadderBlock("Netz knüpfen", "Mat-PL-1"),)
 
 
 def test_delete_selects_the_neighbour_or_the_empty_cell(make):

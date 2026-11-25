@@ -55,3 +55,20 @@ def test_unknown_ids_and_unresolvable_areas_are_reported():
     assert items == ()
     assert any("Primärbereich" in p for p in problems)
     assert any("nicht im Kompetenznetz" in p for p in problems)
+
+
+def test_goal_column_gets_the_infinitive_and_competence_column_the_title():
+    node = make_node(
+        "Mat-ZA-9",
+        primarer_bereich_id="I-Zahlen",
+        prozessbereich_ids=("P-Darstellen",),
+        title="stellen Zahlen dar",
+        title_infinitive="Zahlen darstellen",
+    )
+    snapshot = build_kompetenz_graph_snapshot(
+        [node], [make_bereich("I-Zahlen"), make_bereich("P-Darstellen", kind="prozessbereich")]
+    )
+    (as_goal,), _ = competence_import_items(snapshot, ["Mat-ZA-9"])
+    (as_competence,), _ = competence_import_items(snapshot, ["Mat-ZA-9"], mixed_side=LadderSide.PROZESS)
+    assert (as_goal.side, as_goal.text) == (LadderSide.INHALT, "Zahlen darstellen")
+    assert (as_competence.side, as_competence.text) == (LadderSide.PROZESS, "stellen Zahlen dar")

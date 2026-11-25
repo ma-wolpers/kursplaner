@@ -7,6 +7,22 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Formulierung je Leiter-Seite: `titel_infinitiv` als Lernziel-Form (2026-11-25, Wunsch der Nutzerin; ARCHITEKTUR_KERN §37 „Formulierung je Seite“, Vault-Schema-Invariante 18).
+  - Passungsprüfung: Beim Kopieren können Netz-Bausteine die Seite wechseln. „Ohne Alias = irgendeine Variante“ hätte die falsche Form auf der falschen Seite legitimiert (Einwand der Nutzerin). Stattdessen gilt „Alias = Abweichung vom Original der eigenen Seite“, und Kopieren überträgt den Alias-Zustand. Das Speichermodell `[[ID|Text]]` bleibt; die SSOT-Variante `[[ID]]` ohne Text hat die Nutzerin verworfen, weil sonst alle Leser von Einheitsfeldern vom Netz abhingen.
+  - Domain:
+    - `SideRules.wording` (`NetworkWording`); `network` ist daraus abgeleitet.
+    - `KompetenzNode.title_infinitive` und `infinitive_title` (einziger Rückfall auf den Titel); das Mapping liest `titel_infinitiv` (Nicht-Text gibt einen weichen Fehler).
+    - Neues Modul `competence_wording` (`CompetenceWording.for_side`/`alias_on`/`text_on`, `wording_of`).
+    - `sequence_ladder_alias`: `resolve_alias`, `alias_problem` und `shows_original` arbeiten mit Formulierung und Seite; neu ist `CopiedBlock` (Kopierregel aus dem GUI-Controller in die Domain geholt).
+  - Use Cases und GUI:
+    - Port `CompetenceOriginals.original` liefert `CompetenceWording`, `SequenceLadderView.originals` ist ID → Formulierung.
+    - Board-Notiz je Seite.
+    - `LadderClipboard` hält einen `CopiedBlock`; `paste` belegt mit `text_for(Zielseite)` vor.
+  - Titelprüfung für Titel und Lernziel-Form (`DuplicateTitleDiagnostic.form`, `TITLE_FORM_*`); die Banner-Meldung nennt die Form.
+  - Tests:
+    - Neu: `test_competence_wording.py`.
+    - Angepasst bzw. ergänzt: Alias, Originale, Controller (Kopieren über Spalten, Reset links), Board-Mapping (Notiz je Spalte), Import, Mapping, Titelprüfung.
+    - `make_node(title_infinitive=…)`.
 - Sequenz als eigentliche Einheit; Mehrthemen-LZK in allen ihren Sequenzen (2026-11-21; ARCHITEKTUR_KERN §30).
   - Passungsprüfung: Die Anforderung „LZK in mehreren Leitern“ passte nicht ins Modell „eine View je Lauf“ (Grid-Blöcke dürfen nicht überlappen). Ein erster, nicht committeter Anbau mit künstlichen Ein-Zeilen-Läufen und zwei Zählweisen wurde verworfen; stattdessen ist die Sequenz jetzt die Einheit.
   - Domain: `TopicSequence.shared_rows`, `own_row_indices`, `own_member_count` (statt doppeldeutigem `member_count`), `covers_in_block`; `compute_topic_sequences` als einziger Einstieg; `find_sequence_for_row_index` Block zuerst, sonst teilende Sequenz.

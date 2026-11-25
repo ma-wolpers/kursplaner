@@ -23,6 +23,7 @@ from kursplaner.adapters.gui.sequence_ladder_board_mapping import (
     term_label,
     view_hints,
 )
+from kursplaner.core.domain.competence_wording import CompetenceWording
 from kursplaner.core.domain.sequence_ladder import (
     BlockRef,
     LadderBlock,
@@ -73,12 +74,22 @@ def test_cards_key_a_block_ref_and_show_the_competence_code_as_badge():
 def test_original_appears_as_note_only_under_an_edited_network_block():
     blocks = (LadderBlock("Netz", "Mat-PL-1"), LadderBlock("Netz bearbeitet", "Mat-PL-2"))
     ladder = SequenceLadder((LadderRung(prozess=blocks),))
-    view = SequenceLadderView(
-        Path("x.md"), "Brüche", ladder, _view().rungs, originals={"Mat-PL-1": "Netz", "Mat-PL-2": "Netz Original"}
-    )
+    originals = {
+        "Mat-PL-1": CompetenceWording("Mat-PL-1", "Netz", "Netz knüpfen"),
+        "Mat-PL-2": CompetenceWording("Mat-PL-2", "Netz Original", "Netz original knüpfen"),
+    }
+    view = SequenceLadderView(Path("x.md"), "Brüche", ladder, _view().rungs, originals=originals)
     cards = board_rows(view)[-1].cards[LANE_PROZESS]
     assert [(c.text, c.note) for c in cards] == [("Netz", None), ("Netz bearbeitet", "Netz Original")]
     assert board_rows(_view())[-1].cards[LANE_PROZESS][0].note is None  # ohne bekanntes Original keine Notiz
+
+
+def test_note_shows_the_original_of_the_cards_own_column():
+    wording = CompetenceWording("Mat-PL-1", "stellen Brüche dar", "Brüche darstellen")
+    ladder = SequenceLadder((LadderRung(inhalt=(LadderBlock("stellen Brüche dar", "Mat-PL-1"),)),))
+    view = SequenceLadderView(Path("x.md"), "Brüche", ladder, _view().rungs, originals={"Mat-PL-1": wording})
+    card = board_rows(view)[-1].cards[LANE_INHALT][0]
+    assert card.note == "Brüche darstellen"  # Satzform links ist ein Alias: Lernziel-Form darunter
 
 
 def test_card_key_round_trips_texts_with_separators_of_other_kinds():

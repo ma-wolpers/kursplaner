@@ -11,20 +11,21 @@ Einzelkompetenzen erworben und sind nicht übernehmbar; prozessbezogene
 Hauptkompetenzen sind genau die „vorrangig geförderten Kompetenzen“ der rechten
 Spalte und bleiben übernehmbar. `ladder_import_problem` ist die einzige Stelle
 dieser Regel (Markieren im Netz und Import fragen beide hier). Der Baustein-Text
-ist der Kompetenz-Titel in der Form, die er nach dem Rundweg durch die
-Sequenzdatei trägt (`network_block_text`).
+ist das Original der Zielspalte (`CompetenceWording.for_side`: Infinitiv bei
+Lernzielen, Satzform bei Kompetenzen), normalisiert wie nach dem Rundweg durch
+die Sequenzdatei.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 
+from kursplaner.core.domain.competence_wording import wording_of
 from kursplaner.core.domain.course_kc_context import CourseKcContext
 from kursplaner.core.domain.kompetenzgraph_ebene import is_hauptkompetenz
 from kursplaner.core.domain.kompetenzgraph_node import BEREICH_KIND_INHALT, BEREICH_KIND_PROZESS, KompetenzNode
 from kursplaner.core.domain.kompetenzgraph_snapshot import KompetenzGraphSnapshot
 from kursplaner.core.domain.sequence_ladder import COMPETENCE_SIDES, LadderSide
-from kursplaner.core.domain.sequence_ladder_entries import network_block_text
 from kursplaner.core.domain.sequence_ladder_ops import ImportedCompetence
 
 _SIDE_BY_KIND = {BEREICH_KIND_INHALT: LadderSide.INHALT, BEREICH_KIND_PROZESS: LadderSide.PROZESS}
@@ -117,5 +118,5 @@ def competence_import_items(
         node = snapshot.nodes[kompetenz_id]
         side = mixed_side if mixed_side is not None and has_both_sides(snapshot, node) else _side(snapshot, node)
         assert side is not None
-        items.append(ImportedCompetence(kompetenz_id, network_block_text(kompetenz_id, node.title), side))
+        items.append(ImportedCompetence(kompetenz_id, wording_of(node).for_side(side), side))
     return tuple(items), tuple(problems)

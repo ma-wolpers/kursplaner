@@ -136,22 +136,32 @@ class DuplicateIdDiagnostic:
     discarded_sources: tuple[Path, ...]
 
 
+TITLE_FORM_TITLE = "Titel"
+"""Formulierung „Titel“ (Satzform, H1) in `DuplicateTitleDiagnostic.form`."""
+
+TITLE_FORM_INFINITIVE = "Lernziel-Form"
+"""Formulierung ``titel_infinitiv`` (Schema-Invariante 18) in `DuplicateTitleDiagnostic.form`."""
+
+
 @dataclass(frozen=True)
 class DuplicateTitleDiagnostic:
-    """Mehrere Kompetenzen eines Fachs tragen denselben Titel.
+    """Mehrere Kompetenzen eines Fachs tragen denselben Titel bzw. dieselbe Lernziel-Form.
 
-    Verstößt gegen Schema-Invariante 17 (Titel pro Fach eindeutig). Rein
-    informativ wie die übrigen Diagnosen; im Kursplaner zusätzlich wichtig, weil
-    der Titel als Baustein-Text einer Sequenzleiter Schlüssel ist.
+    Verstößt gegen Schema-Invariante 17/18 (beide Formulierungen pro Fach
+    eindeutig). Rein informativ wie die übrigen Diagnosen; im Kursplaner
+    zusätzlich wichtig, weil beide als Baustein-Text einer Sequenzleiter
+    Schlüssel sind (Titel rechts, Lernziel-Form links).
 
     Attributes:
         subject: Fachordner.
-        title: Der (erste gefundene) Titel in Originalschreibweise.
+        title: Der (erste gefundene) Text in Originalschreibweise.
         node_ids: Alle betroffenen Kompetenz-IDs, sortiert.
         hint: Konkreter Lösungsweg, falls bekannt (z. B. Teilkompetenz-Kante ergänzen), sonst leer.
+        form: Betroffene Formulierung (`TITLE_FORM_TITLE` oder `TITLE_FORM_INFINITIVE`).
     """
 
     subject: str
     title: str
     node_ids: tuple[str, ...]
     hint: str = ""
+    form: str = TITLE_FORM_TITLE

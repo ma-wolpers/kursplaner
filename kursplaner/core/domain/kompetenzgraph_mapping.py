@@ -137,6 +137,22 @@ def _resolve_status(raw_value: object) -> tuple[str, KompetenzFieldIssue | None]
     )
 
 
+def _extract_infinitive(raw_value: object) -> tuple[str, KompetenzFieldIssue | None]:
+    """Liest ``titel_infinitiv`` (Lernziel-Form, Schema-Invariante 18) – optionales Feld.
+
+    Fehlt es oder ist es leer, ist das kein Problem (``""``; der Knoten nutzt dann
+    seinen Titel, siehe `KompetenzNode.infinitive_title`). Ein Nicht-String (z. B.
+    eine Liste) ist ein weicher Fehler: verworfen wird nur dieses Feld.
+    """
+    if raw_value is None:
+        return "", None
+    if not isinstance(raw_value, str):
+        return "", KompetenzFieldIssue(
+            field="titel_infinitiv", message="Kein Text – Lernziel-Form fällt auf den Titel zurück.", severity="warning"
+        )
+    return raw_value.strip(), None
+
+
 def _derive_title(body_text: str, kc_verweise: tuple[str, ...], node_id: str) -> str:
     """Leitet den Anzeigetitel einer Kompetenz aus der ersten Überschriftzeile ihres Body ab.
 
@@ -245,6 +261,10 @@ def parse_kompetenz_node_from_raw(
     else:
         title = _derive_title(body_text, tuple(entry.kc_verweis for entry in kc_zuordnung), node_id)
 
+    title_infinitive, infinitive_issue = _extract_infinitive(frontmatter_raw.get("titel_infinitiv"))
+    if infinitive_issue is not None:
+        issues.append(infinitive_issue)
+
     node = KompetenzNode(
         id=node_id,
         source=source,
@@ -256,5 +276,6 @@ def parse_kompetenz_node_from_raw(
         kc_zuordnung=kc_zuordnung,
         status=status,
         title=title,
+        title_infinitive=title_infinitive,
     )
     return node, tuple(issues)

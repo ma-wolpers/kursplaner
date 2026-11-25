@@ -1,7 +1,7 @@
-"""Originaltitel der Netz-Bausteine: Puffer über dem zuletzt geladenen Kompetenznetz (§37).
+"""Originale der Netz-Bausteine: Puffer über dem zuletzt geladenen Kompetenznetz (§37).
 
-Die Sequenzleiter zeigt unter einem bearbeiteten Netz-Baustein den Originaltitel
-aus dem Kompetenznetz. Damit das Neuladen der Leiter nach jeder Bearbeitung
+Die Sequenzleiter zeigt unter einem bearbeiteten Netz-Baustein sein Original aus
+dem Kompetenznetz – die Variante seiner Seite aus der `CompetenceWording`. Damit das Neuladen der Leiter nach jeder Bearbeitung
 nichts kostet, schlägt `CompetenceOriginalsBuffer.original` nur im Snapshot nach,
 den `LoadKompetenzGraphUseCase` zuletzt geladen hat (`last_snapshot`) – es gibt
 keine eigene Titel-Tabelle (SSOT: das Netz bleibt die einzige Quelle).
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kursplaner.core.domain.sequence_ladder_entries import network_block_text
+from kursplaner.core.domain.competence_wording import CompetenceWording, wording_of
 from kursplaner.core.usecases.kompetenzgraph_load_usecase import LoadKompetenzGraphUseCase
 
 
@@ -56,12 +56,13 @@ class CompetenceOriginalsBuffer:
         except OSError:
             return
 
-    def original(self, kompetenz_id: str) -> str | None:
-        """Normalisierter Originaltitel zu *kompetenz_id* oder ``None`` (unbekannt, Netz nicht geladen).
+    def original(self, kompetenz_id: str) -> CompetenceWording | None:
+        """Formulierung zu *kompetenz_id* oder ``None`` (unbekannt, Netz nicht geladen).
 
-        Normalisiert wie beim Import (`network_block_text`), damit ein
-        unveränderter Alias exakt dem Original gleicht und nicht als bearbeitet gilt.
+        Das Original einer Seite liefert `CompetenceWording.for_side` – normalisiert
+        wie beim Import, damit ein unveränderter Baustein exakt gleicht und nicht als
+        bearbeitet gilt.
         """
         snapshot = self._load.last_snapshot if self._load is not None else None
         node = snapshot.nodes.get(kompetenz_id) if snapshot is not None else None
-        return network_block_text(kompetenz_id, node.title) if node is not None else None
+        return wording_of(node) if node is not None else None
