@@ -10,6 +10,13 @@ def test_lzk_mode_contains_oberthema_row():
     assert "Oberthema" in keys
 
 
+def test_labels_come_from_the_requested_mode():
+    usecase = RowDisplayModeUseCase()
+
+    assert dict(usecase.row_defs_for_mode(usecase.MODE_LZK))["Stundenthema"] == "Welche LZK"
+    assert dict(usecase.row_defs_for_mode(usecase.MODE_UNTERRICHT))["Stundenthema"] == "Welches Stundenthema"
+
+
 def test_unterricht_mode_places_teilziele_after_stundenziel_and_treats_as_list():
     usecase = RowDisplayModeUseCase()
 

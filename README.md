@@ -178,12 +178,14 @@ Die rechte Tabelle basiert auf der Plan-Tabelle plus den verlinkten Stunden-YAML
 
 Zusätzlich gibt es fachbezogene Anzeigemodi mit automatischer Umschaltung je Spaltentyp:
 
-- **Unterricht**: Stundenthema, Oberthema, Stundenziel, Kompetenzen, Material
-- **LZK**: zu schreibende LZK (Stundenthema), Erwartungshorizont, Inhaltsübersicht
-- **Ausfall**: Vertretungsmaterial
-- **Hospitation**: Beobachtungsschwerpunkte, Ressourcen, Baustellen
+- **Unterricht**: Stundenthema, Oberthema, Stundenziel, Teilziele, Sonderziele, Kompetenzen, Material; bei verknüpftem UB zusätzlich dessen Entwicklungslisten
+- **LZK**: zu schreibende LZK (Stundenthema), Oberthema, Kompetenzhorizont, Inhaltsübersicht
+- **Ausfall**: Ausfallgrund, Vertretungsmaterial
+- **Hospitation**: Stundenthema, Oberthema, Beobachtungsschwerpunkte, Ressourcen, Baustellen
 
 Die Moduswahl ist manuell per Buttons möglich; mit **Auto je Spalte** wird bei Auswahl einer Spalte automatisch auf deren Art umgeschaltet.
+
+Über den Zeilenfilter lässt sich je Feld festlegen, in welchen Ansichten seine Zeile erscheint. Zellen gibt es dabei nur bei Stunden, die das Feld tatsächlich haben – eine Unterrichtsstunde bekommt also nie ein Feld einer Hospitation.
 
 #### Bearbeitung
 

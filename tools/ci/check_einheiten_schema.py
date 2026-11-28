@@ -10,8 +10,7 @@ Regeln, sondern importiert sie aus dem Code (Single Source of Truth):
 * Verzeichnisnamen → `lesson_directory.is_lesson_dir_name`
 * Pflichtfelder, leere Pflichtfelder, gültiger Stundentyp und Dauer →
   `yaml_registry.parse_yaml_frontmatter` mit `LESSON_SCHEMA`
-* Erlaubte Felder → `lesson_yaml_policy.allowed_keys_for_type` (Vereinigung über
-  alle `LESSON_TYPE_VALUES`)
+* Erlaubte Felder → `lesson_yaml_policy.ALL_LESSON_YAML_KEYS`
 
 Aufruf::
 
@@ -35,16 +34,14 @@ if str(ROOT) not in sys.path:
 from kursplaner.core.domain.lesson_directory import is_lesson_dir_name  # noqa: E402
 from kursplaner.core.domain.lesson_files import BLATTWERK_MARKER_KEY, is_lesson_file  # noqa: E402
 from kursplaner.core.domain.lesson_naming import is_random_lesson_stem  # noqa: E402
-from kursplaner.core.domain.lesson_yaml_policy import LESSON_TYPE_VALUES, allowed_keys_for_type  # noqa: E402
+from kursplaner.core.domain.lesson_yaml_policy import ALL_LESSON_YAML_KEYS  # noqa: E402
 from kursplaner.core.domain.yaml_registry import LESSON_SCHEMA, parse_yaml_frontmatter  # noqa: E402
 
 UNTERRICHT_DIR_NAME = "10 Unterricht"
 """Name des Vault-Ordners mit allen Kursen (nur für die Standard-Suche ohne Argument)."""
 
-KNOWN_KEYS = frozenset(
-    {key for lesson_type in LESSON_TYPE_VALUES for key in allowed_keys_for_type(lesson_type)} | {BLATTWERK_MARKER_KEY}
-)
-"""Alle Felder, die irgendein Stundentyp tragen darf (abgeleitet, keine eigene Liste)."""
+KNOWN_KEYS = ALL_LESSON_YAML_KEYS | {BLATTWERK_MARKER_KEY}
+"""Alle Felder, die irgendein Stundentyp tragen darf, plus Blattwerk-Marker."""
 
 
 def lesson_files_under(root: Path) -> list[Path]:

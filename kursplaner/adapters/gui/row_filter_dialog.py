@@ -67,7 +67,8 @@ class RowFilterDialog(ScrollablePopupWindow):
             frame,
             text=(
                 "Lege pro Zeilenfeld fest, in welchen Anzeige-Modi es angezeigt wird "
-                "(U = Unterricht, L = LZK, A = Ausfall, H = Hospitation)."
+                "(U = Unterricht, L = LZK, A = Ausfall, H = Hospitation). "
+                "Zellen gibt es nur bei Stunden, die das Feld haben."
             ),
             justify="left",
         ).pack(anchor="w", pady=(0, 10))

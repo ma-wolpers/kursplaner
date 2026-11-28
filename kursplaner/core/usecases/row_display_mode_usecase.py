@@ -5,7 +5,12 @@ from pathlib import Path
 
 from kursplaner.core.domain.day_column import DayColumn, single_selection
 from kursplaner.core.domain.lesson_kinds import KIND_AUSFALL, KIND_HOSPITATION, KIND_LZK, KIND_UNTERRICHT
-from kursplaner.core.domain.lesson_yaml_policy import LIST_FIELDS
+from kursplaner.core.domain.lesson_yaml_policy import (
+    ALL_LESSON_YAML_KEYS,
+    LIST_FIELDS,
+    allowed_keys_for_type,
+    infer_stundentyp,
+)
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_DEVELOPMENT_FIELDS,
     UB_RESOURCES_FIELD,
@@ -116,10 +121,22 @@ class RowDisplayModeUseCase:
         Berücksichtigt ``settings.field_mode_overrides``, falls übergeben — ein Feld
         kann dadurch auch außerhalb seiner Standard-Modi auftauchen oder aus seinen
         Standard-Modi entfernt worden sein (siehe ``effective_modes_for_field``).
+
+        Das Label stammt aus den Zeilen des angefragten Modus (z. B. ``Stundenthema``
+        als „Welche LZK“ im LZK-Modus); nur Felder, die erst per Override in den
+        Modus kommen, behalten das Label ihres ersten Auftretens.
+
+        Args:
+            mode_key: Modus-Schlüssel (wird normalisiert).
+            settings: Optionale Zeilenfilter-Einstellungen.
+
+        Returns:
+            ``(field_key, label)``-Paare in der Reihenfolge von ``all_fields_ordered``.
         """
         normalized = self.normalize_mode(mode_key)
+        mode_labels = dict(self._definitions[normalized].rows)
         return [
-            (field_key, label)
+            (field_key, mode_labels.get(field_key, label))
             for field_key, label, _modes_str in self.all_fields_ordered()
             if normalized in self.effective_modes_for_field(field_key, settings)
         ]
@@ -173,14 +190,40 @@ class RowDisplayModeUseCase:
     def field_is_relevant_for_day(
         self, field_key: str, day: DayColumn, settings: "RowFilterSettings | None" = None
     ) -> bool:
-        """Prüft, ob ein Feld zur fachlichen Art einer Spalte passt."""
+        """Prüft, ob ein Feld für eine Spalte eine Zelle hat.
+
+        Zwei Bedingungen, beide nötig:
+
+        * Der Zeilenfilter zeigt das Feld für die Terminart der Spalte
+          (``effective_modes_for_field``).
+        * Die Spalte *hat* das Feld überhaupt: YAML-Felder nur, wenn das Schema der
+          verlinkten Stunden-Datei sie erlaubt (`allowed_keys_for_type`; eine als
+          Ausfall markierte Unterrichtsstunde behält z. B. ihr ``Stundenziel``),
+          ``Ausfallgrund`` nur bei Ausfällen, UB-Felder nur bei Unterricht mit
+          verknüpfter UB-Datei.
+
+        Ein Override kann damit eine Zeile in weitere Ansichten holen, aber nie ein
+        Feld für eine Stunde bearbeitbar machen, die es nicht hat – sonst verwürfe
+        `canonicalize_lesson_yaml` die Eingabe beim nächsten Laden still.
+
+        Args:
+            field_key: Zeilenfeld.
+            day: Tages-Spalte.
+            settings: Optionale Zeilenfilter-Einstellungen.
+
+        Returns:
+            ``True``, wenn die Zelle aufgebaut werden soll.
+        """
         mode = self.infer_day_mode(day)
         if field_key in UB_DEVELOPMENT_FIELDS:
-            if mode != self.MODE_UNTERRICHT:
-                return False
-            ub_link = ub_link_stem(day.yaml)
-            return bool(ub_link)
-        return mode in self.effective_modes_for_field(field_key, settings)
+            return mode == self.MODE_UNTERRICHT and bool(ub_link_stem(day.yaml))
+        if mode not in self.effective_modes_for_field(field_key, settings):
+            return False
+        if field_key == "Ausfallgrund":
+            return mode == self.MODE_AUSFALL
+        if field_key in ALL_LESSON_YAML_KEYS:
+            return field_key in allowed_keys_for_type(infer_stundentyp(day.yaml))
+        return True
 
     def all_fields_ordered(self) -> list[tuple[str, str, str]]:
         """Liefert alle Felder aller Modi als deduplizierte, geordnete Liste.

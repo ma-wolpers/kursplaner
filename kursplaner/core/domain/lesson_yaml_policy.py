@@ -72,6 +72,10 @@ _ALLOWED_BY_TYPE: dict[LessonType, tuple[str, ...]] = {
 }
 
 
+ALL_LESSON_YAML_KEYS: frozenset[str] = frozenset(key for keys in _ALLOWED_BY_TYPE.values() for key in keys)
+"""Alle Felder, die irgendein Stundentyp in seiner YAML tragen darf (abgeleitet, keine eigene Liste)."""
+
+
 def normalize_stundentyp(value: object) -> LessonType:
     """Normalisiert Bezeichnungen auf die kanonischen Stundentyp-Werte."""
     lowered = str(value or "").strip().lower()

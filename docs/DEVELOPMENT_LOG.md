@@ -7,6 +7,12 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Zeilenfilter: Ansicht und Zellexistenz getrennt; Labels je Modus (2026-11-28).
+  - Befund: `field_is_relevant_for_day` nutzte nur `effective_modes_for_field`. Ein Override (z. B. `Beobachtungsschwerpunkte` → `unterricht`) erzeugte bei Unterrichtsstunden bearbeitbare Zellen für Felder außerhalb ihres Schemas; `canonicalize_lesson_yaml` verwarf die Eingabe beim nächsten Laden still.
+  - Jetzt: Zelle nur, wenn der Filter die Terminart zeigt **und** die Spalte das Feld hat. YAML-Felder über `allowed_keys_for_type(infer_stundentyp(day.yaml))` (Schema der Datei, nicht Terminart der Spalte: ausgefallene Unterrichtsstunden behalten Unterrichtsfelder), `Ausfallgrund` nur bei Ausfall, UB-Felder wie bisher.
+  - Neu `lesson_yaml_policy.ALL_LESSON_YAML_KEYS` (Vereinigung aller erlaubten Felder); `tools/ci/check_einheiten_schema.KNOWN_KEYS` nutzt es statt eigener Vereinigung.
+  - `row_defs_for_mode`: Label aus den Zeilen des angefragten Modus. Vorher gewann das erste Auftreten in `all_fields_ordered`, „Welche LZK“ war dadurch tot.
+  - Tests: `test_row_filter_grid_visibility.py` (Override erzeugt keine Zelle, Ausfallgrund-Override), `test_row_display_mode_usecase_lzk_oberthema.py` (Label je Modus).
 - Sequenz-Link der Plantabelle beim Kursladen aus dem YAML ableiten (2026-11-25; ARCHITEKTUR_KERN §41).
   - Befund: Im Kurs ge5 fehlte bei drei Einheiten mit `Oberthema: Dezimalbrüche` der Link `[[ge5 Dezimalbrüche]]` in `Thema/Ausfall`, obwohl der Kursplaner sie korrekt in der Sequenz zeigte. Ursache: Den Spiegel schrieb nur `PlanRegularLessonUseCase.execute_write`; `AssignAblageRungUseCase.execute` (über `LessonEditUseCase.set_lesson_oberthemen`) und `save_oberthema_cell` mit Datei setzen nur das YAML, Obsidian-Bearbeitungen sowieso.
   - Passungsprüfung: Ein gemeinsamer Schreibweg für alle Oberthema-Schreiber hätte Obsidian-Bearbeitungen nie abgedeckt, und `STUNDENPLAN_RHYTHMUS.md` beschrieb die Spalte nur als Fallback. Die Nutzerin hat „Ableiten beim Laden“ gewählt (Alternativen: gemeinsamer Schreibweg, Spiegel abschaffen).

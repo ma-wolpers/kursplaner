@@ -117,6 +117,33 @@ def test_ausfallgrund_visible_on_ausfall_day_but_not_unterricht_day(tmp_path):
     assert renderer._field_is_visible_for_day("Ausfallgrund", unterricht_day) is False
 
 
+def test_override_never_creates_cell_for_field_missing_in_lesson_schema(tmp_path):
+    """Eine Unterrichtsstunde hat keine Beobachtungsschwerpunkte: der Override holt die
+    Zeile in die Unterricht-Ansicht, macht das Feld bei der Stunde aber nicht bearbeitbar."""
+    overrides = {
+        "Beobachtungsschwerpunkte": frozenset(
+            {RowDisplayModeUseCase.MODE_HOSPITATION, RowDisplayModeUseCase.MODE_UNTERRICHT}
+        )
+    }
+    app = _make_app(field_mode_overrides=overrides)
+    renderer = GridRenderer(app)
+    day = _linked_day(tmp_path)
+    keys = [key for key, _ in app.row_display_mode_usecase.row_defs_for_mode("unterricht", app.row_filter_settings)]
+
+    assert "Beobachtungsschwerpunkte" in keys
+    assert renderer._field_is_visible_for_day("Beobachtungsschwerpunkte", day) is False
+    assert app.row_display_mode_usecase.is_editable("Beobachtungsschwerpunkte", day, app.row_filter_settings) is False
+
+
+def test_ausfallgrund_override_shows_reason_only_on_ausfall_days(tmp_path):
+    every_mode = frozenset(mode.key for mode in RowDisplayModeUseCase().available_modes())
+    app = _make_app(field_mode_overrides={"Ausfallgrund": every_mode})
+    renderer = GridRenderer(app)
+
+    assert renderer._field_is_visible_for_day("Ausfallgrund", _unlinked_ausfall_day()) is True
+    assert renderer._field_is_visible_for_day("Ausfallgrund", _linked_day(tmp_path)) is False
+
+
 def test_oberthema_is_editable_on_unlinked_unterricht_day():
     use_case = RowDisplayModeUseCase()
     day = _unlinked_day()
