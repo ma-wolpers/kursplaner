@@ -7,6 +7,10 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- UB-Ansicht: Kurszuordnung aus dem Unterrichtsordner, eine Stelle (2026-11-28).
+  - Befund: `ActionController._unterricht_base_dir_for_ub_view` gab bei offenem Kurs den Kursordner zurück; `list_plan_markdown_files` fand darin keine Plantabellen → Kursspalte „—“, Jahrgangs-Achievements ohne Stufe. Jetzt immer `base_dir_var` (= `unterricht_dir`).
+  - SSOT: `QueryUbPlanUseCase._build_course_map` und `QueryUbAchievementsUseCase._build_course_stufe_map` (lt. Docstring gespiegelt) ersetzt durch `ub_course_lookup.courses_by_lesson_stem` → `LessonCourse(course_name, stufe)`, mit Eindeutigkeitsprüfung. Der UB-Plan meldet einen doppelt verlinkten Stamm damit ebenfalls (vorher stillschweigend der erste Kurs).
+  - Tests: neu `test_ub_course_lookup.py`.
 - Zeilenfilter: Ansicht und Zellexistenz getrennt; Labels je Modus (2026-11-28).
   - Befund: `field_is_relevant_for_day` nutzte nur `effective_modes_for_field`. Ein Override (z. B. `Beobachtungsschwerpunkte` → `unterricht`) erzeugte bei Unterrichtsstunden bearbeitbare Zellen für Felder außerhalb ihres Schemas; `canonicalize_lesson_yaml` verwarf die Eingabe beim nächsten Laden still.
   - Jetzt: Zelle nur, wenn der Filter die Terminart zeigt **und** die Spalte das Feld hat. YAML-Felder über `allowed_keys_for_type(infer_stundentyp(day.yaml))` (Schema der Datei, nicht Terminart der Spalte: ausgefallene Unterrichtsstunden behalten Unterrichtsfelder), `Ausfallgrund` nur bei Ausfall, UB-Felder wie bisher.

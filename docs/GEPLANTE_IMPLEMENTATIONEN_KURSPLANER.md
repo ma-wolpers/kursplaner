@@ -140,7 +140,7 @@ Ordner dieselbe Struktur erfüllt (mindestens eine Kompetenz-Datei nach dem
 
 - Die Jahrgangsstufe kommt ausschließlich aus der `Stufe` des Kurses, zu dem die UB-markierte
   Einheit gehört (Single Source of Truth) — UB-Dateien tragen kein eigenes Jahrgangsstufe-Feld
-  mehr (`QueryUbAchievementsUseCase._build_course_stufe_map`, siehe DEVELOPMENT_LOG 2026-08-30).
+  mehr (`ub_course_lookup.courses_by_lesson_stem`, siehe DEVELOPMENT_LOG 2026-08-30 und 2026-11-28).
 - Alle Achievement-Vorgaben (bestehende Halbzeit/Voll/UBplus/BUB-Schwellenwerte **und**
   Jahrgangsstufen-Gruppen) liegen gemeinsam in `kursplaner/resources/achievements/requirements.json`
   (ein gemeinsames JSON statt Zahlen im Usecase + separater Jahrgangsstufen-Datei).

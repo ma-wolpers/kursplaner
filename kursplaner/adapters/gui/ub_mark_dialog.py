@@ -24,7 +24,7 @@ class UbMarkDialog(ScrollablePopupWindow):
 
     Die Jahrgangsstufe wird bewusst nicht hier erfasst: sie ergibt sich als
     Single Source of Truth aus der `Stufe` des Kurses, zu dem die markierte
-    Einheit gehört (siehe `QueryUbAchievementsUseCase._build_course_stufe_map`).
+    Einheit gehört (siehe `ub_course_lookup.courses_by_lesson_stem`).
     """
 
     def __init__(

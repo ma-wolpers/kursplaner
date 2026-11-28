@@ -774,10 +774,12 @@ class MainWindowActionController:
         return None
 
     def _unterricht_base_dir_for_ub_view(self) -> pathlib.Path | None:
-        """Liefert den konfigurierten Unterrichtsordner für kursübergreifende UB-Abfragen."""
-        if self.app.current_table is not None:
-            return self.app.current_table.markdown_path.parent
+        """Liefert den konfigurierten Unterrichtsordner für kursübergreifende UB-Abfragen.
 
+        Immer der Unterrichtsordner (``base_dir_var``), auch bei geöffnetem Kurs: der
+        Kursordner enthält keine Plantabellen anderer Kurse, Kursspalte und
+        Jahrgangs-Achievements blieben sonst leer.
+        """
         base_dir_text = str(self.app.base_dir_var.get()).strip()
         if base_dir_text:
             path = resolve_path_value(base_dir_text)

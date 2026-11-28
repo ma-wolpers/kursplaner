@@ -14,12 +14,12 @@ from kursplaner.core.domain.unterrichtsbesuch_policy import (
     UB_YAML_KEY_BEREICH,
     UB_YAML_KEY_EINHEIT,
     UB_YAML_KEY_LANGENTWURF,
-    parse_jahrgangsstufe,
     parse_ub_date_from_stem,
     ub_date_counts_as_past,
 )
-from kursplaner.core.domain.wiki_links import extract_wiki_link_target, strip_wiki_link
+from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.ports.repositories import AchievementRequirementsRepository, PlanRepository, UbRepository
+from kursplaner.core.usecases.ub_course_lookup import courses_by_lesson_stem
 
 
 @dataclass(frozen=True)
@@ -290,54 +290,13 @@ class QueryUbAchievementsUseCase:
 
         return subject_rows
 
-    def _build_course_stufe_map(self, unterricht_base_dir: Path) -> dict[str, int | None]:
-        """Leitet je Einheit (`lesson_stem`) die Jahrgangsstufe ihres Kurses ab.
-
-        Single Source of Truth fuer die UB-Jahrgangs-Achievements: die Stufe
-        kommt ausschliesslich aus der `Stufe`-Metadatenangabe des Kurses, zu
-        dem eine Einheit gehoert -- nie aus einem UB-eigenen Feld (das gibt es
-        bewusst nicht mehr, siehe `unterrichtsbesuch_policy.py`). Der Aufbau
-        spiegelt `QueryUbPlanUseCase._build_course_map` (gleiche "Inhalt"-
-        Spalten-Verlinkung), ergaenzt um eine Eindeutigkeits-Pruefung: da eine
-        Einheit strukturell genau einem Kurs angehoert, waere ein doppelt
-        vergebener `lesson_stem` ein Datenfehler -- das darf nicht
-        stillschweigend eine falsche Stufe liefern, sondern muss laut auffallen.
-
-        Raises:
-            RuntimeError: wenn derselbe `lesson_stem` in mehr als einem Kurs
-                verlinkt ist.
-        """
-        if not unterricht_base_dir.exists() or not unterricht_base_dir.is_dir():
-            return {}
-
-        stufe_by_lesson_stem: dict[str, int | None] = {}
-        course_by_lesson_stem: dict[str, str] = {}
-        for table in self._plan_repo.load_plan_tables(unterricht_base_dir):
-            course_name = table.markdown_path.parent.name
-            header_map = {name.lower(): idx for idx, name in enumerate(table.headers)}
-            inhalt_idx = header_map.get("inhalt")
-            if inhalt_idx is None:
-                continue
-            stufe = parse_jahrgangsstufe(table.metadata.get("Stufe"))
-            for row in table.rows:
-                if inhalt_idx >= len(row):
-                    continue
-                stem = extract_wiki_link_target(row[inhalt_idx])
-                if not stem:
-                    continue
-                existing_course = course_by_lesson_stem.get(stem)
-                if existing_course is not None and existing_course != course_name:
-                    raise RuntimeError(
-                        f"Uneindeutige Kurszuordnung: Einheit '{stem}' ist sowohl '{existing_course}' "
-                        f"als auch '{course_name}' zugeordnet. Bitte die Kursdateien bereinigen."
-                    )
-                course_by_lesson_stem[stem] = course_name
-                stufe_by_lesson_stem[stem] = stufe
-        return stufe_by_lesson_stem
-
     def execute(self, *, workspace_root: Path, unterricht_base_dir: Path) -> UbAchievementsResult:
-        """Berechnet Teil- und Vollziele für alle Fächer und Pädagogik."""
-        course_stufe_map = self._build_course_stufe_map(unterricht_base_dir)
+        """Berechnet Teil- und Vollziele für alle Fächer und Pädagogik.
+
+        Die Jahrgangsstufe einer UB kommt ausschließlich aus dem Kurs ihrer Einheit
+        (`ub_course_lookup.courses_by_lesson_stem`), nie aus einem UB-eigenen Feld.
+        """
+        courses = courses_by_lesson_stem(self._plan_repo, unterricht_base_dir)
 
         rows: list[dict[str, object]] = []
         now = self._now()
@@ -360,7 +319,7 @@ class QueryUbAchievementsUseCase:
                 {
                     "bereiche": self._list(yaml_data.get(UB_YAML_KEY_BEREICH, [])),
                     "langentwurf": self._bool(yaml_data.get(UB_YAML_KEY_LANGENTWURF, False)),
-                    "jahrgangsstufe": course_stufe_map.get(lesson_stem),
+                    "jahrgangsstufe": courses[lesson_stem].stufe if lesson_stem in courses else None,
                 }
             )
 
