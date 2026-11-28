@@ -42,8 +42,6 @@ class DailyCourseLogUseCase:
         "Inhaltsübersicht",
         "Vertretungsmaterial",
         "Beobachtungsschwerpunkte",
-        "Ressourcen",
-        "Baustellen",
     )
     # Ziel-/Kompetenzeinträge können Netz-Links `[[ID|Titel]]` sein; der Log trägt
     # wie beim Oberthema den Anzeigetext.

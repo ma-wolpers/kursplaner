@@ -181,7 +181,7 @@ Zusätzlich gibt es fachbezogene Anzeigemodi mit automatischer Umschaltung je Sp
 - **Unterricht**: Stundenthema, Oberthema, Stundenziel, Teilziele, Sonderziele, Kompetenzen, Material; bei verknüpftem UB zusätzlich dessen Entwicklungslisten
 - **LZK**: zu schreibende LZK (Stundenthema), Oberthema, Kompetenzhorizont, Inhaltsübersicht
 - **Ausfall**: Ausfallgrund, Vertretungsmaterial
-- **Hospitation**: Stundenthema, Oberthema, Beobachtungsschwerpunkte, Ressourcen, Baustellen
+- **Hospitation**: Stundenthema, Oberthema, Beobachtungsschwerpunkte
 
 Die Moduswahl ist manuell per Buttons möglich; mit **Auto je Spalte** wird bei Auswahl einer Spalte automatisch auf deren Art umgeschaltet.
 

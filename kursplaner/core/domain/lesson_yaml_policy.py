@@ -21,8 +21,6 @@ LIST_FIELDS = {
     "Sonderziele",
     "Material",
     "Vertretungsmaterial",
-    "Ressourcen",
-    "Baustellen",
 }
 
 _TYPE_ALIASES: dict[str, LessonType] = {
@@ -66,8 +64,6 @@ _ALLOWED_BY_TYPE: dict[LessonType, tuple[str, ...]] = {
         "Stundenthema",
         "Oberthema",
         "Beobachtungsschwerpunkte",
-        "Ressourcen",
-        "Baustellen",
     ),
 }
 
@@ -94,7 +90,7 @@ def infer_stundentyp(data: dict[str, object]) -> LessonType:
         except RuntimeError:
             pass
 
-    if any(key in data for key in ("Beobachtungsschwerpunkte", "Ressourcen", "Baustellen")):
+    if "Beobachtungsschwerpunkte" in data:
         return "Hospitation"
     if any(key in data for key in ("Kompetenzhorizont", "Inhaltsübersicht")):
         return "LZK"
@@ -238,8 +234,6 @@ def default_yaml_for_type(stundentyp: LessonType, *, topic: str = "", duration: 
             {
                 "Oberthema": "",
                 "Beobachtungsschwerpunkte": "",
-                "Ressourcen": [],
-                "Baustellen": [],
             }
         )
 

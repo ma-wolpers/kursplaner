@@ -180,6 +180,7 @@ The format is based on Keep a Changelog.
 - **Feld "Titel (Dateiname)" im "Einheit planen"-Dialog entfernt**: Das Feld täuschte Kontrolle über den Dateinamen vor, die es tatsächlich hatte — aber auf eine Art, die der dokumentierten Namensregel widersprach: Neue Einheiten-Dateien bekamen zunächst den vorgesehenen 6-stelligen Zufallscode, wurden aber im selben Speichervorgang sofort wieder auf einen aus dem Titel abgeleiteten Namen umbenannt. Einheiten-Dateinamen bleiben jetzt durchgehend beim bei Anlage vergebenen Zufallscode (auch beim Verschieben von Spalten per ↑/↓).
 
 ### Removed
+- **Hospitationen ohne eigene „Ressourcen“/„Baustellen“.** Entwicklungsfelder gehören nur zur UB-Datei; Hospitationen haben jetzt Stundenthema, Oberthema und Beobachtungsschwerpunkte. Vorhandene Einträge in Hospitationsdateien entfernt einmalig `python -m tools.remove_hospitation_development_fields` (erst mit `--dry-run` zählen); sonst verschwinden sie beim nächsten Speichern der Datei.
 - **"Einheit aufsplitten"/"Einheiten zusammenführen" (Strg+T/Strg+M)**: Ein Kurstag hat im aktuellen Datenmodell genau eine Einheit; die Stundenzahl kommt vollständig aus dem Wochenrhythmus. Split/Merge stellte technisch weiterhin die Möglichkeit mehrerer Einheiten pro Kurstag her, obwohl das im neuen Modell nicht mehr vorgesehen ist, und wurde daher ersatzlos entfernt (Toolbar-Buttons, Kontextmenü-Einträge, Tastenkürzel).
 
 ### Fixed

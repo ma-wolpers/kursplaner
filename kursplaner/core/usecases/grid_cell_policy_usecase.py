@@ -69,8 +69,6 @@ class GridCellPolicyUseCase:
             "Kompetenzen",
             "Material",
             "Vertretungsmaterial",
-            "Ressourcen",
-            "Baustellen",
             *UB_DEVELOPMENT_FIELDS,
         }:
             entries = yaml_data.get(field_key, [])

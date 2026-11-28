@@ -21,3 +21,22 @@ def test_hospitation_preserves_oberthema_value():
 
 def test_hospitation_allowed_keys_include_oberthema():
     assert "Oberthema" in allowed_keys_for_type("Hospitation")
+
+
+def test_hospitation_has_no_development_fields_and_drops_old_ones():
+    """Entwicklungsfelder gehören allein zur UB-Datei, nie in eine Stunden-YAML."""
+    normalized = canonicalize_lesson_yaml(
+        {
+            "Stundentyp": "Hospitation",
+            "Stundenthema": "Hospitation 1",
+            "Dauer": "2",
+            "Beobachtungsschwerpunkte": "Classroom-Management",
+            "Ressourcen": ["alt"],
+            "Baustellen": ["alt"],
+        }
+    )
+
+    assert "Ressourcen" not in normalized
+    assert "Baustellen" not in normalized
+    assert normalized["Beobachtungsschwerpunkte"] == "Classroom-Management"
+    assert not {"Ressourcen", "Baustellen"} & set(allowed_keys_for_type("Hospitation"))

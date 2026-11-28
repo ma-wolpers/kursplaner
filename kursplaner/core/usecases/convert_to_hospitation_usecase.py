@@ -84,8 +84,6 @@ class ConvertToHospitationUseCase:
 
         data["Stundentyp"] = "Hospitation"
         data["Beobachtungsschwerpunkte"] = str(focus_text or "").strip()
-        data.setdefault("Ressourcen", [])
-        data.setdefault("Baustellen", [])
         self.lesson_repo.save_lesson_yaml(lesson)
 
         if not allow_plan_save:

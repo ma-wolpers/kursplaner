@@ -67,8 +67,6 @@ class RowDisplayModeUseCase:
         ("Stundenthema", "Welches Stundenthema"),
         ("Oberthema", "Welches Oberthema"),
         ("Beobachtungsschwerpunkte", "Welche Beobachtungsschwerpunkte"),
-        ("Ressourcen", "Welche Ressourcen"),
-        ("Baustellen", "Welche Baustellen"),
     )
 
     MODE_UNTERRICHT = KIND_UNTERRICHT

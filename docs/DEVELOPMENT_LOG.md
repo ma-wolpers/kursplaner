@@ -7,6 +7,10 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- Hospitation ohne `Ressourcen`/`Baustellen` (2026-11-28, Entscheidung der Nutzerin: Stunden-YAMLs tragen nie Entwicklungsfelder, die gehören allein zur UB-Datei).
+  - Entfernt aus `LIST_FIELDS`, `_ALLOWED_BY_TYPE["Hospitation"]`, `default_yaml_for_type`, `infer_stundentyp` (Erkennung nur noch über `Beobachtungsschwerpunkte`), `ConvertToHospitationUseCase`, `HOSPITATION_ROWS`, `GridCellPolicyUseCase.display_value`, `DailyCourseLogUseCase`.
+  - Altdaten: neues Einmal-Tool `tools/remove_hospitation_development_fields.py` (lädt/speichert über `FileSystemLessonRepository`, `--dry-run`, gibt nur Pfade aus). Lauf auf dem Vault macht die Nutzerin.
+  - Tests: `test_lesson_yaml_policy_hospitation_oberthema.py` (Felder fallen weg), neu `test_remove_hospitation_development_fields.py`.
 - UB-Ansicht: Kurszuordnung aus dem Unterrichtsordner, eine Stelle (2026-11-28).
   - Befund: `ActionController._unterricht_base_dir_for_ub_view` gab bei offenem Kurs den Kursordner zurück; `list_plan_markdown_files` fand darin keine Plantabellen → Kursspalte „—“, Jahrgangs-Achievements ohne Stufe. Jetzt immer `base_dir_var` (= `unterricht_dir`).
   - SSOT: `QueryUbPlanUseCase._build_course_map` und `QueryUbAchievementsUseCase._build_course_stufe_map` (lt. Docstring gespiegelt) ersetzt durch `ub_course_lookup.courses_by_lesson_stem` → `LessonCourse(course_name, stufe)`, mit Eindeutigkeitsprüfung. Der UB-Plan meldet einen doppelt verlinkten Stamm damit ebenfalls (vorher stillschweigend der erste Kurs).
