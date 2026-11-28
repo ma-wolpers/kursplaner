@@ -6,6 +6,7 @@ from pathlib import Path
 from kursplaner.core.domain.course_subject import normalize_course_subject
 from kursplaner.core.domain.plan_table import COLUMN_DATUM, PlanTableData
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_DEVELOPMENT_FIELDS,
     UB_KIND_FACH,
     UB_KIND_PAEDAGOGIK,
     UB_LESSON_KEY,
@@ -93,13 +94,16 @@ class MarkUnitAsUbUseCase:
             desired_stem = build_ub_stem(date_text)
             ub_path = self.ub_repo.unique_ub_markdown_path(workspace_root, desired_stem)
 
-        # Bestehende UB-Datei: Body wörtlich behalten (Reflexion, Listen, eigener Text).
-        # Eine nicht lesbare Datei wird nicht überschrieben – der Fehler geht an die Nutzerin.
+        # Bestehende UB-Datei: Body wörtlich (Reflexion, eigener Text) und die
+        # Entwicklungslisten aus dem Frontmatter behalten. Eine nicht lesbare Datei
+        # wird nicht überschrieben – der Fehler geht an die Nutzerin.
         body = new_ub_body()
+        existing_yaml: dict[str, object] = {}
         if ub_path.exists() and ub_path.is_file():
-            _, body = self.ub_repo.load_ub_markdown(ub_path)
+            existing_yaml, body = self.ub_repo.load_ub_markdown(ub_path)
 
         ub_yaml = {
+            **{field: existing_yaml[field] for field in UB_DEVELOPMENT_FIELDS if field in existing_yaml},
             UB_YAML_KEY_BEREICH: bereich,
             UB_YAML_KEY_LANGENTWURF: bool(langentwurf),
             UB_YAML_KEY_BEOBACHTUNG: str(beobachtungsschwerpunkt or "").strip(),

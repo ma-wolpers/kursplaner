@@ -100,7 +100,7 @@ def test_paste_conflict_delete_removes_existing_target_ub_and_updates_overview(t
             "Beobachtungsschwerpunkt": "Fokus",
             "Einheit": "[[Kurs D 01-01 Bestand]]",
         },
-        new_ub_body("", [], []),
+        new_ub_body(),
     )
 
     mapping = {target_existing.stem: target_existing}

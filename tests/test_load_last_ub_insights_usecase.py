@@ -18,10 +18,8 @@ class _FakeUbRepo:
         return self._content_by_file[path]
 
 
-def _body(step: str, resource: str) -> str:
-    return (
-        f"# Reflexion\n- kurz\n\n## Professionalisierungsschritte\n- {step}\n\n## Nutzbare Ressourcen\n- {resource}\n"
-    )
+def _ub(bereich: str, step: str, resource: str) -> tuple[dict[str, object], str]:
+    return {"Bereich": [bereich], "Baustellen": [step], "Ressourcen": [resource]}, "# Reflexion\n- kurz\n"
 
 
 def test_execute_collects_latest_domain_sections_and_places_paedagogik_last():
@@ -30,9 +28,9 @@ def test_execute_collects_latest_domain_sections_and_places_paedagogik_last():
     latest_paed = Path("UB latest paed.md")
     ordered = [old_math, latest_inf, latest_paed]
     content: dict[Path, tuple[dict[str, object], str]] = {
-        old_math: ({"Bereich": ["Mathematik"]}, _body("M-alt", "MR-alt")),
-        latest_inf: ({"Bereich": ["Informatik"]}, _body("I-neu", "IR-neu")),
-        latest_paed: ({"Bereich": ["Pädagogik"]}, _body("P-neu", "PR-neu")),
+        old_math: _ub("Mathematik", "M-alt", "MR-alt"),
+        latest_inf: _ub("Informatik", "I-neu", "IR-neu"),
+        latest_paed: _ub("Pädagogik", "P-neu", "PR-neu"),
     }
     usecase = LoadLastUbInsightsUseCase(ub_repo=cast(UbRepository, _FakeUbRepo(ordered, content)))
 
@@ -48,17 +46,17 @@ def test_execute_keeps_subject_and_paedagogik_fields_for_existing_callers():
     latest_paed = Path("UB latest paed.md")
     ordered = [latest_inf, latest_paed]
     content: dict[Path, tuple[dict[str, object], str]] = {
-        latest_inf: ({"Bereich": ["Informatik"]}, _body("I-neu", "IR-neu")),
-        latest_paed: ({"Bereich": ["Pädagogik"]}, _body("P-neu", "PR-neu")),
+        latest_inf: _ub("Informatik", "I-neu", "IR-neu"),
+        latest_paed: _ub("Pädagogik", "P-neu", "PR-neu"),
     }
     usecase = LoadLastUbInsightsUseCase(ub_repo=cast(UbRepository, _FakeUbRepo(ordered, content)))
 
     result = usecase.execute(workspace_root=Path("A:/7thCloud"), subject_name="Informatik")
 
-    assert result.subject_steps == ["I-neu"]
-    assert result.subject_resources == ["IR-neu"]
-    assert result.paedagogik_steps == ["P-neu"]
-    assert result.paedagogik_resources == ["PR-neu"]
+    assert result.subject.steps == ["I-neu"]
+    assert result.subject.resources == ["IR-neu"]
+    assert result.paedagogik.steps == ["P-neu"]
+    assert result.paedagogik.resources == ["PR-neu"]
 
 
 def test_execute_ignores_same_day_ub_before_configured_cutoff():
@@ -67,8 +65,8 @@ def test_execute_ignores_same_day_ub_before_configured_cutoff():
     yesterday_inf = Path("ub 26-04-09.md")
     ordered = [yesterday_inf, today_inf]
     content: dict[Path, tuple[dict[str, object], str]] = {
-        today_inf: ({"Bereich": ["Informatik"]}, _body("I-heute", "IR-heute")),
-        yesterday_inf: ({"Bereich": ["Informatik"]}, _body("I-gestern", "IR-gestern")),
+        today_inf: _ub("Informatik", "I-heute", "IR-heute"),
+        yesterday_inf: _ub("Informatik", "I-gestern", "IR-gestern"),
     }
     usecase = LoadLastUbInsightsUseCase(
         ub_repo=cast(UbRepository, _FakeUbRepo(ordered, content)),
@@ -78,8 +76,8 @@ def test_execute_ignores_same_day_ub_before_configured_cutoff():
     usecase._now = lambda: today  # type: ignore[method-assign]
     result = usecase.execute(workspace_root=Path("A:/7thCloud"), subject_name="Informatik")
 
-    assert result.subject_steps == ["I-gestern"]
-    assert result.subject_resources == ["IR-gestern"]
+    assert result.subject.steps == ["I-gestern"]
+    assert result.subject.resources == ["IR-gestern"]
 
 
 def test_execute_counts_same_day_ub_after_configured_cutoff():
@@ -88,8 +86,8 @@ def test_execute_counts_same_day_ub_after_configured_cutoff():
     yesterday_inf = Path("ub 26-04-09.md")
     ordered = [yesterday_inf, today_inf]
     content: dict[Path, tuple[dict[str, object], str]] = {
-        today_inf: ({"Bereich": ["Informatik"]}, _body("I-heute", "IR-heute")),
-        yesterday_inf: ({"Bereich": ["Informatik"]}, _body("I-gestern", "IR-gestern")),
+        today_inf: _ub("Informatik", "I-heute", "IR-heute"),
+        yesterday_inf: _ub("Informatik", "I-gestern", "IR-gestern"),
     }
     usecase = LoadLastUbInsightsUseCase(
         ub_repo=cast(UbRepository, _FakeUbRepo(ordered, content)),
@@ -99,5 +97,17 @@ def test_execute_counts_same_day_ub_after_configured_cutoff():
     usecase._now = lambda: today  # type: ignore[method-assign]
     result = usecase.execute(workspace_root=Path("A:/7thCloud"), subject_name="Informatik")
 
-    assert result.subject_steps == ["I-heute"]
-    assert result.subject_resources == ["IR-heute"]
+    assert result.subject.steps == ["I-heute"]
+    assert result.subject.resources == ["IR-heute"]
+
+
+def test_sections_label_their_lists_from_the_ub_field_names():
+    latest_paed = Path("UB latest paed.md")
+    usecase = LoadLastUbInsightsUseCase(
+        ub_repo=cast(UbRepository, _FakeUbRepo([latest_paed], {latest_paed: _ub("Pädagogik", "P", "PR")}))
+    )
+
+    result = usecase.execute(workspace_root=Path("A:/7thCloud"), subject_name="Informatik")
+
+    assert result.paedagogik.labeled_lists() == [("Pädagogik - Baustellen", ["P"]), ("Pädagogik - Ressourcen", ["PR"])]
+    assert result.subject.labeled_lists() == [("Informatik - Baustellen", []), ("Informatik - Ressourcen", [])]

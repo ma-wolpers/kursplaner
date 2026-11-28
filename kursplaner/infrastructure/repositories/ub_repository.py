@@ -4,6 +4,7 @@ from pathlib import Path
 
 from bw_libs.app_paths import atomic_write_text
 from kursplaner.core.domain.unterrichtsbesuch_policy import (
+    UB_DEVELOPMENT_FIELDS,
     UB_OVERVIEW_FILE_NAME,
     UB_ROOT_RELATIVE_PARTS,
     UB_YAML_KEY_BEOBACHTUNG,
@@ -33,6 +34,7 @@ _UB_ORDERED_KEYS = (
     UB_YAML_KEY_LANGENTWURF,
     UB_YAML_KEY_BEOBACHTUNG,
     UB_YAML_KEY_EINHEIT,
+    *UB_DEVELOPMENT_FIELDS,
 )
 
 
@@ -76,12 +78,12 @@ class FileSystemUbRepository:
     def _render_yaml_frontmatter(yaml_data: dict[str, object]) -> str:
         """Rendert die UB-Frontmatter über die zentrale `yaml_registry.render_yaml_frontmatter`.
 
-        UB-Dateien tragen immer alle fünf Schlüssel (auch leer), anders als
-        Lesson-Dateien, die fehlende Schlüssel überspringen — daher wird
-        `values` hier vorab mit `.get(key, "")` für jeden Key befüllt, statt
-        `yaml_data` direkt durchzureichen.
+        UB-Dateien tragen immer alle Schlüssel aus `_UB_ORDERED_KEYS` (auch leer),
+        anders als Lesson-Dateien, die fehlende Schlüssel überspringen — daher
+        wird `values` hier vorab für jeden Key befüllt (Entwicklungslisten mit
+        ``[]``, sonst ``""``), statt `yaml_data` direkt durchzureichen.
         """
-        values = {key: yaml_data.get(key, "") for key in _UB_ORDERED_KEYS}
+        values = {key: yaml_data.get(key, [] if key in UB_DEVELOPMENT_FIELDS else "") for key in _UB_ORDERED_KEYS}
         return render_yaml_frontmatter(_UB_ORDERED_KEYS, values)
 
     def save_ub_markdown(self, ub_path: Path, yaml_data: dict[str, object], body: str) -> None:

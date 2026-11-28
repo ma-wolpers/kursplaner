@@ -1085,18 +1085,8 @@ class MainWindowActionController:
                 return "-"
             return "\n".join(f"- {entry}" for entry in cleaned)
 
-        sections: list[tuple[str, list[str]]] = []
-        for domain in insights.domain_sections:
-            sections.append((f"{domain.domain_name} - Professionalisierungsschritte", domain.steps))
-            sections.append((f"{domain.domain_name} - Nutzbare Ressourcen", domain.resources))
-
-        if not sections:
-            sections = [
-                ("Pädagogik - Professionalisierungsschritte", insights.paedagogik_steps),
-                ("Pädagogik - Nutzbare Ressourcen", insights.paedagogik_resources),
-            ]
-
-        for title, values in sections:
+        domains = insights.domain_sections or (insights.paedagogik,)
+        for title, values in [pair for domain in domains for pair in domain.labeled_lists()]:
             section = widgets.Frame(insights_frame)
             section.pack(fill="x", pady=(0, 8))
             widgets.Label(section, text=title, font=("Segoe UI", 10, "bold")).pack(anchor="w")

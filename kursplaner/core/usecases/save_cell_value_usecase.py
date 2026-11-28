@@ -8,7 +8,7 @@ from kursplaner.core.domain.day_column import DayColumn
 from kursplaner.core.domain.list_cell_text import parse_list_cell
 from kursplaner.core.domain.oberthema_values import OBERTHEMA_KEY
 from kursplaner.core.domain.plan_table import PlanTableData
-from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS, UB_STEPS_FIELD
+from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 from kursplaner.core.domain.wiki_links import build_dataview_lesson_link
 from kursplaner.core.ports.repositories import PlanRepository
 from kursplaner.core.usecases.lesson_edit_usecase import LessonEditUseCase
@@ -249,23 +249,11 @@ class SaveCellValueUseCase:
                     error_message="UB-Synchronisierung ist nicht verfügbar.",
                 )
 
-            focus = self.sync_ub_development_focus_usecase.load(
+            saved = self.sync_ub_development_focus_usecase.save_list(
                 workspace_root=self._workspace_root_from_table(table),
                 lesson_path=lesson_path,
-            )
-            steps_text = "\n".join(focus.professional_steps)
-            resources_text = "\n".join(focus.usable_resources)
-
-            if field_key == UB_STEPS_FIELD:
-                steps_text = value
-            else:
-                resources_text = value
-
-            saved = self.sync_ub_development_focus_usecase.save(
-                workspace_root=self._workspace_root_from_table(table),
-                lesson_path=lesson_path,
-                professional_steps_text=steps_text,
-                usable_resources_text=resources_text,
+                field=field_key,
+                entries=list_entries if list_entries is not None else parse_list_cell(value),
             )
             if not saved:
                 return SaveCellValueResult(

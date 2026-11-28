@@ -32,38 +32,18 @@ class _RowDisplayModeStub:
 
 
 class _UbSyncStub:
-    def __init__(self, *, load_steps=None, load_resources=None, save_result=True):
-        self.load_steps = list(load_steps or [])
-        self.load_resources = list(load_resources or [])
+    def __init__(self, *, save_result=True):
         self.save_result = bool(save_result)
-        self.load_calls = 0
         self.save_calls: list[dict[str, object]] = []
 
-    def load(self, *, workspace_root, lesson_path):
-        _ = workspace_root, lesson_path
-        self.load_calls += 1
-        return type(
-            "_Focus",
-            (),
-            {
-                "professional_steps": list(self.load_steps),
-                "usable_resources": list(self.load_resources),
-            },
-        )()
-
-    def save(self, *, workspace_root, lesson_path, professional_steps_text, usable_resources_text):
+    def save_list(self, *, workspace_root, lesson_path, field, entries):
         self.save_calls.append(
-            {
-                "workspace_root": workspace_root,
-                "lesson_path": lesson_path,
-                "professional_steps_text": professional_steps_text,
-                "usable_resources_text": usable_resources_text,
-            }
+            {"workspace_root": workspace_root, "lesson_path": lesson_path, "field": field, "entries": list(entries)}
         )
         return self.save_result
 
 
-def test_execute_ub_steps_syncs_directly_and_preserves_resources(tmp_path):
+def test_execute_ub_steps_saves_only_that_list(tmp_path):
     table = PlanTableData(
         markdown_path=tmp_path / "Plan.md",
         headers=["Datum", "Stunden", "Inhalt"],
@@ -79,7 +59,7 @@ def test_execute_ub_steps_syncs_directly_and_preserves_resources(tmp_path):
     lesson_path.write_text("---\nStundenthema: Alt\n---\n", encoding="utf-8")
 
     lesson_edit = _LessonEditStub()
-    ub_sync = _UbSyncStub(load_steps=["Alt Schritt"], load_resources=["Res A", "Res B"])
+    ub_sync = _UbSyncStub()
 
     usecase = SaveCellValueUseCase(
         lesson_edit=cast(Any, lesson_edit),
@@ -92,7 +72,7 @@ def test_execute_ub_steps_syncs_directly_and_preserves_resources(tmp_path):
     result = usecase.execute(
         table=table,
         row_index=0,
-        field_key="Professionalisierungsschritte",
+        field_key="Baustellen",
         value="Neuer Schritt",
         lesson_path=lesson_path,
         list_entries=["Neuer Schritt"],
@@ -101,10 +81,9 @@ def test_execute_ub_steps_syncs_directly_and_preserves_resources(tmp_path):
 
     assert result.proceed is True
     assert lesson_edit.set_lesson_field_calls == 0
-    assert ub_sync.load_calls == 1
     assert len(ub_sync.save_calls) == 1
-    assert ub_sync.save_calls[0]["professional_steps_text"] == "Neuer Schritt"
-    assert ub_sync.save_calls[0]["usable_resources_text"] == "Res A\nRes B"
+    assert ub_sync.save_calls[0]["field"] == "Baustellen"
+    assert ub_sync.save_calls[0]["entries"] == ["Neuer Schritt"]
 
 
 def test_execute_ub_resources_fails_cleanly_when_no_ub_link(tmp_path):
@@ -136,7 +115,7 @@ def test_execute_ub_resources_fails_cleanly_when_no_ub_link(tmp_path):
     result = usecase.execute(
         table=table,
         row_index=0,
-        field_key="Nutzbare Ressourcen",
+        field_key="Ressourcen",
         value="Neue Ressource",
         lesson_path=lesson_path,
         list_entries=["Neue Ressource"],
@@ -146,5 +125,4 @@ def test_execute_ub_resources_fails_cleanly_when_no_ub_link(tmp_path):
     assert result.proceed is False
     assert "UB-Synchronisierung fehlgeschlagen" in str(result.error_message)
     assert lesson_edit.set_lesson_field_calls == 0
-    assert ub_sync.load_calls == 1
     assert len(ub_sync.save_calls) == 1

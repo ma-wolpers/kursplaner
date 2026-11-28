@@ -73,8 +73,10 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
             "Langentwurf": True,
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
+            "Baustellen": ["Schritt 1"],
+            "Ressourcen": ["Ressource 1"],
         },
-        new_ub_body("Reflexion", ["Schritt 1"], ["Ressource 1"]),
+        new_ub_body("Reflexion"),
     )
 
     table = PlanTableData(
@@ -116,8 +118,9 @@ def test_rename_updates_ub_file_backlink_and_lesson_ub_link(tmp_path):
 
     ub_yaml, ub_body = ub_repo.load_ub_markdown(expected_ub)
     assert ub_yaml.get("Einheit") == "[[gruen-6 03-31 Neue Funktionen]]"
-    assert "Schritt 1" in ub_body
-    assert "Ressource 1" in ub_body
+    assert ub_yaml.get("Baustellen") == ["Schritt 1"]
+    assert ub_yaml.get("Ressourcen") == ["Ressource 1"]
+    assert "Reflexion" in ub_body
 
     overview = ub_repo.load_ub_overview(workspace_root)
     assert "[[ub 26-03-31]]" in overview

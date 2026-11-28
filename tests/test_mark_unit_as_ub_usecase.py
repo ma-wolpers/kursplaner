@@ -222,6 +222,7 @@ def test_marking_again_keeps_reflection_lists_and_own_text(tmp_path):
     )  # fmt: skip
     ub_path = first.ub_path
     text = ub_path.read_text(encoding="utf-8").replace("# Reflexion\n", "# Reflexion\n\nMeine Reflexion\n")
+    text = text.replace("Baustellen:\n", 'Baustellen:\n  - "Pause machen"\n')
     ub_path.write_text(text + "\n## Eigene Notizen\n\nbleibt\n", encoding="utf-8")
 
     second = usecase.execute(
@@ -232,3 +233,4 @@ def test_marking_again_keeps_reflection_lists_and_own_text(tmp_path):
     assert second.ub_path == ub_path
     assert "Meine Reflexion" in ub_text and "## Eigene Notizen\n\nbleibt" in ub_text
     assert "Beobachtungsschwerpunkt: B" in ub_text
+    assert 'Baustellen:\n  - "Pause machen"' in ub_text

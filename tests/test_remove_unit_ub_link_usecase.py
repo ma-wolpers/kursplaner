@@ -57,7 +57,7 @@ def test_remove_unit_ub_link_clears_lesson_reference_and_keeps_ub_file(tmp_path)
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
         },
-        body=new_ub_body("", [], []),
+        body=new_ub_body(),
     )
 
     table = _table(plan_dir / "Mathe Kurs.md", lesson_path.stem)
@@ -97,7 +97,7 @@ def test_remove_unit_ub_link_can_delete_ub_file(tmp_path):
             "Beobachtungsschwerpunkt": "Aktivierung",
             "Einheit": "[[gruen-6 03-31 Funktionen]]",
         },
-        body=new_ub_body("", [], []),
+        body=new_ub_body(),
     )
 
     table = _table(plan_dir / "Mathe Kurs.md", lesson_path.stem)

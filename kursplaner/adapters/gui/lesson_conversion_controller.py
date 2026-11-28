@@ -76,12 +76,7 @@ class MainWindowLessonConversionController:
             )
             return []
 
-        return [
-            (f"{subject_name} - Professionalisierungsschritte", list(insights.subject_steps)),
-            (f"{subject_name} - Nutzbare Ressourcen", list(insights.subject_resources)),
-            ("Pädagogik - Professionalisierungsschritte", list(insights.paedagogik_steps)),
-            ("Pädagogik - Nutzbare Ressourcen", list(insights.paedagogik_resources)),
-        ]
+        return [*insights.subject.labeled_lists(), *insights.paedagogik.labeled_lists()]
 
     def subject_folder_name(self) -> str:
         if self.app.current_table is None:

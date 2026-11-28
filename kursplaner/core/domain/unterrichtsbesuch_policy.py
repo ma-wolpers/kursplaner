@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time
 
+from kursplaner.core.domain.list_cell_text import raise_on_violation
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 
 UB_KIND_PAEDAGOGIK = "Pädagogik"
@@ -28,20 +29,60 @@ def ub_link_stem(lesson_data: Mapping[str, object]) -> str:
     return strip_wiki_link(str(lesson_data.get(UB_LESSON_KEY, "") or "").strip())
 
 
-UB_STEPS_FIELD = "Professionalisierungsschritte"
-"""Grid-Feld und zugleich ``##``-Abschnitt der UB-Datei."""
-UB_RESOURCES_FIELD = "Nutzbare Ressourcen"
-"""Grid-Feld und zugleich ``##``-Abschnitt der UB-Datei."""
+UB_STEPS_FIELD = "Baustellen"
+"""Grid-Feld und zugleich YAML-Listenfeld der UB-Datei (Entwicklungsschritte aus dem Besuch)."""
+UB_RESOURCES_FIELD = "Ressourcen"
+"""Grid-Feld und zugleich YAML-Listenfeld der UB-Datei (nutzbare Stärken aus dem Besuch)."""
 UB_REFLECTION_HEADING = "Reflexion"
 """``#``-Abschnitt (Ebene 1) der UB-Datei; endet an der nächsten ``##``-Überschrift."""
 
 UB_DEVELOPMENT_FIELDS: tuple[str, str] = (UB_STEPS_FIELD, UB_RESOURCES_FIELD)
-"""Grid-Felder, die aus der verknüpften UB-Datei (Markdown-Aufzählungen) gelesen und dorthin geschrieben werden.
+"""Entwicklungslisten der UB-Datei: YAML-Listenfelder ihres Frontmatters, im Grid als Zeilen.
 
-Sie stehen nicht in der Stunden-YAML und unterliegen nicht der Listen-Invariante
-(`list_cell_text`), werden im Grid aber wie Listen dargestellt und bearbeitet.
-Ihre Namen sind zugleich die Abschnittsüberschriften der UB-Datei.
+Sie stehen nie in einer Stunden-YAML; die Grid-Zellen einer Einheit mit UB lesen
+und schreiben die verknüpfte UB-Datei. Es gilt dieselbe Listen-Invariante wie
+für alle Listenfelder (`list_cell_text`).
 """
+
+
+def ub_development_lists(ub_yaml: Mapping[str, object], *, source_label: str = "") -> tuple[list[str], list[str]]:
+    """``(Baustellen, Ressourcen)`` aus dem Frontmatter einer UB-Datei – einzige Lesestelle.
+
+    Args:
+        ub_yaml: Geparstes UB-Frontmatter.
+        source_label: Datei für die Fehlermeldung.
+
+    Returns:
+        Beide Listen; fehlende oder leere Felder ergeben ``[]``.
+
+    Raises:
+        ListFieldViolationError: Ein Eintrag verletzt die Listen-Invariante.
+    """
+    steps, resources = (
+        raise_on_violation(field, ub_yaml.get(field), source_label=source_label, allow_scalar=False)
+        for field in UB_DEVELOPMENT_FIELDS
+    )
+    return steps, resources
+
+
+def with_ub_development_list(ub_yaml: Mapping[str, object], field: str, entries: Sequence[str]) -> dict[str, object]:
+    """Kopie von *ub_yaml* mit ersetzter Entwicklungsliste *field* – einzige Schreibstelle.
+
+    Args:
+        ub_yaml: Bisheriges UB-Frontmatter (bleibt unverändert).
+        field: ``UB_STEPS_FIELD`` oder ``UB_RESOURCES_FIELD``.
+        entries: Neue Einträge (z. B. aus `list_cell_text.parse_list_cell`).
+
+    Returns:
+        Neues Frontmatter-Dict.
+
+    Raises:
+        ValueError: *field* ist keine Entwicklungsliste.
+        ListFieldViolationError: Ein Eintrag verletzt die Listen-Invariante.
+    """
+    if field not in UB_DEVELOPMENT_FIELDS:
+        raise ValueError(f"Keine UB-Entwicklungsliste: {field!r}")
+    return {**ub_yaml, field: raise_on_violation(field, list(entries), allow_scalar=False)}
 
 JAHRGANGSSTUFE_MIN = 5
 JAHRGANGSSTUFE_MAX = 13

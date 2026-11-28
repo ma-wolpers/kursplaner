@@ -74,10 +74,6 @@ class GridCellPolicyUseCase:
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""
-            if field_key in UB_DEVELOPMENT_FIELDS:
-                # UB-Felder (Markdown-Aufzählungen der UB-Datei) unterliegen nicht
-                # der Listen-Invariante; zeilenweise wie in der GUI-Anzeige.
-                return "\n".join(str(item).strip() for item in entries if str(item).strip())
             return self.format_list_entries([item for item in entries if isinstance(item, str)])
 
         return ""

@@ -15,22 +15,12 @@ def _build_controller():
     return MainWindowLessonContextController(app)
 
 
-def test_ub_fields_are_displayed_without_separator_lines():
+def test_ub_fields_use_the_same_list_format_as_other_list_fields():
     controller = _build_controller()
-    day = make_day_column(
-        yaml={
-            "Professionalisierungsschritte": ["Schritt A", "Schritt B"],
-            "Nutzbare Ressourcen": ["Res 1", "Res 2"],
-        }
-    )
+    day = make_day_column(yaml={"Baustellen": ["Schritt A", "Schritt B"], "Ressourcen": ["Res 1"]})
 
-    steps = controller.field_value(day, "Professionalisierungsschritte")
-    resources = controller.field_value(day, "Nutzbare Ressourcen")
-
-    assert steps == "Schritt A\nSchritt B"
-    assert resources == "Res 1\nRes 2"
-    assert "—" not in steps
-    assert "—" not in resources
+    assert controller.field_value(day, "Baustellen") == "Schritt A\n--\nSchritt B"
+    assert controller.field_value(day, "Ressourcen") == "Res 1"
 
 
 def test_other_list_fields_keep_separator_format():

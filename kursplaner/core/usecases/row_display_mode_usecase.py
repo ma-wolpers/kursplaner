@@ -47,8 +47,8 @@ class RowDisplayModeUseCase:
         ("Sonderziele", "Welche Sonderziele"),
         ("Kompetenzen", "Welche Kompetenzen"),
         ("Material", "Welche Materialien"),
-        (UB_STEPS_FIELD, "Welche Professionalisierungsschritte"),
-        (UB_RESOURCES_FIELD, "Welche nutzbaren Ressourcen"),
+        (UB_STEPS_FIELD, f"Welche {UB_STEPS_FIELD}"),
+        (UB_RESOURCES_FIELD, f"Welche {UB_RESOURCES_FIELD}"),
     )
 
     LZK_ROWS: tuple[RowDef, ...] = (

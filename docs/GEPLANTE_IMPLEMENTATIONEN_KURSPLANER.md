@@ -44,10 +44,10 @@ Keine direkte Fachlogik im Adapter, keine I/O-Logik im Domain-Layer.
 ## Bereits umgesetzt (UB-Dialoge und Vergangenheitsregel)
 
 - Im Dialog **Einheit planen** (Strg+U-Flow) werden unten die letzten UB-Punkte angezeigt:
-  - Fach: Professionalisierungsschritte
-  - Fach: Nutzbare Ressourcen
-  - Pädagogik: Professionalisierungsschritte
-  - Pädagogik: Nutzbare Ressourcen
+  - Fach: Baustellen
+  - Fach: Ressourcen
+  - Pädagogik: Baustellen
+  - Pädagogik: Ressourcen
 - Auswahl der "letzten" UB-Einträge ist vergangenheitsbasiert und schließt zukünftige Besuche aus.
 - Für das aktuelle Datum gilt eine konfigurierbare Cutoff-Uhrzeit (Standard `15:00`):
   - vor Cutoff zählt `heute` noch nicht als Vergangenheit,

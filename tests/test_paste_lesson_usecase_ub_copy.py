@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from kursplaner.core.domain.plan_table import LessonYamlData, PlanTableData
+from kursplaner.core.domain.unterrichtsbesuch_policy import ub_development_lists
 from kursplaner.core.usecases.paste_lesson_usecase import PasteLessonUseCase
 from kursplaner.core.usecases.plan_commands_usecase import PlanCommandsUseCase
 from kursplaner.core.usecases.ub_markdown_sections import new_ub_body
@@ -89,8 +90,10 @@ def test_paste_usecase_copies_linked_ub_when_requested(tmp_path):
             "Langentwurf": False,
             "Beobachtungsschwerpunkt": "Fokus",
             "Einheit": "[[Kurs C 01-01 Thema]]",
+            "Baustellen": ["Schritt"],
+            "Ressourcen": ["Ressource"],
         },
-        new_ub_body("Reflexion", ["Schritt"], ["Ressource"]),
+        new_ub_body("Reflexion"),
     )
 
     lesson_repo = _LessonRepoStub()
@@ -121,6 +124,8 @@ def test_paste_usecase_copies_linked_ub_when_requested(tmp_path):
     assert isinstance(result.ub_path, Path)
     assert result.ub_path != source_ub_path
     assert result.ub_path.exists()
+    copied_yaml, _ = ub_repo.load_ub_markdown(result.ub_path)
+    assert ub_development_lists(copied_yaml) == (["Schritt"], ["Ressource"])
     saved_target = lesson_repo.load_lesson_yaml(target_path)
     assert str(saved_target.data.get("Unterrichtsbesuch", "")).startswith("[[ub ")
     assert saved_target.data.get("Unterrichtsbesuch") != "[[ub 26-04-28]]"

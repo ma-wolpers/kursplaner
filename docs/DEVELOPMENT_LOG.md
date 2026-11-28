@@ -7,6 +7,14 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- UB-Entwicklungslisten ins Frontmatter: `Baustellen`/`Ressourcen` (2026-11-28, Entscheidung der Nutzerin; Namen gewählt von ihr).
+  - Domain: `UB_STEPS_FIELD = "Baustellen"`, `UB_RESOURCES_FIELD = "Ressourcen"`; neu `ub_development_lists(yaml)` (einzige Lesestelle, `raise_on_violation(..., allow_scalar=False)`) und `with_ub_development_list(yaml, field, entries)` (einzige Schreibstelle). Damit gilt die Listen-Invariante auch für UB-Felder; die „Ausnahme“ (ARCHITEKTUR_KERN) und der Mehrzeilen-Verschmelzungsfehler (Eintrag weiter unten) entfallen.
+  - `FileSystemUbRepository._UB_ORDERED_KEYS` + Entwicklungslisten (leer als `[]`). `ub_markdown_sections` nur noch `# Reflexion` (`new_ub_body(reflection)`, `parse_reflection`); `parse_list_section`, `parse_development_lists`, `with_development_lists`, `text_to_list_entries` entfernt, ebenso das dadurch tote `markdown_lists.render_markdown_bullet_section`.
+  - `SyncUbDevelopmentFocusUseCase`: nur noch `save_list(field, entries)` (eine Liste, Entries aus `parse_list_cell`); `load`/`UbDevelopmentFocus` entfallen, `SaveCellValueUseCase` lädt nicht mehr beide Listen vorab.
+  - `LoadLastUbInsightsUseCase`: eine Schleife `_past_ub_lists` statt zwei fast gleicher; Ergebnis `subject`/`paedagogik` als `UbInsightSection` mit `labeled_lists()` (einzige Labelstelle, Labels aus `UB_*`). UB-Ansicht und „Einheit planen“ bauen ihre Überschriften nicht mehr selbst.
+  - `MarkUnitAsUbUseCase` übernimmt beim erneuten Markieren die Listen aus dem bestehenden Frontmatter. Sonderfälle für UB-Felder in `GridCellPolicyUseCase.display_value` und `LessonContextController.field_value` entfernt.
+  - Migration: `tools/migrate_ub_development_frontmatter.py` (alte `##`-Abschnitte → Frontmatter, Invariante vorab, `--dry-run`, wiederholbar, bricht je Datei bei Konflikt ab). Das erledigte Einmal-Tool `tools/migrate_ub_filenames.py` ist entfernt (Git-Historie).
+  - Tests: neu `test_migrate_ub_development_frontmatter.py`; angepasst u. a. `test_ub_body_preserved.py`, `test_ub_markdown_sections.py`, `test_load_last_ub_insights_usecase.py`, `test_save_cell_value_usecase.py`, `test_mark_unit_as_ub_usecase.py` (Listen bleiben beim erneuten Markieren).
 - Hospitation ohne `Ressourcen`/`Baustellen` (2026-11-28, Entscheidung der Nutzerin: Stunden-YAMLs tragen nie Entwicklungsfelder, die gehören allein zur UB-Datei).
   - Entfernt aus `LIST_FIELDS`, `_ALLOWED_BY_TYPE["Hospitation"]`, `default_yaml_for_type`, `infer_stundentyp` (Erkennung nur noch über `Beobachtungsschwerpunkte`), `ConvertToHospitationUseCase`, `HOSPITATION_ROWS`, `GridCellPolicyUseCase.display_value`, `DailyCourseLogUseCase`.
   - Altdaten: neues Einmal-Tool `tools/remove_hospitation_development_fields.py` (lädt/speichert über `FileSystemLessonRepository`, `--dry-run`, gibt nur Pfade aus). Lauf auf dem Vault macht die Nutzerin.

@@ -10,7 +10,6 @@ from kursplaner.core.domain.lesson_naming import build_lesson_stem, parse_mmdd
 from kursplaner.core.domain.lesson_yaml_policy import infer_stundentyp
 from kursplaner.core.domain.list_cell_text import format_list_cell
 from kursplaner.core.domain.plan_table import sanitize_hour_title
-from kursplaner.core.domain.unterrichtsbesuch_policy import UB_DEVELOPMENT_FIELDS
 from kursplaner.core.domain.wiki_links import strip_wiki_link
 from kursplaner.core.usecases.row_display_mode_usecase import RowDisplayModeUseCase
 
@@ -77,14 +76,9 @@ class MainWindowLessonContextController:
             entries = yaml_data.get(field_key, [])
             if not isinstance(entries, list):
                 return ""
-            if field_key in UB_DEVELOPMENT_FIELDS:
-                # UB-Felder stammen aus Markdown-Aufzählungen der UB-Datei, nicht
-                # aus Lesson-YAML; sie unterliegen nicht der Listen-Invariante und
-                # behalten ihre bisherige zeilenweise Anzeige.
-                cleaned = [str(item).strip() for item in entries if str(item).strip()]
-                return "\n".join(cleaned)
-            # Lesson-Listenfelder sind beim Laden bereits gegen die Listen-
-            # Invariante geprüft (`canonicalize_lesson_yaml`) und werden
+            # Listenfelder (Stunden-YAML wie UB-Frontmatter) sind beim Laden
+            # bereits gegen die Listen-Invariante geprüft
+            # (`canonicalize_lesson_yaml` bzw. `ub_development_lists`) und werden
             # unverändert mit `--`-Trennzeilen angezeigt.
             return format_list_cell([item for item in entries if isinstance(item, str)])
 
