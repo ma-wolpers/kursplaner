@@ -50,6 +50,10 @@ class AppPaths:
 def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
     """Write text atomically by replacing the target with a temp file.
 
+    Line endings are written exactly as given (``newline=""``): ``"\\n"`` stays LF
+    on every platform instead of becoming CRLF on Windows, matching the vault's
+    Markdown files.
+
     Args:
         path: Target file path.
         text: Text content to write.
@@ -62,6 +66,7 @@ def atomic_write_text(path: Path, text: str, encoding: str = "utf-8") -> None:
         "w",
         delete=False,
         encoding=encoding,
+        newline="",
         dir=str(path.parent),
         suffix=suffix,
     ) as handle:

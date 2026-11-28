@@ -7,6 +7,7 @@ Regel:
 - Bugfix-Only-Changes koennen ohne Eintrag erfolgen.
 
 ## [Unreleased]
+- [intern] `bw_libs/app_paths.atomic_write_text` schreibt mit `newline=""` (2026-11-28, Freigabe der Nutzerin): unter Windows wurde aus jedem `\n` ein CRLF, obwohl der Vault LF nutzt. Gleich in allen `bw_libs`-Kopien (geprüft von bw-gui `tests/test_consumer_bw_libs_in_sync.py`); Test liegt im Kursplaner (`tests/test_atomic_write_text.py`).
 - UB-Entwicklungslisten ins Frontmatter: `Baustellen`/`Ressourcen` (2026-11-28, Entscheidung der Nutzerin; Namen gewählt von ihr).
   - Domain: `UB_STEPS_FIELD = "Baustellen"`, `UB_RESOURCES_FIELD = "Ressourcen"`; neu `ub_development_lists(yaml)` (einzige Lesestelle, `raise_on_violation(..., allow_scalar=False)`) und `with_ub_development_list(yaml, field, entries)` (einzige Schreibstelle). Damit gilt die Listen-Invariante auch für UB-Felder; die „Ausnahme“ (ARCHITEKTUR_KERN) und der Mehrzeilen-Verschmelzungsfehler (Eintrag weiter unten) entfallen.
   - `FileSystemUbRepository._UB_ORDERED_KEYS` + Entwicklungslisten (leer als `[]`). `ub_markdown_sections` nur noch `# Reflexion` (`new_ub_body(reflection)`, `parse_reflection`); `parse_list_section`, `parse_development_lists`, `with_development_lists`, `text_to_list_entries` entfernt, ebenso das dadurch tote `markdown_lists.render_markdown_bullet_section`.
